@@ -159,60 +159,6 @@ export const DRILL_LIBRARY: Drill[] = [
     ],
   },
 
-  // ══════════ INNEBANDY – BARNEIDRETT ═══════════════════════════
-
-  {
-    id: 'fb-youth-stickwork', name: 'Kølle-kontroll', ageGroup: 'youth', sport: 'floorball',
-    description: 'Grunnleggende ball-håndtering med køllen alene.',
-    steps: [
-      { id: 's1', name: 'Stå i ro', description: 'Dribble frem og tilbake foran kroppen.' },
-      { id: 's2', name: 'Gå', description: 'Gå og dribble uten å se på ballen.' },
-      { id: 's3', name: 'Løp', description: 'Øk tempo gradvis. Hold kollen lavt.' },
-    ],
-  },
-  {
-    id: 'fb-youth-shooting', name: 'Skuddøvelse', ageGroup: 'youth', sport: 'floorball',
-    description: 'Skudd fra ulike vinkler mot tom kasse.',
-    steps: [
-      { id: 's1', name: 'Rett foran', description: 'Skudd fra 5m rett på mål. 10 forsøk.' },
-      { id: 's2', name: 'Hjørne venstre', description: 'Dribble inn fra venstre, avslutt.' },
-      { id: 's3', name: 'Hjørne høyre', description: 'Speilet øvelse fra høyre.' },
-    ],
-  },
-
-  // ══════════ INNEBANDY – VOKSEN ════════════════════════════════
-
-  {
-    id: 'fb-adult-powerplay', name: 'Power play 5v4', ageGroup: 'adult', sport: 'floorball',
-    description: 'Numerisk overtak: rotasjon og avslutning.',
-    steps: [
-      { id: 's1', name: 'Grunnstruktur', description: '3-2 formasjon: 3 bak, 2 foran mål.' },
-      { id: 's2', name: 'Rotasjon', description: 'Ball sirkulerer til forsvar åpner seg.' },
-      { id: 's3', name: 'Skudd trigger', description: 'Senter skyter ved åpen rute.' },
-      { id: 's4', name: 'Retur', description: 'Frontspillere posisjonerer seg for retur.' },
-    ],
-  },
-  {
-    id: 'fb-adult-backcheck', name: 'Defensivt tilbakeløp', ageGroup: 'adult', sport: 'floorball',
-    description: 'Organisert tilbakeløp ved ballmisst.',
-    steps: [
-      { id: 's1', name: 'Trigger', description: 'Nærmeste spiller presser ballen umiddelbart.' },
-      { id: 's2', name: 'Løp', description: 'De andre løper forbi motstander i egen halvdel.' },
-      { id: 's3', name: 'Posisjon', description: 'Sett deg mellom motspiller og mål.' },
-      { id: 's4', name: 'Press', description: 'To på ball, tre holder posisjon.' },
-    ],
-  },
-  {
-    id: 'fb-adult-pressing', name: 'Høyt press', ageGroup: 'adult', sport: 'floorball',
-    description: 'Press motstanderen i egen sone. Tvinger feil.',
-    steps: [
-      { id: 's1', name: 'Trigger', description: 'Keeper-pasning = signal for press.' },
-      { id: 's2', name: 'Kanalpress', description: 'Dytt motstander mot sidevegg.' },
-      { id: 's3', name: 'Ball ut', description: 'Tvang ballen ut av sonen = kontring.' },
-    ],
-  },
-];
-
 // ─── Uke-rotasjon: velger 4 øvelser basert på ISO-ukenummer ──
 export function getWeeklyDrills(sport: Sport, ageGroup: 'youth' | 'adult'): Drill[] {
   const pool    = DRILL_LIBRARY.filter(d => d.sport === sport && d.ageGroup === ageGroup);
