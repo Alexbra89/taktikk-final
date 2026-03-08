@@ -206,7 +206,7 @@ export const useAppStore = create<AppStore>()(
       phases: [makePhase('Fase 1', 'football')],
       activePhaseIdx: 0,
 
-      setSport: (s) => set({ sport: s, phases: [makePhase('Fase 1', s)], activePhaseIdx: 0 }),
+      setSport: (s) => set({ sport: s }),
       setActivePhaseIdx: (i) => set({ activePhaseIdx: i }),
 
       addPhase: () => {

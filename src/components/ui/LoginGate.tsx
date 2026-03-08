@@ -1,220 +1,267 @@
 'use client';
 import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Sport } from '@/types';
 
-const SPORT_OPTIONS: { value: Sport; label: string; emoji: string; desc: string }[] = [
-  { value: 'football',  label: 'Fotball',   emoji: '⚽', desc: '11v11 · Offside · Frispark' },
-  { value: 'handball',  label: 'Håndball',  emoji: '🤾', desc: '7v7 · 60 min · Tidsstraff' },
-  { value: 'floorball', label: 'Innebandy', emoji: '🏑', desc: '5+1v5+1 · 3×20 min' },
-];
+// ═══ LOGINGATE — e-post/passord for trener, PIN for spiller ═══════
+// Dommer er FJERNET fra forsiden. Ingen Innebandy.
 
 type Mode = 'choose' | 'coach-sport' | 'coach-login' | 'player';
 
 export const LoginGate: React.FC = () => {
-  const [mode, setMode]       = useState<Mode>('choose');
-  const [sport, setSport]     = useState<Sport | null>(null);
-  const [email, setEmail]     = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError]     = useState('');
+  const [mode, setMode]     = useState<Mode>('choose');
+  const [sport, setSport]   = useState<'football' | 'handball'>('football');
+  const [email, setEmail]   = useState('');
+  const [password, setPass] = useState('');
+  const [error, setError]   = useState('');
 
-  const {
-    loginCoach, playerAccounts, loginPlayer,
-    setSport: storeSetSport,
-  } = useAppStore();
+  const { loginCoach, playerAccounts, loginPlayer, setSport: storeSport } = useAppStore();
 
   const clearErr = () => setError('');
 
-  // ── Velg rolle (kun Trener og Spiller) ──────────────────────
+  // ── Velg rolle ───────────────────────────────────────────────
   if (mode === 'choose') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#060c18] gap-5 p-6">
-        <div className="text-center mb-2">
+      <Screen>
+        <div className="text-center mb-8">
           <div className="text-6xl mb-4">⚽</div>
-          <h1 className="text-4xl font-black tracking-tight"
+          <h1 className="text-4xl font-black tracking-tight mb-2"
             style={{ background: 'linear-gradient(100deg,#38bdf8,#34d399,#a78bfa)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             TAKTIKKBOARD
           </h1>
-          <p className="text-[13px] text-[#4a6080] mt-2">Profesjonell lagstrategi · Fotball · Håndball · Innebandy</p>
+          <p className="text-[13px] text-[#4a6080]">Profesjonell lagstrategi · Fotball & Håndball</p>
         </div>
 
-        <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
-          <button onClick={() => { clearErr(); setMode('coach-sport'); }}
-            className="py-4 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400
-              font-bold text-[16px] hover:bg-sky-500/25 active:scale-95 transition-all
-              flex items-center justify-center gap-3 min-h-[60px]">
-            🏋️ Logg inn som trener
-          </button>
-          <button onClick={() => { clearErr(); setMode('player'); }}
-            className="py-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30
-              text-emerald-400 font-bold text-[16px] hover:bg-emerald-500/25 active:scale-95
-              transition-all flex items-center justify-center gap-3 min-h-[60px]">
-            👤 Logg inn som spiller
-          </button>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <BigBtn
+            emoji="🏋️"
+            label="Logg inn som trener"
+            color="sky"
+            onClick={() => { clearErr(); setMode('coach-sport'); }}
+          />
+          <BigBtn
+            emoji="👤"
+            label="Logg inn som spiller"
+            color="emerald"
+            onClick={() => { clearErr(); setMode('player'); }}
+          />
         </div>
-
-        <p className="text-[10px] text-[#1e3050] mt-4">
-          Dommer-innlogging er tilgjengelig via trener-dashboardet
-        </p>
-      </div>
+      </Screen>
     );
   }
 
-  // ── Trener – velg sport ──────────────────────────────────────
+  // ── Trener: velg sport ───────────────────────────────────────
   if (mode === 'coach-sport') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#060c18] p-6">
-        <div className="w-full max-w-sm">
-          <BackBtn onClick={() => setMode('choose')} />
-          <div className="bg-[#0c1525] rounded-2xl border border-[#1e3050] p-7 shadow-2xl">
-            <h2 className="text-lg font-black text-slate-100 mb-1">⚽ Velg sport</h2>
-            <p className="text-[11.5px] text-[#4a6080] mb-6">
-              Valget lagrer seg — du kan bytte inne i appen.
-            </p>
-            <div className="flex flex-col gap-3">
-              {SPORT_OPTIONS.map(opt => (
-                <button key={opt.value}
-                  onClick={() => {
-                    setSport(opt.value);
-                    storeSetSport(opt.value);
-                    setMode('coach-login');
-                  }}
-                  className="flex items-center gap-4 p-4 rounded-xl border border-[#1e3050]
-                    bg-[#0f1a2a] hover:border-sky-500/50 hover:bg-sky-500/5 transition-all text-left
-                    min-h-[64px]">
-                  <span className="text-3xl">{opt.emoji}</span>
-                  <div>
-                    <div className="font-bold text-slate-200 text-[15px]">{opt.label}</div>
-                    <div className="text-[11px] text-[#4a6080]">{opt.desc}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
+      <Screen>
+        <Card title="⚽ Velg sport" onBack={() => { setMode('choose'); clearErr(); }}>
+          <p className="text-[12px] text-[#4a6080] mb-5">
+            Kan endres i innstillinger etter innlogging.
+          </p>
+          <div className="flex flex-col gap-3">
+            {([
+              { v: 'football', e: '⚽', l: 'Fotball', d: '11v11 · Offside · Frispark' },
+              { v: 'handball', e: '🤾', l: 'Håndball', d: '7v7 · 60 min · Tidsstraff' },
+            ] as const).map(opt => (
+              <button key={opt.v}
+                onClick={() => {
+                  setSport(opt.v);
+                  storeSport(opt.v);
+                  setMode('coach-login');
+                  clearErr();
+                }}
+                className="flex items-center gap-4 p-4 rounded-xl border border-[#1e3050]
+                  bg-[#0f1a2a] hover:border-sky-500/50 hover:bg-sky-500/5
+                  transition-all text-left min-h-[68px] active:scale-[0.98]">
+                <span className="text-3xl">{opt.e}</span>
+                <div>
+                  <div className="font-bold text-slate-200 text-[15px]">{opt.l}</div>
+                  <div className="text-[11px] text-[#4a6080]">{opt.d}</div>
+                </div>
+              </button>
+            ))}
           </div>
-        </div>
-      </div>
+        </Card>
+      </Screen>
     );
   }
 
-  // ── Trener – e-post/passord ──────────────────────────────────
+  // ── Trener: e-post + passord ─────────────────────────────────
   if (mode === 'coach-login') {
     const submit = () => {
       if (!email.trim()) { setError('Fyll inn e-post.'); return; }
-      if (!password) { setError('Fyll inn passord.'); return; }
-      const ok = loginCoach(email, password);
-      if (!ok) setError('Feil e-post eller passord.');
+      if (!password)     { setError('Fyll inn passord.'); return; }
+      if (!loginCoach(email, password)) setError('Feil e-post eller passord.');
     };
+    const sportEmoji = sport === 'football' ? '⚽' : '🤾';
     return (
-      <LoginCard title="🏋️ Trener-innlogging"
-        subtitle={`Standard: trener@lag.no · trener123${sport ? `  ·  ${SPORT_OPTIONS.find(s=>s.value===sport)?.emoji} ${SPORT_OPTIONS.find(s=>s.value===sport)?.label}` : ''}`}
-        onBack={() => { setMode('coach-sport'); clearErr(); setPassword(''); }}
-        error={error}>
-        <label className="block mb-3">
-          <LabelSm>E-post</LabelSm>
-          <input type="email" value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submit()}
-            className="inp" placeholder="trener@lag.no" autoFocus />
-        </label>
-        <label className="block mb-5">
-          <LabelSm>Passord</LabelSm>
-          <input type="password" value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submit()}
-            className="inp" placeholder="••••••••" />
-        </label>
-        <button onClick={submit} className="btn-primary w-full">Logg inn</button>
-        <style>{STYLES}</style>
-      </LoginCard>
+      <Screen>
+        <Card
+          title={`${sportEmoji} Trener-innlogging`}
+          subtitle={`Standard: trener@lag.no · trener123`}
+          onBack={() => { setMode('coach-sport'); clearErr(); setPass(''); }}>
+          {error && <ErrorBox msg={error} />}
+          <Inp label="E-post" type="email" value={email}
+            onChange={setEmail} onEnter={submit} placeholder="trener@lag.no" autoFocus />
+          <Inp label="Passord" type="password" value={password}
+            onChange={setPass} onEnter={submit} placeholder="••••••••" />
+          <SubmitBtn onClick={submit} label="Logg inn" />
+        </Card>
+      </Screen>
     );
   }
 
-  // ── Spiller – velg konto + PIN ───────────────────────────────
+  // ── Spiller: konto + PIN ─────────────────────────────────────
   const [accountId, setAccountId] = useState('');
   const [pin, setPin]             = useState('');
 
   const submitPlayer = () => {
-    if (!accountId) { setError('Velg en konto.'); return; }
-    const ok = loginPlayer(accountId, pin);
-    if (!ok) setError('Feil PIN. Prøv igjen.');
+    if (!accountId) { setError('Velg din konto.'); return; }
+    if (pin.length < 4) { setError('PIN er 4 siffer.'); return; }
+    if (!loginPlayer(accountId, pin)) setError('Feil PIN. Prøv igjen.');
   };
 
   return (
-    <LoginCard title="👤 Spillerinnlogging"
-      subtitle="Velg deg fra listen og tast PIN"
-      onBack={() => { setMode('choose'); clearErr(); setPin(''); setAccountId(''); }}
-      error={error}>
-      <label className="block mb-3">
-        <LabelSm>Din konto</LabelSm>
-        <select value={accountId} onChange={e => setAccountId(e.target.value)} className="inp">
-          <option value="">– Velg navn –</option>
-          {playerAccounts.map((a: any) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
-          ))}
-        </select>
-      </label>
-      <label className="block mb-5">
-        <LabelSm>PIN-kode</LabelSm>
-        <input type="password" maxLength={4} value={pin}
-          onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          onKeyDown={e => e.key === 'Enter' && submitPlayer()}
-          className="inp tracking-widest text-center text-[20px]" placeholder="••••" />
-      </label>
-      {playerAccounts.length === 0 && (
-        <p className="text-[11px] text-amber-400/70 mb-3 text-center">
-          Ingen spillerkontoer er opprettet ennå. Be treneren om å opprette en konto til deg.
-        </p>
-      )}
-      <button onClick={submitPlayer} className="btn-primary w-full">Logg inn</button>
-      <style>{STYLES}</style>
-    </LoginCard>
+    <Screen>
+      <Card
+        title="👤 Spillerinnlogging"
+        subtitle="Velg deg fra listen og tast PIN"
+        onBack={() => { setMode('choose'); clearErr(); setPin(''); setAccountId(''); }}>
+        {error && <ErrorBox msg={error} />}
+
+        <div className="mb-4">
+          <FieldLabel>Din konto</FieldLabel>
+          <select value={accountId} onChange={e => setAccountId(e.target.value)}
+            className="lg-inp">
+            <option value="">– Velg navn –</option>
+            {(playerAccounts as any[]).map((a: any) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          {(playerAccounts as any[]).length === 0 && (
+            <p className="text-[11px] text-amber-400/70 mt-2 text-center">
+              Be treneren opprette en spillerkonto til deg under Tropp-fanen.
+            </p>
+          )}
+        </div>
+
+        <div className="mb-6">
+          <FieldLabel>PIN-kode</FieldLabel>
+          <input type="password" inputMode="numeric" maxLength={4} value={pin}
+            onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onKeyDown={e => e.key === 'Enter' && submitPlayer()}
+            className="lg-inp text-center tracking-[10px] text-[22px]"
+            placeholder="••••" />
+          {pin.length > 0 && pin.length < 4 && (
+            <p className="text-[10px] text-amber-400 mt-1 text-center">
+              {4 - pin.length} siffer til
+            </p>
+          )}
+        </div>
+
+        <SubmitBtn onClick={submitPlayer} label="Logg inn" />
+      </Card>
+    </Screen>
   );
 };
 
-// ─── Hjelpere ────────────────────────────────────────────────
+// ─── UI-byggeklosser ─────────────────────────────────────────
 
-const BackBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-  <button onClick={onClick}
-    className="text-[#4a6080] hover:text-sky-400 text-[12px] mb-6 flex items-center gap-1 transition">
-    ‹ Tilbake
-  </button>
-);
-
-const LabelSm: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-widest mt-1 mb-1">
+const Screen: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="min-h-[100dvh] flex flex-col items-center justify-center
+    bg-[#060c18] p-5 sm:p-8">
     {children}
   </div>
 );
 
-const LoginCard: React.FC<{
-  title: string; subtitle: string; onBack: () => void;
-  error: string; children: React.ReactNode;
-}> = ({ title, subtitle, onBack, error, children }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-[#060c18] p-6">
-    <div className="w-full max-w-sm">
-      <BackBtn onClick={onBack} />
-      <div className="bg-[#0c1525] rounded-2xl border border-[#1e3050] p-7 shadow-2xl">
-        <h2 className="text-lg font-black text-slate-100 mb-1">{title}</h2>
-        <p className="text-[11px] text-[#4a6080] mb-5 leading-relaxed">{subtitle}</p>
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5
-            text-red-400 text-[12px] mb-4 text-center">{error}</div>
-        )}
-        {children}
-      </div>
+const BigBtn: React.FC<{
+  emoji: string; label: string; color: 'sky'|'emerald'; onClick: () => void;
+}> = ({ emoji, label, color, onClick }) => (
+  <button onClick={onClick}
+    className={`flex items-center justify-center gap-3 py-4 px-6 rounded-2xl
+      font-bold text-[16px] min-h-[64px] active:scale-[0.97] transition-all
+      touch-manipulation
+      ${color === 'sky'
+        ? 'bg-sky-500/15 border border-sky-500/40 text-sky-400 hover:bg-sky-500/25'
+        : 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25'}`}>
+    {emoji} {label}
+  </button>
+);
+
+const Card: React.FC<{
+  title: string; subtitle?: string; onBack?: () => void; children: React.ReactNode;
+}> = ({ title, subtitle, onBack, children }) => (
+  <div className="w-full max-w-sm">
+    {onBack && (
+      <button onClick={onBack}
+        className="text-[#4a6080] hover:text-sky-400 text-[13px] mb-5 flex items-center
+          gap-1 transition min-h-[44px]">
+        ‹ Tilbake
+      </button>
+    )}
+    <div className="bg-[#0c1525] rounded-2xl border border-[#1e3050] p-6 sm:p-8 shadow-2xl">
+      <h2 className="text-lg font-black text-slate-100 mb-1">{title}</h2>
+      {subtitle && (
+        <p className="text-[11.5px] text-[#4a6080] mb-5 leading-relaxed">{subtitle}</p>
+      )}
+      {children}
     </div>
   </div>
 );
 
-const STYLES = `
-  .inp { width:100%; background:#111c30; border:1px solid #1e3050; border-radius:10px;
-    padding:12px 14px; color:#e2e8f0; font-size:14px; box-sizing:border-box;
-    min-height:48px; margin-top:4px; }
-  .inp:focus { outline:none; border-color:#38bdf8; }
-  .btn-primary { display:block; padding:14px; border-radius:12px;
-    background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3);
-    color:#38bdf8; font-size:15px; font-weight:700; cursor:pointer;
-    transition:all 0.15s; min-height:52px; }
-  .btn-primary:hover { background:rgba(56,189,248,0.22); }
+const ErrorBox: React.FC<{ msg: string }> = ({ msg }) => (
+  <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3
+    text-red-400 text-[12px] mb-4 text-center">
+    {msg}
+  </div>
+);
+
+const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-1.5">
+    {children}
+  </div>
+);
+
+const Inp: React.FC<{
+  label: string; type: string; value: string;
+  onChange: (v: string) => void; onEnter: () => void;
+  placeholder: string; autoFocus?: boolean;
+}> = ({ label, type, value, onChange, onEnter, placeholder, autoFocus }) => (
+  <div className="mb-4">
+    <FieldLabel>{label}</FieldLabel>
+    <input type={type} value={value} autoFocus={autoFocus}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={e => e.key === 'Enter' && onEnter()}
+      placeholder={placeholder}
+      className="lg-inp" />
+  </div>
+);
+
+const SubmitBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
+  <button onClick={onClick}
+    className="w-full py-4 rounded-xl bg-sky-500/15 border border-sky-500/30
+      text-sky-400 font-bold text-[15px] hover:bg-sky-500/25
+      transition min-h-[56px] active:scale-[0.98] touch-manipulation">
+    {label}
+  </button>
+);
+
+// Globale input-stiler
+const _styles = `
+  <style>
+    .lg-inp { display:block; width:100%; background:#111c30; border:1px solid #1e3050;
+      border-radius:10px; padding:13px 16px; color:#e2e8f0; font-size:15px;
+      box-sizing:border-box; min-height:52px; }
+    .lg-inp:focus { outline:none; border-color:#38bdf8; }
+  </style>
 `;
+// Injiserer globale stiler i head
+if (typeof document !== 'undefined' && !document.getElementById('lg-styles')) {
+  const el = document.createElement('style');
+  el.id = 'lg-styles';
+  el.textContent = `.lg-inp { display:block; width:100%; background:#111c30;
+    border:1px solid #1e3050; border-radius:10px; padding:13px 16px;
+    color:#e2e8f0; font-size:15px; box-sizing:border-box; min-height:52px; }
+    .lg-inp:focus { outline:none; border-color:#38bdf8; }`;
+  document.head.appendChild(el);
+}

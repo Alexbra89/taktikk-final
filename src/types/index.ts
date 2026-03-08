@@ -2,7 +2,7 @@
 //  TAKTIKKBOARD – Type-definisjoner (v4)
 // ═══════════════════════════════════════════════════════════════
 
-export type Sport = 'football' | 'handball' | 'floorball';
+export type Sport = 'football' | 'handball';
 
 export type PlayerRole =
   | 'keeper' | 'defender' | 'midfielder' | 'forward'

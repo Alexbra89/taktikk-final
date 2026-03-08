@@ -259,7 +259,7 @@ export const PlayerPortal: React.FC = () => {
 const SquadView: React.FC<{ phase: any; myTeamSide: 'home' | 'away' }> = ({
   phase, myTeamSide,
 }) => {
-  const { updatePlayerField, playerAccounts, activePhaseIdx } = useAppStore();
+  const { updatePlayerField, playerAccounts, activePhaseIdx, homeTeamName, awayTeamName } = useAppStore();
   const players: any[] = phase.players ?? [];
   const myTeam  = myTeamSide;
 
@@ -268,7 +268,7 @@ const SquadView: React.FC<{ phase: any; myTeamSide: 'home' | 'away' }> = ({
   const myBench   = players.filter((p: any) => p.team === myTeam && (p.isOnField === false || p.isStarter === false));
   const myAll     = players.filter((p: any) => p.team === myTeam);
 
-  const myLabel = myTeamSide === 'home' ? '🏠 Hjemmelag' : '✈️ Bortelag';
+  const myLabel = myTeamSide === 'home' ? `🏠 ${homeTeamName || 'Hjemmelag'}` : `✈️ ${awayTeamName || 'Bortelag'}`;
   const myBadge = myTeamSide === 'home'
     ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
     : 'bg-red-500/15 text-red-400 border-red-500/30';
