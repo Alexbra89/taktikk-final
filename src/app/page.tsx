@@ -7,7 +7,7 @@ import { TacticBoard } from '@/components/board/TacticBoard';
 import { PlayerEditor } from '@/components/ui/PlayerEditor';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { PlayerPortal } from '@/components/player-portal/PlayerPortal';
-import { PlayerHome } from '@/components/player-portal/PlayerHome';
+import { PlayerHome } from '@/components/ui/PlayerHome';
 import { RefereeView } from '@/components/player-portal/RefereeView';
 import { LoginGate } from '@/components/ui/LoginGate';
 import { SmartCoach } from '@/components/ui/SmartCoach';
