@@ -14,7 +14,7 @@ export interface RoleMeta {
 
 export const ROLE_META: Record<PlayerRole, RoleMeta> = {
 
-  // ─── FOTBALL ────────────────────────────────────────────────
+  // ─── FOTBALL – PRIMÆRNØKLER (brukes på brettet) ─────────────
 
   keeper: {
     label: 'Keeper', color: '#f59e0b', border: '#d97706', emoji: '🧤',
@@ -32,7 +32,7 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
       'Moderne keeper er første passningsspiller i oppbygging',
       'Kommuniser konstant – du ser hele banen foran deg',
     ],
-    examplePlayers: ['Manuel Neuer', 'Alisson Becker', 'Ederson', 'Gianluigi Donnarumma'],
+    examplePlayers: ['Manuel Neuer', 'Alisson Becker', 'Ederson'],
   },
 
   defender: {
@@ -52,6 +52,120 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
       'Tving motstanderen ut mot kanten – aldri innover',
     ],
     examplePlayers: ['Virgil van Dijk', 'Rúben Dias', 'William Saliba'],
+  },
+
+  midfielder: {
+    label: 'Midtbane', color: '#22c55e', border: '#16a34a', emoji: '⚙️',
+    sports: ['football'],
+    description: 'Linken mellom forsvar og angrep – styrer tempoet i kampen.',
+    responsibilities: [
+      'Kontrollere balleie og kampens tempo',
+      'Gjenvinne ballen raskt ved balltap',
+      'Skape sjanser med presise pasninger og løp',
+      'Jobbe hardt i begge retninger',
+    ],
+    tacticalTips: [
+      'Alltid ha to-tre pasningsalternativer klare',
+      'Rotasjon og bevegelse – ikke stå stille med ball',
+      'Press høyt – gjenvinning høyt på banen er gull',
+      'Defensiv midtbane: ødelegg motstanders spill FØR de er farlige',
+    ],
+    examplePlayers: ["N'Golo Kanté", 'Rodri', 'Casemiro', 'Declan Rice'],
+  },
+
+  forward: {
+    label: 'Spiss / Angriper', color: '#ef4444', border: '#dc2626', emoji: '⚡',
+    sports: ['football'],
+    description: 'Skal score mål og skape rom for medspillere gjennom hele angrepsfasen.',
+    responsibilities: [
+      'Avslutte sjanser med presisjon',
+      'Holde ballen og koble medspillere under press',
+      'Presse motstanderens forsvarere høyt opp',
+      'Bevege seg smart i bakrom for å skape dybde',
+    ],
+    tacticalTips: [
+      'Bevegelse UTEN ball er like viktig som med ball',
+      'Avslutt alltid – det er bedre å treffe keeper enn å ikke skyte',
+      'Trekk motstandere ut av posisjon for å skape rom for andre',
+      'Press starter alltid fra spissen – gi signal til resten av laget',
+    ],
+    examplePlayers: ['Erling Haaland', 'Kylian Mbappé', 'Robert Lewandowski'],
+  },
+
+  winger: {
+    label: 'Kantspiller', color: '#a855f7', border: '#9333ea', emoji: '🏃',
+    sports: ['football'],
+    description: 'Skaper fart og ubalanse langs sidene – dribbler og slår innlegg.',
+    responsibilities: [
+      'Utfordre i 1v1-situasjoner langs kanten',
+      'Slå presise innlegg eller kutte innover for skudd',
+      'Samarbeide med back i overlapping for overtall',
+      'Forsvare fra kanten ved balltap',
+    ],
+    tacticalTips: [
+      'Fart er din X-faktor – bruk den med intelligens',
+      'Inverted winger: kutt inn på sterk fot for skudd',
+      'Traditional winger: hold bredde og cross',
+      'Defensivt: aldri la backen komme usett inn i banen',
+    ],
+    examplePlayers: ['Vinícius Jr.', 'Bukayo Saka', 'Mohamed Salah'],
+  },
+
+  false9: {
+    label: 'Falsk nier', color: '#f97316', border: '#ea580c', emoji: '🎭',
+    sports: ['football'],
+    description: 'Spiss som trekker ned og skaper hull og forvirring i motstanderens forsvar.',
+    responsibilities: [
+      'Trekke ned mellom linjene og skape overtall på midtbanen',
+      'Åpne bakrom for kantspillere å løpe inn i',
+      'Koble spill mellom midtbane og angrep',
+      'Dribling og presise pasninger i trange rom',
+    ],
+    tacticalTips: [
+      'Beveg deg ned kun når det skaper et hull – ikke alltid',
+      'Timing: trekk ned når kantspilleren er klar til å løpe',
+      'Teknisk eksellens er ikke valgfritt i denne rollen',
+      'Uforutsigbarhet er din største styrke',
+    ],
+    examplePlayers: ['Lionel Messi', 'Roberto Firmino'],
+  },
+
+  libero: {
+    label: 'Libero / Svever', color: '#6366f1', border: '#4f46e5', emoji: '🌊',
+    sports: ['football'],
+    description: 'Fri forsvarer med unik frihet til å rydde opp og starte angrep.',
+    responsibilities: [
+      'Dekke bakrom fritt og dynamisk',
+      'Starte angrep med langpasninger fremover',
+      'Styre og dirigere forsvarslinjen',
+      'Rydde opp der andre forsvarere er ute av posisjon',
+    ],
+    tacticalTips: [
+      'Du har INGEN fast motstander – bruk friheten med intelligens',
+      'Alltid siste mann – aldri la deg dra ut av posisjon',
+      'Ballbehandling under press er avgjørende',
+      'Les spillet fremover – du ser mer enn alle andre',
+    ],
+    examplePlayers: ['Franz Beckenbauer', 'Matthias Sammer'],
+  },
+
+  playmaker: {
+    label: 'Playmaker', color: '#ec4899', border: '#db2777', emoji: '🧠',
+    sports: ['football', 'handball'],
+    description: 'Hjernen på laget – setter opp spillet og skaper avgjørende sjanser.',
+    responsibilities: [
+      'Skape sjanser med gjennombruddspasninger',
+      'Styre kampens tempo og retning',
+      'Finne riktig pasning til rett tid',
+      'Alltid tilgjengelig for ball i hele banen',
+    ],
+    tacticalTips: [
+      'Motta alltid vendt – vet hva du gjør FØR ballen kommer',
+      'Bruk kroppen til å skjule pasningsintensjon',
+      'Tempo på pasninger: hard til bein, myk i løpene',
+      'Du er lagets metronom – rolig under press er ikke valgfritt',
+    ],
+    examplePlayers: ['Andrea Pirlo', 'Xavi Hernández', 'Martin Ødegaard'],
   },
 
   sweeper: {
@@ -92,29 +206,10 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
     examplePlayers: ['Trent Alexander-Arnold', 'Achraf Hakimi', 'Theo Hernández'],
   },
 
-  midfielder: {
-    label: 'Midtbane', color: '#22c55e', border: '#16a34a', emoji: '⚙️',
-    sports: ['football'],
-    description: 'Linken mellom forsvar og angrep – styrer tempoet i kampen.',
-    responsibilities: [
-      'Kontrollere balleie og kampens tempo',
-      'Gjenvinne ballen raskt ved balltap',
-      'Skape sjanser med presise pasninger og løp',
-      'Jobbe hardt i begge retninger',
-    ],
-    tacticalTips: [
-      'Alltid ha to-tre pasningsalternativer klare',
-      'Rotasjon og bevegelse – ikke stå stille med ball',
-      'Press høyt – gjenvinning høyt på banen er gull',
-      'Defensiv midtbane: ødelegg motstanders spill FØR de er farlige',
-    ],
-    examplePlayers: ["N'Golo Kanté", 'Rodri', 'Casemiro', 'Declan Rice'],
-  },
-
   box2box: {
     label: 'Box-to-box', color: '#059669', border: '#047857', emoji: '🔁',
     sports: ['football'],
-    description: 'Midtbanespiller som er like aktiv i begge boksene – offensivt og defensivt.',
+    description: 'Midtbanespiller like aktiv i begge boksene – offensivt og defensivt.',
     responsibilities: [
       'Gjenvinne ball defensivt og umiddelbart bidra offensivt',
       'Ankomme boksen på avslutninger',
@@ -127,45 +222,26 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
       'God aerob kapasitet er ikke valgfritt – det er en forutsetning',
       'Dobbeltheten gjør deg uforutsigbar for motstanderen',
     ],
-    examplePlayers: ['Luka Modrić', 'Kevin De Bruyne', 'Paul Pogba', 'Frank Lampard'],
+    examplePlayers: ['Luka Modrić', 'Kevin De Bruyne', 'Frank Lampard'],
   },
 
-  playmaker: {
-    label: 'Playmaker', color: '#ec4899', border: '#db2777', emoji: '🧠',
-    sports: ['football', 'handball'],
-    description: 'Hjernen på laget – setter opp spillet og skaper avgjørende sjanser.',
-    responsibilities: [
-      'Skape sjanser med gjennombruddspasninger',
-      'Styre kampens tempo og retning',
-      'Finne riktig pasning til rett tid',
-      'Alltid tilgjengelig for ball i hele banen',
-    ],
-    tacticalTips: [
-      'Motta alltid vendt – vet hva du gjør FØR ballen kommer',
-      'Bruk kroppen til å skjule pasningsintensjon',
-      'Tempo på pasninger: hard til bein, myk i løpene',
-      'Du er lagets metronom – rolig under press er ikke valgfritt',
-    ],
-    examplePlayers: ['Andrea Pirlo', 'Xavi Hernández', 'Martin Ødegaard', 'Ilkay Gündogan'],
-  },
-
-  forward: {
-    label: 'Spiss / Angriper', color: '#ef4444', border: '#dc2626', emoji: '⚡',
+  trequartista: {
+    label: 'Trequartista (10-er)', color: '#d946ef', border: '#c026d3', emoji: '🎨',
     sports: ['football'],
-    description: 'Skal score mål og skape rom for medspillere gjennom hele angrepsfasen.',
+    description: 'Kreativ spiller mellom midtbane og angrep – spillets kunstner.',
     responsibilities: [
-      'Avslutte sjanser med presisjon',
-      'Holde ballen og koble medspillere under press',
-      'Presse motstanderens forsvarere høyt opp',
-      'Bevege seg smart i bakrom for å skape dybde',
+      'Skape sjanser fra posisjon bak spissen',
+      'Dribble gjennom tette forsvar',
+      'Kombinere med spiss og kantspillere',
+      'Fri rolle – bidrar minimalt defensivt',
     ],
     tacticalTips: [
-      'Bevegelse UTEN ball er like viktig som med ball',
-      'Avslutt alltid – det er bedre å treffe keeper enn å ikke skyte',
-      'Trekk motstandere ut av posisjon for å skape rom for andre',
-      'Press starter alltid fra spissen – gi signal til resten av laget',
+      'Finn rom mellom forsvar og midtbane – det er ditt kontor',
+      'Kreativitet og intuisjon er dine sterkeste kort',
+      'Ikke presses på defensivt bidrag – det tar fra deg energi',
+      'Kommuniser med spissen – dere er et par',
     ],
-    examplePlayers: ['Erling Haaland', 'Kylian Mbappé', 'Robert Lewandowski'],
+    examplePlayers: ['Francesco Totti', 'Paulo Dybala', 'Bernardo Silva'],
   },
 
   targetman: {
@@ -198,7 +274,7 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
       'Blokkere pasningsveier under pressing',
     ],
     tacticalTips: [
-      'Press på signal fra trener eller lagkompis – ikke ukoordinert',
+      'Press på signal fra trener – ikke ukoordinert',
       'Blokker den lette pasningsveien, ikke ballen direkte',
       'Kondis er din viktigste egenskap',
       'Etter pressing: raske til stillingene i kontringsposisjon',
@@ -206,80 +282,38 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
     examplePlayers: ['Roberto Firmino', 'Sadio Mané', 'Diogo Jota'],
   },
 
-  winger: {
-    label: 'Kantspiller', color: '#a855f7', border: '#9333ea', emoji: '🏃',
+  // ─── FOTBALL – fb_* aliaser (kreves av PlayerRole-typen) ────
+
+  fb_keeper: {
+    label: 'Keeper', color: '#f59e0b', border: '#d97706', emoji: '🧤',
     sports: ['football'],
-    description: 'Skaper fart og ubalanse langs sidene – dribbler og slår innlegg.',
-    responsibilities: [
-      'Utfordre i 1v1-situasjoner langs kanten',
-      'Slå presise innlegg eller kutte innover for skudd',
-      'Samarbeide med back i overlapping for overtall',
-      'Forsvare fra kanten ved balltap',
-    ],
-    tacticalTips: [
-      'Fart er din X-faktor – bruk den med intelligens',
-      'Inverted winger: kutt inn på sterk fot for skudd',
-      'Traditional winger: hold bredde og cross',
-      'Defensivt: aldri la backen komme usett inn i banen',
-    ],
-    examplePlayers: ['Vinícius Jr.', 'Bukayo Saka', 'Mohamed Salah', 'Leroy Sané'],
+    description: 'Siste skanse – hindrer mål og starter oppspill fra bakre linje.',
+    responsibilities: ['Redde skudd', 'Styre forsvarslinjen', 'Starte oppspill', 'Organisere feltsituasjoner'],
+    tacticalTips: ['Minste vinkel mot skytter', 'Kommuniser konstant', 'Første passningsspiller i oppbygging'],
   },
 
-  false9: {
-    label: 'Falsk nier', color: '#f97316', border: '#ea580c', emoji: '🎭',
+  fb_back: {
+    label: 'Back', color: '#3b82f6', border: '#2563eb', emoji: '🛡️',
     sports: ['football'],
-    description: 'Spiss som trekker ned og skaper hull og forvirring i motstanderens forsvar.',
-    responsibilities: [
-      'Trekke ned mellom linjene og skape overtall på midtbanen',
-      'Åpne bakrom for kantspillere å løpe inn i',
-      'Koble spill mellom midtbane og angrep',
-      'Dribling og presise pasninger i trange rom',
-    ],
-    tacticalTips: [
-      'Beveg deg ned kun når det skaper et hull – ikke alltid',
-      'Timing: trekk ned når kantspilleren er klar til å løpe',
-      'Teknisk eksellens er ikke valgfritt i denne rollen',
-      'Uforutsigbarhet er din største styrke',
-    ],
-    examplePlayers: ['Lionel Messi', 'Roberto Firmino', 'Kai Havertz (tidlig)'],
+    description: 'Forsvarer langs siden eller sentralt – stopper motstanderens angrep.',
+    responsibilities: ['Vinne defensive dueller', 'Holde kompakt linje', 'Dekke bakrom', 'Bidra i oppspill'],
+    tacticalTips: ['Posisjonering over takling', 'Hold øye med ball OG motstander', 'Tving motstanderen ut'],
   },
 
-  trequartista: {
-    label: 'Trequartista (10-er)', color: '#d946ef', border: '#c026d3', emoji: '🎨',
+  fb_midfielder: {
+    label: 'Midtbane', color: '#22c55e', border: '#16a34a', emoji: '⚙️',
     sports: ['football'],
-    description: 'Kreativ spiller mellom midtbane og angrep – spillets kunstner.',
-    responsibilities: [
-      'Skape sjanser fra posisjon bak spissen',
-      'Dribble gjennom tette forsvar',
-      'Kombinere med spiss og kantspillere',
-      'Fri rolle – bidrar minimalt defensivt',
-    ],
-    tacticalTips: [
-      'Finn rom mellom forsvar og midtbane – det er ditt kontor',
-      'Kreativitet og intuisjon er dine sterkeste kort',
-      'Ikke presses på defensivt bidrag – det tar fra deg energi',
-      'Kommuniser med spissen – dere er et par',
-    ],
-    examplePlayers: ['Francesco Totti', 'Riquelme', 'Paulo Dybala', 'Bernardo Silva'],
+    description: 'Linken mellom forsvar og angrep – styrer tempoet i kampen.',
+    responsibilities: ['Kontrollere balleie', 'Gjenvinne ballen', 'Skape sjanser', 'Jobbe i begge retninger'],
+    tacticalTips: ['Alltid ha pasningsalternativer klare', 'Beveg deg uten ball', 'Press høyt'],
   },
 
-  libero: {
-    label: 'Libero / Svever', color: '#6366f1', border: '#4f46e5', emoji: '🌊',
+  fb_forward: {
+    label: 'Angriper', color: '#ef4444', border: '#dc2626', emoji: '⚡',
     sports: ['football'],
-    description: 'Fri forsvarer med unik frihet til å rydde opp og starte angrep.',
-    responsibilities: [
-      'Dekke bakrom fritt og dynamisk',
-      'Starte angrep med langpasninger fremover',
-      'Styre og dirigere forsvarslinjen',
-      'Rydde opp der andre forsvarere er ute av posisjon',
-    ],
-    tacticalTips: [
-      'Du har INGEN fast motstander – bruk friheten med intelligens',
-      'Alltid siste mann – aldri la deg dra ut av posisjon',
-      'Ballbehandling under press er avgjørende',
-      'Les spillet fremover – du ser mer enn alle andre',
-    ],
-    examplePlayers: ['Franz Beckenbauer', 'Matthias Sammer', 'Gaetano Scirea'],
+    description: 'Skal score mål og skape rom for medspillere.',
+    responsibilities: ['Avslutte sjanser', 'Holde ballen under press', 'Presse motstanderens forsvarere', 'Bevege seg i bakrom'],
+    tacticalTips: ['Bevegelse uten ball er avgjørende', 'Avslutt alltid', 'Press starter fra spissen'],
   },
 
   // ─── HÅNDBALL ───────────────────────────────────────────────
@@ -296,11 +330,30 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
     ],
     tacticalTips: [
       'Minimere vinkelen til skytteren – komme ut på ballen',
-      'Studie avslutterens angrepsarm og skulderbevegelse',
+      'Studer avslutterens angrepsarm og skulderbevegelse',
       'Etter redning: finn den åpne løperen umiddelbart',
       'Mental styrke – du MÅ glemme mål du slipper inn',
     ],
     examplePlayers: ['Niklas Landin', 'Thierry Omeyer', 'Andreas Wolff'],
+  },
+
+  hb_pivot: {
+    label: 'Pivot (HB)', color: '#14b8a6', border: '#0d9488', emoji: '🔄',
+    sports: ['handball'],
+    description: 'Innerst i angrepet – skaper rom og er farligst nær målet.',
+    responsibilities: [
+      'Binde forsvaret med kroppen og skape hull',
+      'Motta ball i trange rom uten å miste den',
+      'Lage veggspill for bakspillere',
+      'Avslutte fra nært hold og fra høy posisjon',
+    ],
+    tacticalTips: [
+      'Bruk kroppen som et skipanker – hold posisjonen',
+      'Timing er alt: beveg deg NÅR bakspilleren er klar',
+      'Kontakt med forsvareren er lovlig – bruk det',
+      'Alltid vendt med ansiktet mot ballen',
+    ],
+    examplePlayers: ['Bertrand Gille', 'Laszlo Nagy'],
   },
 
   hb_backcourt: {
@@ -339,25 +392,6 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
       'Defensivt: aldri la motstanderens fløy komme fritt inn',
     ],
     examplePlayers: ['Valero Rivera', 'Marcus Ahlm', 'Luc Abalo'],
-  },
-
-  hb_pivot: {
-    label: 'Pivot (HB)', color: '#14b8a6', border: '#0d9488', emoji: '🔄',
-    sports: ['handball'],
-    description: 'Innerst i angrepet – skaper rom og er farligst nær målet.',
-    responsibilities: [
-      'Binde forsvaret med kroppen og skape hull',
-      'Motta ball i trange rom uten å miste den',
-      'Lage veggspill for bakspillere',
-      'Avslutte fra nært hold og fra høy posisjon',
-    ],
-    tacticalTips: [
-      'Bruk kroppen som et skipanker – hold posisjonen',
-      'Timing er alt: beveg deg NÅR bakspilleren er klar',
-      'Kontakt med forsvareren er lovlig – bruk det',
-      'Alltid vendt med ansiktet mot ballen',
-    ],
-    examplePlayers: ['Bertrand Gille', 'Laszlo Nagy', 'Gedeon Guardiola'],
   },
 
   hb_center: {
