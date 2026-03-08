@@ -12,7 +12,6 @@ import { Sport } from '@/types';
 const SPORTS: { id: Sport; name: string; icon: React.ReactNode }[] = [
   { id: 'football',  name: 'Fotball',   icon: <Trophy className="w-3.5 h-3.5" /> },
   { id: 'handball',  name: 'Håndball',  icon: <Target className="w-3.5 h-3.5" /> },
-  { id: 'floorball', name: 'Innebandy', icon: <Zap    className="w-3.5 h-3.5" /> },
 ];
 
 export const Controls: React.FC = () => {
