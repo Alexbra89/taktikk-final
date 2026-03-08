@@ -9,6 +9,15 @@ import {
 } from '../types';
 import { makePhase } from '../data/formations';
 
+interface ChatMessage {
+  id: string;
+  fromRole: 'coach' | 'player';
+  fromName: string;
+  content: string;
+  createdAt: string;
+  toPlayerId?: string; // undefined = broadcast to all
+}
+
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 // ─── Rapport-tekst-generator ──────────────────────────────────
@@ -64,15 +73,25 @@ interface AppStore {
   currentView: AppView;
   setView: (v: AppView) => void;
 
-  currentUser: { role: 'coach' | 'player' | 'referee'; playerId?: string; name: string } | null;
-  loginCoach: (password: string) => boolean;
+  currentUser: { role: 'coach' | 'player' | 'referee'; playerId?: string; name: string; accountId?: string } | null;
+  loginCoach: (email: string, password: string) => boolean;
   loginPlayer: (accountId: string, pin: string) => boolean;
   loginReferee: (pin: string) => boolean;
   logout: () => void;
+  coachEmail: string;
   coachPassword: string;
   refereePin: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  setCoachEmail: (email: string) => void;
   setCoachPassword: (pw: string) => void;
   setRefereePin: (pin: string) => void;
+  setHomeTeamName: (name: string) => void;
+  setAwayTeamName: (name: string) => void;
+
+  // Chat
+  chatMessages: ChatMessage[];
+  sendChat: (fromRole: 'coach'|'player', fromName: string, content: string, toPlayerId?: string) => void;
 
   sport: Sport;
   setSport: (s: Sport) => void;
@@ -146,13 +165,20 @@ export const useAppStore = create<AppStore>()(
 
       // ─── Auth ────────────────────────────────────────────────
       currentUser: null,
+      coachEmail: 'trener@lag.no',
       coachPassword: 'trener123',
       refereePin: '0000',
+      homeTeamName: 'Hjemmelag',
+      awayTeamName: 'Bortelag',
+      setCoachEmail: (email) => set({ coachEmail: email }),
       setCoachPassword: (pw) => set({ coachPassword: pw }),
       setRefereePin: (pin) => set({ refereePin: pin }),
+      setHomeTeamName: (name) => set({ homeTeamName: name }),
+      setAwayTeamName: (name) => set({ awayTeamName: name }),
 
-      loginCoach: (password) => {
-        if (password === get().coachPassword) {
+      loginCoach: (email, password) => {
+        const { coachEmail, coachPassword } = get();
+        if (email.toLowerCase().trim() === coachEmail.toLowerCase().trim() && password === coachPassword) {
           set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
           return true;
         }
@@ -161,8 +187,7 @@ export const useAppStore = create<AppStore>()(
       loginPlayer: (accountId, pin) => {
         const acc = get().playerAccounts.find(a => a.id === accountId && a.pin === pin);
         if (acc) {
-          // Spiller sendes til player-home, ikke board
-          set({ currentUser: { role: 'player', playerId: acc.playerId, name: acc.name }, currentView: 'player-home' });
+          set({ currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id }, currentView: 'player-home' });
           return true;
         }
         return false;
@@ -384,17 +409,31 @@ export const useAppStore = create<AppStore>()(
       },
       deleteCoachMessage: (id) =>
         set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== id) })),
+
+      // ─── Chat ────────────────────────────────────────────
+      chatMessages: [],
+      sendChat: (fromRole, fromName, content, toPlayerId) => {
+        const msg: ChatMessage = {
+          id: uid(), fromRole, fromName, content, toPlayerId,
+          createdAt: new Date().toISOString(),
+        };
+        set(s => ({ chatMessages: [...s.chatMessages, msg] }));
+      },
     }),
     {
-      name: 'taktikkboard-v4',
+      name: 'taktikkboard-v5',
       partialize: (s) => ({
         sport: s.sport,
         phases: s.phases,
         events: s.events,
         playerAccounts: s.playerAccounts,
         coachMessages: s.coachMessages,
+        chatMessages: s.chatMessages,
+        coachEmail: s.coachEmail,
         coachPassword: s.coachPassword,
         refereePin: s.refereePin,
+        homeTeamName: s.homeTeamName,
+        awayTeamName: s.awayTeamName,
         awayTeamColor: s.awayTeamColor,
         matchReports: s.matchReports,
       }),
