@@ -1,11 +1,11 @@
 'use client';
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react'; // Fjernet useCallback (ubrukt)
 import { useAppStore } from '../../store/useAppStore';
 import { Player } from '../../types';
 import { VW, VH } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { HandballPitch } from './pitches/HandballPitch';
-import { FloorballPitch } from './pitches/FloorballPitch';
+// FJERN DENNE LINJEN: import { FloorballPitch } from './pitches/FloorballPitch';
 import { DraggablePlayer, Ball, DrawingCanvas } from './BoardElements';
 
 interface TacticBoardProps {
@@ -140,7 +140,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     <div className="flex flex-col h-full">
       {/* ── Kontrollrad ── */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#0d1626] border-b border-[#1e3050] flex-wrap">
-        {/* Faser */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-bold text-[#4a6080] uppercase tracking-widest mr-1">Faser</span>
           {phases.map((ph, idx) => (
@@ -164,7 +163,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
         <div className="flex-1" />
 
-        {/* Sticky Note-knapp */}
         <button onClick={() => setShowSticky(!showSticky)}
           className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all
             ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400'
@@ -172,7 +170,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           📌 Notat
         </button>
 
-        {/* Tegnemodus */}
         <button onClick={() => setDrawMode(!drawMode)}
           className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all
             ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400'
@@ -187,7 +184,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           </button>
         )}
 
-        {/* Avspilling */}
         <div className="flex items-center gap-1.5 bg-[#111c30] rounded-lg px-2.5 py-1.5 border border-[#1e3050]">
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.max(0, activePhaseIdx-1))}
             disabled={isPlaying || activePhaseIdx === 0}
@@ -213,7 +209,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
         </div>
       </div>
 
-      {/* ── Sticky Note ── */}
       {showSticky && phase && (
         <div className="flex-shrink-0 px-3 py-2 bg-amber-500/8 border-b border-amber-500/20">
           <div className="flex items-center gap-2">
@@ -248,9 +243,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           </defs>
           <rect width={VW} height={VH} fill="url(#grass)"/>
 
+          {/* RENDERING AV BANER - INNEBANDY ER FJERNET HERFRA */}
           {sport === 'football'  && <FootballPitch />}
           {sport === 'handball'  && <HandballPitch />}
-          {sport === 'floorball' && <FloorballPitch />}
 
           {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
 
