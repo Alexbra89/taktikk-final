@@ -317,7 +317,7 @@ const DrillsTab: React.FC = () => {
   const displayed    = showAll ? allDrills : weeklyDrills;
 
   const sportLabel: Record<Sport, string> = {
-    football: 'Fotball', handball: 'Håndball', floorball: 'Innebandy',
+    football: 'Fotball', handball: 'Håndball',
   };
 
   const applyNote = (drill: Drill, stepIdx: number) => {

@@ -88,7 +88,6 @@ export const SPORT_FORMATIONS: Record<Sport, {
 }> = {
   football:  { name: 'Fotball',   emoji: '⚽', teamSize: 11, players: FOOTBALL_PLAYERS },
   handball:  { name: 'Håndball',  emoji: '🤾', teamSize: 7,  players: HANDBALL_PLAYERS },
-  floorball: { name: 'Innebandy', emoji: '🏒', teamSize: 6,  players: FLOORBALL_PLAYERS },
 };
 
 // Lag en fersk fase med dype kopier av spillerne
