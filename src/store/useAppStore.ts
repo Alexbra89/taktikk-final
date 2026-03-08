@@ -5,23 +5,24 @@ import {
   Sport, TacticPhase, CalendarEvent, PlayerAccount,
   CoachMessage, PlayerReply, AppView, Player, Drawing,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
-  SubstitutionSuggestion,
+  SubstitutionSuggestion, SpecialRole,
 } from '../types';
 import { makePhase } from '../data/formations';
 
-// ─── Rapport-tekst-generator ──────────────────────────────────
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+// ─── Rapport-tekst-generator ──────────────────────────────────
 const TAG_LABELS: Record<ReportTag, string> = {
-  god_gjennomforing:   'God gjennomføring av taktisk plan',
+  god_gjennomforing:     'God gjennomføring av taktisk plan',
   manglet_konsentrasjon: 'Manglet konsentrasjon i perioder',
-  god_pressing:        'Fremragende pressing og balljag',
+  god_pressing:          'Fremragende pressing og balljag',
   svak_forsvarsstilling: 'Svak forsvarsstilling ved tap',
-  fin_pasningsspill:   'Fint pasningsspill og kombinasjoner',
-  mange_balltap:       'For mange balltap under press',
-  god_kommunikasjon:   'God kommunikasjon på banen',
-  manglet_tempo:       'Manglet tempo og intensitet',
-  sterk_defensiv:      'Sterk defensiv innsats',
-  misset_sjanser:      'Misset for mange sjanser offensivt',
+  fin_pasningsspill:     'Fint pasningsspill og kombinasjoner',
+  mange_balltap:         'For mange balltap under press',
+  god_kommunikasjon:     'God kommunikasjon på banen',
+  manglet_tempo:         'Manglet tempo og intensitet',
+  sterk_defensiv:        'Sterk defensiv innsats',
+  misset_sjanser:        'Misset for mange sjanser offensivt',
 };
 
 function generateReportText(tags: ReportTag[], freeText: string, matchTitle?: string): string {
@@ -32,8 +33,7 @@ function generateReportText(tags: ReportTag[], freeText: string, matchTitle?: st
   return `${title}\nDato: ${date}\n\n${tagLines || '(ingen kategorier valgt)'}${extra}\n\nRapport generert av Taktikkboard`;
 }
 
-// ─── Spilletid-hjelper ────────────────────────────────────────
-
+// ─── Bytteplan-hjelper ────────────────────────────────────────
 function suggestSubstitutions(
   players: Player[],
   totalPlayers: number,
@@ -45,18 +45,15 @@ function suggestSubstitutions(
   const bench = players.filter(p => !p.isOnField);
   const field = players.filter(p => p.isOnField);
   if (!bench.length || !field.length) return [];
-
   const suggestions: SubstitutionSuggestion[] = [];
   const sortedField = [...field].sort((a, b) => (b.minutesPlayed ?? 0) - (a.minutesPlayed ?? 0));
   const sortedBench = [...bench].sort((a, b) => (a.minutesPlayed ?? 0) - (b.minutesPlayed ?? 0));
-
   const slots = Math.min(sortedField.length, sortedBench.length, 3);
   for (let i = 0; i < slots; i++) {
-    const atMin = currentMinute + intervalMinutes * (i + 1);
     suggestions.push({
       outPlayerId: sortedField[i].id,
       inPlayerId:  sortedBench[i].id,
-      atMinute:    atMin,
+      atMinute:    currentMinute + intervalMinutes * (i + 1),
       reason:      `${sortedField[i].name || '#' + sortedField[i].num} har spilt ${sortedField[i].minutesPlayed ?? 0} min`,
     });
   }
@@ -67,12 +64,15 @@ interface AppStore {
   currentView: AppView;
   setView: (v: AppView) => void;
 
-  currentUser: { role: 'coach' | 'player'; playerId?: string; name: string } | null;
+  currentUser: { role: 'coach' | 'player' | 'referee'; playerId?: string; name: string } | null;
   loginCoach: (password: string) => boolean;
   loginPlayer: (accountId: string, pin: string) => boolean;
+  loginReferee: (pin: string) => boolean;
   logout: () => void;
   coachPassword: string;
+  refereePin: string;
   setCoachPassword: (pw: string) => void;
+  setRefereePin: (pin: string) => void;
 
   sport: Sport;
   setSport: (s: Sport) => void;
@@ -89,15 +89,18 @@ interface AppStore {
   updatePhaseName: (phaseIdx: number, name: string) => void;
   updateStickyNote: (phaseIdx: number, note: string) => void;
 
-  // ─── Motstander-farge ────────────────────────────────────────
+  // Spesialroller (kaptein, straffe, frispark…)
+  setSpecialRole: (phaseIdx: number, playerId: string, role: SpecialRole, active: boolean) => void;
+
   awayTeamColor: string;
   setAwayTeamColor: (color: string) => void;
 
-  // ─── Skademodul ──────────────────────────────────────────────
   setPlayerInjury: (phaseIdx: number, playerId: string, injured: boolean, returnDate?: string) => void;
   checkAndHealInjuries: (phaseIdx: number) => void;
 
-  // ─── Kampklokke & spilletid ──────────────────────────────────
+  // isStarter (starter vs innbytter)
+  setPlayerStarter: (phaseIdx: number, playerId: string, isStarter: boolean) => void;
+
   matchTimer: MatchTimer;
   startTimer: () => void;
   stopTimer: () => void;
@@ -107,12 +110,10 @@ interface AppStore {
   togglePlayerOnField: (phaseIdx: number, playerId: string) => void;
   getSubstitutionSuggestions: (phaseIdx: number, intervalMinutes?: number) => SubstitutionSuggestion[];
 
-  // ─── Kamprapport ─────────────────────────────────────────────
   matchReports: MatchReport[];
   createReport: (tags: ReportTag[], freeText: string, matchTitle?: string, eventId?: string) => MatchReport;
   deleteReport: (id: string) => void;
 
-  // ─── Kalender ────────────────────────────────────────────────
   events: CalendarEvent[];
   addEvent: (ev: Omit<CalendarEvent, 'id'>) => void;
   updateEvent: (id: string, fields: Partial<CalendarEvent>) => void;
@@ -124,20 +125,16 @@ interface AppStore {
   updateMatchNote: (eventId: string, noteId: string, fields: Partial<MatchNote>) => void;
   deleteMatchNote: (eventId: string, noteId: string) => void;
 
-  // ─── Spillerkontoer ──────────────────────────────────────────
   playerAccounts: PlayerAccount[];
   addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => void;
   removePlayerAccount: (id: string) => void;
   updatePlayerAccount: (id: string, fields: Partial<PlayerAccount>) => void;
 
-  // ─── Meldinger ───────────────────────────────────────────────
   coachMessages: CoachMessage[];
   sendCoachMessage: (playerId: string, content: string, eventId?: string) => void;
   replyToMessage: (messageId: string, playerId: string, content: string) => void;
   deleteCoachMessage: (messageId: string) => void;
 }
-
-const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -150,11 +147,13 @@ export const useAppStore = create<AppStore>()(
       // ─── Auth ────────────────────────────────────────────────
       currentUser: null,
       coachPassword: 'trener123',
+      refereePin: '0000',
       setCoachPassword: (pw) => set({ coachPassword: pw }),
+      setRefereePin: (pin) => set({ refereePin: pin }),
 
       loginCoach: (password) => {
         if (password === get().coachPassword) {
-          set({ currentUser: { role: 'coach', name: 'Trener' } });
+          set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
           return true;
         }
         return false;
@@ -162,7 +161,15 @@ export const useAppStore = create<AppStore>()(
       loginPlayer: (accountId, pin) => {
         const acc = get().playerAccounts.find(a => a.id === accountId && a.pin === pin);
         if (acc) {
-          set({ currentUser: { role: 'player', playerId: acc.playerId, name: acc.name } });
+          // Spiller sendes til player-home, ikke board
+          set({ currentUser: { role: 'player', playerId: acc.playerId, name: acc.name }, currentView: 'player-home' });
+          return true;
+        }
+        return false;
+      },
+      loginReferee: (pin) => {
+        if (pin === get().refereePin) {
+          set({ currentUser: { role: 'referee', name: 'Dommer' }, currentView: 'referee' });
           return true;
         }
         return false;
@@ -220,6 +227,25 @@ export const useAppStore = create<AppStore>()(
       updateStickyNote: (phaseIdx, note) =>
         set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, stickyNote: note }) })),
 
+      // ─── Spesialroller ────────────────────────────────────────
+      setSpecialRole: (phaseIdx, playerId, role, active) =>
+        set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : {
+          ...ph, players: ph.players.map(p => {
+            if (p.id !== playerId) return p;
+            const current = p.specialRoles ?? [];
+            const updated = active
+              ? current.includes(role) ? current : [...current, role]
+              : current.filter(r => r !== role);
+            return { ...p, specialRoles: updated };
+          }),
+        })})),
+
+      // ─── Starter vs innbytter ─────────────────────────────────
+      setPlayerStarter: (phaseIdx, playerId, isStarter) =>
+        set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : {
+          ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, isStarter } : p),
+        })})),
+
       // ─── Motstander-farge ─────────────────────────────────────
       awayTeamColor: '#ef4444',
       setAwayTeamColor: (color) => set({ awayTeamColor: color }),
@@ -252,22 +278,14 @@ export const useAppStore = create<AppStore>()(
         if (matchTimer.running) return;
         set({ matchTimer: { ...matchTimer, running: true, startedAt: Date.now() } });
       },
-
       stopTimer: () => {
         const { matchTimer } = get();
         if (!matchTimer.running || !matchTimer.startedAt) return;
         const extra = Math.floor((Date.now() - matchTimer.startedAt) / 1000);
         set({ matchTimer: { running: false, startedAt: null, elapsed: matchTimer.elapsed + extra } });
       },
-
       resetTimer: () => set({ matchTimer: { running: false, startedAt: null, elapsed: 0 } }),
-
-      tickTimer: () => {
-        // Kalles fra setInterval i komponenten
-        const { matchTimer } = get();
-        if (!matchTimer.running || !matchTimer.startedAt) return;
-        // Ingenting å lagre — komponenten regner ut elapsed live
-      },
+      tickTimer: () => {},
 
       addMinutesPlayed: (phaseIdx, playerId, minutes) =>
         set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : {
@@ -284,14 +302,12 @@ export const useAppStore = create<AppStore>()(
         })})),
 
       getSubstitutionSuggestions: (phaseIdx, intervalMinutes = 10) => {
-        const { phases, sport } = get();
+        const { phases, sport, matchTimer } = get();
         const ph = phases[phaseIdx];
         if (!ph) return [];
-        const { matchTimer } = get();
         const elapsed = matchTimer.elapsed + (
           matchTimer.running && matchTimer.startedAt
-            ? Math.floor((Date.now() - matchTimer.startedAt) / 1000)
-            : 0
+            ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
         );
         const currentMinute = Math.floor(elapsed / 60);
         const teamSizes: Record<string, number> = { football: 11, handball: 7, floorball: 6 };
@@ -300,23 +316,17 @@ export const useAppStore = create<AppStore>()(
 
       // ─── Kamprapport ─────────────────────────────────────────
       matchReports: [],
-
       createReport: (tags, freeText, matchTitle, eventId) => {
         const report: MatchReport = {
-          id: uid(),
-          eventId,
-          matchTitle,
+          id: uid(), eventId, matchTitle,
           createdAt: new Date().toISOString(),
-          tags,
-          freeText,
+          tags, freeText,
           generatedText: generateReportText(tags, freeText, matchTitle),
         };
         set(s => ({ matchReports: [...s.matchReports, report] }));
         return report;
       },
-
-      deleteReport: (id) =>
-        set(s => ({ matchReports: s.matchReports.filter(r => r.id !== id) })),
+      deleteReport: (id) => set(s => ({ matchReports: s.matchReports.filter(r => r.id !== id) })),
 
       // ─── Kalender ────────────────────────────────────────────
       events: [],
@@ -326,35 +336,36 @@ export const useAppStore = create<AppStore>()(
 
       addTrainingNote: (eventId, note) => {
         const n: TrainingNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-          ...e, trainingNotes: [...e.trainingNotes, n],
-        })}));
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
       },
-      updateTrainingNote: (eventId, noteId, fields) => set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-        ...e, trainingNotes: e.trainingNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
-      })})),
-      deleteTrainingNote: (eventId, noteId) => set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-        ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
-      })})),
+      updateTrainingNote: (eventId, noteId, fields) =>
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+          ...e, trainingNotes: e.trainingNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
+        })})),
+      deleteTrainingNote: (eventId, noteId) =>
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+          ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
+        })})),
 
       addMatchNote: (eventId, note) => {
         const n: MatchNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-          ...e, matchNotes: [...e.matchNotes, n],
-        })}));
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : { ...e, matchNotes: [...e.matchNotes, n] }) }));
       },
-      updateMatchNote: (eventId, noteId, fields) => set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-        ...e, matchNotes: e.matchNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
-      })})),
-      deleteMatchNote: (eventId, noteId) => set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-        ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
-      })})),
+      updateMatchNote: (eventId, noteId, fields) =>
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+          ...e, matchNotes: e.matchNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
+        })})),
+      deleteMatchNote: (eventId, noteId) =>
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+          ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
+        })})),
 
       // ─── Spillerkontoer ──────────────────────────────────────
       playerAccounts: [],
       addPlayerAccount: (acc) => set(s => ({ playerAccounts: [...s.playerAccounts, { id: uid(), ...acc }] })),
       removePlayerAccount: (id) => set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) })),
-      updatePlayerAccount: (id, fields) => set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) })),
+      updatePlayerAccount: (id, fields) =>
+        set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) })),
 
       // ─── Meldinger ───────────────────────────────────────────
       coachMessages: [],
@@ -371,10 +382,11 @@ export const useAppStore = create<AppStore>()(
           ...m, replies: [...m.replies, reply],
         })}));
       },
-      deleteCoachMessage: (id) => set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== id) })),
+      deleteCoachMessage: (id) =>
+        set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== id) })),
     }),
     {
-      name: 'taktikkboard-v3',
+      name: 'taktikkboard-v4',
       partialize: (s) => ({
         sport: s.sport,
         phases: s.phases,
@@ -382,6 +394,7 @@ export const useAppStore = create<AppStore>()(
         playerAccounts: s.playerAccounts,
         coachMessages: s.coachMessages,
         coachPassword: s.coachPassword,
+        refereePin: s.refereePin,
         awayTeamColor: s.awayTeamColor,
         matchReports: s.matchReports,
       }),
@@ -389,7 +402,6 @@ export const useAppStore = create<AppStore>()(
   )
 );
 
-// Next.js hydration-safe hook
 export const useSafeAppStore = <T,>(selector: (state: AppStore) => T): T | undefined => {
   const result = useAppStore(selector);
   const [mounted, setMounted] = React.useState(false);

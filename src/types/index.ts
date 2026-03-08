@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  TAKTIKKBOARD – Type-definisjoner (v3 – utvidet)
+//  TAKTIKKBOARD – Type-definisjoner (v4)
 // ═══════════════════════════════════════════════════════════════
 
 export type Sport = 'football' | 'handball' | 'floorball';
@@ -11,9 +11,18 @@ export type PlayerRole =
   | 'hb_keeper' | 'hb_pivot' | 'hb_backcourt' | 'hb_wing' | 'hb_center' | 'hb_playmaker'
   | 'fb_keeper' | 'fb_back' | 'fb_forward' | 'fb_midfielder';
 
-export type UserRole = 'coach' | 'player';
+export type UserRole = 'coach' | 'player' | 'referee';
 
 export interface Position { x: number; y: number; }
+
+// Spesialrolle på banen
+export type SpecialRole =
+  | 'captain'           // kaptein
+  | 'freekick'          // frispark
+  | 'penalty'           // straffe
+  | 'corner'            // corner
+  | 'throwin'           // innkast
+  | 'goalkeeper_kicks'; // keeperutspark (håndball/innebandy)
 
 export interface Player {
   id: string;
@@ -28,6 +37,10 @@ export interface Player {
   injuryReturnDate?: string;
   minutesPlayed?: number;
   isOnField?: boolean;
+  // Nye felt v4
+  isStarter?: boolean;           // true = starter, false = innbytter
+  specialRoles?: SpecialRole[];  // kaptein, frispark etc.
+  individualTraining?: string;   // notat om individuell trening
 }
 
 export interface Drawing {
@@ -61,6 +74,8 @@ export interface CalendarEvent {
   teamNote: string;
   trainingNotes: TrainingNote[];
   matchNotes: MatchNote[];
+  // Laguttak låst 30 min før kamp
+  lineupLockedAt?: string; // ISO timestamp
 }
 
 export interface TrainingNote {
@@ -87,6 +102,8 @@ export interface PlayerAccount {
   playerId: string;
   pin: string;
   team: 'home' | 'away';
+  // Individuelle treningsnotater synlige kun for denne spilleren
+  individualTrainingNote?: string;
 }
 
 export interface CoachMessage {
@@ -97,6 +114,8 @@ export interface CoachMessage {
   content: string;
   createdAt: string;
   replies: PlayerReply[];
+  // Kan også sendes fra kaptein
+  fromCaptain?: boolean;
 }
 
 export interface PlayerReply {
@@ -119,6 +138,7 @@ export interface Drill {
   sport: Sport | 'all';
   description: string;
   steps: DrillStep[];
+  weekNumber?: number; // roteres ukentlig
 }
 
 export interface SubstitutionSuggestion {
@@ -151,7 +171,7 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'board' | 'calendar' | 'notes' | 'players' | 'referee';
+export type AppView = 'board' | 'calendar' | 'players' | 'referee' | 'player-home';
 
 export interface AppState {
   sport: Sport;

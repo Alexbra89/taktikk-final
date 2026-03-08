@@ -1,8 +1,8 @@
 'use client';
-import React, { useEffect } from 'react';
-import { useAppStore } from '../../store/useAppStore';
-import { ROLE_META, getRolesForSport } from '../../data/roleInfo';
-import { Player } from '../../types';
+import React, { useEffect, useState } from 'react';
+import { useAppStore } from '@/store/useAppStore';
+import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
+import { Player, SpecialRole } from '@/types';
 
 interface PlayerEditorProps {
   playerId: string;
@@ -10,11 +10,35 @@ interface PlayerEditorProps {
   onClose: () => void;
 }
 
-export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, onClose }) => {
-  const { phases, sport, updatePlayerField, sendCoachMessage,
-    setPlayerInjury, checkAndHealInjuries, togglePlayerOnField, currentUser } = useAppStore();
+// ─── Spesialroller: label, emoji, farge ──────────────────────
+const SPECIAL_CONFIG: {
+  role: SpecialRole; label: string; emoji: string; color: string;
+}[] = [
+  { role: 'captain',          label: 'Kaptein',          emoji: '🪖', color: 'amber' },
+  { role: 'penalty',          label: 'Straffe',           emoji: '⚽', color: 'red'   },
+  { role: 'freekick',         label: 'Frispark',          emoji: '🎯', color: 'sky'   },
+  { role: 'corner',           label: 'Corner',            emoji: '🚩', color: 'purple'},
+  { role: 'throwin',          label: 'Innkast',           emoji: '🤾', color: 'green' },
+  { role: 'goalkeeper_kicks', label: 'Keeperutspark',     emoji: '🧤', color: 'orange'},
+];
 
-  // Auto-sjekk og hel skader når editoren åpnes
+const COLOR_CLASSES: Record<string, { active: string; idle: string }> = {
+  amber:  { active: 'bg-amber-500/20 border-amber-500 text-amber-400',    idle: 'border-[#1e3050] text-[#4a6080] hover:border-amber-500/50 hover:text-amber-400' },
+  red:    { active: 'bg-red-500/20 border-red-500 text-red-400',          idle: 'border-[#1e3050] text-[#4a6080] hover:border-red-500/50 hover:text-red-400' },
+  sky:    { active: 'bg-sky-500/20 border-sky-500 text-sky-400',          idle: 'border-[#1e3050] text-[#4a6080] hover:border-sky-500/50 hover:text-sky-400' },
+  purple: { active: 'bg-purple-500/20 border-purple-500 text-purple-400', idle: 'border-[#1e3050] text-[#4a6080] hover:border-purple-500/50 hover:text-purple-400' },
+  green:  { active: 'bg-emerald-500/20 border-emerald-500 text-emerald-400', idle: 'border-[#1e3050] text-[#4a6080] hover:border-emerald-500/50 hover:text-emerald-400' },
+  orange: { active: 'bg-orange-500/20 border-orange-500 text-orange-400', idle: 'border-[#1e3050] text-[#4a6080] hover:border-orange-500/50 hover:text-orange-400' },
+};
+
+export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, onClose }) => {
+  const {
+    phases, sport, updatePlayerField, sendCoachMessage,
+    setPlayerInjury, checkAndHealInjuries, togglePlayerOnField,
+    setSpecialRole, setPlayerStarter, updatePlayerAccount,
+    playerAccounts, currentUser,
+  } = useAppStore();
+
   useEffect(() => { checkAndHealInjuries(phaseIdx); }, []);
 
   const phase  = phases[phaseIdx];
@@ -26,52 +50,130 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
   const meta = ROLE_META[player.role] ?? ROLE_META['midfielder'];
   const upd  = (fields: Partial<Player>) => updatePlayerField(phaseIdx, playerId, fields);
 
-  const getPlaytimeColor = (min: number) => {
-    if (min > 60) return 'text-red-400 bg-red-500/10 border-red-500/30';
-    if (min > 30) return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
-    return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
-  };
+  const specialRoles = player.specialRoles ?? [];
+  const hasRole = (r: SpecialRole) => specialRoles.includes(r);
+  const toggleSpecial = (r: SpecialRole) => setSpecialRole(phaseIdx, playerId, r, !hasRole(r));
+
+  // Spillerkontoen koblet til denne spilleren
+  const linkedAccount = (playerAccounts as any[]).find((a: any) => a.playerId === playerId);
+
+  const getPlaytimeColor = (min: number) =>
+    min > 60 ? 'text-red-400 bg-red-500/10 border-red-500/30'
+    : min > 30 ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
       onClick={onClose}>
-      <div className="bg-[#0c1525] border border-[#1e3050] rounded-2xl p-5 w-[400px] max-w-full max-h-[92vh] overflow-y-auto shadow-2xl"
+      <div
+        className="bg-[#0c1525] border border-[#1e3050] rounded-2xl p-5 w-[440px] max-w-full
+          max-h-[92vh] overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}>
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black text-white flex-shrink-0 relative"
-            style={{ background: meta.color, border: `3px solid ${player.team==='home'?'white':'#1e293b'}` }}>
+        {/* ── Header ── */}
+        <div className="flex items-center gap-3 mb-5">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center text-lg
+              font-black text-white flex-shrink-0 relative"
+            style={{
+              background: meta.color,
+              border: `3px solid ${player.team === 'home' ? 'white' : '#1e293b'}`,
+            }}>
             {player.num}
             {player.injured && <span className="absolute -top-1 -right-1 text-sm">🩹</span>}
+            {hasRole('captain') && <span className="absolute -bottom-1 -right-1 text-sm">🪖</span>}
           </div>
           <div className="flex-1">
             <div className="text-base font-bold text-slate-100">{player.name || 'Navnløs'}</div>
-            <div className="text-[11px] text-[#4a6080]">
-              {meta.label} · {player.team==='home'?'Hjemmelag':'Bortelag'}
-              {player.injured && <span className="ml-2 text-red-400 font-bold">SKADET</span>}
+            <div className="text-[11px] text-[#4a6080] flex items-center gap-2 flex-wrap">
+              {meta.label} · {player.team === 'home' ? 'Hjemmelag' : 'Bortelag'}
+              {player.injured && <span className="text-red-400 font-bold">SKADET</span>}
+              {player.isStarter === false
+                ? <span className="text-amber-400 font-bold">INNBYTTER</span>
+                : <span className="text-emerald-400 font-bold">STARTER</span>}
             </div>
           </div>
-          <button onClick={onClose} className="text-[#3a5070] hover:text-white text-xl ml-auto">✕</button>
+          <button onClick={onClose}
+            className="text-[#3a5070] hover:text-white text-xl ml-auto flex-shrink-0">✕</button>
         </div>
 
-        {/* Navn */}
-        <Field label="SPILLERNAVN">
-          <input value={player.name}
-            onChange={e => upd({ name: e.target.value })}
-            className="inp" />
-        </Field>
+        {/* ── Navn & Nummer ── */}
+        <div className="grid grid-cols-[1fr_80px] gap-3 mb-4">
+          <Field label="SPILLERNAVN">
+            <input value={player.name} onChange={e => upd({ name: e.target.value })} className="inp" />
+          </Field>
+          <Field label="DRAKT #">
+            <input type="number" value={player.num}
+              onChange={e => upd({ num: Number(e.target.value) })}
+              className="inp text-center" />
+          </Field>
+        </div>
 
-        {/* Nummer */}
-        <Field label="DRAKTNUMMER">
-          <input type="number" value={player.num}
-            onChange={e => upd({ num: Number(e.target.value) })}
-            className="inp w-20" />
-        </Field>
+        {/* ── Starter / Innbytter ── */}
+        <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">
+          <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-2.5">
+            📋 Laguttak
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPlayerStarter(phaseIdx, playerId, true)}
+              className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border transition-all
+                ${player.isStarter !== false
+                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                  : 'border-[#1e3050] text-[#4a6080] hover:border-emerald-500/50 hover:text-emerald-400'}`}>
+              ✅ Starter
+            </button>
+            <button
+              onClick={() => setPlayerStarter(phaseIdx, playerId, false)}
+              className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border transition-all
+                ${player.isStarter === false
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-400'
+                  : 'border-[#1e3050] text-[#4a6080] hover:border-amber-500/50 hover:text-amber-400'}`}>
+              🪑 Innbytter
+            </button>
+          </div>
+        </div>
 
-        {/* Rolle */}
-        <Field label="ROLLE">
-          <div className="flex flex-wrap gap-1.5">
+        {/* ── Spesialroller ── */}
+        <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">
+          <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-2.5">
+            ⭐ Spesialroller
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {SPECIAL_CONFIG.map(({ role, label, emoji, color }) => {
+              const active = hasRole(role);
+              const cls    = COLOR_CLASSES[color];
+              return (
+                <button key={role}
+                  onClick={() => toggleSpecial(role)}
+                  className={`py-2 px-2.5 rounded-xl text-[11.5px] font-bold border transition-all
+                    flex items-center gap-1.5 ${active ? cls.active : cls.idle}`}>
+                  <span>{emoji}</span>
+                  <span>{label}</span>
+                  {active && <span className="ml-auto text-[9px] opacity-70">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+          {specialRoles.length > 0 && (
+            <div className="mt-2.5 flex flex-wrap gap-1">
+              {specialRoles.map(sr => {
+                const cfg = SPECIAL_CONFIG.find(c => c.role === sr);
+                return cfg ? (
+                  <span key={sr}
+                    className="text-[9px] font-bold px-2 py-0.5 rounded-full
+                      bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    {cfg.emoji} {cfg.label}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Rolle ── */}
+        <Field label="ROLLE PÅ BANEN">
+          <div className="flex flex-wrap gap-1.5 mt-1">
             {roles.map(r => {
               const rm = ROLE_META[r]; if (!rm) return null;
               const sel = player.role === r;
@@ -89,32 +191,31 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
 
         {/* ── Skademodul ── */}
         <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">
-          <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">🩹 Skadestatus</div>
-          <div className="flex items-center gap-3 mb-3">
-            <button
-              onClick={() => setPlayerInjury(phaseIdx, playerId, !player.injured, player.injuryReturnDate)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all
-                ${player.injured
-                  ? 'bg-red-500/20 border-red-500 text-red-400'
-                  : 'border-[#1e3050] text-[#4a6080] hover:border-red-500/50 hover:text-red-400'}`}>
-              {player.injured ? '🩹 Markert som skadet' : 'Marker som skadet'}
-            </button>
-            {player.injured && (
-              <span className="text-[10px] text-[#4a6080]">Blir halvtransparent på banen</span>
-            )}
+          <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">
+            🩹 Skadestatus
           </div>
+          <button
+            onClick={() => setPlayerInjury(phaseIdx, playerId, !player.injured, player.injuryReturnDate)}
+            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all mb-2
+              ${player.injured
+                ? 'bg-red-500/20 border-red-500 text-red-400'
+                : 'border-[#1e3050] text-[#4a6080] hover:border-red-500/50 hover:text-red-400'}`}>
+            {player.injured ? '🩹 Markert som skadet' : 'Marker som skadet'}
+          </button>
           {player.injured && (
             <label className="block">
-              <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">FORVENTET RETUR</div>
+              <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">
+                FORVENTET RETUR
+              </div>
               <input type="date" value={player.injuryReturnDate ?? ''}
                 onChange={e => setPlayerInjury(phaseIdx, playerId, true, e.target.value)}
-                className="inp"
-                min={new Date().toISOString().slice(0,10)} />
+                className="inp" min={new Date().toISOString().slice(0, 10)} />
               {player.injuryReturnDate && (
                 <div className="text-[10.5px] text-[#4a6080] mt-1">
-                  Retur: {new Date(player.injuryReturnDate + 'T12:00:00').toLocaleDateString('nb-NO', { weekday:'short', day:'numeric', month:'long' })}
-                  {' · '}
-                  <span className="text-amber-400">Auto-fjernes på returdato</span>
+                  {new Date(player.injuryReturnDate + 'T12:00:00').toLocaleDateString('nb-NO', {
+                    weekday: 'short', day: 'numeric', month: 'long',
+                  })}
+                  {' · '}<span className="text-amber-400">Auto-fjernes på returdato</span>
                 </div>
               )}
             </label>
@@ -123,51 +224,69 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
 
         {/* ── Spilletid ── */}
         <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">
-          <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">⏱ Spilletid</div>
+          <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">
+            ⏱ Spilletid
+          </div>
           <div className="flex items-center justify-between mb-2">
-            <div className={`px-3 py-1.5 rounded-lg text-[13px] font-black border ${getPlaytimeColor(player.minutesPlayed ?? 0)}`}>
+            <div className={`px-3 py-1.5 rounded-lg text-[13px] font-black border
+              ${getPlaytimeColor(player.minutesPlayed ?? 0)}`}>
               {player.minutesPlayed ?? 0} min
             </div>
             <div className="flex gap-1.5">
               <button onClick={() => upd({ minutesPlayed: Math.max(0, (player.minutesPlayed ?? 0) - 10) })}
-                className="w-7 h-7 rounded bg-[#1a2a3a] border border-[#1e3050] text-slate-300 text-sm hover:bg-[#1e3050]">－</button>
+                className="w-8 h-8 rounded bg-[#1a2a3a] border border-[#1e3050] text-slate-300 hover:bg-[#1e3050]">－</button>
               <button onClick={() => upd({ minutesPlayed: (player.minutesPlayed ?? 0) + 10 })}
-                className="w-7 h-7 rounded bg-[#1a2a3a] border border-[#1e3050] text-slate-300 text-sm hover:bg-[#1e3050]">＋</button>
+                className="w-8 h-8 rounded bg-[#1a2a3a] border border-[#1e3050] text-slate-300 hover:bg-[#1e3050]">＋</button>
               <button onClick={() => upd({ minutesPlayed: 0 })}
-                className="px-2 h-7 rounded bg-[#1a2a3a] border border-[#1e3050] text-[#4a6080] text-[10px] hover:text-red-400">Null</button>
+                className="px-2 h-8 rounded bg-[#1a2a3a] border border-[#1e3050] text-[#4a6080] text-[10px] hover:text-red-400">Null</button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => togglePlayerOnField(phaseIdx, playerId)}
-              className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-all
-                ${player.isOnField
-                  ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
-                  : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
-              {player.isOnField ? '✅ På banen' : '⬜ Benken'}
-            </button>
-            <span className="text-[10px] text-[#3a5070]">Fargeindikator: 🟢 &lt;30m · 🟡 30-60m · 🔴 &gt;60m</span>
-          </div>
+          <button onClick={() => togglePlayerOnField(phaseIdx, playerId)}
+            className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-all
+              ${player.isOnField !== false
+                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
+                : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
+            {player.isOnField !== false ? '✅ På banen' : '⬜ Benken'}
+          </button>
         </div>
 
-        {/* Trener-notat */}
-        <Field label="TRENER-NOTAT">
+        {/* ── Trener-notat (synlig for spilleren) ── */}
+        <Field label="TRENER-NOTAT (spilleren ser dette)">
           <textarea value={player.notes} rows={3}
             onChange={e => upd({ notes: e.target.value })}
-            placeholder="Instruksjoner, observasjoner om spilleren..."
+            placeholder="Taktiske instruksjoner, observasjoner..."
             className="inp resize-y leading-relaxed" />
         </Field>
 
-        {/* Send melding til spiller */}
+        {/* ── Individuell trening (kun for koblet konto) ── */}
+        {linkedAccount && (
+          <Field label="🏃 INDIVIDUELL TRENINGSPLAN (kun synlig for spilleren)">
+            <textarea
+              value={linkedAccount.individualTrainingNote ?? ''}
+              rows={3}
+              onChange={e =>
+                updatePlayerAccount(linkedAccount.id, { individualTrainingNote: e.target.value })
+              }
+              placeholder="F.eks: 3x10 sprint, teknikkøvelser, styrke..."
+              className="inp resize-y leading-relaxed"
+            />
+            <div className="text-[9.5px] text-[#3a5070] mt-1">
+              Vises kun for {linkedAccount.name} under "Meldinger" i appen.
+            </div>
+          </Field>
+        )}
+
+        {/* ── Send melding ── */}
         {currentUser?.role === 'coach' && (
           <div className="mb-4">
             <div className="text-[9.5px] font-bold text-[#4a6080] uppercase tracking-widest mb-2">
-              SEND MELDING TIL SPILLER
+              💬 SEND MELDING TIL SPILLER
             </div>
             <MessageComposer playerId={playerId} />
           </div>
         )}
 
-        {/* Rolleinfo */}
+        {/* ── Rolleinformasjon ── */}
         <div className="bg-[#111c30] rounded-xl p-3.5 border border-[#1e3050]">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xl">{meta.emoji}</span>
@@ -184,18 +303,23 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
         </div>
 
         <button onClick={onClose}
-          className="w-full mt-4 py-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 transition">
+          className="w-full mt-4 py-3 rounded-xl bg-sky-500/15 border border-sky-500/30
+            text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 transition min-h-[44px]">
           ✓ Lagre og lukk
         </button>
 
-        <style>{`.inp { width:100%; background:#111c30; border:1px solid #1e3050; border-radius:8px; padding:8px 11px; color:#e2e8f0; font-size:12.5px; box-sizing:border-box; } .inp:focus { outline:none; border-color:#38bdf8; }`}</style>
+        <style>{`
+          .inp { width:100%; background:#111c30; border:1px solid #1e3050; border-radius:8px;
+            padding:9px 12px; color:#e2e8f0; font-size:12.5px; box-sizing:border-box; }
+          .inp:focus { outline:none; border-color:#38bdf8; }
+        `}</style>
       </div>
     </div>
   );
 };
 
 const MessageComposer: React.FC<{ playerId: string }> = ({ playerId }) => {
-  const [msg, setMsg] = React.useState('');
+  const [msg, setMsg] = useState('');
   const { sendCoachMessage } = useAppStore();
   const send = () => { if (!msg.trim()) return; sendCoachMessage(playerId, msg.trim()); setMsg(''); };
   return (
@@ -203,16 +327,20 @@ const MessageComposer: React.FC<{ playerId: string }> = ({ playerId }) => {
       <input value={msg} onChange={e => setMsg(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && send()}
         placeholder="Skriv melding til spiller..."
-        className="flex-1 bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12px] text-slate-300 focus:outline-none focus:border-sky-500" />
+        className="flex-1 bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2
+          text-[12px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]" />
       <button onClick={send}
-        className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-bold">Send</button>
+        className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white
+          text-[12px] font-bold min-h-[40px]">Send</button>
     </div>
   );
 };
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="mb-4">
-    <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-widest mb-1.5">{label}</div>
+    <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-widest mb-1.5">
+      {label}
+    </div>
     {children}
   </div>
 );

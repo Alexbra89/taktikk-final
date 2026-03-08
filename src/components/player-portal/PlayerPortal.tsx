@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAppStore } from '../../store/useAppStore';
-import { ROLE_META } from '../../data/roleInfo';
+import { useAppStore } from '@/store/useAppStore';
+import { ROLE_META } from '@/data/roleInfo';
 import { supabase } from '@/lib/supabase';
 
 // ─── Trygg ROLE_META-oppslag (løser strict-mode Vercel-feil) ──
@@ -259,85 +259,120 @@ export const PlayerPortal: React.FC = () => {
 const SquadView: React.FC<{ phase: any; myTeamSide: 'home' | 'away' }> = ({
   phase, myTeamSide,
 }) => {
+  const { updatePlayerField, playerAccounts, activePhaseIdx } = useAppStore();
   const players: any[] = phase.players ?? [];
+  const myTeam  = myTeamSide;
 
-  // "Mitt lag" er det valgte laget, "motstander" er det andre
-  const myTeam   = myTeamSide;
-  const oppTeam  = myTeamSide === 'home' ? 'away' : 'home';
+  // Kun eget lag — motstanderlaget vises IKKE i tropp-fanen
+  const myOnField = players.filter((p: any) => p.team === myTeam && p.isOnField !== false && p.isStarter !== false);
+  const myBench   = players.filter((p: any) => p.team === myTeam && (p.isOnField === false || p.isStarter === false));
+  const myAll     = players.filter((p: any) => p.team === myTeam);
 
-  const myOnField  = players.filter((p: any) => p.team === myTeam   && p.isOnField !== false);
-  const myBench    = players.filter((p: any) => p.team === myTeam   && p.isOnField === false);
-  const oppOnField = players.filter((p: any) => p.team === oppTeam  && p.isOnField !== false);
-  const oppBench   = players.filter((p: any) => p.team === oppTeam  && p.isOnField === false);
-
-  const myLabel  = myTeamSide === 'home' ? '🏠 Hjemmelag' : '✈️ Bortelag';
-  const oppLabel = myTeamSide === 'home' ? '✈️ Motstanderlag' : '🏠 Motstanderlag';
-  const myBadge  = myTeamSide === 'home'
+  const myLabel = myTeamSide === 'home' ? '🏠 Hjemmelag' : '✈️ Bortelag';
+  const myBadge = myTeamSide === 'home'
     ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
     : 'bg-red-500/15 text-red-400 border-red-500/30';
+
+  // Nedtrekksmeny: bytt navn på innbytter fra registrerte spillerkontoer
+  const homeAccounts = (playerAccounts as any[]).filter((a: any) => a.team === 'home');
+
+  const handleRenamePlayer = (playerId: string, newName: string) => {
+    updatePlayerField(activePhaseIdx, playerId, { name: newName });
+  };
 
   return (
     <div>
       <h3 className="text-base font-bold text-slate-100 mb-4">👥 Tropp og innbyttere</h3>
 
-      {/* ── Vårt lag – startoppstilling ── */}
+      {/* ── Startoppstilling ── */}
       <SectionHeader label={`${myLabel} – startoppstilling`} badge={myBadge} count={myOnField.length} />
       {myOnField.length === 0 ? (
-        <p className="text-[12px] text-[#3a5070] italic px-2 mb-4">Ingen spillere markert som på banen</p>
+        <p className="text-[12px] text-[#3a5070] italic px-2 mb-4">Ingen spillere i startoppstillingen</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
           {myOnField.map((p: any) => <PlayerCard key={p.id} player={p} />)}
         </div>
       )}
 
-      {/* ── Vårt lag – innbyttere ── */}
-      {myBench.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-px flex-1 bg-[#1e3050]" />
-            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-2">
-              🪑 Innbyttere – {myLabel}
-            </span>
-            <div className="h-px flex-1 bg-[#1e3050]" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {myBench.map((p: any) => <PlayerCard key={p.id} player={p} isBench />)}
-          </div>
+      {/* ── Innbyttere med nedtrekksmeny for navnbytte ── */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-px flex-1 bg-[#1e3050]" />
+          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-2">
+            🪑 Innbyttere ({myBench.length})
+          </span>
+          <div className="h-px flex-1 bg-[#1e3050]" />
         </div>
-      )}
-
-      {/* ── Motstanderlag – startoppstilling ── */}
-      {oppOnField.length > 0 && (
-        <>
-          <SectionHeader
-            label={`${oppLabel} – startoppstilling`}
-            badge="bg-slate-500/15 text-slate-400 border-slate-500/30"
-            count={oppOnField.length}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
-            {oppOnField.map((p: any) => <PlayerCard key={p.id} player={p} isOpponent />)}
+        {myBench.length === 0 ? (
+          <p className="text-[12px] text-[#3a5070] italic px-2">
+            Ingen innbyttere registrert. Trener markerer spillere som innbyttere i spillereditor.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {myBench.map((p: any) => (
+              <SubCard
+                key={p.id}
+                player={p}
+                accounts={homeAccounts}
+                onRename={(name) => handleRenamePlayer(p.id, name)}
+              />
+            ))}
           </div>
-        </>
-      )}
-
-      {/* ── Motstanderlag – innbyttere ── */}
-      {oppBench.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-px flex-1 bg-[#1e3050]" />
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">
-              🪑 Innbyttere – {oppLabel}
-            </span>
-            <div className="h-px flex-1 bg-[#1e3050]" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {oppBench.map((p: any) => <PlayerCard key={p.id} player={p} isBench isOpponent />)}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Spilletids-oversikt ── */}
-      <PlaytimeBar players={players.filter((p: any) => p.team === myTeam)} />
+      <PlaytimeBar players={myAll} />
+    </div>
+  );
+};
+
+// ─── Innbytter-kort med navne-dropdown ──────────────────────
+const SubCard: React.FC<{
+  player: any;
+  accounts: any[];
+  onRename: (name: string) => void;
+}> = ({ player, accounts, onRename }) => {
+  const [editing, setEditing] = useState(false);
+  const meta = ROLE_META[player.role as keyof typeof ROLE_META] ?? null;
+  const num  = getNum(player);
+
+  return (
+    <div className="flex items-center gap-2.5 p-3 rounded-xl border bg-[#0f1a2a] border-amber-500/20">
+      <div className="w-10 h-10 rounded-full flex items-center justify-center
+        font-black text-[13px] text-white flex-shrink-0 opacity-80"
+        style={{ background: meta?.color ?? '#555' }}>
+        {num}
+      </div>
+      <div className="min-w-0 flex-1">
+        {editing ? (
+          <select
+            autoFocus
+            defaultValue={player.name}
+            onChange={e => { onRename(e.target.value); setEditing(false); }}
+            onBlur={() => setEditing(false)}
+            className="w-full bg-[#111c30] border border-sky-500 rounded-lg px-2 py-1.5
+              text-[12px] text-slate-200 focus:outline-none min-h-[36px]">
+            <option value="">– Velg spiller –</option>
+            {accounts.map((a: any) => (
+              <option key={a.id} value={a.name}>{a.name}</option>
+            ))}
+            <option value={player.name}>{player.name || `#${num}`} (nåværende)</option>
+          </select>
+        ) : (
+          <>
+            <div className="text-[12.5px] font-bold text-slate-200 truncate">
+              {player.name || `#${num}`}
+            </div>
+            <div className="text-[10px] text-[#4a6080]">{meta?.label ?? player.role}</div>
+          </>
+        )}
+      </div>
+      <button
+        onClick={() => setEditing(e => !e)}
+        className="text-[11px] text-[#4a6080] hover:text-sky-400 px-2 min-h-[44px] transition">
+        ✏️
+      </button>
     </div>
   );
 };

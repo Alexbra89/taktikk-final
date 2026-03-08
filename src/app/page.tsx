@@ -7,13 +7,14 @@ import { TacticBoard } from '@/components/board/TacticBoard';
 import { PlayerEditor } from '@/components/ui/PlayerEditor';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { PlayerPortal } from '@/components/player-portal/PlayerPortal';
+import { PlayerHome } from '@/components/player-portal/PlayerHome';
 import { RefereeView } from '@/components/player-portal/RefereeView';
 import { LoginGate } from '@/components/ui/LoginGate';
 import { SmartCoach } from '@/components/ui/SmartCoach';
 import { MatchReportModal } from '@/components/ui/MatchReport';
 import { AppView } from '@/types';
 
-// ─── Live kampklokke i topbar ─────────────────────────────────
+// ─── Live kampklokke ─────────────────────────────────────────
 const LiveClock: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const { matchTimer } = useAppStore();
   const [display, setDisplay] = useState(matchTimer.elapsed);
@@ -44,12 +45,30 @@ const LiveClock: React.FC<{ onClick: () => void }> = ({ onClick }) => {
           ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
           : display > 0
             ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
-            : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}
-      title="Åpne Smart Coach">
+            : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
       {matchTimer.running ? '⏱' : '⏸'} {fmt(display)}
     </button>
   );
 };
+
+// ─── Nav-konfigurasjon per rolle ─────────────────────────────
+type NavItem = { view: AppView; label: string; emoji: string };
+
+const COACH_NAV: NavItem[] = [
+  { view: 'board',    label: 'Brett',    emoji: '📋' },
+  { view: 'calendar', label: 'Kalender', emoji: '📅' },
+  { view: 'players',  label: 'Tropp',    emoji: '👤' },
+  { view: 'referee',  label: 'Dommer',   emoji: '🏁' },
+];
+
+const PLAYER_NAV: NavItem[] = [
+  { view: 'player-home', label: 'Hjem',     emoji: '🏠' },
+  { view: 'referee',     label: 'Dommer',   emoji: '🏁' },
+];
+
+const REFEREE_NAV: NavItem[] = [
+  { view: 'referee', label: 'Dommervisning', emoji: '🏁' },
+];
 
 // ─── Hovedside ────────────────────────────────────────────────
 export default function Home() {
@@ -64,15 +83,13 @@ export default function Home() {
   if (!isMounted) return null;
   if (!currentUser) return <LoginGate />;
 
-  const isCoach = currentUser.role === 'coach';
+  const role    = currentUser.role;
+  const isCoach = role === 'coach';
 
-  // 'referee' er tilgjengelig for alle roller (ingen coachOnly)
-  const NAV_ITEMS: { view: AppView; label: string; emoji: string; coachOnly?: boolean }[] = [
-    { view: 'board',    label: 'Taktikkbrett',  emoji: '📋', coachOnly: true },
-    { view: 'calendar', label: 'Kalender',       emoji: '📅', coachOnly: true },
-    { view: 'players',  label: 'Spillerportal',  emoji: '👤' },
-    { view: 'referee',  label: 'Dommer',         emoji: '🏁' },
-  ];
+  const navItems =
+    role === 'coach'   ? COACH_NAV :
+    role === 'player'  ? PLAYER_NAV :
+    REFEREE_NAV;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#060c18]">
@@ -81,57 +98,51 @@ export default function Home() {
       <header className="flex-shrink-0 flex items-center gap-1.5 px-3
         bg-[#08101e] border-b border-[#1a2d46] h-11 min-w-0">
 
-        {/* Logo */}
-        <div className="mr-3 text-[13px] font-black tracking-tight whitespace-nowrap"
+        <div className="mr-2 text-[13px] font-black tracking-tight whitespace-nowrap hidden sm:block"
           style={{
             background: 'linear-gradient(90deg,#38bdf8,#34d399)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>
           ⚽ TAKTIKKBOARD
         </div>
 
-        {/* Navigasjon */}
         <nav className="flex gap-0.5 overflow-x-auto">
-          {NAV_ITEMS
-            .filter(n => !n.coachOnly || isCoach)
-            .map(n => (
-              <button key={n.view} onClick={() => setView(n.view)}
-                className={`px-3 py-1.5 rounded-lg text-[11.5px] font-semibold
-                  transition-all whitespace-nowrap
-                  ${currentView === n.view
-                    ? 'bg-sky-500/15 text-sky-400'
-                    : 'text-[#4a6080] hover:text-slate-300 hover:bg-white/5'}`}>
-                {n.emoji} {n.label}
-              </button>
-            ))}
+          {navItems.map(n => (
+            <button key={n.view} onClick={() => setView(n.view)}
+              className={`px-3 py-1.5 rounded-lg text-[11.5px] font-semibold
+                transition-all whitespace-nowrap min-h-[36px]
+                ${currentView === n.view
+                  ? 'bg-sky-500/15 text-sky-400'
+                  : 'text-[#4a6080] hover:text-slate-300 hover:bg-white/5'}`}>
+              {n.emoji} {n.label}
+            </button>
+          ))}
         </nav>
 
         <div className="flex-1" />
 
-        {/* Høyre-verktøy — kun trener på brett-view */}
+        {/* Trener-verktøy */}
         {isCoach && currentView === 'board' && (
           <div className="flex items-center gap-1.5">
             <LiveClock onClick={() => setShowSmartCoach(true)} />
             <button onClick={() => setShowSmartCoach(true)}
               className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border
-                border-[#1e3050] text-[#4a6080] hover:text-slate-300
-                hover:bg-white/5 transition whitespace-nowrap">
+                border-[#1e3050] text-[#4a6080] hover:text-slate-300 hover:bg-white/5
+                transition whitespace-nowrap hidden sm:flex">
               ⚡ Smart Coach
             </button>
             <button onClick={() => setShowMatchReport(true)}
               className="px-2.5 py-1 rounded-lg text-[11px] font-semibold border
                 border-[#1e3050] text-[#4a6080] hover:text-amber-400
-                hover:border-amber-500/40 transition whitespace-nowrap">
+                hover:border-amber-500/40 transition whitespace-nowrap hidden sm:flex">
               📊 Rapport
             </button>
           </div>
         )}
 
-        {/* Brukerinfo */}
-        <div className="flex items-center gap-2 text-[11px] text-[#4a6080] ml-2">
-          <span className="hidden sm:inline">
-            {currentUser.role === 'coach' ? '🏋️ Trener' : `👤 ${currentUser.name}`}
+        <div className="flex items-center gap-1.5 text-[11px] text-[#4a6080] ml-1">
+          <span className="hidden md:inline">
+            {role === 'coach' ? '🏋️' : role === 'referee' ? '🏁' : '👤'} {currentUser.name}
           </span>
           <LogoutButton />
         </div>
@@ -140,61 +151,47 @@ export default function Home() {
       {/* ── INNHOLD ── */}
       <main className="flex flex-1 overflow-hidden">
 
-        {/* Taktikkbrett (trener) */}
-        {currentView === 'board' && (
+        {/* Taktikkbrett — KUN trener, read-only er ikke implementert for brett */}
+        {currentView === 'board' && isCoach && (
           <>
-            <Sidebar
-              selectedPlayerId={selectedPlayerId}
-              onSelectPlayer={setSelectedPlayerId}
-            />
+            <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
             <div className="flex-1 overflow-hidden">
-              <TacticBoard
-                selectedPlayerId={selectedPlayerId}
-                onSelectPlayer={setSelectedPlayerId}
-              />
+              <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
             </div>
           </>
         )}
 
-        {/* Kalender (trener) */}
+        {/* Kalender */}
         {currentView === 'calendar' && isCoach && (
-          <div className="flex-1 overflow-hidden">
-            <CalendarView />
-          </div>
+          <div className="flex-1 overflow-hidden"><CalendarView /></div>
         )}
 
-        {/* Spillerportal */}
-        {currentView === 'players' && (
-          <div className="flex-1 overflow-hidden">
-            <PlayerPortal />
-          </div>
+        {/* Spillerportal (trener administrerer) */}
+        {currentView === 'players' && isCoach && (
+          <div className="flex-1 overflow-hidden"><PlayerPortal /></div>
         )}
 
-        {/* Dommer-visning — tilgjengelig for alle */}
+        {/* Spillerhjem — spiller ser kun dette */}
+        {currentView === 'player-home' && role === 'player' && (
+          <div className="flex-1 overflow-hidden"><PlayerHome /></div>
+        )}
+
+        {/* Dommer */}
         {currentView === 'referee' && (
-          <div className="flex-1 overflow-hidden">
-            <RefereeView />
-          </div>
+          <div className="flex-1 overflow-hidden"><RefereeView /></div>
         )}
       </main>
 
       {/* ── MODALER ── */}
-
-      {selectedPlayerId && currentView === 'board' && (
+      {selectedPlayerId && currentView === 'board' && isCoach && (
         <PlayerEditor
           playerId={selectedPlayerId}
           phaseIdx={activePhaseIdx}
           onClose={() => setSelectedPlayerId(null)}
         />
       )}
-
-      {showSmartCoach && (
-        <SmartCoach onClose={() => setShowSmartCoach(false)} />
-      )}
-
-      {showMatchReport && (
-        <MatchReportModal onClose={() => setShowMatchReport(false)} />
-      )}
+      {showSmartCoach && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
+      {showMatchReport && <MatchReportModal onClose={() => setShowMatchReport(false)} />}
     </div>
   );
 }
@@ -203,8 +200,8 @@ const LogoutButton: React.FC = () => {
   const { logout } = useAppStore();
   return (
     <button onClick={logout}
-      className="px-2 py-0.5 rounded text-[10px] border border-[#1e3050]
-        text-[#3a5070] hover:text-red-400 hover:border-red-500/40 transition">
+      className="px-2.5 py-1 rounded-lg text-[11px] border border-[#1e3050]
+        text-[#3a5070] hover:text-red-400 hover:border-red-500/40 transition min-h-[36px]">
       Logg ut
     </button>
   );
