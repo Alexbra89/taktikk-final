@@ -18,7 +18,7 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
 
   keeper: {
     label: 'Keeper', color: '#f59e0b', border: '#d97706', emoji: '🧤',
-    sports: ['football', 'handball', 'floorball'],
+    sports: ['football', 'handball'],
     description: 'Siste skanse – hindrer mål og starter oppspill fra bakre linje.',
     responsibilities: [
       'Redde skudd fra alle vinkler og distanser',
@@ -37,7 +37,7 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
 
   defender: {
     label: 'Forsvarer', color: '#3b82f6', border: '#2563eb', emoji: '🛡️',
-    sports: ['football', 'floorball'],
+    sports: ['football'],
     description: 'Stopper motstanderens angrep og beskytter eget mål.',
     responsibilities: [
       'Vinne defensive dueller og taklinger',
@@ -94,7 +94,7 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
 
   midfielder: {
     label: 'Midtbane', color: '#22c55e', border: '#16a34a', emoji: '⚙️',
-    sports: ['football', 'floorball'],
+    sports: ['football'],
     description: 'Linken mellom forsvar og angrep – styrer tempoet i kampen.',
     responsibilities: [
       'Kontrollere balleie og kampens tempo',
@@ -132,7 +132,7 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
 
   playmaker: {
     label: 'Playmaker', color: '#ec4899', border: '#db2777', emoji: '🧠',
-    sports: ['football', 'handball', 'floorball'],
+    sports: ['football', 'handball'],
     description: 'Hjernen på laget – setter opp spillet og skaper avgjørende sjanser.',
     responsibilities: [
       'Skape sjanser med gjennombruddspasninger',
@@ -151,7 +151,7 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
 
   forward: {
     label: 'Spiss / Angriper', color: '#ef4444', border: '#dc2626', emoji: '⚡',
-    sports: ['football', 'floorball'],
+    sports: ['football'],
     description: 'Skal score mål og skape rom for medspillere gjennom hele angrepsfasen.',
     responsibilities: [
       'Avslutte sjanser med presisjon',
@@ -391,93 +391,18 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
     ],
     tacticalTips: [
       'Aldri hast – rolig spillfordeling skaper mer enn fart',
-      'Øynene forteller deg mer enn benen – se alltid opp',
+      'Øynene forteller deg mer enn bena – se alltid opp',
       'Gjennomspill til pivot: timing er viktigere enn kraft',
+      'Variasjon i angrepsretning holder forsvaret på vakt',
     ],
     examplePlayers: ['Aleksandar Rakita', 'Domagoj Duvnjak'],
   },
 
-  // ─── INNEBANDY ──────────────────────────────────────────────
-
-  fb_keeper: {
-    label: 'Keeper (IB)', color: '#f59e0b', border: '#d97706', emoji: '🧤',
-    sports: ['floorball'],
-    description: 'Ligger på kne og redder skudd med hele kroppen som skjold.',
-    responsibilities: [
-      'Liggende redningsstil – armene ut i begge sider',
-      'Raskt opp igjen etter redning',
-      'God kommunikasjon med forsvar',
-      'Starte hurtige kontringer med presis utspark',
-    ],
-    tacticalTips: [
-      'T-posisjon: alltid kne-sprett mellom mål og skytter',
-      'Bruk hele kroppen – armene, benene, brystet',
-      'Etter redning: finn den åpne løperen øyeblikkelig',
-      'Mental ro er nøkkelen – du slipper inn mål, det er normalt',
-    ],
-    examplePlayers: ['Pascal Frey', 'Sami Johansson'],
-  },
-
-  fb_back: {
-    label: 'Back (IB)', color: '#0ea5e9', border: '#0284c7', emoji: '🔒',
-    sports: ['floorball'],
-    description: 'Stopper angrep bakfra og starter oppspill med presisjon.',
-    responsibilities: [
-      'Blokkere skudd og bryte pasninger',
-      'Posisjonering fremfor aggressivitet',
-      'Starte kontringer med presise pasninger',
-      'Samarbeide tett med keeper defensivt',
-    ],
-    tacticalTips: [
-      'Ligge lavt med klubba – dekk alltid skuddbanen',
-      'Gjenvinn alltid posisjonen bak ballen etter angrep',
-      'Pasning ut av press: aldri mot midten – alltid langs kanten',
-      'Kommuniser med makerbacker',
-    ],
-    examplePlayers: ['Johan Samuelsson', 'Emil Johansson'],
-  },
-
-  fb_forward: {
-    label: 'Forward (IB)', color: '#84cc16', border: '#65a30d', emoji: '🏒',
-    sports: ['floorball'],
-    description: 'Angrepsspiller som scorer mål og presser motstanderens forsvar.',
-    responsibilities: [
-      'Score mål med presis avslutningsteknikk',
-      'Presse motstanderens forsvar høyt for å tvinge feil',
-      'Utnytte rom og bevege seg uten ball',
-      'Teknisk og eksplosiv i avsluttende sone',
-    ],
-    tacticalTips: [
-      'Skuddteknikk: flat og hard er bedre enn myk og benet',
-      'Beveg deg som om du allerede har ballen',
-      'Press starten alltid fra den siden som kan blokkere bakpasning',
-      'Vær i riktig posisjon NÅR ballen kommer – ikke etter',
-    ],
-    examplePlayers: ['Alexander Galante Carlström', 'Rasmus Sundstedt'],
-  },
-
-  fb_midfielder: {
-    label: 'Midtbane (IB)', color: '#22c55e', border: '#16a34a', emoji: '⚙️',
-    sports: ['floorball'],
-    description: 'Ledd mellom forsvar og angrep – rydder, støtter og setter i gang.',
-    responsibilities: [
-      'Støtte forsvar og angrep like mye',
-      'Gjenvinne ball og sette i gang kontringer',
-      'Distribuere ball smart mellom linjene',
-      'Jobbe i begge retninger med høy intensitet',
-    ],
-    tacticalTips: [
-      'Se alltid fremover – backen bak deg er din sikkerhet',
-      'Tidlig pasning holder tempo oppe',
-      'Defensivt: press alltid bakpasning',
-    ],
-    examplePlayers: ['Kim Nilsson', 'Rasmus Persson'],
-  },
 };
 
-// Hjelper: roller tilgjengelig for en sport
+// ─── Hjelpefunksjon ──────────────────────────────────────────
+
 export function getRolesForSport(sport: Sport): PlayerRole[] {
-  return (Object.keys(ROLE_META) as PlayerRole[]).filter(
-    r => ROLE_META[r].sports.includes(sport)
-  );
+  const allRoles = Object.keys(ROLE_META) as PlayerRole[];
+  return allRoles.filter(r => ROLE_META[r].sports.includes(sport));
 }
