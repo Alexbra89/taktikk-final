@@ -8,11 +8,14 @@ import { useAppStore } from '@/store/useAppStore';
 type Mode = 'choose' | 'coach-sport' | 'coach-login' | 'player';
 
 export const LoginGate: React.FC = () => {
-  const [mode, setMode]     = useState<Mode>('choose');
-  const [sport, setSport]   = useState<'football' | 'handball'>('football');
-  const [email, setEmail]   = useState('');
-  const [password, setPass] = useState('');
-  const [error, setError]   = useState('');
+  const [mode, setMode]       = useState<Mode>('choose');
+  const [sport, setSport]     = useState<'football' | 'handball'>('football');
+  const [email, setEmail]     = useState('');
+  const [password, setPass]   = useState('');
+  const [error, setError]     = useState('');
+  // FIX: These hooks were inside a conditional return — moved to top level
+  const [accountId, setAccountId] = useState('');
+  const [pin, setPin]             = useState('');
 
   const { loginCoach, playerAccounts, loginPlayer, setSport: storeSport } = useAppStore();
 
@@ -112,8 +115,9 @@ export const LoginGate: React.FC = () => {
   }
 
   // ── Spiller: konto + PIN ─────────────────────────────────────
-  const [accountId, setAccountId] = useState('');
-  const [pin, setPin]             = useState('');
+  // FIX: accountId and pin are now declared at the top of the component,
+  // not inside this conditional block. This fixes the React hooks rules violation
+  // that caused the "Application error: a client-side exception" crash.
 
   const submitPlayer = () => {
     if (!accountId) { setError('Velg din konto.'); return; }
@@ -147,11 +151,16 @@ export const LoginGate: React.FC = () => {
 
         <div className="mb-6">
           <FieldLabel>PIN-kode</FieldLabel>
-          <input type="password" inputMode="numeric" maxLength={4} value={pin}
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={pin}
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             onKeyDown={e => e.key === 'Enter' && submitPlayer()}
             className="lg-inp text-center tracking-[10px] text-[22px]"
-            placeholder="••••" />
+            placeholder="••••"
+          />
           {pin.length > 0 && pin.length < 4 && (
             <p className="text-[10px] text-amber-400 mt-1 text-center">
               {4 - pin.length} siffer til
@@ -246,16 +255,7 @@ const SubmitBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, 
   </button>
 );
 
-// Globale input-stiler
-const _styles = `
-  <style>
-    .lg-inp { display:block; width:100%; background:#111c30; border:1px solid #1e3050;
-      border-radius:10px; padding:13px 16px; color:#e2e8f0; font-size:15px;
-      box-sizing:border-box; min-height:52px; }
-    .lg-inp:focus { outline:none; border-color:#38bdf8; }
-  </style>
-`;
-// Injiserer globale stiler i head
+// Global input styles injected once
 if (typeof document !== 'undefined' && !document.getElementById('lg-styles')) {
   const el = document.createElement('style');
   el.id = 'lg-styles';

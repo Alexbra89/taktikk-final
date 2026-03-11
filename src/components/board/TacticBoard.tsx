@@ -1,11 +1,10 @@
 'use client';
-import React, { useRef, useState, useEffect } from 'react'; // Fjernet useCallback (ubrukt)
+import React, { useRef, useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Player } from '../../types';
 import { VW, VH } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { HandballPitch } from './pitches/HandballPitch';
-// FJERN DENNE LINJEN: import { FloorballPitch } from './pitches/FloorballPitch';
 import { DraggablePlayer, Ball, DrawingCanvas } from './BoardElements';
 
 interface TacticBoardProps {
@@ -67,7 +66,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
-  // ─── Interpolerte posisjoner ─────────────────────────────────
+  // ─── Interpolated positions ──────────────────────────────────
   function getDisplayPlayers(): Player[] {
     if (!phase) return [];
     if (!isPlaying || interpT === 0) return phase.players;
@@ -96,34 +95,39 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     };
   }
 
-  // ─── SVG input ───────────────────────────────────────────────
-  function svgXY(e: React.MouseEvent<SVGSVGElement>) {
+  // ─── SVG coords from pointer event ──────────────────────────
+  function svgXYFromPointer(clientX: number, clientY: number) {
     const svg = svgRef.current; if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
     return {
-      x: Math.max(45, Math.min(VW-45, ((e.clientX-rect.left)/rect.width)*VW)),
-      y: Math.max(45, Math.min(VH-45, ((e.clientY-rect.top)/rect.height)*VH)),
+      x: Math.max(45, Math.min(VW - 45, ((clientX - rect.left) / rect.width) * VW)),
+      y: Math.max(45, Math.min(VH - 45, ((clientY - rect.top) / rect.height) * VH)),
     };
   }
 
-  function onSvgMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+  // ─── Pointer events for drawing (replaces mouse events) ─────
+  function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (isPlaying || !drawMode) return;
-    const pt = svgXY(e);
+    // Only start drawing if clicking on the SVG background, not on a player
+    const target = e.target as SVGElement;
+    if (target !== svgRef.current && target.closest('g[data-player]')) return;
+    e.preventDefault();
+    const pt = svgXYFromPointer(e.clientX, e.clientY);
     isDrawing.current = true;
     drawPts.current = [pt];
     setLiveDrawPts([pt]);
+    (e.target as Element).setPointerCapture(e.pointerId);
   }
 
-  function onSvgMouseMove(e: React.MouseEvent<SVGSVGElement>) {
-    if (isPlaying) return;
-    if (drawMode && isDrawing.current) {
-      const { x, y } = svgXY(e);
-      drawPts.current.push({ x, y });
-      setLiveDrawPts([...drawPts.current]);
-    }
+  function onSvgPointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (isPlaying || !drawMode || !isDrawing.current) return;
+    e.preventDefault();
+    const { x, y } = svgXYFromPointer(e.clientX, e.clientY);
+    drawPts.current.push({ x, y });
+    setLiveDrawPts([...drawPts.current]);
   }
 
-  function onSvgMouseUp() {
+  function onSvgPointerUp() {
     if (drawMode && isDrawing.current && drawPts.current.length > 4) {
       addDrawing(activePhaseIdx, { pts: [...drawPts.current], color: '#f87171' });
     }
@@ -138,14 +142,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Kontrollrad ── */}
+      {/* ── Control bar ── */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#0d1626] border-b border-[#1e3050] flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-bold text-[#4a6080] uppercase tracking-widest mr-1">Faser</span>
           {phases.map((ph, idx) => (
             <button key={ph.id}
               onClick={() => !isPlaying && setActivePhaseIdx(idx)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all
+              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all min-h-[36px]
                 ${activePhaseIdx === idx ? 'bg-sky-500/15 border-sky-500 text-sky-400'
                   : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}
                 ${isPlaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
@@ -154,24 +158,25 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             </button>
           ))}
           <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
-            className="w-6 h-6 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] hover:border-emerald-500 text-sm disabled:opacity-40">＋</button>
+            className="w-8 h-8 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] hover:border-emerald-500 text-sm disabled:opacity-40 min-h-[36px]">＋</button>
           {phases.length > 1 && (
             <button onClick={() => !isPlaying && removePhase(activePhaseIdx)} disabled={isPlaying}
-              className="w-6 h-6 flex items-center justify-center rounded text-red-400 border border-[#1e3050] hover:border-red-500 text-sm disabled:opacity-40">－</button>
+              className="w-8 h-8 flex items-center justify-center rounded text-red-400 border border-[#1e3050] hover:border-red-500 text-sm disabled:opacity-40 min-h-[36px]">－</button>
           )}
         </div>
 
         <div className="flex-1" />
 
+        {/* Larger touch targets for mobile */}
         <button onClick={() => setShowSticky(!showSticky)}
-          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all
+          className={`px-3 py-2 rounded-md text-[11px] font-semibold border transition-all min-h-[36px]
             ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400'
               : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
           📌 Notat
         </button>
 
         <button onClick={() => setDrawMode(!drawMode)}
-          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all
+          className={`px-3 py-2 rounded-md text-[11px] font-semibold border transition-all min-h-[36px]
             ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400'
               : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
           {drawMode ? '✏️ Avslutt' : '✏️ Tegn'}
@@ -179,7 +184,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
         {(phase?.drawings?.length ?? 0) > 0 && (
           <button onClick={() => clearDrawings(activePhaseIdx)}
-            className="px-2.5 py-1 rounded-md text-[11px] border border-[#1e3050] text-red-400/70 hover:text-red-400">
+            className="px-3 py-2 rounded-md text-[11px] border border-[#1e3050] text-red-400/70 hover:text-red-400 min-h-[36px]">
             🗑️
           </button>
         )}
@@ -187,10 +192,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
         <div className="flex items-center gap-1.5 bg-[#111c30] rounded-lg px-2.5 py-1.5 border border-[#1e3050]">
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.max(0, activePhaseIdx-1))}
             disabled={isPlaying || activePhaseIdx === 0}
-            className="text-slate-400 disabled:opacity-30 text-base px-0.5">⏮</button>
+            className="text-slate-400 disabled:opacity-30 text-base px-1 min-h-[36px] min-w-[32px]">⏮</button>
           <button onClick={() => isPlaying ? stopPlayback() : startPlayback()}
             disabled={phases.length < 2}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border transition-all
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm border transition-all
               ${phases.length < 2 ? 'border-[#1e3050] text-[#334155] cursor-not-allowed'
                 : isPlaying ? 'border-red-500 bg-red-500/15 text-red-400'
                 : 'border-sky-500 bg-sky-500/15 text-sky-400'}`}>
@@ -198,7 +203,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           </button>
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.min(phases.length-1, activePhaseIdx+1))}
             disabled={isPlaying || activePhaseIdx === phases.length-1}
-            className="text-slate-400 disabled:opacity-30 text-base px-0.5">⏭</button>
+            className="text-slate-400 disabled:opacity-30 text-base px-1 min-h-[36px] min-w-[32px]">⏭</button>
           <select value={playSpeed} onChange={e => setPlaySpeed(Number(e.target.value))}
             className="bg-transparent border-none text-[#4a6080] text-[11px] cursor-pointer ml-1">
             <option value={0.5}>0.5×</option>
@@ -223,58 +228,77 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
         </div>
       )}
 
-      {/* ── SVG-bane ── */}
-      <div className="flex-1 flex items-center justify-center p-3 bg-[#050c18] overflow-hidden">
-        <svg ref={svgRef}
-          viewBox={`0 0 ${VW} ${VH}`}
-          className="max-w-full max-h-full rounded-xl"
-          style={{ boxShadow: '0 0 80px rgba(0,0,0,0.9)', cursor: drawMode ? 'crosshair' : 'default' }}
-          onMouseDown={onSvgMouseDown}
-          onMouseMove={onSvgMouseMove}
-          onMouseUp={onSvgMouseUp}
-          onMouseLeave={onSvgMouseUp}
-        >
-          <defs>
-            <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/></filter>
-            <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
-              <rect width="50" height="50" fill="#1b5e2a"/>
-              <rect width="50" height="25" fill="#1d6430"/>
-            </pattern>
-          </defs>
-          <rect width={VW} height={VH} fill="url(#grass)"/>
+      {/* ── SVG pitch — responsive, preserves aspect ratio ── */}
+      <div className="flex-1 flex items-center justify-center p-2 sm:p-3 bg-[#050c18] overflow-hidden">
+        <div className="w-full" style={{ maxHeight: '100%', aspectRatio: `${VW} / ${VH}` }}>
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${VW} ${VH}`}
+            className="w-full h-full rounded-xl touch-none"
+            style={{
+              boxShadow: '0 0 80px rgba(0,0,0,0.9)',
+              cursor: drawMode ? 'crosshair' : 'default',
+              display: 'block',
+            }}
+            onPointerDown={onSvgPointerDown}
+            onPointerMove={onSvgPointerMove}
+            onPointerUp={onSvgPointerUp}
+            onPointerLeave={onSvgPointerUp}
+          >
+            <defs>
+              <filter id="dropShadow">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
+              </filter>
+              <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
+                <rect width="50" height="50" fill="#1b5e2a"/>
+                <rect width="50" height="25" fill="#1d6430"/>
+              </pattern>
+            </defs>
+            <rect width={VW} height={VH} fill="url(#grass)"/>
 
-          {/* RENDERING AV BANER - INNEBANDY ER FJERNET HERFRA */}
-          {sport === 'football'  && <FootballPitch />}
-          {sport === 'handball'  && <HandballPitch />}
+            {sport === 'football' && <FootballPitch />}
+            {sport === 'handball' && <HandballPitch />}
 
-          {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
+            {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
 
-          {liveDrawPts.length > 1 && (
-            <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
-              stroke="#f87171" strokeWidth={3} fill="none" strokeLinecap="round" strokeDasharray="8,5" />
-          )}
+            {liveDrawPts.length > 1 && (
+              <polyline
+                points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
+                stroke="#f87171" strokeWidth={3} fill="none"
+                strokeLinecap="round" strokeDasharray="8,5"
+              />
+            )}
 
-          {phase && (
-            <Ball position={displayBall} isDraggable={!isPlaying && !drawMode}
-              onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
-          )}
+            {phase && (
+              <Ball
+                position={displayBall}
+                isDraggable={!isPlaying && !drawMode}
+                onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)}
+              />
+            )}
 
-          {displayPlayers.map(player => (
-            <DraggablePlayer key={player.id} player={player}
-              isActive={!isPlaying && !drawMode}
-              isSelected={selectedPlayerId === player.id}
-              awayTeamColor={awayTeamColor}
-              onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
-              onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
-              showName
-            />
-          ))}
+            {displayPlayers.map(player => (
+              <DraggablePlayer
+                key={player.id}
+                player={player}
+                isActive={!isPlaying && !drawMode}
+                isSelected={selectedPlayerId === player.id}
+                awayTeamColor={awayTeamColor}
+                onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
+                onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
+                showName
+              />
+            ))}
 
-          {isPlaying && (
-            <rect x={32} y={VH - 14} rx={3} height={5}
-              width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8} />
-          )}
-        </svg>
+            {isPlaying && (
+              <rect
+                x={32} y={VH - 14} rx={3} height={5}
+                width={progressFrac * (VW - 64)}
+                fill="#38bdf8" opacity={0.8}
+              />
+            )}
+          </svg>
+        </div>
       </div>
     </div>
   );

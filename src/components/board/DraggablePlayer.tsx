@@ -6,7 +6,10 @@ import { Player } from '@/types';
 interface DraggablePlayerProps {
   player: Player;
   isActive: boolean;
+  isSelected?: boolean;
+  awayTeamColor?: string;
   onPositionChange: (position: { x: number; y: number }) => void;
+  onSelect?: () => void;
   showName?: boolean;
 }
 
@@ -21,34 +24,34 @@ const ROLE_COLORS: Record<string, { fill: string; stroke: string }> = {
   playmaker:  { fill: '#ec4899', stroke: '#db2777' },
 };
 
-const TEAM_OUTLINE: Record<string, string> = {
-  home: '#ffffff',
-  away: '#1e293b',
-};
-
 export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   player,
   isActive,
+  isSelected = false,
+  awayTeamColor,
   onPositionChange,
+  onSelect,
   showName = true,
 }) => {
   const isDragging = useRef(false);
+  const hasMoved = useRef(false);
   const svgRef = useRef<SVGGElement>(null);
 
   const colors = ROLE_COLORS[player.role] ?? { fill: '#64748b', stroke: '#475569' };
-  const outline = TEAM_OUTLINE[player.team] ?? '#ffffff';
 
-  const getParentSVG = (): SVGSVGElement | null => {
-    return svgRef.current?.ownerSVGElement ?? null;
-  };
+  // Away team uses awayTeamColor for fill, home team uses role colors
+  const fillColor = player.team === 'away' && awayTeamColor ? awayTeamColor : colors.fill;
+  const strokeColor = player.team === 'away' && awayTeamColor ? awayTeamColor : colors.stroke;
 
-  const getSVGCoords = useCallback((e: MouseEvent | TouchEvent) => {
+  // Outline ring: white for home, dark for away
+  const outlineColor = player.team === 'away' ? '#1e293b' : '#ffffff';
+
+  const getParentSVG = (): SVGSVGElement | null =>
+    svgRef.current?.ownerSVGElement ?? null;
+
+  const getSVGCoords = useCallback((clientX: number, clientY: number) => {
     const svg = getParentSVG();
     if (!svg) return null;
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-
     const pt = svg.createSVGPoint();
     pt.x = clientX;
     pt.y = clientY;
@@ -61,48 +64,32 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     };
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!isActive) return;
     e.preventDefault();
     e.stopPropagation();
     isDragging.current = true;
+    hasMoved.current = false;
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }, [isActive]);
 
-    const handleMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return;
-      const coords = getSVGCoords(ev);
-      if (coords) onPositionChange(coords);
-    };
-
-    const handleUp = () => {
-      isDragging.current = false;
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-  }, [isActive, getSVGCoords, onPositionChange]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!isActive) return;
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current || !isActive) return;
     e.preventDefault();
-    isDragging.current = true;
-
-    const handleMove = (ev: TouchEvent) => {
-      if (!isDragging.current) return;
-      const coords = getSVGCoords(ev);
-      if (coords) onPositionChange(coords);
-    };
-
-    const handleEnd = () => {
-      isDragging.current = false;
-      window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('touchend', handleEnd);
-    };
-
-    window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', handleEnd);
+    hasMoved.current = true;
+    const coords = getSVGCoords(e.clientX, e.clientY);
+    if (coords) onPositionChange(coords);
   }, [isActive, getSVGCoords, onPositionChange]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    // Only fire onSelect if the user just tapped (didn't drag)
+    if (!hasMoved.current && onSelect) {
+      onSelect();
+    }
+    hasMoved.current = false;
+  }, [onSelect]);
 
   const { x, y } = player.position;
   const r = 18;
@@ -110,25 +97,37 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   return (
     <g
       ref={svgRef}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
-      style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none', touchAction: 'none' }}
       filter="url(#dropShadow)"
     >
-      {/* Ytre ring (lag-farge) */}
+      {/* Selection ring */}
+      {isSelected && (
+        <circle
+          cx={x} cy={y} r={r + 7}
+          fill="none"
+          stroke="#38bdf8"
+          strokeWidth={2.5}
+          strokeDasharray="5,3"
+          opacity={0.9}
+        />
+      )}
+      {/* Outer ring (team color) */}
       <circle
         cx={x} cy={y} r={r + 2.5}
-        fill={outline}
+        fill={outlineColor}
         opacity={0.9}
       />
-      {/* Indre sirkel (rolle-farge) */}
+      {/* Inner circle (role color) */}
       <circle
         cx={x} cy={y} r={r}
-        fill={colors.fill}
-        stroke={colors.stroke}
+        fill={fillColor}
+        stroke={strokeColor}
         strokeWidth={1.5}
       />
-      {/* Nummer */}
+      {/* Number */}
       <text
         x={x} y={y + 1}
         textAnchor="middle"
@@ -141,7 +140,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
       >
         {player.num}
       </text>
-      {/* Navn under */}
+      {/* Name below */}
       {showName && player.name && (
         <text
           x={x} y={y + r + 11}

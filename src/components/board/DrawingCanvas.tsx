@@ -24,12 +24,13 @@ const ArrowHead: React.FC<{
 };
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ drawing }) => {
-  // Her henter vi ut 'type' og bruker 'pts' i stedet for 'points'
-  const { type, pts, color } = drawing as any;
+  const { pts, color } = drawing as any;
+  // Support both typed and untyped drawings — untyped = freehand polyline
+  const type: string = (drawing as any).type ?? 'freehand';
 
   if (!pts || pts.length < 2) return null;
 
-  const d = pts.reduce((path: string, pt: any, i: number) =>
+  const d = pts.reduce((path: string, pt: { x: number; y: number }, i: number) =>
     i === 0 ? `M ${pt.x} ${pt.y}` : `${path} L ${pt.x} ${pt.y}`, '');
 
   switch (type) {
@@ -80,7 +81,17 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ drawing }) => {
         </g>
       );
 
+    // Default: freehand polyline (drawings saved without a type field)
     default:
-      return null;
+      return (
+        <polyline
+          points={pts.map((p: { x: number; y: number }) => `${p.x},${p.y}`).join(' ')}
+          stroke={color}
+          strokeWidth={3}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
   }
 };
