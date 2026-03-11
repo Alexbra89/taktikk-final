@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { Player } from '@/types';
+import { ROLE_META } from '@/data/roleInfo';
+import { useAppStore } from '@/store/useAppStore';
 
 interface DraggablePlayerProps {
   player: Player;
@@ -13,17 +15,125 @@ interface DraggablePlayerProps {
   showName?: boolean;
 }
 
-const ROLE_COLORS: Record<string, { fill: string; stroke: string }> = {
-  keeper:     { fill: '#f59e0b', stroke: '#d97706' },
-  defender:   { fill: '#3b82f6', stroke: '#2563eb' },
-  midfielder: { fill: '#22c55e', stroke: '#16a34a' },
-  forward:    { fill: '#ef4444', stroke: '#dc2626' },
-  winger:     { fill: '#a855f7', stroke: '#9333ea' },
-  false9:     { fill: '#f97316', stroke: '#ea580c' },
-  libero:     { fill: '#6366f1', stroke: '#4f46e5' },
-  playmaker:  { fill: '#ec4899', stroke: '#db2777' },
+const ROLE_COLORS: Record<string, string> = {
+  keeper:     '#f59e0b',
+  defender:   '#3b82f6',
+  midfielder: '#22c55e',
+  forward:    '#ef4444',
+  winger:     '#a855f7',
+  false9:     '#f97316',
+  libero:     '#6366f1',
+  playmaker:  '#ec4899',
 };
 
+// ─── Inline name editor rendered as SVG foreignObject ────────
+const NameEditor: React.FC<{
+  player: Player;
+  svgX: number;
+  svgY: number;
+  onClose: () => void;
+}> = ({ player, svgX, svgY, onClose }) => {
+  const { playerAccounts, activePhaseIdx, updatePlayerField } = useAppStore();
+  const [customName, setCustomName] = useState(player.name ?? '');
+
+  const accounts = (playerAccounts as any[]).filter(
+    (a: any) => a.team === (player.team ?? 'home')
+  );
+  const meta = ROLE_META[player.role as keyof typeof ROLE_META];
+
+  const apply = (name: string) => {
+    updatePlayerField(activePhaseIdx, player.id, { name });
+    onClose();
+  };
+
+  // Keep editor within SVG bounds (VW=800, VH=600)
+  const fW = 230, fH = 150;
+  const fx = Math.max(5, Math.min(svgX - fW / 2, 795 - fW));
+  const fy = svgY + 26 + 11; // below the player name text
+
+  return (
+    <foreignObject x={fx} y={fy} width={fW} height={fH} style={{ overflow: 'visible' }}>
+      {/* @ts-ignore — xmlns needed for foreignObject children */}
+      <div xmlns="http://www.w3.org/1999/xhtml"
+        style={{
+          background: '#0c1525',
+          border: '1px solid rgba(56,189,248,0.4)',
+          borderRadius: 12,
+          padding: 10,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
+          fontFamily: 'system-ui, sans-serif',
+        }}
+        onPointerDown={e => e.stopPropagation()}
+      >
+        {/* Role header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <div style={{
+            width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
+            background: meta?.color ?? '#555',
+          }}/>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#4a6080',
+            textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {meta?.label ?? player.role} · #{player.num}
+          </span>
+        </div>
+
+        {/* Registered players dropdown */}
+        {accounts.length > 0 && (
+          <select
+            defaultValue=""
+            onChange={e => { if (e.target.value) apply(e.target.value); }}
+            style={{
+              width: '100%', background: '#111c30', border: '1px solid #1e3050',
+              borderRadius: 8, padding: '6px 8px', color: '#e2e8f0',
+              fontSize: 12, marginBottom: 6, minHeight: 34, boxSizing: 'border-box',
+            }}
+          >
+            <option value="">– Velg registrert spiller –</option>
+            {accounts.map((a: any) => (
+              <option key={a.id} value={a.name}>{a.name}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Manual name input */}
+        <div style={{ display: 'flex', gap: 5 }}>
+          <input
+            value={customName}
+            onChange={e => setCustomName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') apply(customName);
+              if (e.key === 'Escape') onClose();
+            }}
+            placeholder="Skriv navn..."
+            autoFocus
+            style={{
+              flex: 1, background: '#111c30', border: '1px solid #1e3050',
+              borderRadius: 8, padding: '5px 8px', color: '#e2e8f0',
+              fontSize: 12, minHeight: 32, boxSizing: 'border-box',
+            }}
+          />
+          <button
+            onPointerDown={e => { e.stopPropagation(); apply(customName); }}
+            style={{
+              padding: '0 10px', background: 'rgba(56,189,248,0.15)',
+              border: '1px solid rgba(56,189,248,0.4)', borderRadius: 8,
+              color: '#38bdf8', fontSize: 11, fontWeight: 700,
+              minHeight: 32, cursor: 'pointer',
+            }}>✓</button>
+          <button
+            onPointerDown={e => { e.stopPropagation(); onClose(); }}
+            style={{
+              padding: '0 8px', border: '1px solid #1e3050', borderRadius: 8,
+              color: '#4a6080', fontSize: 11, minHeight: 32, cursor: 'pointer',
+              background: 'transparent',
+            }}>✕</button>
+        </div>
+      </div>
+    </foreignObject>
+  );
+};
+
+// ─── Main DraggablePlayer ────────────────────────────────────
 export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   player,
   isActive,
@@ -33,35 +143,25 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   onSelect,
   showName = true,
 }) => {
-  const isDragging = useRef(false);
-  const hasMoved = useRef(false);
-  const svgRef = useRef<SVGGElement>(null);
+  const isDragging  = useRef(false);
+  const hasMoved    = useRef(false);
+  const svgRef      = useRef<SVGGElement>(null);
+  const [showEditor, setShowEditor] = useState(false);
 
-  const colors = ROLE_COLORS[player.role] ?? { fill: '#64748b', stroke: '#475569' };
-
-  // Away team uses awayTeamColor for fill, home team uses role colors
-  const fillColor = player.team === 'away' && awayTeamColor ? awayTeamColor : colors.fill;
-  const strokeColor = player.team === 'away' && awayTeamColor ? awayTeamColor : colors.stroke;
-
-  // Outline ring: white for home, dark for away
+  const fillColor    = player.team === 'away' && awayTeamColor
+    ? awayTeamColor
+    : (ROLE_COLORS[player.role] ?? '#64748b');
   const outlineColor = player.team === 'away' ? '#1e293b' : '#ffffff';
 
-  const getParentSVG = (): SVGSVGElement | null =>
-    svgRef.current?.ownerSVGElement ?? null;
-
   const getSVGCoords = useCallback((clientX: number, clientY: number) => {
-    const svg = getParentSVG();
+    const svg = svgRef.current?.ownerSVGElement;
     if (!svg) return null;
-    const pt = svg.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
+    const pt  = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
     const ctm = svg.getScreenCTM();
     if (!ctm) return null;
     const { x, y } = pt.matrixTransform(ctm.inverse());
-    return {
-      x: Math.max(55, Math.min(745, x)),
-      y: Math.max(55, Math.min(545, y)),
-    };
+    return { x: Math.max(55, Math.min(745, x)), y: Math.max(55, Math.min(545, y)) };
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -69,7 +169,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     e.preventDefault();
     e.stopPropagation();
     isDragging.current = true;
-    hasMoved.current = false;
+    hasMoved.current   = false;
     (e.target as Element).setPointerCapture(e.pointerId);
   }, [isActive]);
 
@@ -81,83 +181,63 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     if (coords) onPositionChange(coords);
   }, [isActive, getSVGCoords, onPositionChange]);
 
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+  const handlePointerUp = useCallback(() => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    // Only fire onSelect if the user just tapped (didn't drag)
-    if (!hasMoved.current && onSelect) {
-      onSelect();
+    if (!hasMoved.current && isActive) {
+      setShowEditor(prev => !prev);
+      if (onSelect) onSelect();
     }
     hasMoved.current = false;
-  }, [onSelect]);
+  }, [isActive, onSelect]);
 
   const { x, y } = player.position;
   const r = 18;
 
   return (
-    <g
-      ref={svgRef}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none', touchAction: 'none' }}
-      filter="url(#dropShadow)"
-    >
-      {/* Selection ring */}
-      {isSelected && (
-        <circle
-          cx={x} cy={y} r={r + 7}
-          fill="none"
-          stroke="#38bdf8"
-          strokeWidth={2.5}
-          strokeDasharray="5,3"
-          opacity={0.9}
+    <>
+      <g
+        ref={svgRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none', touchAction: 'none' }}
+        filter="url(#dropShadow)"
+      >
+        {isSelected && (
+          <circle cx={x} cy={y} r={r + 7} fill="none"
+            stroke="#38bdf8" strokeWidth={2.5} strokeDasharray="5,3" opacity={0.9}/>
+        )}
+        <circle cx={x} cy={y} r={r + 2.5} fill={outlineColor} opacity={0.9}/>
+        <circle cx={x} cy={y} r={r} fill={fillColor} stroke={fillColor} strokeWidth={1.5}/>
+        <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
+          fill="white" fontSize={11} fontWeight="800"
+          fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
+          {player.num}
+        </text>
+        {showName && player.name && (
+          <text x={x} y={y + r + 11} textAnchor="middle"
+            fill="white" fontSize={9} fontWeight="600"
+            fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}
+            paintOrder="stroke" stroke="rgba(0,0,0,0.7)"
+            strokeWidth={3} strokeLinejoin="round">
+            {player.name.length > 9 ? player.name.slice(0, 9) + '…' : player.name}
+          </text>
+        )}
+        <title>
+          {ROLE_META[player.role as keyof typeof ROLE_META]?.label ?? player.role}
+          {' · Trykk for å endre navn'}
+        </title>
+      </g>
+
+      {showEditor && isActive && (
+        <NameEditor
+          player={player}
+          svgX={x}
+          svgY={y}
+          onClose={() => setShowEditor(false)}
         />
       )}
-      {/* Outer ring (team color) */}
-      <circle
-        cx={x} cy={y} r={r + 2.5}
-        fill={outlineColor}
-        opacity={0.9}
-      />
-      {/* Inner circle (role color) */}
-      <circle
-        cx={x} cy={y} r={r}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={1.5}
-      />
-      {/* Number */}
-      <text
-        x={x} y={y + 1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill="white"
-        fontSize={11}
-        fontWeight="800"
-        fontFamily="system-ui, sans-serif"
-        style={{ pointerEvents: 'none' }}
-      >
-        {player.num}
-      </text>
-      {/* Name below */}
-      {showName && player.name && (
-        <text
-          x={x} y={y + r + 11}
-          textAnchor="middle"
-          fill="white"
-          fontSize={9}
-          fontWeight="600"
-          fontFamily="system-ui, sans-serif"
-          style={{ pointerEvents: 'none' }}
-          paintOrder="stroke"
-          stroke="rgba(0,0,0,0.7)"
-          strokeWidth={3}
-          strokeLinejoin="round"
-        >
-          {player.name.length > 9 ? player.name.slice(0, 9) + '…' : player.name}
-        </text>
-      )}
-    </g>
+    </>
   );
 };
