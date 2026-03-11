@@ -44,7 +44,7 @@ export const PlayerPortal: React.FC = () => {
   const sendChatMsg = () => {
     const txt = chatInput.trim();
     if (!txt || !currentUser) return;
-    sendChat(currentUser.role, currentUser.name, txt);
+    sendChat(currentUser.role as "coach" | "player", currentUser.name, txt);
     setChatInput('');
   };
 
