@@ -1,7 +1,8 @@
 'use client';
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { Player, Drawing } from '../../types';
 import { ROLE_META } from '../../data/roleInfo';
+import { useAppStore } from '../../store/useAppStore';
 
 // ═══ DraggablePlayer ══════════════════════════════════════════════
 
@@ -9,7 +10,7 @@ interface DraggablePlayerProps {
   player: Player;
   isActive: boolean;
   isSelected: boolean;
-  awayTeamColor?: string;   // overrides default red for away team
+  awayTeamColor?: string;
   onPositionChange: (pos: { x: number; y: number }) => void;
   onSelect: () => void;
   showName?: boolean;
@@ -18,111 +19,235 @@ interface DraggablePlayerProps {
 export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   player, isActive, isSelected, awayTeamColor, onPositionChange, onSelect, showName = true,
 }) => {
-  const groupRef = useRef<SVGGElement>(null);
-  const meta = ROLE_META[player.role] ?? ROLE_META['midfielder'];
-  const isInjured = !!player.injured;
-  const isHome = player.team === 'home';
+  const groupRef   = useRef<SVGGElement>(null);
+  const isDragging = useRef(false);
+  const hasMoved   = useRef(false);
+  const [showEditor, setShowEditor] = useState(false);
 
-  // For away team, use awayTeamColor to tint the outer ring
-  const outerFill = isHome
-    ? 'rgba(255,255,255,0.92)'
-    : (awayTeamColor ? awayTeamColor + '33' : 'rgba(20,30,45,0.92)'); // 33 = 20% opacity hex
-  const outerStroke = isHome ? undefined : (awayTeamColor ?? '#ef4444');
+  const meta    = ROLE_META[player.role] ?? ROLE_META['midfielder'];
+  const isHome  = player.team === 'home';
+  const fillColor  = isHome ? meta.color : (awayTeamColor ?? '#ef4444');
+  const ringFill   = isHome ? 'rgba(255,255,255,0.92)' : 'rgba(15,25,40,0.92)';
+  const ringStroke = isHome ? 'none' : (awayTeamColor ?? '#ef4444');
 
-  const getSVGCoords = useCallback((e: MouseEvent | TouchEvent) => {
+  // Convert client coords to SVG viewBox coords
+  const toSVGCoords = useCallback((clientX: number, clientY: number) => {
     const svg = groupRef.current?.ownerSVGElement;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-    const scaleX = parseFloat(svg.getAttribute('viewBox')?.split(' ')[2] || '880') / rect.width;
-    const scaleY = parseFloat(svg.getAttribute('viewBox')?.split(' ')[3] || '560') / rect.height;
+    const vbW  = parseFloat(svg.getAttribute('viewBox')?.split(' ')[2] ?? '880');
+    const vbH  = parseFloat(svg.getAttribute('viewBox')?.split(' ')[3] ?? '560');
     return {
-      x: Math.max(45, Math.min(835, (clientX - rect.left) * scaleX)),
-      y: Math.max(45, Math.min(515, (clientY - rect.top) * scaleY)),
+      x: Math.max(45, Math.min(vbW - 45, ((clientX - rect.left) / rect.width)  * vbW)),
+      y: Math.max(45, Math.min(vbH - 45, ((clientY - rect.top)  / rect.height) * vbH)),
     };
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // ── Pointer events — works for mouse, touch and stylus ──────
+  const onPointerDown = useCallback((e: React.PointerEvent<SVGGElement>) => {
     if (!isActive) return;
-    e.preventDefault(); e.stopPropagation();
-    const handleMove = (ev: MouseEvent) => {
-      const c = getSVGCoords(ev); if (c) onPositionChange(c);
-    };
-    const handleUp = () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-  }, [isActive, getSVGCoords, onPositionChange]);
+    e.preventDefault();
+    e.stopPropagation();
+    isDragging.current = true;
+    hasMoved.current   = false;
+    (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId);
+  }, [isActive]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<SVGGElement>) => {
+    if (!isDragging.current || !isActive) return;
+    e.preventDefault();
+    const c = toSVGCoords(e.clientX, e.clientY);
+    if (!c) return;
+    hasMoved.current = true;
+    onPositionChange(c);
+  }, [isActive, toSVGCoords, onPositionChange]);
+
+  const onPointerUp = useCallback((_e: React.PointerEvent<SVGGElement>) => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    if (!hasMoved.current) {
+      // It was a tap — open name editor and notify parent
+      setShowEditor(prev => !prev);
+      onSelect();
+    }
+    hasMoved.current = false;
+  }, [onSelect]);
 
   const { x, y } = player.position;
 
-  // Spilletids-fargekoding for kjerne-sirkel grense
-  const getPlaytimeRing = () => {
+  const playtimeColor = () => {
     const min = player.minutesPlayed ?? 0;
-    if (min > 60) return '#ef4444';   // rød – spilt mye
-    if (min > 30) return '#f59e0b';   // gul
-    return '#22c55e';                 // grønn – lite spilt
+    if (min > 60) return '#ef4444';
+    if (min > 30) return '#f59e0b';
+    return '#22c55e';
   };
 
   return (
-    <g ref={groupRef} onMouseDown={handleMouseDown}
-      style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none' }}
-      filter="url(#shadow)"
-      opacity={isInjured ? 0.45 : 1}>
+    <>
+      <g
+        ref={groupRef}
+        data-player="true"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        style={{
+          cursor: isActive ? 'grab' : 'default',
+          userSelect: 'none',
+          touchAction: 'none',
+        }}
+        filter="url(#dropShadow)"
+        opacity={player.injured ? 0.45 : 1}
+      >
+        {/* Playtime ring */}
+        <circle cx={x} cy={y} r={24}
+          fill="none" stroke={playtimeColor()} strokeWidth={2}
+          opacity={0.5} strokeDasharray="4 2" />
 
-      {/* Spilletids-ring (ytre) */}
-      <circle cx={x} cy={y} r={24}
-        fill="none"
-        stroke={getPlaytimeRing()}
-        strokeWidth={2}
-        opacity={0.6}
-        strokeDasharray="4 2"
-      />
+        {/* Team ring */}
+        <circle cx={x} cy={y} r={21}
+          fill={ringFill}
+          stroke={isSelected ? '#38bdf8' : (isHome ? 'none' : ringStroke)}
+          strokeWidth={isSelected ? 2.5 : (isHome ? 0 : 2)} />
 
-      {/* Lag-ring */}
-      <circle cx={x} cy={y} r={21}
-        fill={outerFill}
-        stroke={isSelected ? '#38bdf8' : (isHome ? 'none' : (outerStroke ?? '#ef4444'))}
-        strokeWidth={isSelected ? 2.5 : (isHome ? 0 : 2)} />
+        {/* Role fill */}
+        <circle cx={x} cy={y} r={18}
+          fill={fillColor} stroke={meta.border} strokeWidth={1.5} />
 
-      {/* Rolle-sirkel */}
-      <circle cx={x} cy={y} r={18} fill={meta.color} stroke={meta.border} strokeWidth={1.5} />
-
-      {/* Nummer */}
-      <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
-        fill="white" fontSize="12" fontWeight="800"
-        style={{ pointerEvents: 'none' }}>
-        {player.num}
-      </text>
-
-      {/* Navn */}
-      {showName && (
-        <text x={x} y={y + 33} textAnchor="middle" fill="white" fontSize="9.5"
-          fontWeight="600" paintOrder="stroke" stroke="rgba(0,0,0,0.85)" strokeWidth={3}
+        {/* Number */}
+        <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
+          fill="white" fontSize="12" fontWeight="800"
           style={{ pointerEvents: 'none' }}>
-          {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
+          {player.num}
         </text>
-      )}
 
-      {/* Skade-emoji */}
-      {isInjured && (
-        <text x={x - 10} y={y - 14} fontSize="12" style={{ pointerEvents: 'none' }}>🩹</text>
-      )}
+        {/* Name */}
+        {showName && player.name && (
+          <text x={x} y={y + 33} textAnchor="middle" fill="white" fontSize="9.5"
+            fontWeight="600" paintOrder="stroke"
+            stroke="rgba(0,0,0,0.85)" strokeWidth={3}
+            style={{ pointerEvents: 'none' }}>
+            {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
+          </text>
+        )}
 
-      {/* Blyant-ikon */}
-      {isActive && (
-        <text x={x + 17} y={y - 15}
-          fill={isSelected ? '#38bdf8' : 'rgba(255,255,255,0.5)'}
-          fontSize="14"
-          style={{ cursor: 'pointer', pointerEvents: 'all' }}
-          onClick={e => { e.stopPropagation(); onSelect(); }}>
-          ✎
-        </text>
+        {/* Injury badge */}
+        {player.injured && (
+          <text x={x - 10} y={y - 14} fontSize="12"
+            style={{ pointerEvents: 'none' }}>🩹</text>
+        )}
+
+        {/* Edit pencil */}
+        {isActive && (
+          <text x={x + 17} y={y - 15}
+            fill={isSelected ? '#38bdf8' : 'rgba(255,255,255,0.5)'}
+            fontSize="14"
+            style={{ cursor: 'pointer', pointerEvents: 'all' }}>
+            ✎
+          </text>
+        )}
+      </g>
+
+      {/* Name editor popup */}
+      {showEditor && isActive && (
+        <NameEditor player={player} svgX={x} svgY={y}
+          onClose={() => setShowEditor(false)} />
       )}
-    </g>
+    </>
+  );
+};
+
+// ═══ NameEditor ══════════════════════════════════════════════
+
+const NameEditor: React.FC<{
+  player: Player;
+  svgX: number;
+  svgY: number;
+  onClose: () => void;
+}> = ({ player, svgX, svgY, onClose }) => {
+  const { playerAccounts, activePhaseIdx, updatePlayerField } = useAppStore();
+  const [customName, setCustomName] = useState(player.name ?? '');
+
+  const accounts = (playerAccounts as any[]).filter(
+    (a: any) => a.team === (player.team ?? 'home')
+  );
+  const meta = ROLE_META[player.role] ?? ROLE_META['midfielder'];
+
+  const apply = (name: string) => {
+    updatePlayerField(activePhaseIdx, player.id, { name });
+    onClose();
+  };
+
+  const fW = 240;
+  const fx = Math.max(5, Math.min(svgX - fW / 2, 875 - fW));
+  const fy = svgY + 32;
+
+  return (
+    <foreignObject x={fx} y={fy} width={fW} height={190} style={{ overflow: 'visible' }}>
+      {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
+      {/* @ts-ignore */}
+      <div xmlns="http://www.w3.org/1999/xhtml"
+        onPointerDown={(e: any) => e.stopPropagation()}
+        style={{
+          background: '#0c1525',
+          border: '1px solid rgba(56,189,248,0.45)',
+          borderRadius: 12,
+          padding: '10px',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.85)',
+          fontFamily: 'system-ui, sans-serif',
+        }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#4a6080', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {meta.label} · #{player.num}
+          </span>
+          <button onPointerDown={(e: any) => { e.stopPropagation(); onClose(); }}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#4a6080', fontSize: 14, cursor: 'pointer' }}>
+            ✕
+          </button>
+        </div>
+
+        {/* Registered players dropdown */}
+        {accounts.length > 0 && (
+          <select defaultValue=""
+            onChange={(e: any) => { if (e.target.value) apply(e.target.value); }}
+            style={{
+              width: '100%', background: '#111c30', border: '1px solid #1e3050',
+              borderRadius: 8, padding: '6px 8px', color: '#e2e8f0',
+              fontSize: 12, marginBottom: 6, minHeight: 36, boxSizing: 'border-box' as const,
+            }}>
+            <option value="">– Velg registrert spiller –</option>
+            {accounts.map((a: any) => (
+              <option key={a.id} value={a.name}>{a.name}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Manual input */}
+        <div style={{ display: 'flex', gap: 5 }}>
+          <input value={customName}
+            onChange={(e: any) => setCustomName(e.target.value)}
+            onKeyDown={(e: any) => {
+              if (e.key === 'Enter') apply(customName);
+              if (e.key === 'Escape') onClose();
+            }}
+            placeholder="Skriv navn..."
+            autoFocus
+            style={{
+              flex: 1, background: '#111c30', border: '1px solid #1e3050',
+              borderRadius: 8, padding: '5px 8px', color: '#e2e8f0',
+              fontSize: 12, minHeight: 34, boxSizing: 'border-box' as const,
+            }} />
+          <button onPointerDown={(e: any) => { e.stopPropagation(); apply(customName); }}
+            style={{
+              padding: '0 10px', background: 'rgba(56,189,248,0.15)',
+              border: '1px solid rgba(56,189,248,0.4)',
+              borderRadius: 8, color: '#38bdf8',
+              fontSize: 11, fontWeight: 700, minHeight: 34, cursor: 'pointer',
+            }}>✓</button>
+        </div>
+      </div>
+    </foreignObject>
   );
 };
 
@@ -135,39 +260,56 @@ interface BallProps {
 }
 
 export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionChange }) => {
-  const ref = useRef<SVGGElement>(null);
+  const ref        = useRef<SVGGElement>(null);
+  const isDragging = useRef(false);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!isDraggable) return;
-    e.preventDefault(); e.stopPropagation();
+  const toSVGCoords = useCallback((clientX: number, clientY: number) => {
     const svg = ref.current?.ownerSVGElement;
-    if (!svg) return;
-    const handleMove = (ev: MouseEvent) => {
-      const rect = svg.getBoundingClientRect();
-      const scaleX = parseFloat(svg.getAttribute('viewBox')?.split(' ')[2] || '880') / rect.width;
-      const scaleY = parseFloat(svg.getAttribute('viewBox')?.split(' ')[3] || '560') / rect.height;
-      onPositionChange({
-        x: Math.max(45, Math.min(835, (ev.clientX - rect.left) * scaleX)),
-        y: Math.max(45, Math.min(515, (ev.clientY - rect.top) * scaleY)),
-      });
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const vbW  = parseFloat(svg.getAttribute('viewBox')?.split(' ')[2] ?? '880');
+    const vbH  = parseFloat(svg.getAttribute('viewBox')?.split(' ')[3] ?? '560');
+    return {
+      x: Math.max(45, Math.min(vbW - 45, ((clientX - rect.left) / rect.width)  * vbW)),
+      y: Math.max(45, Math.min(vbH - 45, ((clientY - rect.top)  / rect.height) * vbH)),
     };
-    const handleUp = () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-  }, [isDraggable, onPositionChange]);
+  }, []);
+
+  const onPointerDown = useCallback((e: React.PointerEvent<SVGGElement>) => {
+    if (!isDraggable) return;
+    e.preventDefault();
+    e.stopPropagation();
+    isDragging.current = true;
+    (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId);
+  }, [isDraggable]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<SVGGElement>) => {
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const c = toSVGCoords(e.clientX, e.clientY);
+    if (c) onPositionChange(c);
+  }, [toSVGCoords, onPositionChange]);
+
+  const onPointerUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
 
   const { x, y } = position;
   return (
-    <g ref={ref} onMouseDown={handleMouseDown}
-      style={{ cursor: isDraggable ? 'grab' : 'default' }}
-      filter="url(#shadow)">
+    <g ref={ref}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none' }}
+      filter="url(#dropShadow)">
       <circle cx={x} cy={y} r={12} fill="white" />
       <circle cx={x} cy={y} r={12} fill="none" stroke="#ddd" strokeWidth={0.5} />
-      {[{ dx: -4, dy: -4, r: 3.5 }, { dx: 4.5, dy: -2, r: 3 },
-        { dx: 0, dy: 5, r: 3 }, { dx: -5, dy: 2.5, r: 2.5 }].map((o, i) => (
+      {[
+        { dx: -4,   dy: -4,   r: 3.5 },
+        { dx:  4.5, dy: -2,   r: 3   },
+        { dx:  0,   dy:  5,   r: 3   },
+        { dx: -5,   dy:  2.5, r: 2.5 },
+      ].map((o, i) => (
         <circle key={i} cx={x + o.dx} cy={y + o.dy} r={o.r} fill="#111" opacity={0.72} />
       ))}
     </g>
@@ -178,26 +320,34 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
 
 interface DrawingCanvasProps { drawing: Drawing; }
 
-const ArrowHead: React.FC<{ p1: {x:number,y:number}; p2: {x:number,y:number}; color: string }> = ({ p1, p2, color }) => {
+const ArrowHead: React.FC<{
+  p1: { x: number; y: number };
+  p2: { x: number; y: number };
+  color: string;
+}> = ({ p1, p2, color }) => {
   const a = Math.atan2(p2.y - p1.y, p2.x - p1.x);
   const s = 14;
   return (
     <polygon fill={color} opacity={0.88}
-      points={`${p2.x},${p2.y} ${p2.x - s * Math.cos(a - Math.PI / 6)},${p2.y - s * Math.sin(a - Math.PI / 6)} ${p2.x - s * Math.cos(a + Math.PI / 6)},${p2.y - s * Math.sin(a + Math.PI / 6)}`}
+      points={`${p2.x},${p2.y} \
+${p2.x - s * Math.cos(a - Math.PI / 6)},${p2.y - s * Math.sin(a - Math.PI / 6)} \
+${p2.x - s * Math.cos(a + Math.PI / 6)},${p2.y - s * Math.sin(a + Math.PI / 6)}`}
     />
   );
 };
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ drawing }) => {
   const { pts, color } = drawing;
-  if (pts.length < 2) return null;
+  if (!pts || pts.length < 2) return null;
   const last = pts[pts.length - 1];
   const prev = pts[pts.length - 2];
   return (
     <g>
-      <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')}
+      <polyline
+        points={pts.map(p => `${p.x},${p.y}`).join(' ')}
         stroke={color} strokeWidth={3} fill="none"
-        strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+        strokeLinecap="round" strokeLinejoin="round" opacity={0.85}
+      />
       <ArrowHead p1={prev} p2={last} color={color} />
     </g>
   );

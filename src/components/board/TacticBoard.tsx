@@ -95,42 +95,41 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     };
   }
 
-  // ─── SVG coords from pointer event ──────────────────────────
-  function svgXYFromPointer(clientX: number, clientY: number) {
+  // ─── SVG coord helper ────────────────────────────────────────
+  function toSVGCoords(clientX: number, clientY: number) {
     const svg = svgRef.current; if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
     return {
       x: Math.max(45, Math.min(VW - 45, ((clientX - rect.left) / rect.width) * VW)),
-      y: Math.max(45, Math.min(VH - 45, ((clientY - rect.top) / rect.height) * VH)),
+      y: Math.max(45, Math.min(VH - 45, ((clientY - rect.top)  / rect.height) * VH)),
     };
   }
 
-  // ─── Pointer events for drawing (replaces mouse events) ─────
+  // ─── Drawing pointer handlers ────────────────────────────────
   function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (isPlaying || !drawMode) return;
-    // Only start drawing if clicking on the SVG background, not on a player
+    // Skip if pointer is on a player group
     const target = e.target as SVGElement;
-    if (target !== svgRef.current && target.closest('g[data-player]')) return;
+    if (target.closest('[data-player]')) return;
     e.preventDefault();
-    const pt = svgXYFromPointer(e.clientX, e.clientY);
     isDrawing.current = true;
+    const pt = toSVGCoords(e.clientX, e.clientY);
     drawPts.current = [pt];
     setLiveDrawPts([pt]);
-    (e.target as Element).setPointerCapture(e.pointerId);
+    svgRef.current?.setPointerCapture(e.pointerId);
   }
 
   function onSvgPointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (isPlaying || !drawMode || !isDrawing.current) return;
+    if (!drawMode || !isDrawing.current) return;
     e.preventDefault();
-    const { x, y } = svgXYFromPointer(e.clientX, e.clientY);
-    drawPts.current.push({ x, y });
+    const pt = toSVGCoords(e.clientX, e.clientY);
+    drawPts.current.push(pt);
     setLiveDrawPts([...drawPts.current]);
   }
 
   function onSvgPointerUp() {
-    if (drawMode && isDrawing.current && drawPts.current.length > 4) {
+    if (drawMode && isDrawing.current && drawPts.current.length > 4)
       addDrawing(activePhaseIdx, { pts: [...drawPts.current], color: '#f87171' });
-    }
     isDrawing.current = false;
     drawPts.current = [];
     setLiveDrawPts([]);
@@ -141,52 +140,55 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const progressFrac   = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
 
   return (
-    <div className="flex flex-col h-full">
+    /*
+      CRITICAL MOBILE FIX:
+      - The outer div MUST be `flex flex-col h-full overflow-hidden`
+      - The SVG wrapper MUST use `flex-1 min-h-0` — without min-h-0, flex
+        children default to min-height:auto and the SVG collapses on mobile
+    */
+    <div className="flex flex-col h-full overflow-hidden">
+
       {/* ── Control bar ── */}
       <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#0d1626] border-b border-[#1e3050] flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] font-bold text-[#4a6080] uppercase tracking-widest mr-1">Faser</span>
+          <span className="text-[10px] font-bold text-[#4a6080] uppercase tracking-widest mr-1 hidden sm:inline">Faser</span>
           {phases.map((ph, idx) => (
             <button key={ph.id}
               onClick={() => !isPlaying && setActivePhaseIdx(idx)}
               className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all min-h-[36px]
-                ${activePhaseIdx === idx ? 'bg-sky-500/15 border-sky-500 text-sky-400'
+                ${activePhaseIdx === idx
+                  ? 'bg-sky-500/15 border-sky-500 text-sky-400'
                   : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}
                 ${isPlaying ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
               {ph.name}
-              {ph.stickyNote && <span className="ml-1 text-amber-400">📌</span>}
+              {ph.stickyNote && <span className="ml-1 text-amber-400">·</span>}
             </button>
           ))}
           <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
-            className="w-8 h-8 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] hover:border-emerald-500 text-sm disabled:opacity-40 min-h-[36px]">＋</button>
+            className="w-8 h-8 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] text-sm disabled:opacity-40 min-h-[36px]">＋</button>
           {phases.length > 1 && (
             <button onClick={() => !isPlaying && removePhase(activePhaseIdx)} disabled={isPlaying}
-              className="w-8 h-8 flex items-center justify-center rounded text-red-400 border border-[#1e3050] hover:border-red-500 text-sm disabled:opacity-40 min-h-[36px]">－</button>
+              className="w-8 h-8 flex items-center justify-center rounded text-red-400 border border-[#1e3050] text-sm disabled:opacity-40 min-h-[36px]">－</button>
           )}
         </div>
 
         <div className="flex-1" />
 
-        {/* Larger touch targets for mobile */}
         <button onClick={() => setShowSticky(!showSticky)}
           className={`px-3 py-2 rounded-md text-[11px] font-semibold border transition-all min-h-[36px]
-            ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400'
-              : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
-          📌 Notat
+            ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
+          📌
         </button>
 
         <button onClick={() => setDrawMode(!drawMode)}
           className={`px-3 py-2 rounded-md text-[11px] font-semibold border transition-all min-h-[36px]
-            ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400'
-              : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
-          {drawMode ? '✏️ Avslutt' : '✏️ Tegn'}
+            ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
+          {drawMode ? '✏️ Stopp' : '✏️ Tegn'}
         </button>
 
         {(phase?.drawings?.length ?? 0) > 0 && (
           <button onClick={() => clearDrawings(activePhaseIdx)}
-            className="px-3 py-2 rounded-md text-[11px] border border-[#1e3050] text-red-400/70 hover:text-red-400 min-h-[36px]">
-            🗑️
-          </button>
+            className="px-3 py-2 rounded-md text-[11px] border border-[#1e3050] text-red-400/70 min-h-[36px]">🗑️</button>
         )}
 
         <div className="flex items-center gap-1.5 bg-[#111c30] rounded-lg px-2.5 py-1.5 border border-[#1e3050]">
@@ -215,90 +217,84 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
       </div>
 
       {showSticky && phase && (
-        <div className="flex-shrink-0 px-3 py-2 bg-amber-500/8 border-b border-amber-500/20">
-          <div className="flex items-center gap-2">
-            <span className="text-amber-400 text-[11px] font-bold whitespace-nowrap">📌 Fase-notat:</span>
-            <input
-              value={phase.stickyNote ?? ''}
-              onChange={e => updateStickyNote(activePhaseIdx, e.target.value)}
-              placeholder={`Hurtignotat for ${phase.name}…`}
-              className="flex-1 bg-transparent border-none text-amber-100 text-[12px] placeholder-amber-500/40 focus:outline-none"
-            />
-          </div>
+        <div className="flex-shrink-0 px-3 py-2 bg-amber-500/8 border-b border-amber-500/20 flex items-center gap-2">
+          <span className="text-amber-400 text-[11px] font-bold whitespace-nowrap">📌</span>
+          <input value={phase.stickyNote ?? ''}
+            onChange={e => updateStickyNote(activePhaseIdx, e.target.value)}
+            placeholder={`Hurtignotat for ${phase.name}…`}
+            className="flex-1 bg-transparent border-none text-amber-100 text-[12px] placeholder-amber-500/40 focus:outline-none" />
         </div>
       )}
 
-      {/* ── SVG pitch — responsive, preserves aspect ratio ── */}
-      <div className="flex-1 flex items-center justify-center p-2 sm:p-3 bg-[#050c18] overflow-hidden">
-        <div className="w-full" style={{ maxHeight: '100%', aspectRatio: `${VW} / ${VH}` }}>
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${VW} ${VH}`}
-            className="w-full h-full rounded-xl touch-none"
-            style={{
-              boxShadow: '0 0 80px rgba(0,0,0,0.9)',
-              cursor: drawMode ? 'crosshair' : 'default',
-              display: 'block',
-            }}
-            onPointerDown={onSvgPointerDown}
-            onPointerMove={onSvgPointerMove}
-            onPointerUp={onSvgPointerUp}
-            onPointerLeave={onSvgPointerUp}
-          >
-            <defs>
-              <filter id="dropShadow">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
-              </filter>
-              <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
-                <rect width="50" height="50" fill="#1b5e2a"/>
-                <rect width="50" height="25" fill="#1d6430"/>
-              </pattern>
-            </defs>
-            <rect width={VW} height={VH} fill="url(#grass)"/>
+      {/*
+        flex-1 min-h-0 is THE critical fix for mobile.
+        Without min-h-0, this div grows to fit SVG natural size
+        instead of being constrained by the parent's height.
+        The SVG then uses w-full h-full to fill this constrained box.
+      */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-2 sm:p-3 bg-[#050c18]">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${VW} ${VH}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="touch-none rounded-xl"
+          style={{
+            width: '100%',
+            height: '100%',
+            maxWidth: '100%',
+            maxHeight: '100%',
+            display: 'block',
+            boxShadow: '0 0 80px rgba(0,0,0,0.9)',
+            cursor: drawMode ? 'crosshair' : 'default',
+          }}
+          onPointerDown={onSvgPointerDown}
+          onPointerMove={onSvgPointerMove}
+          onPointerUp={onSvgPointerUp}
+          onPointerLeave={onSvgPointerUp}
+        >
+          <defs>
+            {/* IMPORTANT: filter id must match what BoardElements uses: "dropShadow" */}
+            <filter id="dropShadow">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
+            </filter>
+            <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
+              <rect width="50" height="50" fill="#1b5e2a"/>
+              <rect width="50" height="25" fill="#1d6430"/>
+            </pattern>
+          </defs>
+          <rect width={VW} height={VH} fill="url(#grass)"/>
 
-            {sport === 'football' && <FootballPitch />}
-            {sport === 'handball' && <HandballPitch />}
+          {sport === 'football' && <FootballPitch />}
+          {sport === 'handball' && <HandballPitch />}
 
-            {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
+          {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
 
-            {liveDrawPts.length > 1 && (
-              <polyline
-                points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
-                stroke="#f87171" strokeWidth={3} fill="none"
-                strokeLinecap="round" strokeDasharray="8,5"
-              />
-            )}
+          {liveDrawPts.length > 1 && (
+            <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
+              stroke="#f87171" strokeWidth={3} fill="none"
+              strokeLinecap="round" strokeDasharray="8,5" />
+          )}
 
-            {phase && (
-              <Ball
-                position={displayBall}
-                isDraggable={!isPlaying && !drawMode}
-                onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)}
-              />
-            )}
+          {phase && (
+            <Ball position={displayBall} isDraggable={!isPlaying && !drawMode}
+              onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
+          )}
 
-            {displayPlayers.map(player => (
-              <DraggablePlayer
-                key={player.id}
-                player={player}
-                isActive={!isPlaying && !drawMode}
-                isSelected={selectedPlayerId === player.id}
-                awayTeamColor={awayTeamColor}
-                onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
-                onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
-                showName
-              />
-            ))}
+          {displayPlayers.map(player => (
+            <DraggablePlayer key={player.id} player={player}
+              isActive={!isPlaying && !drawMode}
+              isSelected={selectedPlayerId === player.id}
+              awayTeamColor={awayTeamColor}
+              onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
+              onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
+              showName />
+          ))}
 
-            {isPlaying && (
-              <rect
-                x={32} y={VH - 14} rx={3} height={5}
-                width={progressFrac * (VW - 64)}
-                fill="#38bdf8" opacity={0.8}
-              />
-            )}
-          </svg>
-        </div>
+          {isPlaying && (
+            <rect x={32} y={VH - 14} rx={3} height={5}
+              width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8} />
+          )}
+        </svg>
       </div>
     </div>
   );

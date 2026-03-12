@@ -17,7 +17,7 @@ export const PlayerPortal: React.FC = () => {
   const {
     currentUser, playerAccounts, coachMessages, events,
     phases, sport, replyToMessage, logout, chatMessages, sendChat,
-    homeTeamName, awayTeamName,
+    homeTeamName, awayTeamName, activePhaseIdx,
   } = useAppStore();
 
   const [replyText, setReplyText] = useState<Record<string, string>>({});
@@ -39,17 +39,18 @@ export const PlayerPortal: React.FC = () => {
     isCoach ? true : m.playerId === playerId
   );
 
-  const phase = phases[0] as any ?? null;
+  // Bruk aktiv fase fra store (synkronisert med trenerens taktikkbrett)
+  const phase = phases[activePhaseIdx] ?? phases[0] ?? null;
 
   const sendChatMsg = () => {
     const txt = chatInput.trim();
     if (!txt || !currentUser) return;
-    sendChat(currentUser.role as "coach" | "player", currentUser.name, txt);
+    sendChat(currentUser.role as 'coach' | 'player', currentUser.name, txt);
     setChatInput('');
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#060c18]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#060c18]">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050] flex-shrink-0">
         <div className="text-2xl">{isCoach ? '🏋️' : '👤'}</div>
@@ -66,7 +67,7 @@ export const PlayerPortal: React.FC = () => {
         </button>
       </div>
 
-      {/* Tabs — scrollable on mobile */}
+      {/* Tabs */}
       <div className="flex border-b border-[#1e3050] bg-[#0c1525] overflow-x-auto flex-shrink-0">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
@@ -79,33 +80,37 @@ export const PlayerPortal: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {/* ── TAKTIKK — read-only board with playback ── */}
+      {/* ── Innhold — MOBILE FIX: flex-1 min-h-0 for korrekt overflow ── */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+
+        {/* TAKTIKK */}
         {tab === 'tactics' && (
           <ReadOnlyTacticBoard />
         )}
 
-        {/* ── TROPP — only home team starters + substitutes ── */}
-        {tab === 'squad' && phase && (
-          <div className="p-4 max-w-3xl mx-auto">
-            <SquadView phase={phase} />
+        {/* TROPP */}
+        {tab === 'squad' && (
+          <div className="flex-1 overflow-y-auto p-4">
+            {phase
+              ? <SquadView phase={phase} />
+              : <EmptyState icon="👥" text="Ingen data." />}
           </div>
         )}
 
-        {/* ── MELDINGER ── */}
+        {/* MELDINGER */}
         {tab === 'messages' && (
-          <div className="p-4 max-w-2xl mx-auto space-y-4">
-            {myMessages.length === 0 ? (
-              <EmptyState icon="💬" text="Ingen meldinger ennå." />
-            ) : myMessages.map((msg: any) => (
-              <MessageCard key={msg.id} msg={msg} playerId={playerId}
-                replyText={replyText} setReplyText={setReplyText}
-                replyToMessage={replyToMessage} />
-            ))}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl w-full mx-auto">
+            {myMessages.length === 0
+              ? <EmptyState icon="💬" text="Ingen meldinger ennå." />
+              : myMessages.map((msg: any) => (
+                <MessageCard key={msg.id} msg={msg} playerId={playerId}
+                  replyText={replyText} setReplyText={setReplyText}
+                  replyToMessage={replyToMessage} />
+              ))}
           </div>
         )}
 
-        {/* ── CHAT ── */}
+        {/* CHAT */}
         {tab === 'chat' && (
           <ChatView
             messages={chatMessages as any[]}
@@ -116,9 +121,9 @@ export const PlayerPortal: React.FC = () => {
           />
         )}
 
-        {/* ── KONTOER (trener only) ── */}
+        {/* KONTOER (trener only) */}
         {tab === 'accounts' && isCoach && (
-          <div className="p-4 max-w-2xl mx-auto">
+          <div className="flex-1 overflow-y-auto p-4 max-w-2xl w-full mx-auto">
             <AccountManager />
           </div>
         )}
@@ -132,14 +137,14 @@ export const PlayerPortal: React.FC = () => {
 const ReadOnlyTacticBoard: React.FC = () => {
   const { phases, sport, awayTeamColor } = useAppStore();
 
-  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const playRef   = useRef({ from: 0, t: 0 });
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playRef  = useRef({ from: 0, t: 0 });
 
-  const [activePhaseIdx, setActivePhaseIdx] = useState(0);
-  const [isPlaying, setIsPlaying]           = useState(false);
-  const [playSpeed, setPlaySpeed]           = useState(1);
-  const [interpFrom, setInterpFrom]         = useState(0);
-  const [interpT, setInterpT]               = useState(0);
+  const [activeIdx, setActiveIdx]   = useState(0);
+  const [isPlaying, setIsPlaying]   = useState(false);
+  const [playSpeed, setPlaySpeed]   = useState(1);
+  const [interpFrom, setInterpFrom] = useState(0);
+  const [interpT, setInterpT]       = useState(0);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -147,18 +152,18 @@ const ReadOnlyTacticBoard: React.FC = () => {
     if (phases.length < 2) return;
     if (timerRef.current) clearInterval(timerRef.current);
     playRef.current = { from: 0, t: 0 };
-    setInterpFrom(0); setInterpT(0); setActivePhaseIdx(0); setIsPlaying(true);
+    setInterpFrom(0); setInterpT(0); setActiveIdx(0); setIsPlaying(true);
     timerRef.current = setInterval(() => {
       playRef.current.t += 0.025 * playSpeed;
       if (playRef.current.t >= 1) {
         const next = playRef.current.from + 1;
         if (next >= phases.length - 1) {
           clearInterval(timerRef.current!); timerRef.current = null;
-          setIsPlaying(false); setActivePhaseIdx(phases.length - 1); setInterpT(0);
+          setIsPlaying(false); setActiveIdx(phases.length - 1); setInterpT(0);
           return;
         }
         playRef.current.from = next; playRef.current.t = 0;
-        setInterpFrom(next); setInterpT(0); setActivePhaseIdx(next);
+        setInterpFrom(next); setInterpT(0); setActiveIdx(next);
       } else {
         setInterpT(playRef.current.t); setInterpFrom(playRef.current.from);
       }
@@ -170,16 +175,15 @@ const ReadOnlyTacticBoard: React.FC = () => {
     setIsPlaying(false); setInterpT(0);
   }
 
-  const phase = phases[activePhaseIdx];
+  const phase = phases[activeIdx];
   if (!phase) return <EmptyState icon="📋" text="Ingen taktikk tilgjengelig ennå." />;
 
-  // Interpolate player positions during playback
   const displayPlayers = (() => {
     if (!isPlaying || interpT === 0) return phase.players;
     const from = phases[interpFrom];
     const to   = phases[Math.min(interpFrom + 1, phases.length - 1)];
     if (!from || !to) return phase.players;
-    return from.players.map((fp: any) => {
+    return (from.players as any[]).map((fp: any) => {
       const tp = (to.players as any[]).find((p: any) => p.id === fp.id);
       if (!tp) return fp;
       return { ...fp, position: {
@@ -202,23 +206,17 @@ const ReadOnlyTacticBoard: React.FC = () => {
 
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
 
-  const ROLE_COLORS: Record<string, string> = {
-    keeper: '#f59e0b', defender: '#3b82f6', midfielder: '#22c55e',
-    forward: '#ef4444', winger: '#a855f7', false9: '#f97316',
-    libero: '#6366f1', playmaker: '#ec4899',
-  };
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Phase selector */}
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      {/* Fase-velger + spillekontroller */}
       <div className="flex-shrink-0 px-3 py-2 bg-[#0d1626] border-b border-[#1e3050]">
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <span className="text-[10px] font-bold text-[#4a6080] uppercase tracking-widest">Faser</span>
           {phases.map((ph: any, idx: number) => (
             <button key={ph.id}
-              onClick={() => !isPlaying && setActivePhaseIdx(idx)}
+              onClick={() => !isPlaying && setActiveIdx(idx)}
               className={`px-2.5 py-1.5 rounded-md text-[11px] font-semibold border transition-all min-h-[36px]
-                ${activePhaseIdx === idx
+                ${activeIdx === idx
                   ? 'bg-sky-500/15 border-sky-500 text-sky-400'
                   : 'border-[#1e3050] text-[#4a6080]'}
                 ${isPlaying ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -227,12 +225,11 @@ const ReadOnlyTacticBoard: React.FC = () => {
           ))}
         </div>
 
-        {/* Playback controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-[#111c30] rounded-lg px-2.5 py-1.5 border border-[#1e3050]">
             <button
-              onClick={() => !isPlaying && setActivePhaseIdx(Math.max(0, activePhaseIdx - 1))}
-              disabled={isPlaying || activePhaseIdx === 0}
+              onClick={() => !isPlaying && setActiveIdx(Math.max(0, activeIdx - 1))}
+              disabled={isPlaying || activeIdx === 0}
               className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[36px]">⏮</button>
             <button
               onClick={() => isPlaying ? stopPlayback() : startPlayback()}
@@ -246,8 +243,8 @@ const ReadOnlyTacticBoard: React.FC = () => {
               {isPlaying ? '⏸' : '▶'}
             </button>
             <button
-              onClick={() => !isPlaying && setActivePhaseIdx(Math.min(phases.length - 1, activePhaseIdx + 1))}
-              disabled={isPlaying || activePhaseIdx === phases.length - 1}
+              onClick={() => !isPlaying && setActiveIdx(Math.min(phases.length - 1, activeIdx + 1))}
+              disabled={isPlaying || activeIdx === phases.length - 1}
               className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[36px]">⏭</button>
             <select value={playSpeed} onChange={e => setPlaySpeed(Number(e.target.value))}
               className="bg-transparent border-none text-[#4a6080] text-[11px] cursor-pointer ml-1">
@@ -267,93 +264,116 @@ const ReadOnlyTacticBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* SVG board — fills available space, aspect ratio preserved */}
-      <div className="flex-1 flex items-center justify-center p-2 bg-[#050c18] overflow-hidden min-h-0">
-        <div className="w-full h-full flex items-center justify-center">
-          <svg
-            viewBox={`0 0 ${VW} ${VH}`}
-            className="max-w-full max-h-full rounded-xl touch-none"
-            style={{
-              boxShadow: '0 0 60px rgba(0,0,0,0.9)',
-              aspectRatio: `${VW} / ${VH}`,
-            }}
-          >
-            <defs>
-              <filter id="dropShadow2">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
-              </filter>
-              <pattern id="grass2" patternUnits="userSpaceOnUse" width="50" height="50">
-                <rect width="50" height="50" fill="#1b5e2a"/>
-                <rect width="50" height="25" fill="#1d6430"/>
-              </pattern>
-            </defs>
-            <rect width={VW} height={VH} fill="url(#grass2)"/>
+      {/* SVG bane — MOBILE FIX: flex-1 min-h-0 */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-2 bg-[#050c18]">
+        <svg
+          viewBox={`0 0 ${VW} ${VH}`}
+          className="max-w-full max-h-full rounded-xl touch-none"
+          style={{
+            width: '100%',
+            height: '100%',
+            boxShadow: '0 0 60px rgba(0,0,0,0.9)',
+          }}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <defs>
+            <filter id="dropShadow2">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
+            </filter>
+            <pattern id="grass2" patternUnits="userSpaceOnUse" width="50" height="50">
+              <rect width="50" height="50" fill="#1b5e2a"/>
+              <rect width="50" height="25" fill="#1d6430"/>
+            </pattern>
+          </defs>
+          <rect width={VW} height={VH} fill="url(#grass2)"/>
 
-            {sport === 'football' && <FootballPitch />}
-            {sport === 'handball' && <HandballPitch />}
+          {sport === 'football' && <FootballPitch />}
+          {sport === 'handball' && <HandballPitch />}
 
-            {/* Drawings */}
-            {(phase.drawings ?? []).map((d: any) => (
-              d.pts && d.pts.length >= 2 && (
-                <polyline key={d.id}
+          {/* Tegninger */}
+          {(phase.drawings ?? []).map((d: any) => (
+            d.pts && d.pts.length >= 2 && (
+              <g key={d.id}>
+                <polyline
                   points={d.pts.map((p: any) => `${p.x},${p.y}`).join(' ')}
                   stroke={d.color ?? '#f87171'} strokeWidth={3} fill="none"
                   strokeLinecap="round" strokeLinejoin="round" />
-              )
-            ))}
-
-            {/* Ball */}
-            {displayBall && (
-              <g filter="url(#dropShadow2)">
-                <circle cx={displayBall.x} cy={displayBall.y} r={10}
-                  fill="white" stroke="#ccc" strokeWidth={1}/>
-                <circle cx={displayBall.x} cy={displayBall.y} r={3} fill="#aaa"/>
+                {/* Pilhode */}
+                {(() => {
+                  const pts = d.pts;
+                  const p1 = pts[pts.length - 2];
+                  const p2 = pts[pts.length - 1];
+                  const a  = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                  const s  = 12;
+                  return (
+                    <polygon fill={d.color ?? '#f87171'} opacity={0.88}
+                      points={`${p2.x},${p2.y} ${p2.x - s * Math.cos(a - Math.PI/6)},${p2.y - s * Math.sin(a - Math.PI/6)} ${p2.x - s * Math.cos(a + Math.PI/6)},${p2.y - s * Math.sin(a + Math.PI/6)}`}
+                    />
+                  );
+                })()}
               </g>
-            )}
+            )
+          ))}
 
-            {/* Players — read-only, no drag */}
-            {(displayPlayers as any[]).map((player: any) => {
-              const fill = player.team === 'away' && awayTeamColor
-                ? awayTeamColor
-                : (ROLE_COLORS[player.role] ?? '#64748b');
-              const outline = player.team === 'away' ? '#1e293b' : '#ffffff';
-              const { x, y } = player.position;
-              const meta = getMeta(player.role);
-              return (
-                <g key={player.id} filter="url(#dropShadow2)">
-                  <circle cx={x} cy={y} r={20.5} fill={outline} opacity={0.9}/>
-                  <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
-                  <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
-                    fill="white" fontSize={11} fontWeight="800"
-                    fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
-                    {player.num}
+          {/* Ball */}
+          {displayBall && (
+            <g filter="url(#dropShadow2)">
+              <circle cx={displayBall.x} cy={displayBall.y} r={11} fill="white" stroke="#ccc" strokeWidth={1}/>
+              {[{dx:-3,dy:-3,r:3},{dx:3.5,dy:-1.5,r:2.5},{dx:0,dy:4,r:2.5},{dx:-4,dy:2,r:2}].map((o,i) => (
+                <circle key={i} cx={displayBall.x+o.dx} cy={displayBall.y+o.dy} r={o.r} fill="#111" opacity={0.7}/>
+              ))}
+            </g>
+          )}
+
+          {/* Spillere — kun visning, ingen drag */}
+          {(displayPlayers as any[]).map((player: any) => {
+            const meta  = getMeta(player.role);
+            const fill  = player.team === 'away'
+              ? (awayTeamColor ?? '#ef4444')
+              : (meta?.color ?? '#64748b');
+            const ring  = player.team === 'away' ? 'rgba(15,25,40,0.9)' : 'rgba(255,255,255,0.9)';
+            const { x, y } = player.position;
+            return (
+              <g key={player.id} filter="url(#dropShadow2)" opacity={player.injured ? 0.5 : 1}>
+                {/* Playtime ring */}
+                {(player.minutesPlayed ?? 0) > 0 && (
+                  <circle cx={x} cy={y} r={24} fill="none"
+                    stroke={(player.minutesPlayed ?? 0) > 60 ? '#ef4444' : (player.minutesPlayed ?? 0) > 30 ? '#f59e0b' : '#22c55e'}
+                    strokeWidth={2} opacity={0.5} strokeDasharray="4 2" />
+                )}
+                <circle cx={x} cy={y} r={21} fill={ring}/>
+                <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
+                <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
+                  fill="white" fontSize={11} fontWeight="800"
+                  fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
+                  {player.num}
+                </text>
+                {player.name && (
+                  <text x={x} y={y + 30} textAnchor="middle"
+                    fill="white" fontSize={9} fontWeight="600"
+                    fontFamily="system-ui, sans-serif"
+                    style={{ pointerEvents: 'none' }}
+                    paintOrder="stroke" stroke="rgba(0,0,0,0.75)" strokeWidth={3}>
+                    {player.name.length > 9 ? player.name.slice(0, 9) + '…' : player.name}
                   </text>
-                  {player.name && (
-                    <text x={x} y={y + 29} textAnchor="middle"
-                      fill="white" fontSize={9} fontWeight="600"
-                      fontFamily="system-ui, sans-serif"
-                      style={{ pointerEvents: 'none' }}
-                      paintOrder="stroke" stroke="rgba(0,0,0,0.7)"
-                      strokeWidth={3} strokeLinejoin="round">
-                      {player.name.length > 9 ? player.name.slice(0, 9) + '…' : player.name}
-                    </text>
-                  )}
-                  {/* Role tooltip on hover (desktop) */}
-                  <title>{meta?.label ?? player.role} · #{player.num} {player.name}</title>
-                </g>
-              );
-            })}
+                )}
+                {player.injured && (
+                  <text x={x - 10} y={y - 14} fontSize={12} style={{ pointerEvents: 'none' }}>🩹</text>
+                )}
+                <title>{meta?.label ?? player.role} · #{player.num} {player.name}</title>
+              </g>
+            );
+          })}
 
-            {/* Progress bar */}
-            {isPlaying && (
-              <rect x={32} y={VH - 14} rx={3} height={5}
-                width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8}/>
-            )}
-          </svg>
-        </div>
+          {/* Fremdriftsbar under avspilling */}
+          {isPlaying && (
+            <rect x={32} y={VH - 14} rx={3} height={5}
+              width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8}/>
+          )}
+        </svg>
       </div>
 
-      {/* Role legend */}
+      {/* Rollelegende */}
       <div className="flex-shrink-0 px-3 py-2 bg-[#0d1626] border-t border-[#1e3050]">
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           {Object.entries(ROLE_META).slice(0, 8).map(([key, meta]: [string, any]) => (
@@ -368,27 +388,21 @@ const ReadOnlyTacticBoard: React.FC = () => {
   );
 };
 
-// ═══ TROPP VIEW — home team only, starters + substitutes ══════
+// ═══ TROPP VIEW — kun hjemmelag ══════════════════════════════
 
 const SquadView: React.FC<{ phase: any }> = ({ phase }) => {
   const { homeTeamName } = useAppStore();
   const players: any[] = phase.players ?? [];
-
-  // Only home team
-  const homePlayers = players.filter((p: any) => p.team === 'home');
-
-  // Starters = isStarter !== false AND isOnField !== false
-  const starters   = homePlayers.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
-  // Substitutes = marked as bench
-  const substitutes = homePlayers.filter((p: any) => p.isStarter === false || p.isOnField === false);
+  const home       = players.filter((p: any) => p.team === 'home');
+  const starters   = home.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
+  const substitutes = home.filter((p: any) => p.isStarter === false || p.isOnField === false);
 
   return (
-    <div>
+    <div className="max-w-3xl mx-auto">
       <h3 className="text-base font-bold text-slate-100 mb-4">
         👥 {homeTeamName || 'Hjemmelag'} – Tropp
       </h3>
 
-      {/* Starters */}
       <div className="mb-2">
         <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-2">
           ⚽ Startoppstilling ({starters.length})
@@ -404,7 +418,6 @@ const SquadView: React.FC<{ phase: any }> = ({ phase }) => {
         )}
       </div>
 
-      {/* Substitutes */}
       <div className="mb-4">
         <div className="flex items-center gap-2 my-3">
           <div className="h-px flex-1 bg-[#1e3050]"/>
@@ -426,8 +439,7 @@ const SquadView: React.FC<{ phase: any }> = ({ phase }) => {
         )}
       </div>
 
-      {/* Playtime bar */}
-      <PlaytimeBar players={homePlayers} />
+      <PlaytimeBar players={home} />
     </div>
   );
 };
@@ -456,17 +468,18 @@ const PlayerRow: React.FC<{ player: any; isBench?: boolean }> = ({ player, isBen
 };
 
 const PlaytimeBar: React.FC<{ players: any[] }> = ({ players }) => {
-  if (players.length === 0) return null;
+  const withTime = players.filter((p: any) => (p.minutesPlayed ?? 0) > 0);
+  if (!withTime.length) return null;
   return (
     <div className="mt-4">
       <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">
         ⏱ Spilletid
       </div>
       <div className="space-y-2">
-        {[...players].sort((a: any, b: any) => (b.minutesPlayed ?? 0) - (a.minutesPlayed ?? 0))
+        {[...withTime].sort((a: any, b: any) => (b.minutesPlayed ?? 0) - (a.minutesPlayed ?? 0))
           .map((p: any) => {
-            const min = p.minutesPlayed ?? 0;
-            const bar = min > 60 ? '#ef4444' : min > 30 ? '#f59e0b' : '#22c55e';
+            const min  = p.minutesPlayed ?? 0;
+            const bar  = min > 60 ? '#ef4444' : min > 30 ? '#f59e0b' : '#22c55e';
             const meta = getMeta(p.role);
             return (
               <div key={p.id} className="flex items-center gap-2.5">
@@ -501,43 +514,41 @@ const ChatView: React.FC<{
   onSend: () => void;
 }> = ({ messages, currentUser, input, setInput, onSend }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
   return (
-    <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
+    <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0 ? (
-          <EmptyState icon="🗨️" text="Ingen meldinger i chatten ennå." />
-        ) : messages.map((msg: any) => {
-          const isMe = msg.fromName === currentUser?.name;
-          return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5
-                ${isMe
-                  ? 'bg-sky-500/20 border border-sky-500/30 text-sky-100'
-                  : msg.fromRole === 'coach'
-                    ? 'bg-amber-500/10 border border-amber-500/20 text-amber-100'
-                    : 'bg-[#0f1a2a] border border-[#1e3050] text-slate-200'}`}>
-                {!isMe && (
-                  <div className="text-[9px] font-bold text-[#4a6080] mb-1 uppercase tracking-wider">
-                    {msg.fromRole === 'coach' ? '🏋️ ' : '👤 '}{msg.fromName}
+        {messages.length === 0
+          ? <EmptyState icon="🗨️" text="Ingen meldinger i chatten ennå." />
+          : messages.map((msg: any) => {
+            const isMe = msg.fromName === currentUser?.name;
+            return (
+              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5
+                  ${isMe
+                    ? 'bg-sky-500/20 border border-sky-500/30 text-sky-100'
+                    : msg.fromRole === 'coach'
+                      ? 'bg-amber-500/10 border border-amber-500/20 text-amber-100'
+                      : 'bg-[#0f1a2a] border border-[#1e3050] text-slate-200'}`}>
+                  {!isMe && (
+                    <div className="text-[9px] font-bold text-[#4a6080] mb-1 uppercase tracking-wider">
+                      {msg.fromRole === 'coach' ? '🏋️ ' : '👤 '}{msg.fromName}
+                    </div>
+                  )}
+                  <p className="text-[13px] leading-relaxed">{msg.content}</p>
+                  <div className="text-[9px] text-[#3a5070] mt-1 text-right">
+                    {new Date(msg.createdAt).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                )}
-                <p className="text-[13px] leading-relaxed">{msg.content}</p>
-                <div className="text-[9px] text-[#3a5070] mt-1 text-right">
-                  {new Date(msg.createdAt).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
         <div ref={bottomRef}/>
       </div>
 
-      {/* Input */}
       <div className="flex-shrink-0 p-3 bg-[#0c1525] border-t border-[#1e3050] flex gap-2">
         <input
           value={input}
@@ -612,17 +623,16 @@ const MessageCard: React.FC<{
   </div>
 );
 
-// ═══ ACCOUNT MANAGER — no duplicate-position restriction ══════
+// ═══ ACCOUNT MANAGER ═════════════════════════════════════════
 
 const AccountManager: React.FC = () => {
   const { playerAccounts, addPlayerAccount, removePlayerAccount, phases, activePhaseIdx } = useAppStore();
 
-  const [name, setName]         = useState('');
-  const [pin, setPin]           = useState('');
-  const [playerId, setPlayerId] = useState('');
+  const [name, setName]     = useState('');
+  const [pin, setPin]       = useState('');
+  const [linkId, setLinkId] = useState('');
 
   const allPlayers: any[] = (phases[activePhaseIdx] as any)?.players ?? [];
-  // Only home team players shown for linking
   const homePlayers = allPlayers.filter((p: any) => p.team === 'home');
 
   const create = () => {
@@ -630,17 +640,16 @@ const AccountManager: React.FC = () => {
     addPlayerAccount({
       name: name.trim(),
       pin,
-      playerId: playerId || `custom-${Date.now()}`,
+      playerId: linkId || `custom-${Date.now()}`,
       team: 'home',
     });
-    setName(''); setPin(''); setPlayerId('');
+    setName(''); setPin(''); setLinkId('');
   };
 
   return (
     <div>
       <h3 className="text-base font-bold text-slate-100 mb-4">⚙️ Spillerkontoer</h3>
 
-      {/* Existing accounts */}
       {(playerAccounts as any[]).length > 0 && (
         <div className="space-y-2 mb-5">
           {(playerAccounts as any[]).map((acc: any) => {
@@ -668,23 +677,21 @@ const AccountManager: React.FC = () => {
         </div>
       )}
 
-      {/* Create new */}
       <div className="bg-[#0c1525] border border-dashed border-[#1e3050] rounded-2xl p-5">
         <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-4">
           Opprett ny spillerkonto
         </div>
         <div className="mb-3">
           <label className="label-sm2">Koble til spiller på brettet (valgfritt)</label>
-          <select value={playerId}
+          <select value={linkId}
             onChange={e => {
-              setPlayerId(e.target.value);
+              setLinkId(e.target.value);
               const pl = homePlayers.find((p: any) => p.id === e.target.value);
               if (pl?.name && !name) setName(pl.name);
             }}
             className="inp2">
             <option value="">– Ingen kobling / ny spiller –</option>
             {homePlayers.map((p: any) => (
-              /* NOTE: No duplicate check — multiple accounts can link to same player */
               <option key={p.id} value={p.id}>
                 #{getNum(p)} {p.name || 'Navnløs'} – {getMeta(p.role)?.label ?? p.role}
               </option>
