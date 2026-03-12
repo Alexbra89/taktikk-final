@@ -894,3 +894,16 @@ export function getWeeklyDrills(sport: DrillSport, category?: DrillCategory): Dr
   }
   return result;
 }
+
+/** Alias for backwards compatibility with SmartCoach.tsx */
+export function getDrillsForContext(sport: DrillSport): Drill[] {
+  return getDrillsBySport(sport);
+}
+
+export const CATEGORY_LABELS: Record<DrillCategory, string> = {
+  offensivt:    '⚔️ Offensivt',
+  defensivt:    '🛡️ Defensivt',
+  hele_laget:   '👥 Hele laget',
+  keeper:       '🧤 Keepertrening',
+  fysisk:       '💪 Fysisk',
+};
