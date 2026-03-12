@@ -1,13 +1,18 @@
 // ═══════════════════════════════════════════════════════════════
 //  ØVELSESBIBLIOTEK — 200+ øvelser, fotball + håndball
-//  Erstatter: src/data/drills.ts
 // ═══════════════════════════════════════════════════════════════
 
-export type DrillSport    = 'football' | 'handball';
-export type DrillCategory = 'offensivt' | 'defensivt' | 'hele_laget' | 'keeper' | 'fysisk';
+export type DrillSport      = 'football' | 'handball' | 'all';
+export type DrillCategory   = 'offensivt' | 'defensivt' | 'hele_laget' | 'keeper' | 'fysisk';
 export type DrillDifficulty = 'enkel' | 'middels' | 'avansert';
 
-export interface Drill {
+export interface DrillStep {
+  id:          string;
+  name:        string;
+  description: string;
+}
+
+export interface DrillExercise {
   id:          string;
   sport:       DrillSport;
   category:    DrillCategory;
@@ -16,13 +21,19 @@ export interface Drill {
   players:     string;
   difficulty:  DrillDifficulty;
   description: string;
-  steps:       string[];
+  /** Rich steps (DrillStep[]) or plain strings — both accepted */
+  steps:       DrillStep[] | string[];
   tips:        string[];
   equipment:   string[];
   tags?:       string[];
+  ageGroup?:   'youth' | 'adult';
+  weekNumber?: number;
 }
 
-export const FOOTBALL_DRILLS: Drill[] = [
+/** Alias — SmartCoach imports Drill from @/types, DrillsView imports from here */
+export type Drill = DrillExercise;
+
+export const FOOTBALL_DRILLS: DrillExercise[] = [
 
   // ─── OFFENSIVT (20 øvelser) ──────────────────────────────────
 
@@ -369,7 +380,7 @@ export const FOOTBALL_DRILLS: Drill[] = [
 //  HÅNDBALL — 100 øvelser
 // ════════════════════════════════════════════════════════════════
 
-export const HANDBALL_DRILLS: Drill[] = [
+export const HANDBALL_DRILLS: DrillExercise[] = [
 
   // ─── OFFENSIVT (25 øvelser) ──────────────────────────────────
 
@@ -866,13 +877,13 @@ export const HANDBALL_DRILLS: Drill[] = [
 //  KOMBINERT BIBLIOTEK OG HJELPEFUNKSJONER
 // ════════════════════════════════════════════════════════════════
 
-export const ALL_DRILLS: Drill[] = [...FOOTBALL_DRILLS, ...HANDBALL_DRILLS];
+export const ALL_DRILLS: DrillExercise[] = [...FOOTBALL_DRILLS, ...HANDBALL_DRILLS];
 
-export function getDrillsBySport(sport: DrillSport): Drill[] {
+export function getDrillsBySport(sport: DrillSport): DrillExercise[] {
   return ALL_DRILLS.filter(d => d.sport === sport);
 }
 
-export function getDrillsByCategory(sport: DrillSport, category: DrillCategory): Drill[] {
+export function getDrillsByCategory(sport: DrillSport, category: DrillCategory): DrillExercise[] {
   return ALL_DRILLS.filter(d => d.sport === sport && d.category === category);
 }
 
@@ -886,13 +897,13 @@ export function getISOWeek(date = new Date()): number {
 /** Henter 4 ukens øvelser basert på ISO-ukenummer (roterer automatisk) */
 const VALID_CATEGORIES = ['offensivt','defensivt','hele_laget','keeper','fysisk'];
 
-export function getWeeklyDrills(sport: DrillSport, categoryOrGroup?: DrillCategory | string): Drill[] {
+export function getWeeklyDrills(sport: DrillSport, categoryOrGroup?: DrillCategory | string): DrillExercise[] {
   const cat = (categoryOrGroup && VALID_CATEGORIES.includes(categoryOrGroup))
     ? categoryOrGroup as DrillCategory : undefined;
   const pool = cat ? getDrillsByCategory(sport, cat) : getDrillsBySport(sport);
   if (pool.length === 0) return [];
   const offset = getISOWeek() % pool.length;
-  const result: Drill[] = [];
+  const result: DrillExercise[] = [];
   for (let i = 0; i < Math.min(4, pool.length); i++) {
     result.push(pool[(offset + i) % pool.length]);
   }
@@ -900,7 +911,7 @@ export function getWeeklyDrills(sport: DrillSport, categoryOrGroup?: DrillCatego
 }
 
 /** Alias for backwards compatibility with SmartCoach.tsx */
-export function getDrillsForContext(sport: DrillSport, categoryOrGroup?: DrillCategory | string): Drill[] {
+export function getDrillsForContext(sport: DrillSport, categoryOrGroup?: DrillCategory | string): DrillExercise[] {
   const cat = (categoryOrGroup && VALID_CATEGORIES.includes(categoryOrGroup))
     ? categoryOrGroup as DrillCategory : undefined;
   return cat ? getDrillsByCategory(sport, cat) : getDrillsBySport(sport);

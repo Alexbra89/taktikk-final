@@ -8,7 +8,7 @@ import {
 
 type ViewMode = 'browse' | 'detail';
 
-const SPORT_LABELS: Record<Sport, string> = {
+const SPORT_LABELS: Record<string, string> = {
   football: '⚽ Fotball',
   handball: '🤾 Håndball',
 };
@@ -67,7 +67,7 @@ export const DrillsView: React.FC = () => {
   }
 
   function buildTeamNote(drill: Drill, extra?: string): string {
-    const base = `📋 ${drill.description}\n\n📝 Slik gjøres det:\n${drill.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n💡 Tips:\n${drill.tips.map(t => `• ${t}`).join('\n')}`;
+    const base = `📋 ${drill.description}\n\n📝 Slik gjøres det:\n${drill.steps.map((s, i) => `${i + 1}. ${typeof s === "string" ? s : (s as any).description ?? (s as any).name ?? ""}`).join('\n')}\n\n💡 Tips:\n${drill.tips.map(t => `• ${t}`).join('\n')}`;
     return extra ? `${extra}\n\n${base}` : base;
   }
 
@@ -139,14 +139,17 @@ export const DrillsView: React.FC = () => {
           <div>
             <h3 className="text-[11px] font-bold text-sky-400 uppercase tracking-wider mb-3">📝 Slik gjøres det</h3>
             <div className="space-y-2">
-              {drill.steps.map((step, i) => (
-                <div key={i} className="flex gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
-                  <div className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-[11px] font-bold text-sky-400 flex-shrink-0">
-                    {i + 1}
+              {drill.steps.map((step, i) => {
+                const text = typeof step === 'string' ? step : (step as any).description ?? (step as any).name ?? '';
+                return (
+                  <div key={i} className="flex gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
+                    <div className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-[11px] font-bold text-sky-400 flex-shrink-0">
+                      {i + 1}
+                    </div>
+                    <p className="text-[12.5px] text-slate-300 leading-relaxed">{text}</p>
                   </div>
-                  <p className="text-[12.5px] text-slate-300 leading-relaxed">{step}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
