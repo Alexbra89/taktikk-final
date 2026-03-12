@@ -907,3 +907,9 @@ export const CATEGORY_LABELS: Record<DrillCategory, string> = {
   keeper:       '🧤 Keepertrening',
   fysisk:       '💪 Fysisk',
 };
+
+/** DRILL_LIBRARY alias for SmartCoach.tsx */
+export const DRILL_LIBRARY = ALL_DRILLS;
+
+/** Sport type alias (SmartCoach uses Sport, not DrillSport) */
+export type Sport = DrillSport;
