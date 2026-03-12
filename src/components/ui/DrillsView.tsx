@@ -2,8 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import {
-  ALL_DRILLS, getDrillsBySport, getWeeklyDrills, CATEGORY_LABELS,
-  Drill, DrillCategory, Sport
+  getDrillsBySport, getWeeklyDrills, CATEGORY_LABELS,
+  Drill, DrillCategory, DrillSport as Sport
 } from '../../data/drills';
 
 type ViewMode = 'browse' | 'detail';
@@ -41,7 +41,7 @@ export const DrillsView: React.FC = () => {
   const [scheduledId, setScheduledId]     = useState<string | null>(null);
   const [toast, setToast]                 = useState<string | null>(null);
 
-  const weeklyDrills = useMemo(() => getWeeklyDrills(activeSport, 4), [activeSport]);
+  const weeklyDrills = useMemo(() => getWeeklyDrills(activeSport), [activeSport]);
 
   const filteredDrills = useMemo(() => {
     let drills = getDrillsBySport(activeSport);
