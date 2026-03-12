@@ -884,8 +884,12 @@ export function getISOWeek(date = new Date()): number {
 }
 
 /** Henter 4 ukens øvelser basert på ISO-ukenummer (roterer automatisk) */
-export function getWeeklyDrills(sport: DrillSport, category?: DrillCategory): Drill[] {
-  const pool = category ? getDrillsByCategory(sport, category) : getDrillsBySport(sport);
+const VALID_CATEGORIES = ['offensivt','defensivt','hele_laget','keeper','fysisk'];
+
+export function getWeeklyDrills(sport: DrillSport, categoryOrGroup?: DrillCategory | string): Drill[] {
+  const cat = (categoryOrGroup && VALID_CATEGORIES.includes(categoryOrGroup))
+    ? categoryOrGroup as DrillCategory : undefined;
+  const pool = cat ? getDrillsByCategory(sport, cat) : getDrillsBySport(sport);
   if (pool.length === 0) return [];
   const offset = getISOWeek() % pool.length;
   const result: Drill[] = [];
@@ -896,8 +900,10 @@ export function getWeeklyDrills(sport: DrillSport, category?: DrillCategory): Dr
 }
 
 /** Alias for backwards compatibility with SmartCoach.tsx */
-export function getDrillsForContext(sport: DrillSport): Drill[] {
-  return getDrillsBySport(sport);
+export function getDrillsForContext(sport: DrillSport, categoryOrGroup?: DrillCategory | string): Drill[] {
+  const cat = (categoryOrGroup && VALID_CATEGORIES.includes(categoryOrGroup))
+    ? categoryOrGroup as DrillCategory : undefined;
+  return cat ? getDrillsByCategory(sport, cat) : getDrillsBySport(sport);
 }
 
 export const CATEGORY_LABELS: Record<DrillCategory, string> = {
