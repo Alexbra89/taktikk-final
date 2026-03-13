@@ -1,28 +1,26 @@
 // ═══════════════════════════════════════════════════════════════
-//  TAKTIKKBOARD – Type-definisjoner (v4)
+//  TAKTIKKBOARD – Type-definisjoner (v5)
 // ═══════════════════════════════════════════════════════════════
 
-export type Sport = 'football' | 'handball';
+export type Sport = 'football' | 'football7' | 'handball';
 
 export type PlayerRole =
   | 'keeper' | 'defender' | 'midfielder' | 'forward'
   | 'winger' | 'false9' | 'libero' | 'playmaker'
   | 'sweeper' | 'wingback' | 'box2box' | 'trequartista' | 'targetman' | 'pressforward'
-  | 'hb_keeper' | 'hb_pivot' | 'hb_backcourt' | 'hb_wing' | 'hb_center' | 'hb_playmaker'
-  | 'fb_keeper' | 'fb_back' | 'fb_forward' | 'fb_midfielder';
+  | 'hb_keeper' | 'hb_pivot' | 'hb_backcourt' | 'hb_wing' | 'hb_center' | 'hb_playmaker';
 
 export type UserRole = 'coach' | 'player' | 'referee';
 
 export interface Position { x: number; y: number; }
 
-// Spesialrolle på banen
 export type SpecialRole =
-  | 'captain'           // kaptein
-  | 'freekick'          // frispark
-  | 'penalty'           // straffe
-  | 'corner'            // corner
-  | 'throwin'           // innkast
-  | 'goalkeeper_kicks'; // keeperutspark (håndball/innebandy)
+  | 'captain'
+  | 'freekick'
+  | 'penalty'
+  | 'corner'
+  | 'throwin'
+  | 'goalkeeper_kicks';
 
 export interface Player {
   id: string;
@@ -37,10 +35,9 @@ export interface Player {
   injuryReturnDate?: string;
   minutesPlayed?: number;
   isOnField?: boolean;
-  // Nye felt v4
-  isStarter?: boolean;           // true = starter, false = innbytter
-  specialRoles?: SpecialRole[];  // kaptein, frispark etc.
-  individualTraining?: string;   // notat om individuell trening
+  isStarter?: boolean;
+  specialRoles?: SpecialRole[];
+  individualTraining?: string;
 }
 
 export interface Drawing {
@@ -74,8 +71,7 @@ export interface CalendarEvent {
   teamNote: string;
   trainingNotes: TrainingNote[];
   matchNotes: MatchNote[];
-  // Laguttak låst 30 min før kamp
-  lineupLockedAt?: string; // ISO timestamp
+  lineupLockedAt?: string;
 }
 
 export interface TrainingNote {
@@ -102,7 +98,6 @@ export interface PlayerAccount {
   playerId: string;
   pin: string;
   team: 'home' | 'away';
-  // Individuelle treningsnotater synlige kun for denne spilleren
   individualTrainingNote?: string;
 }
 
@@ -114,7 +109,6 @@ export interface CoachMessage {
   content: string;
   createdAt: string;
   replies: PlayerReply[];
-  // Kan også sendes fra kaptein
   fromCaptain?: boolean;
 }
 
@@ -138,7 +132,7 @@ export interface Drill {
   sport: Sport | 'all';
   description: string;
   steps: DrillStep[];
-  weekNumber?: number; // roteres ukentlig
+  weekNumber?: number;
 }
 
 export interface SubstitutionSuggestion {

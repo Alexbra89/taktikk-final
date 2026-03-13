@@ -68,9 +68,6 @@ function suggestSubstitutions(
   return suggestions;
 }
 
-// Extend Sport type to include football7
-type ExtendedSport = Sport | 'football7';
-
 interface AppStore {
   currentView: AppView;
   setView: (v: AppView) => void;
@@ -94,8 +91,8 @@ interface AppStore {
   chatMessages: ChatMessage[];
   sendChat: (fromRole: 'coach'|'player', fromName: string, content: string, toPlayerId?: string) => void;
 
-  sport: ExtendedSport;
-  setSport: (s: ExtendedSport) => void;
+  sport: Sport;
+  setSport: (s: Sport) => void;
   phases: TacticPhase[];
   activePhaseIdx: number;
   setActivePhaseIdx: (i: number) => void;
@@ -209,9 +206,7 @@ export const useAppStore = create<AppStore>()(
       addPhase: () => {
         const { phases, activePhaseIdx, sport } = get();
         const cur = phases[activePhaseIdx];
-        // football7 uses football pitch
-        const pitchSport = sport === 'football7' ? 'football' : sport as Sport;
-        const np = makePhase(`Fase ${phases.length + 1}`, pitchSport, cur.players, cur.ball);
+        const np = makePhase(`Fase ${phases.length + 1}`, sport, cur.players, cur.ball);
         set({ phases: [...phases, np], activePhaseIdx: phases.length });
       },
 
@@ -329,7 +324,7 @@ export const useAppStore = create<AppStore>()(
             ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
         );
         const currentMinute = Math.floor(elapsed / 60);
-        const teamSizes: Record<string, number> = { football: 11, football7: 7, handball: 7, floorball: 6 };
+        const teamSizes: Record<string, number> = { football: 11, football7: 7, handball: 7 };
         return suggestSubstitutions(ph.players, ph.players.length, teamSizes[sport] ?? 11, currentMinute, intervalMinutes);
       },
 
@@ -430,6 +425,10 @@ export const useAppStore = create<AppStore>()(
     }
   )
 );
+
+/** Normaliser football7 → football for komponenter som bruker Sport-typen */
+export const toBaseSport = (s: Sport): Sport =>
+  s === 'football7' ? 'football' : s;
 
 export const useSafeAppStore = <T,>(selector: (state: AppStore) => T): T | undefined => {
   const result = useAppStore(selector);
