@@ -15,7 +15,7 @@ interface ChatMessage {
   fromName: string;
   content: string;
   createdAt: string;
-  toPlayerId?: string; // undefined = broadcast to all
+  toPlayerId?: string;
 }
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -42,7 +42,6 @@ function generateReportText(tags: ReportTag[], freeText: string, matchTitle?: st
   return `${title}\nDato: ${date}\n\n${tagLines || '(ingen kategorier valgt)'}${extra}\n\nRapport generert av Taktikkboard`;
 }
 
-// ─── Bytteplan-hjelper ────────────────────────────────────────
 function suggestSubstitutions(
   players: Player[],
   totalPlayers: number,
@@ -69,6 +68,9 @@ function suggestSubstitutions(
   return suggestions;
 }
 
+// Extend Sport type to include football7
+type ExtendedSport = Sport | 'football7';
+
 interface AppStore {
   currentView: AppView;
   setView: (v: AppView) => void;
@@ -89,12 +91,11 @@ interface AppStore {
   setHomeTeamName: (name: string) => void;
   setAwayTeamName: (name: string) => void;
 
-  // Chat
   chatMessages: ChatMessage[];
   sendChat: (fromRole: 'coach'|'player', fromName: string, content: string, toPlayerId?: string) => void;
 
-  sport: Sport;
-  setSport: (s: Sport) => void;
+  sport: ExtendedSport;
+  setSport: (s: ExtendedSport) => void;
   phases: TacticPhase[];
   activePhaseIdx: number;
   setActivePhaseIdx: (i: number) => void;
@@ -108,7 +109,6 @@ interface AppStore {
   updatePhaseName: (phaseIdx: number, name: string) => void;
   updateStickyNote: (phaseIdx: number, note: string) => void;
 
-  // Spesialroller (kaptein, straffe, frispark…)
   setSpecialRole: (phaseIdx: number, playerId: string, role: SpecialRole, active: boolean) => void;
 
   awayTeamColor: string;
@@ -117,7 +117,6 @@ interface AppStore {
   setPlayerInjury: (phaseIdx: number, playerId: string, injured: boolean, returnDate?: string) => void;
   checkAndHealInjuries: (phaseIdx: number) => void;
 
-  // isStarter (starter vs innbytter)
   setPlayerStarter: (phaseIdx: number, playerId: string, isStarter: boolean) => void;
 
   matchTimer: MatchTimer;
@@ -159,11 +158,9 @@ export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
 
-      // ─── Navigasjon ──────────────────────────────────────────
       currentView: 'board',
       setView: (v) => set({ currentView: v }),
 
-      // ─── Auth ────────────────────────────────────────────────
       currentUser: null,
       coachEmail: 'trener@lag.no',
       coachPassword: 'trener123',
@@ -201,18 +198,20 @@ export const useAppStore = create<AppStore>()(
       },
       logout: () => set({ currentUser: null, currentView: 'board' }),
 
-      // ─── Taktikkbrett ────────────────────────────────────────
       sport: 'football',
       phases: [makePhase('Fase 1', 'football')],
       activePhaseIdx: 0,
 
+      // football7 maps to football pitch but with youth settings
       setSport: (s) => set({ sport: s }),
       setActivePhaseIdx: (i) => set({ activePhaseIdx: i }),
 
       addPhase: () => {
         const { phases, activePhaseIdx, sport } = get();
         const cur = phases[activePhaseIdx];
-        const np = makePhase(`Fase ${phases.length + 1}`, sport, cur.players, cur.ball);
+        // football7 uses football pitch
+        const pitchSport = sport === 'football7' ? 'football' : sport as Sport;
+        const np = makePhase(`Fase ${phases.length + 1}`, pitchSport, cur.players, cur.ball);
         set({ phases: [...phases, np], activePhaseIdx: phases.length });
       },
 
@@ -252,7 +251,6 @@ export const useAppStore = create<AppStore>()(
       updateStickyNote: (phaseIdx, note) =>
         set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, stickyNote: note }) })),
 
-      // ─── Spesialroller ────────────────────────────────────────
       setSpecialRole: (phaseIdx, playerId, role, active) =>
         set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : {
           ...ph, players: ph.players.map(p => {
@@ -265,17 +263,14 @@ export const useAppStore = create<AppStore>()(
           }),
         })})),
 
-      // ─── Starter vs innbytter ─────────────────────────────────
       setPlayerStarter: (phaseIdx, playerId, isStarter) =>
         set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : {
           ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, isStarter } : p),
         })})),
 
-      // ─── Motstander-farge ─────────────────────────────────────
       awayTeamColor: '#ef4444',
       setAwayTeamColor: (color) => set({ awayTeamColor: color }),
 
-      // ─── Skademodul ───────────────────────────────────────────
       setPlayerInjury: (phaseIdx, playerId, injured, returnDate) =>
         set(s => ({ phases: s.phases.map((ph, i) => i !== phaseIdx ? ph : {
           ...ph, players: ph.players.map(p => p.id === playerId ? {
@@ -295,7 +290,6 @@ export const useAppStore = create<AppStore>()(
         })}));
       },
 
-      // ─── Kampklokke ───────────────────────────────────────────
       matchTimer: { running: false, startedAt: null, elapsed: 0 },
 
       startTimer: () => {
@@ -335,11 +329,10 @@ export const useAppStore = create<AppStore>()(
             ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
         );
         const currentMinute = Math.floor(elapsed / 60);
-        const teamSizes: Record<string, number> = { football: 11, handball: 7, floorball: 6 };
+        const teamSizes: Record<string, number> = { football: 11, football7: 7, handball: 7, floorball: 6 };
         return suggestSubstitutions(ph.players, ph.players.length, teamSizes[sport] ?? 11, currentMinute, intervalMinutes);
       },
 
-      // ─── Kamprapport ─────────────────────────────────────────
       matchReports: [],
       createReport: (tags, freeText, matchTitle, eventId) => {
         const report: MatchReport = {
@@ -353,7 +346,6 @@ export const useAppStore = create<AppStore>()(
       },
       deleteReport: (id) => set(s => ({ matchReports: s.matchReports.filter(r => r.id !== id) })),
 
-      // ─── Kalender ────────────────────────────────────────────
       events: [],
       addEvent: (ev) => set(s => ({ events: [...s.events, { id: uid(), ...ev }] })),
       updateEvent: (id, fields) => set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...fields } : e) })),
@@ -385,14 +377,12 @@ export const useAppStore = create<AppStore>()(
           ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
         })})),
 
-      // ─── Spillerkontoer ──────────────────────────────────────
       playerAccounts: [],
       addPlayerAccount: (acc) => set(s => ({ playerAccounts: [...s.playerAccounts, { id: uid(), ...acc }] })),
       removePlayerAccount: (id) => set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) })),
       updatePlayerAccount: (id, fields) =>
         set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) })),
 
-      // ─── Meldinger ───────────────────────────────────────────
       coachMessages: [],
       sendCoachMessage: (playerId, content, eventId) => {
         const msg: CoachMessage = {
@@ -410,7 +400,6 @@ export const useAppStore = create<AppStore>()(
       deleteCoachMessage: (id) =>
         set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== id) })),
 
-      // ─── Chat ────────────────────────────────────────────
       chatMessages: [],
       sendChat: (fromRole, fromName, content, toPlayerId) => {
         const msg: ChatMessage = {
@@ -421,10 +410,11 @@ export const useAppStore = create<AppStore>()(
       },
     }),
     {
-      name: 'taktikkboard-v5',
+      name: 'taktikkboard-v6',
       partialize: (s) => ({
         sport: s.sport,
         phases: s.phases,
+        activePhaseIdx: s.activePhaseIdx,
         events: s.events,
         playerAccounts: s.playerAccounts,
         coachMessages: s.coachMessages,

@@ -196,6 +196,7 @@ const AutoGenForm: React.FC<{
   );
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 3, 5]); // Man, Ons, Fre
   const [focusTags, setFocusTags] = useState<string[]>([]);
+  const [ageGroup, setAgeGroup] = useState<'youth'|'adult'>(sport === 'football7' ? 'youth' : 'adult');
 
   const WEEKDAYS = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
 
@@ -228,7 +229,8 @@ const AutoGenForm: React.FC<{
   }, [startDate, weeks, selectedDays]);
 
   function generate() {
-    const drills = getDrillsBySport(activeSport as any);
+    const allDrills = getDrillsBySport(activeSport as any);
+    const drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
     const events: Omit<CalendarEvent,'id'>[] = [];
 
     previewDates.forEach((date, idx) => {
@@ -272,7 +274,7 @@ const AutoGenForm: React.FC<{
         </div>
       </div>
 
-      {/* Sport */}
+      {/* Sport — forhåndsvalgt fra innstillinger, men kan overstyres */}
       <div className="mb-4">
         <label className="label-cal">Sport</label>
         <div className="flex gap-2 mt-1">
@@ -283,6 +285,22 @@ const AutoGenForm: React.FC<{
                   ? 'border-sky-500 bg-sky-500/15 text-sky-400'
                   : 'border-[#1e3050] text-[#4a6080]'}`}>
               {s === 'football' ? '⚽ Fotball' : '🤾 Håndball'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Aldersgruppe */}
+      <div className="mb-4">
+        <label className="label-cal">Aldersgruppe</label>
+        <div className="flex gap-2 mt-1">
+          {([['adult','Voksen / Senior'],['youth','Barn / Junior']] as const).map(([v, l]) => (
+            <button key={v} onClick={() => setAgeGroup(v)}
+              className={`flex-1 py-2 rounded-lg text-[12px] font-bold border transition-all
+                ${ageGroup === v
+                  ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400'
+                  : 'border-[#1e3050] text-[#4a6080]'}`}>
+              {v === 'youth' ? '🧒 ' : '🧑 '}{l}
             </button>
           ))}
         </div>
@@ -397,7 +415,9 @@ const NewEventForm: React.FC<{
   const [selectedDrill, setSelectedDrill] = useState<DrillExercise | null>(null);
   const [showDrillPicker, setShowDrillPicker] = useState(false);
 
-  const drills = getDrillsBySport(sport === 'handball' ? 'handball' : 'football');
+  const [ageFilter, setAgeFilter] = useState<'youth'|'adult'>(sport === 'football7' ? 'youth' : 'adult');
+  const allDrillsForEvent = getDrillsBySport(sport === 'handball' ? 'handball' : 'football');
+  const drills = allDrillsForEvent.filter(d => !d.ageGroup || d.ageGroup === ageFilter);
 
   const save = () => {
     if (!title.trim()) return;

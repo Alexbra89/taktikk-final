@@ -17,11 +17,11 @@ export const PlayerPortal: React.FC = () => {
   const {
     currentUser, playerAccounts, coachMessages, events,
     phases, sport, replyToMessage, logout, chatMessages, sendChat,
-    homeTeamName, awayTeamName, activePhaseIdx,
+    homeTeamName, awayTeamName, activePhaseIdx, deleteEvent,
   } = useAppStore();
 
   const [replyText, setReplyText] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts'>('tactics');
+  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar'>('tactics');
   const [chatInput, setChatInput] = useState('');
 
   const isCoach  = currentUser?.role === 'coach';
@@ -30,6 +30,7 @@ export const PlayerPortal: React.FC = () => {
   const tabs = [
     { id: 'tactics',  label: '📋 Taktikk' },
     { id: 'squad',    label: '👥 Tropp' },
+    { id: 'calendar', label: '📅 Kalender' },
     { id: 'messages', label: '💬 Meldinger' },
     { id: 'chat',     label: '🗨️ Chat' },
     ...(isCoach ? [{ id: 'accounts', label: '⚙️ Kontoer' }] : []),
@@ -122,6 +123,12 @@ export const PlayerPortal: React.FC = () => {
         )}
 
         {/* KONTOER (trener only) */}
+        {tab === 'calendar' && (
+          <div className="flex-1 overflow-y-auto p-4 max-w-2xl w-full mx-auto">
+            <PlayerCalendarView events={events as any[]} sport={sport} />
+          </div>
+        )}
+
         {tab === 'accounts' && isCoach && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl w-full mx-auto">
             <AccountManager />
@@ -325,8 +332,8 @@ const ReadOnlyTacticBoard: React.FC = () => {
             </g>
           )}
 
-          {/* Spillere — kun visning, ingen drag */}
-          {(displayPlayers as any[]).map((player: any) => {
+          {/* Spillere — kun visning, ingen drag — BARE HJEMMELAG */}
+          {(displayPlayers as any[]).filter((player: any) => player.team === 'home').map((player: any) => {
             const meta  = getMeta(player.role);
             const fill  = player.team === 'away'
               ? (awayTeamColor ?? '#ef4444')
@@ -384,6 +391,36 @@ const ReadOnlyTacticBoard: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Innbyttere under brettet */}
+      {(() => {
+        const bench = (phase.players ?? []).filter((p: any) => p.team === 'home' && (p.isStarter === false || p.isOnField === false));
+        if (!bench.length) return null;
+        return (
+          <div className="flex-shrink-0 px-3 py-2 bg-[#0a1422] border-t border-[#1e3050]">
+            <div className="text-[9.5px] font-bold text-amber-400 uppercase tracking-widest mb-2">
+              🪑 Innbyttere
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {bench.sort((a: any, b: any) => getNum(a) - getNum(b)).map((p: any) => {
+                const meta = getMeta(p.role);
+                return (
+                  <div key={p.id} className="flex items-center gap-1.5 bg-[#0f1a2a] border border-amber-500/20 rounded-lg px-2.5 py-1.5">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
+                      style={{ background: meta?.color ?? '#555' }}>
+                      {getNum(p)}
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-slate-200 leading-none">{p.name || `#${getNum(p)}`}</div>
+                      <div className="text-[9px] text-amber-400 mt-0.5">{meta?.label ?? p.role}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -734,6 +771,92 @@ const AccountManager: React.FC = () => {
         .label-sm2 { font-size:9.5px; font-weight:700; color:#3a5070;
           text-transform:uppercase; letter-spacing:0.08em; display:block; }
       `}</style>
+    </div>
+  );
+};
+
+// ═══ PLAYER CALENDAR VIEW ════════════════════════════════════
+
+const PlayerCalendarView: React.FC<{ events: any[]; sport: string }> = ({ events, sport }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = events
+    .filter(e => e.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 15);
+
+  const past = events
+    .filter(e => e.date < today)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5);
+
+  if (events.length === 0) return <EmptyState icon="📅" text="Ingen arrangementer planlagt ennå." />;
+
+  return (
+    <div>
+      <h3 className="text-base font-bold text-slate-100 mb-4">📅 Kommende</h3>
+      <div className="space-y-2 mb-6">
+        {upcoming.map(ev => (
+          <PlayerEventCard key={ev.id} event={ev} />
+        ))}
+        {upcoming.length === 0 && <p className="text-[#4a6080] text-sm italic">Ingen kommende arrangementer.</p>}
+      </div>
+
+      {past.length > 0 && (
+        <>
+          <h3 className="text-[11px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">Tidligere</h3>
+          <div className="space-y-2 opacity-60">
+            {past.map(ev => (
+              <PlayerEventCard key={ev.id} event={ev} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const PlayerEventCard: React.FC<{ event: any }> = ({ event }) => {
+  const [open, setOpen] = React.useState(false);
+  const isMatch    = event.type === 'match';
+  const dateStr    = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  });
+  return (
+    <div className="bg-[#0f1a2a] border border-[#1e3050] rounded-xl overflow-hidden">
+      <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setOpen(!open)}>
+        <div className={`w-2 h-10 rounded-full flex-shrink-0 ${isMatch ? 'bg-red-400' : 'bg-emerald-400'}`} />
+        <div className="flex-1 min-w-0">
+          <div className="text-[12.5px] font-bold text-slate-200">{event.title}</div>
+          <div className="text-[10.5px] text-[#4a6080]">
+            {isMatch ? '⚽ Kamp' : '🏃 Trening'} · {dateStr}
+            {event.time && ` · ${event.time}`}
+            {event.location && ` · 📍 ${event.location}`}
+          </div>
+        </div>
+        <span className="text-[#4a6080] text-[11px]">{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div className="px-4 pb-4 border-t border-[#1e3050] pt-3 space-y-2">
+          {event.teamNote ? (
+            <p className="text-[12px] text-slate-300 leading-relaxed whitespace-pre-wrap">{event.teamNote}</p>
+          ) : (
+            <p className="text-[11px] text-[#3a5070] italic">Ingen notat fra trener.</p>
+          )}
+          {(event.trainingNotes ?? []).map((tn: any) => (
+            <div key={tn.id} className="bg-[#0c1525] rounded-lg p-3 border border-[#1e3050]">
+              <div className="text-[11px] font-bold text-emerald-400 mb-1">📋 {tn.title}</div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">{tn.content}</p>
+              {tn.focus?.length > 0 && (
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  {tn.focus.map((f: string, i: number) => (
+                    <span key={i} className="text-[9.5px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">{f}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
