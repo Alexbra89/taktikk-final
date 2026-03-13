@@ -3,13 +3,13 @@ import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import {
   getDrillsBySport, getWeeklyDrills, CATEGORY_LABELS,
-  Drill, DrillCategory, DrillSport as Sport
+  Drill, DrillCategory, DrillSport, toDrillSport,
 } from '../../data/drills';
 
 type ViewMode = 'browse' | 'detail';
 
 const SPORT_LABELS: Record<string, string> = {
-  football: '⚽ Fotball',
+  football: '⚽ Fotball 11er / 7er',
   handball: '🤾 Håndball',
 };
 
@@ -30,7 +30,7 @@ const CAT_STRIPE: Record<string, string> = {
 export const DrillsView: React.FC = () => {
   const { addEvent, sport } = useAppStore();
 
-  const [activeSport, setActiveSport]     = useState<Sport>((sport as Sport) ?? 'football');
+  const [activeSport, setActiveSport]     = useState<DrillSport>(toDrillSport(sport));
   const [activeCategory, setActiveCategory] = useState<DrillCategory | 'alle'>('alle');
   const [searchQuery, setSearchQuery]     = useState('');
   const [selectedDrill, setSelectedDrill] = useState<Drill | null>(null);
@@ -209,7 +209,7 @@ export const DrillsView: React.FC = () => {
 
       <div className="flex-shrink-0 border-b border-[#1e3050] bg-[#0c1525]">
         <div className="flex px-4 pt-3 gap-2 items-center">
-          {(['football', 'handball'] as Sport[]).map(s => (
+          {(['football', 'handball'] as DrillSport[]).map(s => (
             <button key={s} onClick={() => { setActiveSport(s); setActiveCategory('alle'); }}
               className={`px-4 py-2 rounded-lg text-[12px] font-bold border transition-all ${
                 activeSport === s ? 'border-sky-500/50 bg-sky-500/15 text-sky-400' : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'

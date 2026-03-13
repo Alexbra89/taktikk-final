@@ -3,6 +3,10 @@
 // ═══════════════════════════════════════════════════════════════
 
 export type DrillSport      = 'football' | 'handball' | 'all';
+
+/** Normaliser 'football7' → 'football' for øvelsesoppslag */
+export const toDrillSport = (s: string): DrillSport =>
+  s === 'football7' ? 'football' : (s as DrillSport);
 export type DrillCategory   = 'offensivt' | 'defensivt' | 'hele_laget' | 'keeper' | 'fysisk';
 export type DrillDifficulty = 'enkel' | 'middels' | 'avansert';
 

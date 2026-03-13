@@ -1,8 +1,8 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { DRILL_LIBRARY, getDrillsForContext, getWeeklyDrills, getISOWeek } from '@/data/drills';
-import { Drill, Sport } from '@/types';
+import { DRILL_LIBRARY, getDrillsForContext, getWeeklyDrills, getISOWeek, toDrillSport } from '@/data/drills';
+import { Drill } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════
 //  SMART COACH – Kampklokke · Bytteplan · Ukentlige øvelser
@@ -312,12 +312,12 @@ const DrillsTab: React.FC = () => {
   const [showAll, setShowAll]         = useState(false);
 
   const week        = getISOWeek();
-  const weeklyDrills = getWeeklyDrills(sport, ageGroup);
-  const allDrills    = getDrillsForContext(sport, ageGroup);
+  const weeklyDrills = getWeeklyDrills(toDrillSport(sport), ageGroup);
+  const allDrills    = getDrillsForContext(toDrillSport(sport), ageGroup);
   const displayed    = showAll ? allDrills : weeklyDrills;
 
-  const sportLabel: Record<Sport, string> = {
-    football: 'Fotball', handball: 'Håndball',
+  const sportLabel: Record<string, string> = {
+    football: 'Fotball 11er', football7: 'Fotball 7er', handball: 'Håndball',
   };
 
   const applyNote = (drill: Drill, stepIdx: number) => {
@@ -330,7 +330,7 @@ const DrillsTab: React.FC = () => {
     <div>
       {/* Sport + Aldersgruppe */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-bold text-slate-400">{sportLabel[sport]}</span>
+        <span className="text-[11px] font-bold text-slate-400">{sportLabel[sport] ?? sport}</span>
         <div className="flex gap-1.5">
           {(['youth', 'adult'] as const).map(ag => (
             <button key={ag} onClick={() => { setAgeGroup(ag); setActiveDrill(null); }}
@@ -483,3 +483,4 @@ const DrillsTab: React.FC = () => {
     </div>
   );
 };
+
