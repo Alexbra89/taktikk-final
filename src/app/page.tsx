@@ -174,8 +174,9 @@ export default function Home() {
     const unsub = subscribeToSupabase(() => {
       useAppStore.getState().syncFromSupabase();
     });
-    return unsub;
-  }, []);
+    // unsub er en sync cleanup-funksjon
+    return () => { unsub(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isMounted) return null;
   if (!currentUser) return <LoginGate />;
@@ -332,22 +333,20 @@ export default function Home() {
         {/* TRENER — brett */}
         {isCoach && mobileCoachTab === 'board' && (
           <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-hidden relative">
+            <div className="flex-1 overflow-hidden">
               <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-              {/* Fullskjerm-knapp over brettet */}
-              <button
-                onClick={() => setMobileBoardFullscreen(true)}
-                className="absolute top-2 right-2 z-10 px-3 py-2 rounded-xl text-[11px] font-bold
-                  bg-[#0c1525]/90 border border-[#1e3050] text-sky-400 backdrop-blur-sm min-h-[36px]">
-                ⛶ Fullskjerm
-              </button>
             </div>
-            {/* SmartCoach + Rapport knapper */}
+            {/* Bunn-verktøylinje */}
             <div className="flex-shrink-0 flex gap-2 px-3 py-2 bg-[#08101e] border-t border-[#1a2d46]">
+              <button onClick={() => setMobileBoardFullscreen(true)}
+                className="px-3 py-2 rounded-lg text-[11px] font-bold border border-[#1e3050]
+                  text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 transition min-h-[40px]">
+                ⛶
+              </button>
               <button onClick={() => setShowSmartCoach(true)}
                 className="flex-1 py-2 rounded-lg text-[11px] font-bold border border-[#1e3050]
                   text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 transition min-h-[40px]">
-                ⚡ Smart Coach
+                ⚡ Coach
               </button>
               <button onClick={() => setShowMatchReport(true)}
                 className="flex-1 py-2 rounded-lg text-[11px] font-bold border border-[#1e3050]

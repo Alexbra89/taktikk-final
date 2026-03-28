@@ -31,6 +31,9 @@ export const DrillsView: React.FC = () => {
   const { addEvent, sport } = useAppStore();
 
   const [activeSport, setActiveSport]     = useState<DrillSport>(toDrillSport(sport));
+  const [ageGroup, setAgeGroup]           = useState<'youth'|'adult'>(
+    sport === 'football7' ? 'youth' : 'adult'
+  );
   const [activeCategory, setActiveCategory] = useState<DrillCategory | 'alle'>('alle');
   const [searchQuery, setSearchQuery]     = useState('');
   const [selectedDrill, setSelectedDrill] = useState<Drill | null>(null);
@@ -41,10 +44,14 @@ export const DrillsView: React.FC = () => {
   const [scheduledId, setScheduledId]     = useState<string | null>(null);
   const [toast, setToast]                 = useState<string | null>(null);
 
-  const weeklyDrills = useMemo(() => getWeeklyDrills(activeSport), [activeSport]);
+  const weeklyDrills = useMemo(() => {
+    const all = getWeeklyDrills(activeSport);
+    return all.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
+  }, [activeSport, ageGroup]);
 
   const filteredDrills = useMemo(() => {
     let drills = getDrillsBySport(activeSport);
+    drills = drills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
     if (activeCategory !== 'alle') drills = drills.filter(d => d.category === activeCategory);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -54,7 +61,7 @@ export const DrillsView: React.FC = () => {
       );
     }
     return drills;
-  }, [activeSport, activeCategory, searchQuery]);
+  }, [activeSport, activeCategory, searchQuery, ageGroup]);
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(getDrillsBySport(activeSport).map(d => d.category)));
@@ -218,7 +225,20 @@ export const DrillsView: React.FC = () => {
             </button>
           ))}
           <div className="flex-1" />
-          <span className="text-[11px] text-[#3a5070]">{filteredDrills.length} øvelser</span>
+          {/* Aldersgruppe */}
+          <div className="flex gap-1">
+            {(['adult','youth'] as const).map(ag => (
+              <button key={ag} onClick={() => setAgeGroup(ag)}
+                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all min-h-[32px]
+                  ${ageGroup === ag
+                    ? ag === 'youth' ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400'
+                                     : 'border-sky-500 bg-sky-500/15 text-sky-400'
+                    : 'border-[#1e3050] text-[#4a6080]'}`}>
+                {ag === 'youth' ? '🧒' : '🧑'}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] text-[#3a5070]">{filteredDrills.length}</span>
         </div>
 
         <div className="px-4 py-2">

@@ -48,7 +48,7 @@ export const CalendarView: React.FC = () => {
   return (
     <div className="flex h-full overflow-hidden">
       {/* ── Kalender-kolonne ── */}
-      <div className={`flex flex-col ${selectedDate ? "hidden sm:flex" : "flex"} w-full sm:w-80 flex-shrink-0 sm:flex-shrink-0 border-r border-[#1e3050] bg-[#0c1525]`}>
+      <div className={`flex flex-col ${(selectedDate || showNewEvent || showAutoGen) ? "hidden sm:flex" : "flex"} w-full sm:w-80 flex-shrink-0 sm:flex-shrink-0 border-r border-[#1e3050] bg-[#0c1525]`}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3050]">
           <button onClick={prevMonth} className="text-[#4a6080] hover:text-white text-lg w-8 h-8 flex items-center justify-center">‹</button>
           <span className="text-sm font-bold text-slate-200">{MONTHS[month]} {year}</span>
@@ -102,9 +102,9 @@ export const CalendarView: React.FC = () => {
       </div>
 
       {/* ── Detaljpanel ── */}
-      <div className={`flex-1 flex-col overflow-hidden ${selectedDate ? 'flex' : 'hidden sm:flex'}`}>
+      <div className={`flex-1 flex-col overflow-hidden ${(selectedDate || showNewEvent || showAutoGen) ? 'flex' : 'hidden sm:flex'}`}>
         {/* Mobil: tilbake-knapp */}
-        <button onClick={() => setSelectedDate(null)}
+        <button onClick={() => { setSelectedDate(null); setShowNewEvent(false); setShowAutoGen(false); }}
           className="sm:hidden flex-shrink-0 flex items-center gap-1 px-4 py-3
             border-b border-[#1e3050] text-[11px] text-sky-400 min-h-[44px]">
           ‹ Tilbake til kalender
