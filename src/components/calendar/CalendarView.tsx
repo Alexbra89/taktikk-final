@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { CalendarEvent } from '../../types';
-import { getDrillsBySport, getWeeklyDrills, DrillExercise } from '../../data/drills';
+import { getDrillsBySport, DrillExercise } from '../../data/drills';
 
 const MONTHS = ['Januar','Februar','Mars','April','Mai','Juni',
                 'Juli','August','September','Oktober','November','Desember'];
@@ -48,7 +48,7 @@ export const CalendarView: React.FC = () => {
   return (
     <div className="flex h-full overflow-hidden">
       {/* ── Kalender-kolonne ── */}
-      <div className="flex flex-col w-80 flex-shrink-0 border-r border-[#1e3050] bg-[#0c1525]">
+      <div className={`flex flex-col ${selectedDate ? "hidden sm:flex" : "flex"} w-full sm:w-80 flex-shrink-0 sm:flex-shrink-0 border-r border-[#1e3050] bg-[#0c1525]`}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3050]">
           <button onClick={prevMonth} className="text-[#4a6080] hover:text-white text-lg w-8 h-8 flex items-center justify-center">‹</button>
           <span className="text-sm font-bold text-slate-200">{MONTHS[month]} {year}</span>
@@ -102,7 +102,14 @@ export const CalendarView: React.FC = () => {
       </div>
 
       {/* ── Detaljpanel ── */}
-      <div className="flex-1 overflow-y-auto p-5">
+      <div className={`flex-1 flex-col overflow-hidden ${selectedDate ? 'flex' : 'hidden sm:flex'}`}>
+        {/* Mobil: tilbake-knapp */}
+        <button onClick={() => setSelectedDate(null)}
+          className="sm:hidden flex-shrink-0 flex items-center gap-1 px-4 py-3
+            border-b border-[#1e3050] text-[11px] text-sky-400 min-h-[44px]">
+          ‹ Tilbake til kalender
+        </button>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
 
         {showAutoGen && (
           <AutoGenForm
@@ -173,8 +180,9 @@ export const CalendarView: React.FC = () => {
             )}
           </div>
         )}
+        </div>
+        </div>
       </div>
-    </div>
   );
 };
 

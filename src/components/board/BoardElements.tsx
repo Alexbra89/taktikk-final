@@ -22,15 +22,16 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   const groupRef   = useRef<SVGGElement>(null);
   const isDragging = useRef(false);
   const hasMoved   = useRef(false);
+  const rafRef     = useRef<number | null>(null);
+  const pendingPos = useRef<{ x: number; y: number } | null>(null);
   const [showEditor, setShowEditor] = useState(false);
 
-  const meta    = ROLE_META[player.role] ?? ROLE_META['midfielder'];
-  const isHome  = player.team === 'home';
-  const fillColor  = isHome ? meta.color : (awayTeamColor ?? '#ef4444');
-  const ringFill   = isHome ? 'rgba(255,255,255,0.92)' : 'rgba(15,25,40,0.92)';
+  const meta      = ROLE_META[player.role] ?? ROLE_META['midfielder'];
+  const isHome    = player.team === 'home';
+  const fillColor = isHome ? meta.color : (awayTeamColor ?? '#ef4444');
+  const ringFill  = isHome ? 'rgba(255,255,255,0.92)' : 'rgba(15,25,40,0.92)';
   const ringStroke = isHome ? 'none' : (awayTeamColor ?? '#ef4444');
 
-  // Convert client coords to SVG viewBox coords
   const toSVGCoords = useCallback((clientX: number, clientY: number) => {
     const svg = groupRef.current?.ownerSVGElement;
     if (!svg) return null;
@@ -43,7 +44,22 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     };
   }, []);
 
-  // ── Pointer events — works for mouse, touch and stylus ──────
+  // RAF-throttled position update — prevents flooding store/Supabase on every touch event
+  const flushPosition = useCallback(() => {
+    if (pendingPos.current) {
+      onPositionChange(pendingPos.current);
+      pendingPos.current = null;
+    }
+    rafRef.current = null;
+  }, [onPositionChange]);
+
+  const scheduleUpdate = useCallback((pos: { x: number; y: number }) => {
+    pendingPos.current = pos;
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(flushPosition);
+    }
+  }, [flushPosition]);
+
   const onPointerDown = useCallback((e: React.PointerEvent<SVGGElement>) => {
     if (!isActive) return;
     e.preventDefault();
@@ -59,19 +75,27 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     const c = toSVGCoords(e.clientX, e.clientY);
     if (!c) return;
     hasMoved.current = true;
-    onPositionChange(c);
-  }, [isActive, toSVGCoords, onPositionChange]);
+    scheduleUpdate(c);
+  }, [isActive, toSVGCoords, scheduleUpdate]);
 
   const onPointerUp = useCallback((_e: React.PointerEvent<SVGGElement>) => {
     if (!isDragging.current) return;
     isDragging.current = false;
+    // Flush any pending position immediately on release
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (pendingPos.current) {
+      onPositionChange(pendingPos.current);
+      pendingPos.current = null;
+    }
     if (!hasMoved.current) {
-      // It was a tap — open name editor and notify parent
       setShowEditor(prev => !prev);
       onSelect();
     }
     hasMoved.current = false;
-  }, [onSelect]);
+  }, [onSelect, onPositionChange]);
 
   const { x, y } = player.position;
 
@@ -90,18 +114,16 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        style={{
-          cursor: isActive ? 'grab' : 'default',
-          userSelect: 'none',
-          touchAction: 'none',
-        }}
+        style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none', touchAction: 'none' }}
         filter="url(#dropShadow)"
         opacity={player.injured ? 0.45 : 1}
       >
-        {/* Playtime ring */}
-        <circle cx={x} cy={y} r={24}
-          fill="none" stroke={playtimeColor()} strokeWidth={2}
-          opacity={0.5} strokeDasharray="4 2" />
+        {/* Playtime ring — only shown if minutes logged */}
+        {(player.minutesPlayed ?? 0) > 0 && (
+          <circle cx={x} cy={y} r={24} fill="none"
+            stroke={playtimeColor()} strokeWidth={2}
+            opacity={0.5} strokeDasharray="4 2" />
+        )}
 
         {/* Team ring */}
         <circle cx={x} cy={y} r={21}
@@ -132,11 +154,10 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
 
         {/* Injury badge */}
         {player.injured && (
-          <text x={x - 10} y={y - 14} fontSize="12"
-            style={{ pointerEvents: 'none' }}>🩹</text>
+          <text x={x - 10} y={y - 14} fontSize="12" style={{ pointerEvents: 'none' }}>🩹</text>
         )}
 
-        {/* Edit pencil */}
+        {/* Edit pencil — only visible when active */}
         {isActive && (
           <text x={x + 17} y={y - 15}
             fill={isSelected ? '#38bdf8' : 'rgba(255,255,255,0.5)'}
@@ -147,10 +168,8 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
         )}
       </g>
 
-      {/* Name editor popup */}
       {showEditor && isActive && (
-        <NameEditor player={player} svgX={x} svgY={y}
-          onClose={() => setShowEditor(false)} />
+        <NameEditor player={player} svgX={x} svgY={y} onClose={() => setShowEditor(false)} />
       )}
     </>
   );
@@ -159,17 +178,12 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
 // ═══ NameEditor ══════════════════════════════════════════════
 
 const NameEditor: React.FC<{
-  player: Player;
-  svgX: number;
-  svgY: number;
-  onClose: () => void;
+  player: Player; svgX: number; svgY: number; onClose: () => void;
 }> = ({ player, svgX, svgY, onClose }) => {
   const { playerAccounts, activePhaseIdx, updatePlayerField } = useAppStore();
   const [customName, setCustomName] = useState(player.name ?? '');
 
-  const accounts = (playerAccounts as any[]).filter(
-    (a: any) => a.team === (player.team ?? 'home')
-  );
+  const accounts = (playerAccounts as any[]).filter((a: any) => a.team === (player.team ?? 'home'));
   const meta = ROLE_META[player.role] ?? ROLE_META['midfielder'];
 
   const apply = (name: string) => {
@@ -183,31 +197,24 @@ const NameEditor: React.FC<{
 
   return (
     <foreignObject x={fx} y={fy} width={fW} height={190} style={{ overflow: 'visible' }}>
-      {/* eslint-disable-next-line @typescript-eslint/ban-ts-comment */}
       {/* @ts-ignore */}
       <div xmlns="http://www.w3.org/1999/xhtml"
         onPointerDown={(e: any) => e.stopPropagation()}
         style={{
-          background: '#0c1525',
-          border: '1px solid rgba(56,189,248,0.45)',
-          borderRadius: 12,
-          padding: '10px',
+          background: '#0c1525', border: '1px solid rgba(56,189,248,0.45)',
+          borderRadius: 12, padding: '10px',
           boxShadow: '0 8px 40px rgba(0,0,0,0.85)',
           fontFamily: 'system-ui, sans-serif',
         }}>
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <div style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
           <span style={{ fontSize: 9, fontWeight: 700, color: '#4a6080', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {meta.label} · #{player.num}
           </span>
           <button onPointerDown={(e: any) => { e.stopPropagation(); onClose(); }}
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#4a6080', fontSize: 14, cursor: 'pointer' }}>
-            ✕
-          </button>
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#4a6080', fontSize: 14, cursor: 'pointer' }}>✕</button>
         </div>
 
-        {/* Registered players dropdown */}
         {accounts.length > 0 && (
           <select defaultValue=""
             onChange={(e: any) => { if (e.target.value) apply(e.target.value); }}
@@ -223,7 +230,6 @@ const NameEditor: React.FC<{
           </select>
         )}
 
-        {/* Manual input */}
         <div style={{ display: 'flex', gap: 5 }}>
           <input value={customName}
             onChange={(e: any) => setCustomName(e.target.value)}
@@ -262,6 +268,8 @@ interface BallProps {
 export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionChange }) => {
   const ref        = useRef<SVGGElement>(null);
   const isDragging = useRef(false);
+  const rafRef     = useRef<number | null>(null);
+  const pendingPos = useRef<{ x: number; y: number } | null>(null);
 
   const toSVGCoords = useCallback((clientX: number, clientY: number) => {
     const svg = ref.current?.ownerSVGElement;
@@ -275,10 +283,14 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
     };
   }, []);
 
+  const flushPosition = useCallback(() => {
+    if (pendingPos.current) { onPositionChange(pendingPos.current); pendingPos.current = null; }
+    rafRef.current = null;
+  }, [onPositionChange]);
+
   const onPointerDown = useCallback((e: React.PointerEvent<SVGGElement>) => {
     if (!isDraggable) return;
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     isDragging.current = true;
     (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId);
   }, [isDraggable]);
@@ -287,28 +299,28 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
     if (!isDragging.current) return;
     e.preventDefault();
     const c = toSVGCoords(e.clientX, e.clientY);
-    if (c) onPositionChange(c);
-  }, [toSVGCoords, onPositionChange]);
+    if (!c) return;
+    pendingPos.current = c;
+    if (!rafRef.current) rafRef.current = requestAnimationFrame(flushPosition);
+  }, [toSVGCoords, flushPosition]);
 
   const onPointerUp = useCallback(() => {
     isDragging.current = false;
-  }, []);
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (pendingPos.current) { onPositionChange(pendingPos.current); pendingPos.current = null; }
+  }, [onPositionChange]);
 
   const { x, y } = position;
   return (
     <g ref={ref}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
       style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none' }}
       filter="url(#dropShadow)">
       <circle cx={x} cy={y} r={12} fill="white" />
       <circle cx={x} cy={y} r={12} fill="none" stroke="#ddd" strokeWidth={0.5} />
       {[
-        { dx: -4,   dy: -4,   r: 3.5 },
-        { dx:  4.5, dy: -2,   r: 3   },
-        { dx:  0,   dy:  5,   r: 3   },
-        { dx: -5,   dy:  2.5, r: 2.5 },
+        { dx: -4, dy: -4, r: 3.5 }, { dx: 4.5, dy: -2, r: 3 },
+        { dx: 0, dy: 5, r: 3 },     { dx: -5, dy: 2.5, r: 2.5 },
       ].map((o, i) => (
         <circle key={i} cx={x + o.dx} cy={y + o.dy} r={o.r} fill="#111" opacity={0.72} />
       ))}
@@ -321,17 +333,13 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
 interface DrawingCanvasProps { drawing: Drawing; }
 
 const ArrowHead: React.FC<{
-  p1: { x: number; y: number };
-  p2: { x: number; y: number };
-  color: string;
+  p1: { x: number; y: number }; p2: { x: number; y: number }; color: string;
 }> = ({ p1, p2, color }) => {
   const a = Math.atan2(p2.y - p1.y, p2.x - p1.x);
   const s = 14;
   return (
     <polygon fill={color} opacity={0.88}
-      points={`${p2.x},${p2.y} \
-${p2.x - s * Math.cos(a - Math.PI / 6)},${p2.y - s * Math.sin(a - Math.PI / 6)} \
-${p2.x - s * Math.cos(a + Math.PI / 6)},${p2.y - s * Math.sin(a + Math.PI / 6)}`}
+      points={`${p2.x},${p2.y} ${p2.x - s * Math.cos(a - Math.PI/6)},${p2.y - s * Math.sin(a - Math.PI/6)} ${p2.x - s * Math.cos(a + Math.PI/6)},${p2.y - s * Math.sin(a + Math.PI/6)}`}
     />
   );
 };
@@ -343,11 +351,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ drawing }) => {
   const prev = pts[pts.length - 2];
   return (
     <g>
-      <polyline
-        points={pts.map(p => `${p.x},${p.y}`).join(' ')}
+      <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')}
         stroke={color} strokeWidth={3} fill="none"
-        strokeLinecap="round" strokeLinejoin="round" opacity={0.85}
-      />
+        strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
       <ArrowHead p1={prev} p2={last} color={color} />
     </g>
   );

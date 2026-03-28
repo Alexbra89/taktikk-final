@@ -10,6 +10,13 @@ import {
 import { makePhase } from '../data/formations';
 import { supabase } from '../lib/supabase';
 
+// ─── Debounced push for high-frequency position updates ───────
+let positionPushTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedPushPhases(phases: TacticPhase[]) {
+  if (positionPushTimer) clearTimeout(positionPushTimer);
+  positionPushTimer = setTimeout(() => pushPhases(phases), 800);
+}
+
 interface ChatMessage {
   id: string;
   fromRole: 'coach' | 'player';
@@ -406,14 +413,13 @@ export const useAppStore = create<AppStore>()(
           ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, position: pos } : p),
         });
         set({ phases: newPhases });
-        // Debounce position updates - push every 2 seconds max
-        pushPhases(newPhases);
+        debouncedPushPhases(newPhases);
       },
 
       updateBallPosition: (phaseIdx, pos) => {
         const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, ball: pos });
         set({ phases: newPhases });
-        pushPhases(newPhases);
+        debouncedPushPhases(newPhases);
       },
 
       updatePlayerField: (phaseIdx, playerId, fields) => {

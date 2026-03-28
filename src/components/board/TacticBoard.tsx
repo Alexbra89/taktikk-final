@@ -149,7 +149,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     <div className="flex flex-col h-full overflow-hidden">
 
       {/* ── Control bar ── */}
-      <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#0d1626] border-b border-[#1e3050] flex-wrap">
+      <div className="flex-shrink-0 flex items-center gap-1.5 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] flex-wrap overflow-x-auto">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-bold text-[#4a6080] uppercase tracking-widest mr-1 hidden sm:inline">Faser</span>
           {phases.map((ph, idx) => (
@@ -264,7 +264,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           </defs>
           <rect width={VW} height={VH} fill="url(#grass)"/>
 
-          {sport === 'football' && <FootballPitch />}
+          {(sport === 'football' || sport === 'football7') && <FootballPitch />}
           {sport === 'handball' && <HandballPitch />}
 
           {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
