@@ -118,6 +118,8 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
         filter="url(#dropShadow)"
         opacity={player.injured ? 0.45 : 1}
       >
+        {/* Large invisible hit area for easier mobile touch */}
+        <circle cx={x} cy={y} r={38} fill="transparent" style={{ pointerEvents: 'all' }} />
         {/* Playtime ring — only shown if minutes logged */}
         {(player.minutesPlayed ?? 0) > 0 && (
           <circle cx={x} cy={y} r={24} fill="none"
@@ -316,6 +318,8 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
       style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none' }}
       filter="url(#dropShadow)">
+      {/* Large invisible hit area for ball */}
+      <circle cx={x} cy={y} r={32} fill="transparent" style={{ pointerEvents: 'all' }} />
       <circle cx={x} cy={y} r={12} fill="white" />
       <circle cx={x} cy={y} r={12} fill="none" stroke="#ddd" strokeWidth={0.5} />
       {[

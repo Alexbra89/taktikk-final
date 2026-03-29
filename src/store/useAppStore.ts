@@ -28,6 +28,13 @@ interface ChatMessage {
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+// Debounced push — prevents flooding Supabase on every drag event
+let pushPhasesTimer: ReturnType<typeof setTimeout> | null = null;
+function pushPhasesDebounced(phases: TacticPhase[], delay = 800) {
+  if (pushPhasesTimer) clearTimeout(pushPhasesTimer);
+  pushPhasesTimer = setTimeout(() => { pushPhases(phases); pushPhasesTimer = null; }, delay);
+}
+
 // ─── Rapport-tekst-generator ──────────────────────────────────
 const TAG_LABELS: Record<ReportTag, string> = {
   god_gjennomforing:     'God gjennomføring av taktisk plan',

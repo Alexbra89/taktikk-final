@@ -165,7 +165,7 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'board' | 'calendar' | 'players' | 'referee' | 'player-home';
+export type AppView = 'board' | 'calendar' | 'players' | 'stats' | 'referee' | 'player-home';
 
 export interface AppState {
   sport: Sport;
