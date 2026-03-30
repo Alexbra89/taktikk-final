@@ -13,6 +13,7 @@ import { SmartCoach } from '@/components/ui/SmartCoach';
 import { MatchReportModal } from '@/components/ui/MatchReport';
 import { AppView } from '@/types';
 import { StatsView } from '@/components/ui/StatsView';
+import { PlayerManager } from '@/components/ui/PlayerManager';
 
 // ─── Innstillinger-modal ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -136,12 +137,13 @@ const MobileFullscreenBoard: React.FC<{
 );
 
 // ─── Trener mobil-nav (bunn) ──────────────────────────────────
-type CoachTab = 'board' | 'calendar' | 'players' | 'stats' | 'chat';
+type CoachTab = 'board' | 'calendar' | 'players' | 'admin' | 'stats' | 'chat';
 
 const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
   { id: 'board',    label: 'Brett',    emoji: '📋' },
   { id: 'calendar', label: 'Kalender', emoji: '📅' },
   { id: 'players',  label: 'Tropp',    emoji: '👥' },
+  { id: 'admin',    label: 'Spillere', emoji: '⚙️' },
   { id: 'stats',    label: 'Stats',    emoji: '📊' },
   { id: 'chat',     label: 'Chat',     emoji: '💬' },
 ];
@@ -215,6 +217,7 @@ export default function Home() {
               { view: 'calendar', label: 'Kalender', emoji: '📅' },
               { view: 'players',  label: 'Tropp',    emoji: '👥' },
               { view: 'stats',    label: 'Stats',    emoji: '📊' },
+              { view: 'admin',    label: 'Spillere',  emoji: '⚙️' },
             ] as const).map(n => (
               <button key={n.view} onClick={() => setView(n.view)}
                 className={`px-3 py-2 rounded-lg text-[11.5px] font-semibold transition-all min-h-[40px]
@@ -287,6 +290,7 @@ export default function Home() {
         {currentView === 'calendar' && isCoach && <div className="flex-1 overflow-hidden"><CalendarView /></div>}
         {currentView === 'players'  && isCoach && <div className="flex-1 overflow-hidden"><PlayerPortal /></div>}
         {currentView === 'stats'    && isCoach && <div className="flex-1 overflow-hidden"><StatsView /></div>}
+        {currentView === 'admin'    && isCoach && <div className="flex-1 overflow-hidden"><PlayerManager /></div>}
         {role === 'player'          && <div className="flex-1 overflow-hidden"><PlayerHome /></div>}
       </main>
     </div>
@@ -359,6 +363,11 @@ export default function Home() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* TRENER — spilleradmin */}
+        {isCoach && mobileCoachTab === 'admin' && (
+          <div className="h-full overflow-hidden"><PlayerManager /></div>
         )}
 
         {/* TRENER — statistikk */}

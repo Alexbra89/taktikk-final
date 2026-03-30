@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { ROLE_META } from '@/data/roleInfo';
+import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
 import { VW, VH } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
 import { HandballPitch } from '@/components/board/pitches/HandballPitch';
@@ -326,12 +326,12 @@ export const ReadOnlyTacticBoard: React.FC = () => {
 // ═══════════════════════════════════════════════════════════════
 export const PlayerHome: React.FC = () => {
   const {
-    currentUser, coachMessages, events, phases,
+    currentUser, coachMessages, events, phases, sport,
     playerAccounts, homeTeamName, logout,
     chatMessages, sendChat,
   } = useAppStore();
 
-  const [tab, setTab] = useState<'messages' | 'lineup' | 'board' | 'chat'>('board');
+  const [tab, setTab] = useState<'messages' | 'lineup' | 'board' | 'chat' | 'roles'>('board');
 
   const playerId  = currentUser?.playerId;
   const myAccount = (playerAccounts as any[]).find((a: any) => a.playerId === playerId);
@@ -362,6 +362,7 @@ export const PlayerHome: React.FC = () => {
   const tabs = [
     { id: 'board',    label: '📋 Taktikk',   badge: 0 },
     { id: 'lineup',   label: '👥 Laguttak',  badge: 0 },
+    { id: 'roles',    label: '📚 Roller',    badge: 0 },
     { id: 'messages', label: '📩 Meldinger', badge: myMessages.length },
     { id: 'chat',     label: '💬 Chat',       badge: unreadChat },
   ];
@@ -526,6 +527,13 @@ export const PlayerHome: React.FC = () => {
           </div>
         )}
 
+        {/* ROLLER */}
+        {tab === 'roles' && (
+          <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
+            <RoleDescriptionsView sport={sport} myRole={myPlayer?.role} />
+          </div>
+        )}
+
         {/* MELDINGER */}
         {tab === 'messages' && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full space-y-4">
@@ -636,6 +644,73 @@ export const ChatPanel: React.FC<{
     </div>
   );
 };
+
+// ═══ ROLLEBESKRIVELSER ═══════════════════════════════════════
+
+const RoleDescriptionsView: React.FC<{ sport: string; myRole?: string }> = ({ sport, myRole }) => {
+  const [openRole, setOpenRole] = React.useState<string | null>(myRole ?? null);
+  const roles = getRolesForSport(sport === 'football7' ? 'football' : sport as any);
+
+  return (
+    <div>
+      <h3 className="text-sm font-bold text-slate-100 mb-1">📚 Rollebeskrivelser</h3>
+      <p className="text-[11px] text-[#4a6080] mb-4">
+        Trykk på en rolle for å se hva den innebærer.
+      </p>
+
+      {myRole && (
+        <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-3 mb-4">
+          <div className="text-[9.5px] font-bold text-sky-400 uppercase tracking-wider mb-1">
+            Din rolle
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0"
+              style={{ background: ROLE_META[myRole as keyof typeof ROLE_META]?.color ?? '#555' }}>
+              {ROLE_META[myRole as keyof typeof ROLE_META]?.emoji ?? '?'}
+            </div>
+            <div>
+              <div className="text-[13px] font-bold text-slate-200">
+                {ROLE_META[myRole as keyof typeof ROLE_META]?.label ?? myRole}
+              </div>
+              <div className="text-[11px] text-slate-400 leading-relaxed mt-0.5">
+                {ROLE_META[myRole as keyof typeof ROLE_META]?.description ?? ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-1">
+        {roles.map(r => {
+          const m = ROLE_META[r]; if (!m) return null;
+          const isMe = r === myRole;
+          const open = openRole === r;
+          return (
+            <button key={r} onClick={() => setOpenRole(open ? null : r)}
+              className={`w-full text-left rounded-xl border px-3 py-2.5 transition-all
+                ${isMe ? 'border-sky-500/30 bg-sky-500/5' : 'border-[#1e3050] hover:bg-[#0f1a2a]'}`}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] flex-shrink-0"
+                  style={{ background: m.color }}>{m.emoji}</div>
+                <div className="text-[12px] text-slate-200 font-semibold flex-1 text-left">
+                  {m.label}
+                  {isMe && <span className="ml-2 text-[9px] text-sky-400 font-bold">(deg)</span>}
+                </div>
+                <span className="text-[#3a5070] text-[10px]">{open ? '▲' : '▼'}</span>
+              </div>
+              {open && (
+                <p className="mt-2 pl-9 text-[11px] text-slate-400 leading-relaxed text-left">
+                  {m.description}
+                </p>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 
 // ═══ HELPERS ════════════════════════════════════════════════
 
