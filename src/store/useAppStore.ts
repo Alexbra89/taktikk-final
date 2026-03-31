@@ -125,6 +125,12 @@ async function pushPlayerAccounts(accounts: PlayerAccount[]) {
       id: a.id, name: a.name, player_id: a.playerId, pin: a.pin,
       email: a.email ?? null, password: a.password ?? null,
       team: a.team, individual_training_note: a.individualTrainingNote ?? null,
+      birth_date: a.birthDate ?? null,
+      height: a.height ?? null,
+      weight: a.weight ?? null,
+      position_preferences: a.positionPreferences ?? null,
+      experience: a.experience ?? null,
+      profile_image: a.profileImage ?? null,
       updated_at: new Date().toISOString(),
     }));
     if (rows.length) await supabase.from('player_accounts').upsert(rows, { onConflict: 'id' });
@@ -220,6 +226,12 @@ export async function loadFromSupabase(): Promise<Partial<{
         email: r.email ?? undefined,
         password: r.password ?? undefined,
         individualTrainingNote: r.individual_training_note ?? undefined,
+        birthDate: r.birth_date ?? undefined,
+        height: r.height ?? undefined,
+        weight: r.weight ?? undefined,
+        positionPreferences: r.position_preferences ?? undefined,
+        experience: r.experience ?? undefined,
+        profileImage: r.profile_image ?? undefined,
       }));
     }
 
@@ -734,7 +746,6 @@ export const useAppStore = create<AppStore>()(
         const newAcc = { 
           id: uid(), 
           ...acc,
-          // Hvis passord ikke er oppgitt, bruk PIN som passord (bakoverkompatibilitet)
           password: acc.password || acc.pin,
         };
         set(s => ({ playerAccounts: [...s.playerAccounts, newAcc] }));
@@ -820,9 +831,4 @@ export const useAppStore = create<AppStore>()(
 export const toBaseSport = (s: Sport): Sport =>
   s === 'football7' ? 'football' : s;
 
-export const useSafeAppStore = <T,>(selector: (state: AppStore) => T): T | undefined => {
-  const result = useAppStore(selector);
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => { setMounted(true); }, []);
-  return mounted ? result : undefined;
-};
+// useSafeAppStore er fjernet – bruk useAppStore direkte
