@@ -8,7 +8,8 @@ export const LoginGate: React.FC = () => {
     loginPlayer, 
     playerAccounts, 
     registerNewTeam,
-    sport: currentSport 
+    sport: currentSport,
+    loading: storeLoading
   } = useAppStore();
 
   const [mode, setMode] = useState<'coach' | 'player' | 'register'>('coach');
@@ -35,7 +36,7 @@ export const LoginGate: React.FC = () => {
     try {
       const success = loginCoach(email, password);
       if (!success) {
-        setError('Feil e-post eller passord');
+        setError('Feil e-post eller passord. Prøv: trener@lag.no / trener123');
       }
     } catch (err) {
       setError('Innlogging feilet. Prøv igjen.');
@@ -52,7 +53,7 @@ export const LoginGate: React.FC = () => {
     try {
       const success = loginPlayer(email, password);
       if (!success) {
-        setError('Feil e-post eller passord');
+        setError('Feil e-post eller passord. Spør treneren om innloggingsdetaljer.');
       }
     } catch (err) {
       setError('Innlogging feilet. Prøv igjen.');
@@ -79,12 +80,19 @@ export const LoginGate: React.FC = () => {
     }
     
     try {
+      if (!registerNewTeam) {
+        setError('Registreringsfunksjonen er ikke tilgjengelig. Vennligst kontakt utvikler.');
+        setLoading(false);
+        return;
+      }
+      
       const success = await registerNewTeam(regName, regEmail, regPassword, regSport);
       if (!success) {
-        setError('E-post er allerede i bruk');
+        setError('E-post er allerede i bruk eller kunne ikke registrere lag');
       }
     } catch (err) {
-      setError('Kunne ikke registrere lag');
+      console.error('Registration error:', err);
+      setError('Kunne ikke registrere lag. Sjekk at Supabase er koblet til.');
     } finally {
       setLoading(false);
     }
@@ -107,7 +115,7 @@ export const LoginGate: React.FC = () => {
         <div className="flex gap-2 mb-6 bg-[#0c1525] rounded-xl p-1 border border-[#1e3050]">
           <button
             onClick={() => { setMode('coach'); setError(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all
+            className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
               ${mode === 'coach' 
                 ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' 
                 : 'text-[#4a6080] hover:text-slate-300'}`}
@@ -116,7 +124,7 @@ export const LoginGate: React.FC = () => {
           </button>
           <button
             onClick={() => { setMode('player'); setError(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all
+            className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
               ${mode === 'player' 
                 ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' 
                 : 'text-[#4a6080] hover:text-slate-300'}`}
@@ -125,7 +133,7 @@ export const LoginGate: React.FC = () => {
           </button>
           <button
             onClick={() => { setMode('register'); setError(''); }}
-            className={`flex-1 py-2.5 rounded-lg text-[13px] font-bold transition-all
+            className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
               ${mode === 'register' 
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
                 : 'text-[#4a6080] hover:text-slate-300'}`}
@@ -175,7 +183,7 @@ export const LoginGate: React.FC = () => {
             
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || storeLoading}
               className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 transition min-h-[48px]"
             >
               {loading ? 'Logger inn...' : 'Logg inn som trener'}
@@ -187,7 +195,7 @@ export const LoginGate: React.FC = () => {
           </form>
         )}
 
-        {/* Player Login - e-post + passord */}
+        {/* Player Login */}
         {mode === 'player' && (
           <form onSubmit={handlePlayerLogin} className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
             <h2 className="text-base font-bold text-slate-100 mb-5">👤 Spiller-innlogging</h2>
@@ -228,7 +236,7 @@ export const LoginGate: React.FC = () => {
             
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || storeLoading}
               className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 transition min-h-[48px]"
             >
               {loading ? 'Logger inn...' : 'Logg inn som spiller'}
@@ -343,7 +351,7 @@ export const LoginGate: React.FC = () => {
             
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || storeLoading}
               className="w-full py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 disabled:opacity-50 transition min-h-[48px]"
             >
               {loading ? 'Oppretter...' : '✨ Opprett nytt lag'}
