@@ -123,6 +123,7 @@ async function pushPlayerAccounts(accounts: PlayerAccount[]) {
   try {
     const rows = accounts.map(a => ({
       id: a.id, name: a.name, player_id: a.playerId, pin: a.pin,
+      email: a.email ?? null, password: a.password ?? null,
       team: a.team, individual_training_note: a.individualTrainingNote ?? null,
       updated_at: new Date().toISOString(),
     }));
@@ -216,6 +217,8 @@ export async function loadFromSupabase(): Promise<Partial<{
       result.playerAccounts = paRes.data.map((r: any): PlayerAccount => ({
         id: r.id, name: r.name, playerId: r.player_id,
         pin: r.pin, team: r.team,
+        email: r.email ?? undefined,
+        password: r.password ?? undefined,
         individualTrainingNote: r.individual_training_note ?? undefined,
       }));
     }
@@ -269,9 +272,10 @@ interface AppStore {
 
   currentUser: { role: 'coach' | 'player' | 'referee'; playerId?: string; name: string; accountId?: string } | null;
   loginCoach: (email: string, password: string) => boolean;
-  loginPlayer: (accountId: string, pin: string) => boolean;
+  loginPlayer: (emailOrId: string, passwordOrPin: string) => boolean;
   loginReferee: (pin: string) => boolean;
   logout: () => void;
+  registerNewTeam: (name: string, email: string, password: string, sport: Sport) => Promise<boolean>;
   coachEmail: string;
   coachPassword: string;
   refereePin: string;
@@ -332,7 +336,7 @@ interface AppStore {
   deleteMatchNote: (eventId: string, noteId: string) => void;
 
   playerAccounts: PlayerAccount[];
-  addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => void;
+  addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => boolean;
   removePlayerAccount: (id: string) => void;
   updatePlayerAccount: (id: string, fields: Partial<PlayerAccount>) => void;
 
@@ -343,12 +347,15 @@ interface AppStore {
 
   // Sync
   syncFromSupabase: () => Promise<void>;
+  
+  // Loading state
+  loading: boolean;
 }
 
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-
+      loading: false,
       currentView: 'board',
       setView: (v) => set({ currentView: v }),
 
@@ -373,14 +380,47 @@ export const useAppStore = create<AppStore>()(
         }
         return false;
       },
-      loginPlayer: (accountId, pin) => {
-        const acc = get().playerAccounts.find(a => a.id === accountId && a.pin === pin);
-        if (acc) {
-          set({ currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id }, currentView: 'player-home' });
+      
+      loginPlayer: (emailOrId, passwordOrPin) => {
+        const { playerAccounts } = get();
+        
+        // Først prøv med e-post + passord (ny metode)
+        const playerByEmail = playerAccounts.find(a => 
+          a.email?.toLowerCase() === emailOrId.toLowerCase() && a.password === passwordOrPin
+        );
+        if (playerByEmail) {
+          set({ 
+            currentUser: { 
+              role: 'player', 
+              playerId: playerByEmail.playerId, 
+              name: playerByEmail.name, 
+              accountId: playerByEmail.id 
+            }, 
+            currentView: 'player-home' 
+          });
           return true;
         }
+        
+        // Deretter prøv med PIN (bakoverkompatibilitet)
+        const playerByPin = playerAccounts.find(a => 
+          (a.id === emailOrId || a.pin === passwordOrPin) && a.pin === passwordOrPin
+        );
+        if (playerByPin) {
+          set({ 
+            currentUser: { 
+              role: 'player', 
+              playerId: playerByPin.playerId, 
+              name: playerByPin.name, 
+              accountId: playerByPin.id 
+            }, 
+            currentView: 'player-home' 
+          });
+          return true;
+        }
+        
         return false;
       },
+      
       loginReferee: (pin) => {
         if (pin === get().refereePin) {
           set({ currentUser: { role: 'referee', name: 'Dommer' }, currentView: 'referee' });
@@ -388,7 +428,69 @@ export const useAppStore = create<AppStore>()(
         }
         return false;
       },
+      
       logout: () => set({ currentUser: null, currentView: 'board' }),
+      
+      registerNewTeam: async (name: string, email: string, password: string, sport: Sport) => {
+        set({ loading: true });
+        try {
+          // Sjekk om e-post allerede finnes
+          const { data: existing } = await supabase
+            .from('team_settings')
+            .select('coach_email')
+            .eq('coach_email', email)
+            .single();
+          
+          if (existing) {
+            set({ loading: false });
+            return false;
+          }
+          
+          // Opprett nytt lag
+          const { data: settings, error: settingsError } = await supabase
+            .from('team_settings')
+            .insert({
+              home_team_name: `${name} FK`,
+              away_team_name: 'Motstander',
+              sport: sport,
+              coach_email: email,
+              coach_password: password,
+              coach_name: name,
+            })
+            .select()
+            .single();
+          
+          if (settingsError) throw settingsError;
+          
+          // Opprett standard faser
+          const defaultPhases = [makePhase('Fase 1', sport)];
+          for (const phase of defaultPhases) {
+            await supabase.from('phases').insert({
+              ...phase,
+              team_id: settings.id,
+            });
+          }
+          
+          set({
+            homeTeamName: settings.home_team_name,
+            awayTeamName: settings.away_team_name,
+            sport: settings.sport,
+            coachEmail: settings.coach_email,
+            coachPassword: settings.coach_password,
+            currentUser: {
+              role: 'coach',
+              name: name,
+            },
+            loading: false,
+          });
+          
+          return true;
+        } catch (error) {
+          console.error('Registration error:', error);
+          set({ loading: false });
+          return false;
+        }
+      },
 
       sport: 'football',
       phases: [makePhase('Fase 1', 'football')],
@@ -620,9 +722,24 @@ export const useAppStore = create<AppStore>()(
 
       playerAccounts: [],
       addPlayerAccount: (acc) => {
-        const newAcc = { id: uid(), ...acc };
+        // Sjekk om e-post allerede finnes
+        const existingEmail = get().playerAccounts.find(a => 
+          acc.email && a.email?.toLowerCase() === acc.email.toLowerCase()
+        );
+        if (existingEmail) {
+          console.warn('E-post allerede i bruk');
+          return false;
+        }
+        
+        const newAcc = { 
+          id: uid(), 
+          ...acc,
+          // Hvis passord ikke er oppgitt, bruk PIN som passord (bakoverkompatibilitet)
+          password: acc.password || acc.pin,
+        };
         set(s => ({ playerAccounts: [...s.playerAccounts, newAcc] }));
         pushPlayerAccounts(get().playerAccounts);
+        return true;
       },
       removePlayerAccount: (id) => {
         set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) }));

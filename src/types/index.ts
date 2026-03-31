@@ -97,8 +97,17 @@ export interface PlayerAccount {
   name: string;
   playerId: string;
   pin: string;
+  email?: string;
+  password?: string;
   team: 'home' | 'away';
   individualTrainingNote?: string;
+  // Profil-felter
+  birthDate?: string;
+  height?: number;
+  weight?: number;
+  positionPreferences?: string[];
+  experience?: string;
+  profileImage?: string;
 }
 
 export interface CoachMessage {
@@ -165,7 +174,7 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'referee' | 'player-home';
+export type AppView = 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'training' | 'referee' | 'player-home';
 
 export interface AppState {
   sport: Sport;
@@ -175,5 +184,5 @@ export interface AppState {
   playerAccounts: PlayerAccount[];
   coachMessages: CoachMessage[];
   currentView: AppView;
-  currentUser: { role: UserRole; playerId?: string; name: string } | null;
+  currentUser: { role: UserRole; playerId?: string; name: string; accountId?: string } | null;
 }

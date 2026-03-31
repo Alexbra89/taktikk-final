@@ -4,6 +4,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { ROLE_META } from '@/data/roleInfo';
 import { VW, VH } from '@/data/formations';
 import { ReadOnlyTacticBoard } from '@/components/player-portal/PlayerHome';
+import { TrainingView } from '@/components/ui/TrainingView';
 
 // ─── Helpers ──────────────────────────────────────────────────
 const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
@@ -20,7 +21,7 @@ export const PlayerPortal: React.FC = () => {
   } = useAppStore();
 
   const [replyText, setReplyText] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar'>('tactics');
+  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar' | 'training'>('tactics');
   const [chatInput, setChatInput] = useState('');
 
   const isCoach  = currentUser?.role === 'coach';
@@ -30,6 +31,7 @@ export const PlayerPortal: React.FC = () => {
     { id: 'tactics',  label: '📋 Taktikk' },
     { id: 'squad',    label: '👥 Tropp' },
     { id: 'calendar', label: '📅 Kalender' },
+    { id: 'training', label: '🏃 Trening' },
     { id: 'messages', label: '💬 Meldinger' },
     { id: 'chat',     label: '🗨️ Chat' },
     ...(isCoach ? [{ id: 'accounts', label: '⚙️ Kontoer' }] : []),
@@ -121,13 +123,21 @@ export const PlayerPortal: React.FC = () => {
           />
         )}
 
-        {/* KONTOER (trener only) */}
+        {/* TRENING */}
+        {tab === 'training' && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <TrainingView />
+          </div>
+        )}
+
+        {/* KALENDER */}
         {tab === 'calendar' && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl w-full mx-auto">
             <PlayerCalendarView events={events as any[]} sport={sport} />
           </div>
         )}
 
+        {/* KONTOER (trener only) */}
         {tab === 'accounts' && isCoach && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl w-full mx-auto">
             <AccountManager />
@@ -488,9 +498,10 @@ const AccountManager: React.FC = () => {
   );
 };
 
-// ═══ PLAYER CALENDAR VIEW ════════════════════════════════════
-
-const PlayerCalendarView: React.FC<{ events: any[]; sport: string }> = ({ events, sport }) => {
+// ═══════════════════════════════════════════════════════════════
+//  PLAYER CALENDAR VIEW - Eksportert for bruk i PlayerHome
+// ═══════════════════════════════════════════════════════════════
+export const PlayerCalendarView: React.FC<{ events: any[]; sport: string }> = ({ events, sport }) => {
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = events
     .filter(e => e.date >= today)

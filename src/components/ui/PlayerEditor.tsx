@@ -293,13 +293,15 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
             <span className="text-[13px] font-bold text-slate-200">{meta.label}</span>
           </div>
           <p className="text-[11.5px] text-[#7a9ab8] leading-relaxed mb-2">{meta.description}</p>
-          <ul className="space-y-1">
-            {meta.responsibilities.map((r, i) => (
-              <li key={i} className="text-[11px] text-[#4a6080] flex gap-1.5">
-                <span className="text-sky-500">·</span>{r}
-              </li>
-            ))}
-          </ul>
+          {meta.responsibilities && meta.responsibilities.length > 0 && (
+            <ul className="space-y-1">
+              {meta.responsibilities.map((r, i) => (
+                <li key={i} className="text-[11px] text-[#4a6080] flex gap-1.5">
+                  <span className="text-sky-500">·</span>{r}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <button onClick={onClose}

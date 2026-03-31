@@ -14,6 +14,8 @@ import { MatchReportModal } from '@/components/ui/MatchReport';
 import { AppView } from '@/types';
 import { StatsView } from '@/components/ui/StatsView';
 import { PlayerManager } from '@/components/ui/PlayerManager';
+import { TrainingView } from '@/components/ui/TrainingView';
+import { FullscreenBoard } from '@/components/ui/FullscreenBoard';
 
 // ─── Innstillinger-modal ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -137,12 +139,13 @@ const MobileFullscreenBoard: React.FC<{
 );
 
 // ─── Trener mobil-nav (bunn) ──────────────────────────────────
-type CoachTab = 'board' | 'calendar' | 'players' | 'admin' | 'stats' | 'chat';
+type CoachTab = 'board' | 'calendar' | 'players' | 'training' | 'admin' | 'stats' | 'chat';
 
 const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
   { id: 'board',    label: 'Brett',    emoji: '📋' },
   { id: 'calendar', label: 'Kalender', emoji: '📅' },
   { id: 'players',  label: 'Tropp',    emoji: '👥' },
+  { id: 'training', label: 'Trening',  emoji: '🏃' },
   { id: 'admin',    label: 'Spillere', emoji: '⚙️' },
   { id: 'stats',    label: 'Stats',    emoji: '📊' },
   { id: 'chat',     label: 'Chat',     emoji: '💬' },
@@ -162,6 +165,7 @@ export default function Home() {
   const [showSettings, setShowSettings]               = useState(false);
   const [showChat, setShowChat]                       = useState(false);
   const [mobileBoardFullscreen, setMobileBoardFullscreen] = useState(false);
+  const [showFullscreenBoard, setShowFullscreenBoard] = useState(false);
   const [mobileCoachTab, setMobileCoachTab]           = useState<CoachTab>('board');
   const [lastReadChatCount, setLastReadChatCount]     = useState(0);
   const [syncing, setSyncing]                         = useState(false);
@@ -197,6 +201,17 @@ export default function Home() {
     setShowChat(true);
   }
 
+  // Fullskjerm F-tast
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && isCoach && currentView === 'board') {
+        setShowFullscreenBoard(true);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isCoach, currentView]);
+
   // ── PC-layout (sm og større) ─────────────────────────────────
   const DesktopLayout = (
     <div className="hidden sm:flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
@@ -217,6 +232,7 @@ export default function Home() {
               { view: 'calendar', label: 'Kalender', emoji: '📅' },
               { view: 'players',  label: 'Tropp',    emoji: '👥' },
               { view: 'stats',    label: 'Stats',    emoji: '📊' },
+              { view: 'training', label: 'Trening',   emoji: '🏃' },
               { view: 'admin',    label: 'Spillere',  emoji: '⚙️' },
             ] as const).map(n => (
               <button key={n.view} onClick={() => setView(n.view)}
@@ -278,7 +294,7 @@ export default function Home() {
       </header>
 
       {/* Innhold */}
-      <main className="flex flex-1 overflow-hidden">
+      <main className="flex flex-1 overflow-hidden relative">
         {currentView === 'board' && isCoach && (
           <>
             <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
@@ -290,6 +306,7 @@ export default function Home() {
         {currentView === 'calendar' && isCoach && <div className="flex-1 overflow-hidden"><CalendarView /></div>}
         {currentView === 'players'  && isCoach && <div className="flex-1 overflow-hidden"><PlayerPortal /></div>}
         {currentView === 'stats'    && isCoach && <div className="flex-1 overflow-hidden"><StatsView /></div>}
+        {currentView === 'training' && isCoach && <div className="flex-1 overflow-hidden"><TrainingView /></div>}
         {currentView === 'admin'    && isCoach && <div className="flex-1 overflow-hidden"><PlayerManager /></div>}
         {role === 'player'          && <div className="flex-1 overflow-hidden"><PlayerHome /></div>}
       </main>
@@ -363,6 +380,11 @@ export default function Home() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* TRENER — trening */}
+        {isCoach && mobileCoachTab === 'training' && (
+          <div className="h-full overflow-hidden"><TrainingView /></div>
         )}
 
         {/* TRENER — spilleradmin */}
@@ -448,6 +470,11 @@ export default function Home() {
       {showSmartCoach  && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
       {showMatchReport && <MatchReportModal onClose={() => setShowMatchReport(false)} />}
       {showSettings    && <SettingsModal onClose={() => setShowSettings(false)} />}
+
+      {/* Fullskjerm bane */}
+      {showFullscreenBoard && isCoach && (
+        <FullscreenBoard onClose={() => setShowFullscreenBoard(false)} interactive />
+      )}
 
       {/* Chat modal — PC only */}
       {showChat && isCoach && (
