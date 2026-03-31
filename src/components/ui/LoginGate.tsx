@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 
 export const LoginGate: React.FC = () => {
+  const store = useAppStore();
   const { 
     loginCoach, 
     loginPlayer, 
@@ -10,7 +11,7 @@ export const LoginGate: React.FC = () => {
     registerNewTeam,
     sport: currentSport,
     loading: storeLoading
-  } = useAppStore();
+  } = store;
 
   const [mode, setMode] = useState<'coach' | 'player' | 'register'>('coach');
   const [email, setEmail] = useState('');
@@ -67,6 +68,13 @@ export const LoginGate: React.FC = () => {
     setError('');
     setLoading(true);
     
+    // Sjekk om registerNewTeam finnes
+    if (!registerNewTeam) {
+      setError('Registreringsfunksjonen er ikke tilgjengelig. Vennligst kontakt utvikler.');
+      setLoading(false);
+      return;
+    }
+    
     if (!regName.trim() || !regEmail.trim() || !regPassword.trim() || !regTeamName.trim()) {
       setError('Fyll ut alle felt');
       setLoading(false);
@@ -80,12 +88,6 @@ export const LoginGate: React.FC = () => {
     }
     
     try {
-      if (!registerNewTeam) {
-        setError('Registreringsfunksjonen er ikke tilgjengelig. Vennligst kontakt utvikler.');
-        setLoading(false);
-        return;
-      }
-      
       const success = await registerNewTeam(regName, regEmail, regPassword, regSport);
       if (!success) {
         setError('E-post er allerede i bruk eller kunne ikke registrere lag');
@@ -97,6 +99,9 @@ export const LoginGate: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Debug: Sjekk om registerNewTeam finnes
+  console.log('registerNewTeam exists:', !!registerNewTeam);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#060c18] to-[#0a1220] flex items-center justify-center p-4">
