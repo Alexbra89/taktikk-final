@@ -68,9 +68,8 @@ export const LoginGate: React.FC = () => {
     setError('');
     setLoading(true);
     
-    // Sjekk om registerNewTeam finnes
     if (!registerNewTeam) {
-      setError('Registreringsfunksjonen er ikke tilgjengelig. Vennligst kontakt utvikler.');
+      setError('Registreringsfunksjonen er ikke tilgjengelig.');
       setLoading(false);
       return;
     }
@@ -100,12 +99,9 @@ export const LoginGate: React.FC = () => {
     }
   };
 
-  // Debug: Sjekk om registerNewTeam finnes
-  console.log('registerNewTeam exists:', !!registerNewTeam);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#060c18] to-[#0a1220] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-[#060c18] to-[#0a1220] flex items-center justify-center p-4 overflow-visible">
+      <div className="w-full max-w-md overflow-visible">
         
         {/* Logo */}
         <div className="text-center mb-8">
@@ -116,9 +112,10 @@ export const LoginGate: React.FC = () => {
           <p className="text-[11px] text-[#4a6080] mt-2">Taktikk og kommunikasjon for lagidretter</p>
         </div>
 
-        {/* Mode selector */}
+        {/* Mode selector - 3 knapper som ALLTID vises */}
         <div className="flex gap-2 mb-6 bg-[#0c1525] rounded-xl p-1 border border-[#1e3050]">
           <button
+            type="button"
             onClick={() => { setMode('coach'); setError(''); }}
             className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
               ${mode === 'coach' 
@@ -128,6 +125,7 @@ export const LoginGate: React.FC = () => {
             🏋️ Trener
           </button>
           <button
+            type="button"
             onClick={() => { setMode('player'); setError(''); }}
             className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
               ${mode === 'player' 
@@ -137,6 +135,7 @@ export const LoginGate: React.FC = () => {
             👤 Spiller
           </button>
           <button
+            type="button"
             onClick={() => { setMode('register'); setError(''); }}
             className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
               ${mode === 'register' 
