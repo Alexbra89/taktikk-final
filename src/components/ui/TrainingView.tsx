@@ -5,16 +5,17 @@ import { getDrillsBySport, toDrillSport, DrillExercise, CATEGORY_LABELS } from '
 
 // ═══════════════════════════════════════════════════════════════
 //  TRENING-VISNING — trener og spiller
-//  Trener: ser alle treninger, markerer fremmøte, legger til øvelser, START NY TRENING
-//  Spiller: ser egne treninger, individuell plan, eget fremmøte
 // ═══════════════════════════════════════════════════════════════
 
 export const TrainingView: React.FC = () => {
+  // ALLE HOOKS FØRST – i riktig rekkefølge
+  const store = useAppStore();
   const {
     currentUser, events, playerAccounts, phases, activePhaseIdx,
     sport, addEvent, updateEvent, deleteEvent,
     addTrainingNote, deleteTrainingNote, updatePlayerAccount,
-  } = useAppStore();
+    ageGroup: storeAgeGroup,
+  } = store;
 
   const isCoach    = currentUser?.role === 'coach';
   const myAccId    = currentUser?.accountId;
@@ -35,14 +36,17 @@ export const TrainingView: React.FC = () => {
 
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
 
-  // Hvis vi viser ny treningsform
+  // HENT ALDERSGRUPPE HER – etter alle hooks
+  const ageGroup = storeAgeGroup;
+
+  // ── CONDITIONAL RETURNS (ETTER ALLE HOOKS) ──
   if (showNewTraining && isCoach) {
     return (
       <NewTrainingForm
         onSave={(ev) => { addEvent(ev); setShowNewTraining(false); }}
         onCancel={() => setShowNewTraining(false)}
         sport={sport}
-        ageGroup={useAppStore().ageGroup}
+        ageGroup={ageGroup}
         playerAccounts={playerAccounts as any[]}
       />
     );
@@ -274,7 +278,6 @@ const NewTrainingForm: React.FC<{
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
       <div className="flex-shrink-0 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
         <button onClick={onCancel} className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-2 flex items-center gap-1">
           ‹ Tilbake
@@ -284,7 +287,6 @@ const NewTrainingForm: React.FC<{
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
 
-        {/* Tittel */}
         <div>
           <label className="label-cal">Tittel *</label>
           <input
@@ -295,7 +297,6 @@ const NewTrainingForm: React.FC<{
           />
         </div>
 
-        {/* Dato og tid */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label-cal">Dato</label>
@@ -307,7 +308,6 @@ const NewTrainingForm: React.FC<{
           </div>
         </div>
 
-        {/* Sted */}
         <div>
           <label className="label-cal">Sted</label>
           <input
@@ -318,7 +318,6 @@ const NewTrainingForm: React.FC<{
           />
         </div>
 
-        {/* Fokusområder */}
         <div>
           <label className="label-cal">Fokusområder (valgfritt)</label>
           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -340,11 +339,9 @@ const NewTrainingForm: React.FC<{
           </div>
         </div>
 
-        {/* Øvelser */}
         <div>
           <label className="label-cal">Øvelser fra biblioteket (velg flere)</label>
           
-          {/* Vis valgte øvelser */}
           {selectedDrills.length > 0 && (
             <div className="mb-2 space-y-1 max-h-32 overflow-y-auto">
               {selectedDrills.map(drill => (
@@ -376,7 +373,6 @@ const NewTrainingForm: React.FC<{
           
           {showDrillPicker && (
             <div className="mt-2 bg-[#0c1525] border border-[#1e3050] rounded-xl overflow-hidden">
-              {/* Filtere linje */}
               <div className="p-2 border-b border-[#1e3050] space-y-2">
                 <input
                   type="text"
@@ -415,10 +411,10 @@ const NewTrainingForm: React.FC<{
                            level === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                            'bg-red-500/20 text-red-400 border border-red-500/30') : 
                           'text-[#4a6080] hover:text-slate-300'}`}>
-                        {level === 'enkel' ? '⭐ Enkel' : level === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
-                      </button>
-                    ))}
-                  </div>
+                      {level === 'enkel' ? '⭐ Enkel' : level === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
+                    </button>
+                  ))}
+                </div>
                 
                 <div className="text-[9px] text-[#4a6080] text-right">
                   {filteredDrills.length} øvelser
@@ -469,7 +465,6 @@ const NewTrainingForm: React.FC<{
           )}
         </div>
 
-        {/* Beskrivelse */}
         <div>
           <label className="label-cal">Beskrivelse / notat</label>
           <textarea
@@ -482,7 +477,6 @@ const NewTrainingForm: React.FC<{
           />
         </div>
 
-        {/* Knapper */}
         <div className="flex gap-2 pt-2">
           <button
             type="button"
@@ -507,7 +501,7 @@ const NewTrainingForm: React.FC<{
   );
 };
 
-// ═══ TRAINING CARD (uendret) ═══════════════════════════════════
+// ═══ TRAINING CARD ════════════════════════════════════════════
 
 const TrainingCard: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
@@ -559,7 +553,7 @@ const TrainingCard: React.FC<{
   );
 };
 
-// ═══ TRAINING DETAIL (uendret) ═════════════════════════════════
+// ═══ TRAINING DETAIL ══════════════════════════════════════════
 
 const TrainingDetail: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
@@ -766,7 +760,7 @@ const TrainingDetail: React.FC<{
   );
 };
 
-// ═══ INDIVIDUELL PANEL (uendret) ═══════════════════════════════
+// ═══ INDIVIDUELL PANEL ════════════════════════════════════════
 
 const CoachIndividualPanel: React.FC<{
   playerAccounts: any[];

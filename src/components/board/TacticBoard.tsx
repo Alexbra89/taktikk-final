@@ -37,7 +37,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     sport, phases, activePhaseIdx,
     setActivePhaseIdx, addPhase, removePhase,
     updatePlayerPosition, updateBallPosition, addDrawing, clearDrawings,
-    updateStickyNote, playerAccounts,
+    updateStickyNote, updatePlayerField, playerAccounts,
   } = useAppStore();
 
   const phase = phases[activePhaseIdx];
@@ -53,22 +53,30 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // Oppdater spillerposisjoner basert på valgt formasjon
+  // Oppdater spillerposisjoner OG roller basert på valgt formasjon
   const updateFormation = useCallback((formationName: string) => {
     if (!phase) return;
     
-    const positions = getFormationPositions(formationName, sport === 'football7' ? 'football7' : sport);
-    const homePlayers = phase.players.filter(p => p.team === 'home');
+    const formation = availableFormations.find(f => f.name === formationName);
+    if (!formation) return;
     
-    // Oppdater posisjoner for hjemmelag-spillere (kun posisjoner som finnes)
+    const homePlayers = phase.players.filter(p => p.team === 'home');
+    const newFormationPlayers = formation.homePlayers;
+    
+    // Oppdater posisjoner og roller for hjemmelag-spillere
     homePlayers.forEach((player, index) => {
-      if (positions[index]) {
-        updatePlayerPosition(activePhaseIdx, player.id, positions[index]);
+      if (newFormationPlayers[index]) {
+        // Oppdater posisjon
+        updatePlayerPosition(activePhaseIdx, player.id, newFormationPlayers[index].position);
+        // Oppdater rolle hvis den er forskjellig
+        if (player.role !== newFormationPlayers[index].role) {
+          updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role });
+        }
       }
     });
     
     setSelectedFormation(formationName);
-  }, [phase, activePhaseIdx, sport, updatePlayerPosition]);
+  }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition, updatePlayerField]);
 
   // Sync local sticky note when phase changes
   useEffect(() => {
@@ -361,7 +369,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
               onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
           )}
 
-          {/* Kun hjemmelag vises – med navn fra playerAccounts */}
+          {/* Kun hjemmelag vises – med navn */}
           {homeDisplayPlayers.map(player => {
             // Finn spillerkonto for å få riktig navn
             const account = playerAccounts.find((a: any) => a.playerId === player.id);

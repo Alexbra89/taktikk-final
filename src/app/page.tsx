@@ -195,6 +195,11 @@ export default function Home() {
   // Fullskjerm F-tast (må være etter at isCoachFromStore er deklarert)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      // Sjekk at vi ikke er i et input-felt eller textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
       if (e.key === 'f' && !e.ctrlKey && !e.metaKey && isCoachFromStore && currentViewFromStore === 'board') {
         setShowFullscreenBoard(true);
       }
