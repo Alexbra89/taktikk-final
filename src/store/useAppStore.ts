@@ -380,7 +380,7 @@ const useAppStore = create<AppStore>()(
       refereePin: '0000',
       homeTeamName: 'Hjemmelag',
       awayTeamName: 'Bortelag',
-      ageGroup: 'adult',
+      // ageGroup fjernet her – beholdes nede
 
       setCoachEmail: (email) => { set({ coachEmail: email }); pushSettings({ coach_email: email }); },
       setCoachPassword: (pw) => { set({ coachPassword: pw }); pushSettings({ coach_password: pw }); },
@@ -424,7 +424,7 @@ const useAppStore = create<AppStore>()(
       logout: () => set({ currentUser: null, currentView: 'board' }),
 
       sport: 'football',
-      ageGroup: 'adult',
+      ageGroup: 'adult',  // <- BEHOLD DENNE
       phases: [makePhase('Fase 1', 'football')],
       activePhaseIdx: 0,
 
