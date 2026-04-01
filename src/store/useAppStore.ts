@@ -377,27 +377,46 @@ const useAppStore = create<AppStore>()(
       setAwayTeamName: (name) => { set({ awayTeamName: name }); pushSettings({ away_team_name: name }); },
 
       loginCoach: (email, password) => {
-        const { coachEmail, coachPassword } = get();
-        if (email.toLowerCase().trim() === coachEmail.toLowerCase().trim() && password === coachPassword) {
-          set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
+        const state = get();
+        console.log('🔐 LoginCoach - Email:', email, 'Password:', password);
+        console.log('🔐 Expected:', state.coachEmail, state.coachPassword);
+        
+        if (email.toLowerCase().trim() === state.coachEmail.toLowerCase().trim() && password === state.coachPassword) {
+          set({ 
+            currentUser: { role: 'coach', name: 'Trener' }, 
+            currentView: 'board' 
+          });
+          console.log('✅ Coach login SUCCESS');
           return true;
         }
+        console.log('❌ Coach login FAILED');
         return false;
       },
 
       loginPlayer: (emailOrId, passwordOrPin) => {
-        const { playerAccounts } = get();
-        const acc = playerAccounts.find(a =>
+        const state = get();
+        console.log('🔐 LoginPlayer - Email/ID:', emailOrId, 'Password/PIN:', passwordOrPin);
+        console.log('🔐 Available players:', state.playerAccounts);
+        
+        const acc = state.playerAccounts.find(a =>
           (a.id === emailOrId || a.email?.toLowerCase() === emailOrId.toLowerCase()) &&
           (a.password === passwordOrPin || a.pin === passwordOrPin)
         );
+        
         if (acc) {
+          console.log('✅ Player login SUCCESS:', acc.name);
           set({
-            currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id },
+            currentUser: { 
+              role: 'player', 
+              playerId: acc.playerId, 
+              name: acc.name, 
+              accountId: acc.id 
+            },
             currentView: 'player-home',
           });
           return true;
         }
+        console.log('❌ Player login FAILED');
         return false;
       },
 
@@ -727,3 +746,7 @@ const useAppStore = create<AppStore>()(
 );
 
 export { useAppStore };
+export default useAppStore;
+
+export const toBaseSport = (s: Sport): Sport =>
+  s === 'football7' ? 'football' : s;
