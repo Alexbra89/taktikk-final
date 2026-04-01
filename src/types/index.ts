@@ -101,13 +101,15 @@ export interface PlayerAccount {
   password?: string;
   team: 'home' | 'away';
   individualTrainingNote?: string;
-  // Profil-felter
   birthDate?: string;
   height?: number;
   weight?: number;
-  positionPreferences?: string;  // Kommaseparert liste, f.eks. "keeper,defender"
+  positionPreferences?: string;
   experience?: string;
   profileImage?: string;
+  preferredFoot?: string;
+  strongFoot?: string;
+  preferredLanguage?: string;
 }
 
 export interface CoachMessage {
@@ -184,5 +186,5 @@ export interface AppState {
   playerAccounts: PlayerAccount[];
   coachMessages: CoachMessage[];
   currentView: AppView;
-  currentUser: { role: UserRole; playerId?: string; name: string } | null;
+  currentUser: { role: UserRole; playerId?: string; name: string; accountId?: string } | null;
 }

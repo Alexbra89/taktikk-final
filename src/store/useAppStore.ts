@@ -126,6 +126,9 @@ async function pushPlayerAccounts(accounts: PlayerAccount[]) {
       position_preferences: a.positionPreferences ?? null,
       experience: a.experience ?? null,
       profile_image: a.profileImage ?? null,
+      preferred_foot: a.preferredFoot ?? null,
+      strong_foot: a.strongFoot ?? null,
+      preferred_language: a.preferredLanguage ?? null,
       updated_at: new Date().toISOString(),
     }));
     if (rows.length) await supabase.from('player_accounts').upsert(rows, { onConflict: 'id' });
@@ -227,6 +230,9 @@ export async function loadFromSupabase(): Promise<Partial<{
         positionPreferences: r.position_preferences ?? undefined,
         experience: r.experience ?? undefined,
         profileImage: r.profile_image ?? undefined,
+        preferredFoot: r.preferred_foot ?? undefined,
+        strongFoot: r.strong_foot ?? undefined,
+        preferredLanguage: r.preferred_language ?? undefined,
       }));
     }
 
@@ -344,7 +350,7 @@ interface AppStore {
   deleteMatchNote: (eventId: string, noteId: string) => void;
 
   playerAccounts: PlayerAccount[];
-  addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => void;
+  addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => boolean;
   removePlayerAccount: (id: string) => void;
   updatePlayerAccount: (id: string, fields: Partial<PlayerAccount>) => void;
 
@@ -378,45 +384,26 @@ const useAppStore = create<AppStore>()(
 
       loginCoach: (email, password) => {
         const state = get();
-        console.log('🔐 LoginCoach - Email:', email, 'Password:', password);
-        console.log('🔐 Expected:', state.coachEmail, state.coachPassword);
-        
         if (email.toLowerCase().trim() === state.coachEmail.toLowerCase().trim() && password === state.coachPassword) {
-          set({ 
-            currentUser: { role: 'coach', name: 'Trener' }, 
-            currentView: 'board' 
-          });
-          console.log('✅ Coach login SUCCESS');
+          set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
           return true;
         }
-        console.log('❌ Coach login FAILED');
         return false;
       },
 
       loginPlayer: (emailOrId, passwordOrPin) => {
         const state = get();
-        console.log('🔐 LoginPlayer - Email/ID:', emailOrId, 'Password/PIN:', passwordOrPin);
-        console.log('🔐 Available players:', state.playerAccounts);
-        
         const acc = state.playerAccounts.find(a =>
           (a.id === emailOrId || a.email?.toLowerCase() === emailOrId.toLowerCase()) &&
           (a.password === passwordOrPin || a.pin === passwordOrPin)
         );
-        
         if (acc) {
-          console.log('✅ Player login SUCCESS:', acc.name);
           set({
-            currentUser: { 
-              role: 'player', 
-              playerId: acc.playerId, 
-              name: acc.name, 
-              accountId: acc.id 
-            },
+            currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id },
             currentView: 'player-home',
           });
           return true;
         }
-        console.log('❌ Player login FAILED');
         return false;
       },
 
@@ -668,9 +655,22 @@ const useAppStore = create<AppStore>()(
 
       playerAccounts: [],
       addPlayerAccount: (acc) => {
-        const newAcc = { id: uid(), ...acc };
+        const existingEmail = get().playerAccounts.find(a =>
+          acc.email && a.email?.toLowerCase() === acc.email.toLowerCase()
+        );
+        if (existingEmail) {
+          console.warn('E-post allerede i bruk');
+          return false;
+        }
+
+        const newAcc = {
+          id: uid(),
+          ...acc,
+          password: acc.password || acc.pin,
+        };
         set(s => ({ playerAccounts: [...s.playerAccounts, newAcc] }));
         pushPlayerAccounts(get().playerAccounts);
+        return true;
       },
       removePlayerAccount: (id) => {
         set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) }));

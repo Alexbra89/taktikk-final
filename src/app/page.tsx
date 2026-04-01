@@ -153,11 +153,7 @@ const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
 
 // ─── Hovedside ────────────────────────────────────────────────
 export default function Home() {
-  const {
-    currentView, setView, currentUser, activePhaseIdx,
-    chatMessages, sendChat, homeTeamName,
-  } = useAppStore();
-
+  // ALLE useState hooks FØRST
   const [selectedPlayerId, setSelectedPlayerId]       = useState<string | null>(null);
   const [isMounted, setIsMounted]                     = useState(false);
   const [showSmartCoach, setShowSmartCoach]           = useState(false);
@@ -170,6 +166,13 @@ export default function Home() {
   const [lastReadChatCount, setLastReadChatCount]     = useState(0);
   const [syncing, setSyncing]                         = useState(false);
 
+  // Hent fra store (etter useState, før useEffect)
+  const {
+    currentView, setView, currentUser, activePhaseIdx,
+    chatMessages, sendChat, homeTeamName,
+  } = useAppStore();
+
+  // ALLE useEffect hooks HER (før conditional returns)
   // ── Supabase: last inn ved oppstart + abonner på endringer ──
   useEffect(() => {
     setIsMounted(true);
@@ -182,10 +185,25 @@ export default function Home() {
     const unsub = subscribeToSupabase(() => {
       useAppStore.getState().syncFromSupabase();
     });
-    // unsub er en sync cleanup-funksjon
     return () => { unsub(); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Vi må deklarere isCoach for useEffect, men den brukes senere også
+  const isCoachFromStore = currentUser?.role === 'coach';
+  const currentViewFromStore = currentView;
+
+  // Fullskjerm F-tast (må være etter at isCoachFromStore er deklarert)
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && isCoachFromStore && currentViewFromStore === 'board') {
+        setShowFullscreenBoard(true);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isCoachFromStore, currentViewFromStore]);
+
+  // ── Conditional returns (ETTER alle hooks) ──
   if (!isMounted) return null;
   if (!currentUser) return <LoginGate />;
 
@@ -200,17 +218,6 @@ export default function Home() {
     setLastReadChatCount(playerMessages.length);
     setShowChat(true);
   }
-
-  // Fullskjerm F-tast
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && isCoach && currentView === 'board') {
-        setShowFullscreenBoard(true);
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [isCoach, currentView]);
 
   // ── PC-layout (sm og større) ─────────────────────────────────
   const DesktopLayout = (
