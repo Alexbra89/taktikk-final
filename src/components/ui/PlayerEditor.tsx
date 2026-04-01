@@ -56,6 +56,16 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
 
   // Spillerkontoen koblet til denne spilleren
   const linkedAccount = (playerAccounts as any[]).find((a: any) => a.playerId === playerId);
+  
+  // Hent spillerens registrerte posisjoner fra profilen
+  const playerPreferredPositions = linkedAccount?.positionPreferences 
+    ? linkedAccount.positionPreferences.split(',').filter(Boolean) 
+    : [];
+  
+  // Filtrer roller basert på spillerens preferanser, eller vis alle hvis ingen preferanser
+  const availableRoles = playerPreferredPositions.length > 0 
+    ? roles.filter(r => playerPreferredPositions.includes(r))
+    : roles;
 
   const getPlaytimeColor = (min: number) =>
     min > 60 ? 'text-red-400 bg-red-500/10 border-red-500/30'
@@ -174,7 +184,7 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
         {/* ── Rolle ── */}
         <Field label="ROLLE PÅ BANEN">
           <div className="flex flex-wrap gap-1.5 mt-1">
-            {roles.map(r => {
+            {availableRoles.map(r => {
               const rm = ROLE_META[r]; if (!rm) return null;
               const sel = player.role === r;
               return (
@@ -187,6 +197,11 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
               );
             })}
           </div>
+          {playerPreferredPositions.length > 0 && availableRoles.length !== roles.length && (
+            <div className="text-[9px] text-[#4a6080] mt-1.5">
+              ⚡ Viser kun posisjoner du har valgt i profilen.
+            </div>
+          )}
         </Field>
 
         {/* ── Skademodul ── */}

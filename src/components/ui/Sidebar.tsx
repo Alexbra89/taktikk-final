@@ -33,8 +33,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const roles   = getRolesForSport(sport);
   const players = phase?.players ?? [];
   const homePlayers = players.filter(p => p.team === 'home');
-  const starters    = homePlayers.filter(p => p.isStarter !== false);
-  const subs        = homePlayers.filter(p => p.isStarter === false);
+  const starters    = homePlayers.filter(p => p.isStarter !== false && p.isOnField !== false);
+  const subs        = homePlayers.filter(p => p.isStarter === false || p.isOnField === false);
 
   const sportEmoji = sport === 'handball' ? '🤾' : '⚽';
   const sportLabel = sport === 'handball' ? 'Håndball' : sport === 'football7' ? 'Fotball 7er' : 'Fotball 11er';
@@ -62,14 +62,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         </div>
         <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
           <span className="text-blue-400 font-semibold truncate">{homeTeamName || 'Hjemmelag'}</span>
-          <span className="text-[#2a4060]">vs</span>
-          <span className="text-red-400 font-semibold truncate">{awayTeamName || 'Bortelag'}</span>
         </div>
       </div>
 
       {/* Away color */}
       <div className="px-3 py-1.5 border-b border-[#1e3050] flex items-center gap-2">
-        <span className="text-[8.5px] font-bold text-[#3a5070] uppercase tracking-widest shrink-0">Bortef.</span>
+        <span className="text-[8.5px] font-bold text-[#3a5070] uppercase tracking-widest shrink-0">Bortefarge</span>
         <div className="flex gap-1 flex-wrap">
           {AWAY_COLORS.map(c => (
             <button key={c.hex} onClick={() => setAwayTeamColor(c.hex)}
@@ -107,7 +105,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             <div className="text-[8.5px] font-bold text-sky-400 uppercase tracking-widest px-1 mb-1">
               ⚽ Startoppstilling ({starters.length})
             </div>
-            {starters.map(p => <PlayerRow key={p.id} player={p} selected={selectedPlayerId === p.id} onSelect={onSelectPlayer} />)}
+            {starters.map(p => (
+              <PlayerRow 
+                key={p.id} 
+                player={p} 
+                selected={selectedPlayerId === p.id} 
+                onSelect={onSelectPlayer} 
+                playerAccounts={playerAccounts as any[]}
+              />
+            ))}
 
             {/* Innbyttere */}
             {subs.length > 0 && (
@@ -119,16 +125,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                   </span>
                   <div className="h-px flex-1 bg-[#1e3050]" />
                 </div>
-                {subs.map(p => <PlayerRow key={p.id} player={p} selected={selectedPlayerId === p.id} onSelect={onSelectPlayer} isSub />)}
+                {subs.map(p => (
+                  <PlayerRow 
+                    key={p.id} 
+                    player={p} 
+                    selected={selectedPlayerId === p.id} 
+                    onSelect={onSelectPlayer} 
+                    isSub 
+                    playerAccounts={playerAccounts as any[]}
+                  />
+                ))}
               </>
-            )}
-
-            {/* Bortelag */}
-            <div className="text-[8.5px] font-bold text-red-400 uppercase tracking-widest px-1 mb-1 mt-3">
-              ✈️ {awayTeamName || 'Bortelag'}
-            </div>
-            {players.filter(p => p.team === 'away').map(p =>
-              <PlayerRow key={p.id} player={p} selected={selectedPlayerId === p.id} onSelect={onSelectPlayer} />
             )}
           </>
         )}
@@ -174,14 +181,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 const PlayerRow: React.FC<{
   player: any; selected: boolean;
   onSelect: (id: string | null) => void; isSub?: boolean;
-}> = ({ player, selected, onSelect, isSub }) => {
+  playerAccounts?: any[];
+}> = ({ player, selected, onSelect, isSub, playerAccounts = [] }) => {
   const m = ROLE_META[player.role as keyof typeof ROLE_META] ?? ROLE_META['midfielder'];
+  
+  // Finn spillerkonto for å få riktig navn
+  const account = playerAccounts.find((acc: any) => acc.playerId === player.id);
+  const displayName = account?.name || player.name || `#${player.num}`;
+  
   return (
     <div onClick={() => onSelect(selected ? null : player.id)}
       className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer
         transition-all mb-0.5 border active:scale-[0.98] touch-manipulation
         ${selected ? 'bg-sky-500/10 border-sky-500/40' : 'border-transparent hover:bg-[#111c30]'}
-        ${isSub ? 'opacity-60' : ''}`}>
+        ${isSub ? 'opacity-70' : ''}`}>
       <div className="relative w-6 h-6 rounded-full flex items-center justify-center
         text-[10px] font-bold text-white flex-shrink-0"
         style={{ background: m.color, opacity: player.injured ? 0.5 : 1 }}>
@@ -192,7 +205,7 @@ const PlayerRow: React.FC<{
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[11px] font-semibold truncate text-slate-200">
-          {player.name || `#${player.num}`}
+          {displayName}
         </div>
         <div className="text-[9px] text-[#3a5070]">
           {m.label}{isSub && <span className="text-amber-400 ml-1">· innbytter</span>}

@@ -131,7 +131,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     setLiveDrawPts([]);
   }
 
-  const displayPlayers = getDisplayPlayers();
+  // Filtrer kun hjemmelag-spillere for visning
+  const allDisplayPlayers = getDisplayPlayers();
+  const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home');
   const displayBall    = getDisplayBall();
   const progressFrac   = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
 
@@ -158,7 +160,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             className="w-7 h-7 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] text-sm disabled:opacity-40">＋</button>
           {phases.length > 1 && (
             <button onClick={() => !isPlaying && removePhase(activePhaseIdx)} disabled={isPlaying}
-              className="w-7 h-7 flex items-center justify-center rounded text-red-400 border border-[#1e3050] text-sm disabled:opacity-40">－</button>
+              className="w-7 h-7 flex items-center justify-center rounded text-red-400 border border-[#1e3050] text-sm disabled:opacity-40">🗑️</button>
           )}
         </div>
 
@@ -280,7 +282,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
               onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
           )}
 
-          {displayPlayers.map(player => (
+          {/* Kun hjemmelag vises – bortelag filtreres ut */}
+          {homeDisplayPlayers.map(player => (
             <DraggablePlayer key={player.id} player={player}
               isActive={!isPlaying && !drawMode}
               isSelected={selectedPlayerId === player.id}

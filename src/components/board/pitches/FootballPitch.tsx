@@ -17,33 +17,39 @@ export const FootballPitch: React.FC = () => {
       {/* Midtsirkel + punkt */}
       <circle cx={W / 2} cy={H / 2} r={68} />
       <circle cx={W / 2} cy={H / 2} r={4} fill={s} />
+      
       {/* Venstre 16m */}
       <rect x={m} y={H / 2 - 110} width={112} height={220} />
       {/* Høyre 16m */}
       <rect x={W - m - 112} y={H / 2 - 110} width={112} height={220} />
+      
       {/* Venstre 5m */}
       <rect x={m} y={H / 2 - 54} width={44} height={108} />
       {/* Høyre 5m */}
       <rect x={W - m - 44} y={H / 2 - 54} width={44} height={108} />
+      
       {/* Straffepunkter */}
       <circle cx={m + 86} cy={H / 2} r={3.5} fill={s} />
       <circle cx={W - m - 86} cy={H / 2} r={3.5} fill={s} />
-      {/* Straffebuep venstre */}
+      
+      {/* Straffebue venstre - korrigert (bue utover fra 16-meteren) */}
       <path
         d={`M ${m + 86 + 68 * Math.cos(-0.93)} ${H / 2 + 68 * Math.sin(-0.93)}
-            A 68 68 0 0 1 ${m + 86 + 68 * Math.cos(0.93)} ${H / 2 + 68 * Math.sin(0.93)}`}
+            A 68 68 0 0 0 ${m + 86 + 68 * Math.cos(0.93)} ${H / 2 + 68 * Math.sin(0.93)}`}
       />
-      {/* Straffebuep høyre */}
+      {/* Straffebue høyre - korrigert (bue utover fra 16-meteren) */}
       <path
         d={`M ${W - m - 86 + 68 * Math.cos(Math.PI - 0.93)} ${H / 2 + 68 * Math.sin(Math.PI - 0.93)}
-            A 68 68 0 0 0 ${W - m - 86 + 68 * Math.cos(Math.PI + 0.93)} ${H / 2 + 68 * Math.sin(Math.PI + 0.93)}`}
+            A 68 68 0 0 1 ${W - m - 86 + 68 * Math.cos(Math.PI + 0.93)} ${H / 2 + 68 * Math.sin(Math.PI + 0.93)}`}
       />
+      
       {/* Mål venstre */}
       <rect x={m - 22} y={H / 2 - 36} width={22} height={72}
         fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.55)" strokeWidth={1.5} />
       {/* Mål høyre */}
       <rect x={W - m} y={H / 2 - 36} width={22} height={72}
         fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.55)" strokeWidth={1.5} />
+      
       {/* Hjørne-bueer */}
       {[
         [m, m, 0, Math.PI / 2],

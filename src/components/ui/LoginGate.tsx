@@ -13,6 +13,7 @@ export const LoginGate: React.FC = () => {
     setSport,
     coachEmail,
     coachPassword,
+    syncFromSupabase,
   } = useAppStore();
 
   const [showRegister, setShowRegister] = useState(false);
@@ -28,7 +29,8 @@ export const LoginGate: React.FC = () => {
   const [regTeamName, setRegTeamName] = useState('');
   const [regSport, setRegSport] = useState<'football' | 'football7' | 'handball'>('football');
 
-  const playersWithEmail = (playerAccounts as any[]).filter((p: any) => p.email);
+  // Ingen visning av eksisterende spillere – spillere må skrive e-post selv
+  // playersWithEmail er fjernet
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,10 +70,21 @@ export const LoginGate: React.FC = () => {
     if (regPassword.length < 4) return setError('Minst 4 tegn passord');
 
     try {
+      // Tøm localStorage for å starte helt rent
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('taktikkboard-v7');
+      }
+      
+      // Sett lagdata
       setHomeTeamName(regTeamName.trim());
       setCoachEmail(regEmail.trim());
       setCoachPassword(regPassword);
       setSport(regSport);
+
+      // Sync fra Supabase for å hente eventuelle eksisterende data (men burde være tomt)
+      setTimeout(() => {
+        syncFromSupabase();
+      }, 100);
 
       const success = loginCoach(regEmail.trim(), regPassword);
 
@@ -94,6 +107,7 @@ export const LoginGate: React.FC = () => {
             <h1 className="text-2xl font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
               TAKTIKKBOARD
             </h1>
+            <p className="text-[11px] text-[#4a6080] mt-2">Taktikk og kommunikasjon for lagidretter</p>
           </div>
 
           {/* REGISTER */}
@@ -113,6 +127,7 @@ export const LoginGate: React.FC = () => {
                 value={regName}
                 onChange={e => setRegName(e.target.value)}
                 className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
+                autoFocus
               />
 
               <input
@@ -124,6 +139,7 @@ export const LoginGate: React.FC = () => {
 
               <input
                 placeholder="E-post (innlogging)"
+                type="email"
                 value={regEmail}
                 onChange={e => setRegEmail(e.target.value)}
                 className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
@@ -216,25 +232,7 @@ export const LoginGate: React.FC = () => {
                   </p>
                 )}
 
-                {loginType === 'player' && playersWithEmail.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-[#1e3050]">
-                    <p className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">
-                      Spillere i laget
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {playersWithEmail.slice(0, 6).map((p: any) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setEmail(p.email)}
-                          className="text-[10px] px-2 py-1 rounded-full bg-[#111c30] border border-[#1e3050] text-[#4a6080] hover:text-sky-400 hover:border-sky-500/30 transition"
-                        >
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Spillere må skrive e-post selv – ingen liste over eksisterende spillere */}
               </form>
 
               <button
