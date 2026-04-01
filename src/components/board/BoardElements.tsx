@@ -14,7 +14,7 @@ interface DraggablePlayerProps {
   onPositionChange: (pos: { x: number; y: number }) => void;
   onSelect: () => void;
   showName?: boolean;
-  displayName?: string; // NY
+  displayName?: string;
 }
 
 export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
@@ -26,6 +26,10 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   const rafRef     = useRef<number | null>(null);
   const pendingPos = useRef<{ x: number; y: number } | null>(null);
   const [showEditor, setShowEditor] = useState(false);
+  
+  // For bedre touch-respons
+  const lastMoveTime = useRef(0);
+  const MOVE_THROTTLE_MS = 16; // ~60fps
 
   const meta      = ROLE_META[player.role] ?? ROLE_META['midfielder'];
   const isHome    = player.team === 'home';
@@ -45,7 +49,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     };
   }, []);
 
-  // RAF-throttled position update — prevents flooding store/Supabase on every touch event
+  // RAF-throttled position update
   const flushPosition = useCallback(() => {
     if (pendingPos.current) {
       onPositionChange(pendingPos.current);
@@ -67,12 +71,19 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     e.stopPropagation();
     isDragging.current = true;
     hasMoved.current   = false;
+    lastMoveTime.current = Date.now();
     (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId);
   }, [isActive]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<SVGGElement>) => {
     if (!isDragging.current || !isActive) return;
     e.preventDefault();
+    
+    // Throttle for bedre ytelse
+    const now = Date.now();
+    if (now - lastMoveTime.current < MOVE_THROTTLE_MS) return;
+    lastMoveTime.current = now;
+    
     const c = toSVGCoords(e.clientX, e.clientY);
     if (!c) return;
     hasMoved.current = true;
@@ -82,7 +93,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   const onPointerUp = useCallback((_e: React.PointerEvent<SVGGElement>) => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    // Flush any pending position immediately on release
+    
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -107,7 +118,6 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     return '#22c55e';
   };
 
-  // Bruk displayName hvis tilgjengelig, ellers player.name
   const nameToShow = displayName || player.name || `#${player.num}`;
   const truncatedName = nameToShow.length > 10 ? nameToShow.slice(0, 10) + '…' : nameToShow;
 
@@ -119,38 +129,38 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none', touchAction: 'none' }}
+        style={{ 
+          cursor: isActive ? 'grab' : 'default', 
+          userSelect: 'none', 
+          touchAction: 'none',
+          willChange: 'transform' // For bedre ytelse
+        }}
         filter="url(#dropShadow)"
         opacity={player.injured ? 0.45 : 1}
       >
-        {/* REDUSERT hit area – fra 38 til 24, så man må treffe selve spilleren */}
-        <circle cx={x} cy={y} r={24} fill="transparent" style={{ pointerEvents: 'all' }} />
+        {/* ØKT hit area for bedre touch-respons – fra 24 til 32 */}
+        <circle cx={x} cy={y} r={32} fill="transparent" style={{ pointerEvents: 'all' }} />
         
-        {/* Playtime ring — only shown if minutes logged */}
         {(player.minutesPlayed ?? 0) > 0 && (
           <circle cx={x} cy={y} r={24} fill="none"
             stroke={playtimeColor()} strokeWidth={2}
             opacity={0.5} strokeDasharray="4 2" />
         )}
 
-        {/* Team ring */}
         <circle cx={x} cy={y} r={21}
           fill={ringFill}
           stroke={isSelected ? '#38bdf8' : (isHome ? 'none' : ringStroke)}
           strokeWidth={isSelected ? 2.5 : (isHome ? 0 : 2)} />
 
-        {/* Role fill */}
         <circle cx={x} cy={y} r={18}
           fill={fillColor} stroke={meta.border} strokeWidth={1.5} />
 
-        {/* Number */}
         <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
           fill="white" fontSize="12" fontWeight="800"
           style={{ pointerEvents: 'none' }}>
           {player.num}
         </text>
 
-        {/* Name - bruker displayName */}
         {showName && nameToShow && (
           <text x={x} y={y + 33} textAnchor="middle" fill="white" fontSize="9.5"
             fontWeight="600" paintOrder="stroke"
@@ -160,12 +170,10 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
           </text>
         )}
 
-        {/* Injury badge */}
         {player.injured && (
           <text x={x - 10} y={y - 14} fontSize="12" style={{ pointerEvents: 'none' }}>🩹</text>
         )}
 
-        {/* Edit pencil — only visible when active */}
         {isActive && (
           <text x={x + 17} y={y - 15}
             fill={isSelected ? '#38bdf8' : 'rgba(255,255,255,0.5)'}
@@ -265,7 +273,7 @@ const NameEditor: React.FC<{
   );
 };
 
-// ═══ Ball (uendret) ════════════════════════════════════════════════════
+// ═══ Ball (med forbedret respons) ═══════════════════════════════════════
 
 interface BallProps {
   position: { x: number; y: number };
@@ -278,6 +286,8 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
   const isDragging = useRef(false);
   const rafRef     = useRef<number | null>(null);
   const pendingPos = useRef<{ x: number; y: number } | null>(null);
+  const lastMoveTime = useRef(0);
+  const MOVE_THROTTLE_MS = 16;
 
   const toSVGCoords = useCallback((clientX: number, clientY: number) => {
     const svg = ref.current?.ownerSVGElement;
@@ -300,12 +310,18 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
     if (!isDraggable) return;
     e.preventDefault(); e.stopPropagation();
     isDragging.current = true;
+    lastMoveTime.current = Date.now();
     (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId);
   }, [isDraggable]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<SVGGElement>) => {
     if (!isDragging.current) return;
     e.preventDefault();
+    
+    const now = Date.now();
+    if (now - lastMoveTime.current < MOVE_THROTTLE_MS) return;
+    lastMoveTime.current = now;
+    
     const c = toSVGCoords(e.clientX, e.clientY);
     if (!c) return;
     pendingPos.current = c;
@@ -322,10 +338,9 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
   return (
     <g ref={ref}
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
-      style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none' }}
+      style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none', willChange: 'transform' }}
       filter="url(#dropShadow)">
-      {/* Redusert hit area for ball – fra 32 til 24 */}
-      <circle cx={x} cy={y} r={24} fill="transparent" style={{ pointerEvents: 'all' }} />
+      <circle cx={x} cy={y} r={28} fill="transparent" style={{ pointerEvents: 'all' }} />
       <circle cx={x} cy={y} r={12} fill="white" />
       <circle cx={x} cy={y} r={12} fill="none" stroke="#ddd" strokeWidth={0.5} />
       {[
@@ -338,7 +353,7 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
   );
 };
 
-// ═══ DrawingCanvas (uendret) ════════════════════════════════════════════════
+// ═══ DrawingCanvas (uendret) ════════════════════════════════════════════
 
 interface DrawingCanvasProps { drawing: Drawing; }
 

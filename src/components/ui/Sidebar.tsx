@@ -3,12 +3,6 @@ import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
 
-const AWAY_COLORS = [
-  { hex: '#ef4444' }, { hex: '#f59e0b' }, { hex: '#22c55e' },
-  { hex: '#e2e8f0' }, { hex: '#a855f7' }, { hex: '#f97316' },
-  { hex: '#06b6d4' }, { hex: '#ec4899' },
-];
-
 const FORMATION_NAMES: Record<string, string> = {
   football: '4-3-3',
   football7: '3-2-1',
@@ -25,8 +19,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const [openRole, setOpenRole] = useState<string | null>(null);
 
   const {
-    sport, phases, activePhaseIdx, awayTeamColor, setAwayTeamColor,
-    updatePlayerField, playerAccounts, homeTeamName, awayTeamName,
+    sport, phases, activePhaseIdx,
+    updatePlayerField, playerAccounts, homeTeamName,
   } = useAppStore();
 
   const phase   = phases[activePhaseIdx];
@@ -62,22 +56,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         </div>
         <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
           <span className="text-blue-400 font-semibold truncate">{homeTeamName || 'Hjemmelag'}</span>
-        </div>
-      </div>
-
-      {/* Away color */}
-      <div className="px-3 py-1.5 border-b border-[#1e3050] flex items-center gap-2">
-        <span className="text-[8.5px] font-bold text-[#3a5070] uppercase tracking-widest shrink-0">Bortefarge</span>
-        <div className="flex gap-1 flex-wrap">
-          {AWAY_COLORS.map(c => (
-            <button key={c.hex} onClick={() => setAwayTeamColor(c.hex)}
-              style={{
-                background: c.hex, width: 16, height: 16, borderRadius: '50%',
-                border: awayTeamColor === c.hex ? '2px solid white' : '2px solid transparent',
-                transform: awayTeamColor === c.hex ? 'scale(1.25)' : 'scale(1)',
-                transition: 'all 0.15s',
-              }} />
-          ))}
         </div>
       </div>
 
@@ -144,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         {tab === 'assign' && phase && (
           <AssignTab players={players} playerAccounts={playerAccounts as any[]}
             phaseIdx={activePhaseIdx} onUpdate={updatePlayerField}
-            homeTeamName={homeTeamName} awayTeamName={awayTeamName} />
+            homeTeamName={homeTeamName} />
         )}
 
         {/* ── ROLLER ── */}
@@ -218,8 +196,8 @@ const PlayerRow: React.FC<{
 const AssignTab: React.FC<{
   players: any[]; playerAccounts: any[]; phaseIdx: number;
   onUpdate: (idx: number, id: string, fields: any) => void;
-  homeTeamName: string; awayTeamName: string;
-}> = ({ players, playerAccounts, phaseIdx, onUpdate, homeTeamName, awayTeamName }) => {
+  homeTeamName: string;
+}> = ({ players, playerAccounts, phaseIdx, onUpdate, homeTeamName }) => {
   const homePlayers = players.filter(p => p.team === 'home');
   return (
     <div>

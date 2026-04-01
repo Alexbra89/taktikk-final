@@ -380,7 +380,6 @@ const useAppStore = create<AppStore>()(
       refereePin: '0000',
       homeTeamName: 'Hjemmelag',
       awayTeamName: 'Bortelag',
-      // ageGroup fjernet her – beholdes nede
 
       setCoachEmail: (email) => { set({ coachEmail: email }); pushSettings({ coach_email: email }); },
       setCoachPassword: (pw) => { set({ coachPassword: pw }); pushSettings({ coach_password: pw }); },
@@ -424,7 +423,7 @@ const useAppStore = create<AppStore>()(
       logout: () => set({ currentUser: null, currentView: 'board' }),
 
       sport: 'football',
-      ageGroup: 'adult',  // <- BEHOLD DENNE
+      ageGroup: 'adult',
       phases: [makePhase('Fase 1', 'football')],
       activePhaseIdx: 0,
 
@@ -614,51 +613,51 @@ const useAppStore = create<AppStore>()(
       addEvent: (ev) => {
         const newEv = { id: uid(), ...ev };
         set(s => ({ events: [...s.events, newEv] }));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       updateEvent: (id, fields) => {
         set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...fields } : e) }));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       deleteEvent: (id) => {
         set(s => ({ events: s.events.filter(e => e.id !== id) }));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       addTrainingNote: (eventId, note) => {
         const n: TrainingNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e
           : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       updateTrainingNote: (eventId, noteId, fields) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, trainingNotes: e.trainingNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
         })}));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       deleteTrainingNote: (eventId, noteId) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
         })}));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       addMatchNote: (eventId, note) => {
         const n: MatchNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e
           : { ...e, matchNotes: [...e.matchNotes, n] }) }));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       updateMatchNote: (eventId, noteId, fields) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, matchNotes: e.matchNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
         })}));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
       deleteMatchNote: (eventId, noteId) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
         })}));
-        pushEvents(get().events);
+        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
 
       playerAccounts: [],
@@ -728,7 +727,9 @@ const useAppStore = create<AppStore>()(
 
       syncFromSupabase: async () => {
         const data = await loadFromSupabase();
-        if (Object.keys(data).length > 0) set(data as any);
+        if (Object.keys(data).length > 0) {
+          set(data as any);
+        }
       },
     }),
     {

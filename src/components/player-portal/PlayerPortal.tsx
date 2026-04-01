@@ -41,7 +41,6 @@ export const PlayerPortal: React.FC = () => {
     isCoach ? true : m.playerId === playerId
   );
 
-  // Bruk aktiv fase fra store (synkronisert med trenerens taktikkbrett)
   const phase = phases[activePhaseIdx] ?? phases[0] ?? null;
 
   const sendChatMsg = () => {
@@ -94,7 +93,7 @@ export const PlayerPortal: React.FC = () => {
         {tab === 'squad' && (
           <div className="flex-1 overflow-y-auto p-4">
             {phase
-              ? <SquadView phase={phase} />
+              ? <SquadView phase={phase} playerAccounts={playerAccounts as any[]} />
               : <EmptyState icon="👥" text="Ingen data." />}
           </div>
         )}
@@ -148,81 +147,144 @@ export const PlayerPortal: React.FC = () => {
   );
 };
 
-// ═══ TROPP VIEW — kun hjemmelag ══════════════════════════════
+// ═══ TROPP VIEW — med navn fra playerAccounts og sortering ═══════════════
 
-const SquadView: React.FC<{ phase: any }> = ({ phase }) => {
+const SquadView: React.FC<{ phase: any; playerAccounts: any[] }> = ({ phase, playerAccounts }) => {
   const { homeTeamName } = useAppStore();
   const players: any[] = phase.players ?? [];
-  const home       = players.filter((p: any) => p.team === 'home');
-  const starters   = home.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
+  const home = players.filter((p: any) => p.team === 'home');
+  
+  // Grupper spillere etter rolle
+  const groupedByRole = home.reduce((acc: any, player: any) => {
+    const role = player.role;
+    if (!acc[role]) acc[role] = [];
+    acc[role].push(player);
+    return acc;
+  }, {});
+
+  // Sorter roller etter kategori
+  const roleOrder = ['keeper', 'defender', 'wingback', 'midfielder', 'winger', 'forward', 'playmaker'];
+  const sortedRoles = Object.keys(groupedByRole).sort((a, b) => {
+    const aIdx = roleOrder.indexOf(a);
+    const bIdx = roleOrder.indexOf(b);
+    if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
+    if (aIdx === -1) return 1;
+    if (bIdx === -1) return -1;
+    return aIdx - bIdx;
+  });
+
+  const getPlayerName = (player: any) => {
+    const account = playerAccounts.find((a: any) => a.playerId === player.id);
+    return account?.name || player.name || `#${player.num}`;
+  };
+
+  const isCaptain = (player: any) => player.specialRoles?.includes('captain');
+
+  const starters = home.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
   const substitutes = home.filter((p: any) => p.isStarter === false || p.isOnField === false);
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <h3 className="text-base font-bold text-slate-100 mb-4">
         👥 {homeTeamName || 'Hjemmelag'} – Tropp
       </h3>
 
-      <div className="mb-2">
-        <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-2">
+      {/* Startoppstilling - gruppert etter posisjon */}
+      <div className="mb-6">
+        <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-3">
           ⚽ Startoppstilling ({starters.length})
         </div>
-        {starters.length === 0 ? (
-          <p className="text-[12px] text-[#3a5070] italic">Ingen spillere i startoppstillingen</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-            {starters.sort((a: any, b: any) => getNum(a) - getNum(b)).map((p: any) => (
-              <PlayerRow key={p.id} player={p} />
-            ))}
-          </div>
-        )}
+        <div className="space-y-4">
+          {sortedRoles.map(role => {
+            const rolePlayers = starters.filter(p => p.role === role);
+            if (rolePlayers.length === 0) return null;
+            const meta = getMeta(role);
+            return (
+              <div key={role} className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] overflow-hidden">
+                <div className="px-3 py-2 bg-[#0c1525] border-b border-[#1e3050]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full" style={{ background: meta?.color || '#555' }} />
+                    <span className="text-[11px] font-bold text-slate-300">{meta?.label || role}</span>
+                    <span className="text-[9px] text-[#4a6080]">({rolePlayers.length})</span>
+                  </div>
+                </div>
+                <div className="divide-y divide-[#1e3050]">
+                  {rolePlayers.sort((a, b) => getNum(a) - getNum(b)).map(player => (
+                    <div key={player.id} className="flex items-center gap-3 p-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center
+                        text-[13px] font-black text-white flex-shrink-0 relative"
+                        style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
+                        {getNum(player)}
+                        {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="text-[13px] font-bold text-slate-200 truncate">
+                            {getPlayerName(player)}
+                          </div>
+                          {isCaptain(player) && (
+                            <span className="text-[11px]">🪖</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-[#4a6080]">
+                          #{getNum(player)} · {meta?.label || player.role}
+                        </div>
+                      </div>
+                      {(player.minutesPlayed ?? 0) > 0 && (
+                        <div className="text-[10px] text-emerald-400">
+                          {player.minutesPlayed} min
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mb-4">
-        <div className="flex items-center gap-2 my-3">
-          <div className="h-px flex-1 bg-[#1e3050]"/>
-          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-2">
-            🪑 Innbyttere ({substitutes.length})
-          </span>
-          <div className="h-px flex-1 bg-[#1e3050]"/>
-        </div>
-        {substitutes.length === 0 ? (
-          <p className="text-[12px] text-[#3a5070] italic px-2">
-            Ingen innbyttere — trener markerer spillere som innbyttere i spillereditor.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {substitutes.sort((a: any, b: any) => getNum(a) - getNum(b)).map((p: any) => (
-              <PlayerRow key={p.id} player={p} isBench />
-            ))}
+      {/* Innbyttere */}
+      {substitutes.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 my-4">
+            <div className="h-px flex-1 bg-[#1e3050]"/>
+            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-2">
+              🪑 Innbyttere ({substitutes.length})
+            </span>
+            <div className="h-px flex-1 bg-[#1e3050]"/>
           </div>
-        )}
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {substitutes.sort((a, b) => getNum(a) - getNum(b)).map(player => {
+              const meta = getMeta(player.role);
+              return (
+                <div key={player.id} className="flex items-center gap-3 p-3 bg-[#0f1a2a] rounded-xl border border-amber-500/20">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center
+                    text-[13px] font-black text-white flex-shrink-0"
+                    style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
+                    {getNum(player)}
+                    {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="text-[13px] font-bold text-slate-200 truncate">
+                        {getPlayerName(player)}
+                      </div>
+                      {isCaptain(player) && <span className="text-[11px]">🪖</span>}
+                    </div>
+                    <div className="text-[10px] text-[#4a6080]">
+                      #{getNum(player)} · {meta?.label || player.role}
+                    </div>
+                  </div>
+                  <div className="text-[9px] text-amber-400 font-semibold">Innbytter</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <PlaytimeBar players={home} />
-    </div>
-  );
-};
-
-const PlayerRow: React.FC<{ player: any; isBench?: boolean }> = ({ player, isBench }) => {
-  const meta = getMeta(player.role);
-  const num  = getNum(player);
-  return (
-    <div className={`flex items-center gap-2.5 p-3 rounded-xl border
-      ${isBench ? 'bg-[#0f1a2a] border-amber-500/20' : 'bg-[#0f1a2a] border-[#1e3050]'}`}>
-      <div className="w-10 h-10 rounded-full flex items-center justify-center
-        text-[13px] font-black text-white flex-shrink-0 relative"
-        style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
-        {num}
-        {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-[12.5px] font-bold text-slate-200 truncate">
-          {player.name || `#${num}`}
-        </div>
-        <div className="text-[10px] text-[#4a6080]">{meta?.label ?? player.role}</div>
-        {isBench && <div className="text-[9.5px] text-amber-400 font-semibold">Innbytter</div>}
-      </div>
     </div>
   );
 };
@@ -231,7 +293,7 @@ const PlaytimeBar: React.FC<{ players: any[] }> = ({ players }) => {
   const withTime = players.filter((p: any) => (p.minutesPlayed ?? 0) > 0);
   if (!withTime.length) return null;
   return (
-    <div className="mt-4">
+    <div className="mt-6">
       <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">
         ⏱ Spilletid
       </div>
@@ -499,7 +561,7 @@ const AccountManager: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  PLAYER CALENDAR VIEW - Eksportert for bruk i PlayerHome
+//  PLAYER CALENDAR VIEW
 // ═══════════════════════════════════════════════════════════════
 export const PlayerCalendarView: React.FC<{ events: any[]; sport: string }> = ({ events, sport }) => {
   const today = new Date().toISOString().slice(0, 10);

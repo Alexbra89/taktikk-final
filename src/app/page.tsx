@@ -7,7 +7,7 @@ import { TacticBoard } from '@/components/board/TacticBoard';
 import { PlayerEditor } from '@/components/ui/PlayerEditor';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { PlayerPortal } from '@/components/player-portal/PlayerPortal';
-import { PlayerHome, ChatPanel } from '@/components/player-portal/PlayerHome';
+import { PlayerHome } from '@/components/player-portal/PlayerHome';
 import { LoginGate } from '@/components/ui/LoginGate';
 import { SmartCoach } from '@/components/ui/SmartCoach';
 import { MatchReportModal } from '@/components/ui/MatchReport';
@@ -16,6 +16,7 @@ import { StatsView } from '@/components/ui/StatsView';
 import { PlayerManager } from '@/components/ui/PlayerManager';
 import { TrainingView } from '@/components/ui/TrainingView';
 import { FullscreenBoard } from '@/components/ui/FullscreenBoard';
+import { ChatPanel } from '@/components/ui/ChatPanel';
 
 // ─── Innstillinger-modal ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -429,7 +430,7 @@ export default function Home() {
               currentUser={currentUser}
               chatMessages={allChats}
               coachView
-              onSend={(text) => sendChat('coach', 'Trener', text)}
+              onSend={(text, toPlayerId) => sendChat('coach', 'Trener', text, toPlayerId)}
             />
           </div>
         )}
@@ -499,8 +500,12 @@ export default function Home() {
               <button onClick={() => setShowChat(false)}
                 className="text-[#3a5070] hover:text-white text-xl min-h-[44px] px-2">✕</button>
             </div>
-            <ChatPanel currentUser={currentUser} chatMessages={allChats} coachView
-              onSend={(text) => sendChat('coach', 'Trener', text)} />
+            <ChatPanel
+              currentUser={currentUser}
+              chatMessages={allChats}
+              coachView
+              onSend={(text, toPlayerId) => sendChat('coach', 'Trener', text, toPlayerId)}
+            />
           </div>
         </div>
       )}
