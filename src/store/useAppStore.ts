@@ -9,11 +9,11 @@ import {
 import { makePhase } from '../data/formations';
 import { supabase } from '../lib/supabase';
 
-// ─── Debounced push for drag events ───────────────────────────
+// ─── Debounced push for drag events – ØKT TID FOR BEDRE YTELSE ───
 let positionPushTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedPushPhases(phases: TacticPhase[]) {
   if (positionPushTimer) clearTimeout(positionPushTimer);
-  positionPushTimer = setTimeout(() => pushPhases(phases), 800);
+  positionPushTimer = setTimeout(() => pushPhases(phases), 1200); // ØKT fra 800 til 1200ms
 }
 
 interface ChatMessage {
