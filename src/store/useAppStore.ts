@@ -1,4 +1,3 @@
-import React from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
@@ -10,7 +9,7 @@ import {
 import { makePhase } from '../data/formations';
 import { supabase } from '../lib/supabase';
 
-// ─── Debounced push for high-frequency position updates ───────
+// ─── Debounced push for drag events ───────────────────────────
 let positionPushTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedPushPhases(phases: TacticPhase[]) {
   if (positionPushTimer) clearTimeout(positionPushTimer);
@@ -27,13 +26,6 @@ interface ChatMessage {
 }
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-// Debounced push — prevents flooding Supabase on every drag event
-let pushPhasesTimer: ReturnType<typeof setTimeout> | null = null;
-function pushPhasesDebounced(phases: TacticPhase[], delay = 800) {
-  if (pushPhasesTimer) clearTimeout(pushPhasesTimer);
-  pushPhasesTimer = setTimeout(() => { pushPhases(phases); pushPhasesTimer = null; }, delay);
-}
 
 // ─── Rapport-tekst-generator ──────────────────────────────────
 const TAG_LABELS: Record<ReportTag, string> = {
@@ -76,7 +68,7 @@ function suggestSubstitutions(
   }));
 }
 
-// ─── Supabase sync helpers ─────────────────────────────────────
+// ─── Supabase helpers ─────────────────────────────────────────
 
 async function pushPhases(phases: TacticPhase[]) {
   try {
@@ -87,7 +79,6 @@ async function pushPhases(phases: TacticPhase[]) {
       sort_order: i, updated_at: new Date().toISOString(),
     }));
     await supabase.from('phases').upsert(rows, { onConflict: 'id' });
-    // Delete phases not in current list
     const { data: existing } = await supabase.from('phases').select('id');
     const currentIds = phases.map(p => p.id);
     const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
@@ -97,7 +88,10 @@ async function pushPhases(phases: TacticPhase[]) {
 
 async function pushSettings(fields: Record<string, any>) {
   try {
-    await supabase.from('team_settings').upsert({ id: 'default', ...fields, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    await supabase.from('team_settings').upsert(
+      { id: 'default', ...fields, updated_at: new Date().toISOString() },
+      { onConflict: 'id' }
+    );
   } catch (e) { console.warn('pushSettings error', e); }
 }
 
@@ -124,7 +118,8 @@ async function pushPlayerAccounts(accounts: PlayerAccount[]) {
     const rows = accounts.map(a => ({
       id: a.id, name: a.name, player_id: a.playerId, pin: a.pin,
       email: a.email ?? null, password: a.password ?? null,
-      team: a.team, individual_training_note: a.individualTrainingNote ?? null,
+      team: a.team,
+      individual_training_note: a.individualTrainingNote ?? null,
       birth_date: a.birthDate ?? null,
       height: a.height ?? null,
       weight: a.weight ?? null,
@@ -157,7 +152,7 @@ async function pushCoachMessages(msgs: CoachMessage[]) {
   } catch (e) { console.warn('pushCoachMessages error', e); }
 }
 
-// ─── Load all from Supabase (called on app start) ─────────────
+// ─── Load from Supabase ───────────────────────────────────────
 
 export async function loadFromSupabase(): Promise<Partial<{
   phases: TacticPhase[];
@@ -187,13 +182,13 @@ export async function loadFromSupabase(): Promise<Partial<{
 
     if (settRes.data) {
       const s = settRes.data;
-      result.sport          = s.sport ?? 'football';
-      result.homeTeamName   = s.home_team_name;
-      result.awayTeamName   = s.away_team_name;
-      result.awayTeamColor  = s.away_team_color;
-      result.coachEmail     = s.coach_email;
-      result.coachPassword  = s.coach_password;
-      result.refereePin     = s.referee_pin;
+      result.sport         = s.sport ?? 'football';
+      result.homeTeamName  = s.home_team_name;
+      result.awayTeamName  = s.away_team_name;
+      result.awayTeamColor = s.away_team_color;
+      result.coachEmail    = s.coach_email;
+      result.coachPassword = s.coach_password;
+      result.refereePin    = s.referee_pin;
     }
 
     if (phRes.data?.length) {
@@ -259,7 +254,7 @@ export async function loadFromSupabase(): Promise<Partial<{
   }
 }
 
-// ─── Subscribe to realtime changes ────────────────────────────
+// ─── Realtime subscription ────────────────────────────────────
 
 export function subscribeToSupabase(onUpdate: () => void) {
   const channel = supabase
@@ -279,6 +274,7 @@ export function subscribeToSupabase(onUpdate: () => void) {
 // ═══════════════════════════════════════════════════════════════
 
 interface AppStore {
+  loading: boolean;
   currentView: AppView;
   setView: (v: AppView) => void;
 
@@ -287,7 +283,7 @@ interface AppStore {
   loginPlayer: (emailOrId: string, passwordOrPin: string) => boolean;
   loginReferee: (pin: string) => boolean;
   logout: () => void;
-  registerNewTeam: (name: string, email: string, password: string, sport: Sport) => Promise<boolean>;
+
   coachEmail: string;
   coachPassword: string;
   refereePin: string;
@@ -348,7 +344,7 @@ interface AppStore {
   deleteMatchNote: (eventId: string, noteId: string) => void;
 
   playerAccounts: PlayerAccount[];
-  addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => boolean;
+  addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => void;
   removePlayerAccount: (id: string) => void;
   updatePlayerAccount: (id: string, fields: Partial<PlayerAccount>) => void;
 
@@ -357,14 +353,10 @@ interface AppStore {
   replyToMessage: (messageId: string, playerId: string, content: string) => void;
   deleteCoachMessage: (messageId: string) => void;
 
-  // Sync
   syncFromSupabase: () => Promise<void>;
-  
-  // Loading state
-  loading: boolean;
 }
 
-export const useAppStore = create<AppStore>()(
+const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
       loading: false,
@@ -392,47 +384,23 @@ export const useAppStore = create<AppStore>()(
         }
         return false;
       },
-      
+
       loginPlayer: (emailOrId, passwordOrPin) => {
         const { playerAccounts } = get();
-        
-        // Først prøv med e-post + passord (ny metode)
-        const playerByEmail = playerAccounts.find(a => 
-          a.email?.toLowerCase() === emailOrId.toLowerCase() && a.password === passwordOrPin
+        const acc = playerAccounts.find(a =>
+          (a.id === emailOrId || a.email?.toLowerCase() === emailOrId.toLowerCase()) &&
+          (a.password === passwordOrPin || a.pin === passwordOrPin)
         );
-        if (playerByEmail) {
-          set({ 
-            currentUser: { 
-              role: 'player', 
-              playerId: playerByEmail.playerId, 
-              name: playerByEmail.name, 
-              accountId: playerByEmail.id 
-            }, 
-            currentView: 'player-home' 
+        if (acc) {
+          set({
+            currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id },
+            currentView: 'player-home',
           });
           return true;
         }
-        
-        // Deretter prøv med PIN (bakoverkompatibilitet)
-        const playerByPin = playerAccounts.find(a => 
-          (a.id === emailOrId || a.pin === passwordOrPin) && a.pin === passwordOrPin
-        );
-        if (playerByPin) {
-          set({ 
-            currentUser: { 
-              role: 'player', 
-              playerId: playerByPin.playerId, 
-              name: playerByPin.name, 
-              accountId: playerByPin.id 
-            }, 
-            currentView: 'player-home' 
-          });
-          return true;
-        }
-        
         return false;
       },
-      
+
       loginReferee: (pin) => {
         if (pin === get().refereePin) {
           set({ currentUser: { role: 'referee', name: 'Dommer' }, currentView: 'referee' });
@@ -440,69 +408,8 @@ export const useAppStore = create<AppStore>()(
         }
         return false;
       },
-      
+
       logout: () => set({ currentUser: null, currentView: 'board' }),
-      
-      registerNewTeam: async (name: string, email: string, password: string, sport: Sport) => {
-        set({ loading: true });
-        try {
-          // Sjekk om e-post allerede finnes
-          const { data: existing } = await supabase
-            .from('team_settings')
-            .select('coach_email')
-            .eq('coach_email', email)
-            .single();
-          
-          if (existing) {
-            set({ loading: false });
-            return false;
-          }
-          
-          // Opprett nytt lag
-          const { data: settings, error: settingsError } = await supabase
-            .from('team_settings')
-            .insert({
-              home_team_name: `${name} FK`,
-              away_team_name: 'Motstander',
-              sport: sport,
-              coach_email: email,
-              coach_password: password,
-              coach_name: name,
-            })
-            .select()
-            .single();
-          
-          if (settingsError) throw settingsError;
-          
-          // Opprett standard faser
-          const defaultPhases = [makePhase('Fase 1', sport)];
-          for (const phase of defaultPhases) {
-            await supabase.from('phases').insert({
-              ...phase,
-              team_id: settings.id,
-            });
-          }
-          
-          set({
-            homeTeamName: settings.home_team_name,
-            awayTeamName: settings.away_team_name,
-            sport: settings.sport,
-            coachEmail: settings.coach_email,
-            coachPassword: settings.coach_password,
-            currentUser: {
-              role: 'coach',
-              name: name,
-            },
-            loading: false,
-          });
-          
-          return true;
-        } catch (error) {
-          console.error('Registration error:', error);
-          set({ loading: false });
-          return false;
-        }
-      },
 
       sport: 'football',
       phases: [makePhase('Fase 1', 'football')],
@@ -606,7 +513,8 @@ export const useAppStore = create<AppStore>()(
 
       setPlayerInjury: (phaseIdx, playerId, injured, returnDate) => {
         const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, injured, injuryReturnDate: returnDate } : p),
+          ...ph, players: ph.players.map(p => p.id === playerId
+            ? { ...p, injured, injuryReturnDate: returnDate } : p),
         });
         set({ phases: newPhases });
         pushPhases(newPhases);
@@ -642,9 +550,8 @@ export const useAppStore = create<AppStore>()(
 
       addMinutesPlayed: (phaseIdx, playerId, minutes) => {
         const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId ? {
-            ...p, minutesPlayed: (p.minutesPlayed ?? 0) + minutes,
-          } : p),
+          ...ph, players: ph.players.map(p => p.id === playerId
+            ? { ...p, minutesPlayed: (p.minutesPlayed ?? 0) + minutes } : p),
         });
         set({ phases: newPhases });
         pushPhases(newPhases);
@@ -652,7 +559,8 @@ export const useAppStore = create<AppStore>()(
 
       togglePlayerOnField: (phaseIdx, playerId) => {
         const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, isOnField: !p.isOnField } : p),
+          ...ph, players: ph.players.map(p => p.id === playerId
+            ? { ...p, isOnField: !p.isOnField } : p),
         });
         set({ phases: newPhases });
         pushPhases(newPhases);
@@ -667,7 +575,12 @@ export const useAppStore = create<AppStore>()(
             ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
         );
         const teamSizes: Record<string, number> = { football: 11, football7: 7, handball: 7 };
-        return suggestSubstitutions(ph.players, ph.players.length, teamSizes[sport] ?? 11, Math.floor(elapsed / 60), intervalMinutes);
+        return suggestSubstitutions(
+          ph.players, ph.players.length,
+          teamSizes[sport] ?? 11,
+          Math.floor(elapsed / 60),
+          intervalMinutes
+        );
       },
 
       matchReports: [],
@@ -687,7 +600,7 @@ export const useAppStore = create<AppStore>()(
       addEvent: (ev) => {
         const newEv = { id: uid(), ...ev };
         set(s => ({ events: [...s.events, newEv] }));
-        pushEvents([...get().events]);
+        pushEvents(get().events);
       },
       updateEvent: (id, fields) => {
         set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...fields } : e) }));
@@ -699,7 +612,8 @@ export const useAppStore = create<AppStore>()(
       },
       addTrainingNote: (eventId, note) => {
         const n: TrainingNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e
+          : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
         pushEvents(get().events);
       },
       updateTrainingNote: (eventId, noteId, fields) => {
@@ -716,7 +630,8 @@ export const useAppStore = create<AppStore>()(
       },
       addMatchNote: (eventId, note) => {
         const n: MatchNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : { ...e, matchNotes: [...e.matchNotes, n] }) }));
+        set(s => ({ events: s.events.map(e => e.id !== eventId ? e
+          : { ...e, matchNotes: [...e.matchNotes, n] }) }));
         pushEvents(get().events);
       },
       updateMatchNote: (eventId, noteId, fields) => {
@@ -734,23 +649,9 @@ export const useAppStore = create<AppStore>()(
 
       playerAccounts: [],
       addPlayerAccount: (acc) => {
-        // Sjekk om e-post allerede finnes
-        const existingEmail = get().playerAccounts.find(a => 
-          acc.email && a.email?.toLowerCase() === acc.email.toLowerCase()
-        );
-        if (existingEmail) {
-          console.warn('E-post allerede i bruk');
-          return false;
-        }
-        
-        const newAcc = { 
-          id: uid(), 
-          ...acc,
-          password: acc.password || acc.pin,
-        };
+        const newAcc = { id: uid(), ...acc };
         set(s => ({ playerAccounts: [...s.playerAccounts, newAcc] }));
         pushPlayerAccounts(get().playerAccounts);
-        return true;
       },
       removePlayerAccount: (id) => {
         set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) }));
@@ -795,15 +696,12 @@ export const useAppStore = create<AppStore>()(
             content, to_player_id: toPlayerId ?? null,
             created_at: msg.createdAt,
           });
-        } catch (e) { console.warn('sendChat push error', e); }
+        } catch (e) { console.warn('sendChat error', e); }
       },
 
-      // ─── Sync fra Supabase ─────────────────────────────────
       syncFromSupabase: async () => {
         const data = await loadFromSupabase();
-        if (Object.keys(data).length > 0) {
-          set(data as any);
-        }
+        if (Object.keys(data).length > 0) set(data as any);
       },
     }),
     {
@@ -828,7 +726,4 @@ export const useAppStore = create<AppStore>()(
   )
 );
 
-export const toBaseSport = (s: Sport): Sport =>
-  s === 'football7' ? 'football' : s;
-
-// useSafeAppStore er fjernet – bruk useAppStore direkte
+export { useAppStore };

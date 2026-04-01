@@ -17,59 +17,32 @@ export const PlayerManager: React.FC = () => {
   const [name, setName]     = useState('');
   const [pin, setPin]       = useState('');
   const [email, setEmail]   = useState('');
-  const [password, setPassword] = useState('');
+  const [playerPassword, setPlayerPassword] = useState('');
+  const [role, setRole]     = useState('');
   const [playerId, setPlayerId] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [error, setError]   = useState('');
 
   const roles = getRolesForSport(sport);
   const phase = phases[activePhaseIdx] ?? phases[0];
   const boardPlayers = (phase?.players ?? []).filter((p: any) => p.team === 'home');
 
-  // Filter accounts by search
+  // Filter accounts by role search
   const accounts = (playerAccounts as any[]).filter(a =>
     !search || a.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const create = () => {
-    setError('');
-    
-    if (!name.trim()) {
-      setError('Fyll inn navn');
-      return;
-    }
-    
-    if (pin.length !== 4) {
-      setError('PIN må være 4 siffer');
-      return;
-    }
-    
-    if (!email.trim()) {
-      setError('Fyll inn e-post');
-      return;
-    }
-    
-    if (!password.trim() || password.length < 4) {
-      setError('Passord må være minst 4 tegn');
-      return;
-    }
-    
-    const success = addPlayerAccount({
+    if (!name.trim() || pin.length !== 4) return;
+    addPlayerAccount({
       name: name.trim(),
       pin,
-      email: email.trim(),
-      password: password.trim(),
+      email: email.trim() || undefined,
+      password: playerPassword.trim() || pin,
       playerId: playerId || `player-${Date.now()}`,
       team: 'home',
     });
-    
-    if (success) {
-      setName(''); setPin(''); setEmail(''); setPassword(''); setPlayerId('');
-      setError('');
-    } else {
-      setError('E-post er allerede i bruk');
-    }
+    setName(''); setPin(''); setEmail(''); setPlayerPassword(''); setRole(''); setPlayerId('');
   };
 
   const roleLabel = (r: string) => ROLE_META[r as keyof typeof ROLE_META]?.label ?? r;
@@ -86,7 +59,7 @@ export const PlayerManager: React.FC = () => {
       <div className="flex-shrink-0 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
         <h2 className="text-sm font-black text-slate-100">👥 Spilleradmin</h2>
         <p className="text-[10px] text-[#4a6080] mt-0.5">
-          Legg til spillere med e-post + passord for innlogging
+          Legg til spillere slik de kan logge inn
         </p>
       </div>
 
@@ -106,28 +79,9 @@ export const PlayerManager: React.FC = () => {
               className="pm-inp" />
           </div>
 
-          {/* E-post (obligatorisk nå) */}
+          {/* PIN */}
           <div className="mb-3">
-            <SmLabel>E-post (brukes til innlogging) *</SmLabel>
-            <input value={email} onChange={e => setEmail(e.target.value)}
-              type="email" placeholder="ola@spiller.no"
-              className="pm-inp" />
-          </div>
-
-          {/* Passord */}
-          <div className="mb-3">
-            <SmLabel>Passord (min 4 tegn) *</SmLabel>
-            <input
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              type="password"
-              placeholder="••••••••"
-              className="pm-inp" />
-          </div>
-
-          {/* PIN (behold for bakoverkompatibilitet) */}
-          <div className="mb-3">
-            <SmLabel>PIN-kode (4 siffer) *</SmLabel>
+            <SmLabel>4-sifret PIN *</SmLabel>
             <input
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
@@ -138,10 +92,30 @@ export const PlayerManager: React.FC = () => {
             )}
           </div>
 
+          {/* E-post (valgfritt) */}
+          <div className="mb-3">
+            <SmLabel>E-post (valgfritt — for innlogging)</SmLabel>
+            <input value={email} onChange={e => setEmail(e.target.value)}
+              type="email" placeholder="spiller@epost.no"
+              className="pm-inp" />
+          </div>
+
+          {/* Passord (valgfritt, brukes med e-post) */}
+          <div className="mb-3">
+            <SmLabel>Passord (valgfritt — for e-post innlogging)</SmLabel>
+            <input value={playerPassword} onChange={e => setPlayerPassword(e.target.value)}
+              type="password" placeholder="Standard: samme som PIN"
+              className="pm-inp" />
+          </div>
+
           {/* Koble til brett-posisjon */}
           <div className="mb-4">
             <SmLabel>Posisjon på brettet (valgfritt)</SmLabel>
-            <select value={playerId} onChange={e => setPlayerId(e.target.value)} className="pm-inp">
+            <select value={playerId} onChange={e => {
+              setPlayerId(e.target.value);
+              const bp = boardPlayers.find((p: any) => p.id === e.target.value);
+              if (bp?.role) setRole(bp.role);
+            }} className="pm-inp">
               <option value="">– Ingen kobling –</option>
               {boardPlayers.map((p: any) => {
                 const meta = ROLE_META[p.role as keyof typeof ROLE_META];
@@ -154,14 +128,8 @@ export const PlayerManager: React.FC = () => {
             </select>
           </div>
 
-          {error && (
-            <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-[11px] text-red-400">
-              {error}
-            </div>
-          )}
-
           <button onClick={create}
-            disabled={!name.trim() || pin.length !== 4 || !email.trim() || password.length < 4}
+            disabled={!name.trim() || pin.length !== 4}
             className="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30
               text-sky-400 font-bold text-[13px] hover:bg-sky-500/25
               disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] transition">
@@ -210,7 +178,7 @@ export const PlayerManager: React.FC = () => {
                           {acc.name}
                         </div>
                         <div className="text-[10px] text-[#4a6080]">
-                          E-post: {acc.email || '—'} · PIN: {acc.pin}
+                          PIN: {acc.pin}
                           {bpRole && (
                             <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-semibold"
                               style={{ background: roleColor(bpRole) + '20', color: roleColor(bpRole) }}>
@@ -259,38 +227,21 @@ const EditRow: React.FC<{ acc: any; onDone: () => void }> = ({ acc, onDone }) =>
   const { updatePlayerAccount } = useAppStore();
   const [name, setName] = useState(acc.name);
   const [pin, setPin]   = useState(acc.pin);
-  const [email, setEmail] = useState(acc.email || '');
-  const [password, setPassword] = useState('');
-  
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex gap-2 items-center">
       <input value={name} onChange={e => setName(e.target.value)}
-        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
-          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]" 
-        placeholder="Navn" />
-      <input value={email} onChange={e => setEmail(e.target.value)}
-        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
-          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]"
-        placeholder="E-post" />
-      <div className="flex gap-2">
-        <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,'').slice(0,4))}
-          maxLength={4} placeholder="PIN" type="password"
-          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
-            text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]" />
-        <input value={password} onChange={e => setPassword(e.target.value)}
-          type="password" placeholder="Nytt passord"
-          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
-            text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]" />
-      </div>
+        className="flex-1 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
+          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]" />
+      <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,'').slice(0,4))}
+        maxLength={4} placeholder="PIN" type="password"
+        className="w-16 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
+          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]" />
       <button onClick={() => {
         if (name.trim() && pin.length === 4) {
-          const updates: any = { name: name.trim(), pin };
-          if (email.trim()) updates.email = email.trim();
-          if (password.trim() && password.length >= 4) updates.password = password.trim();
-          updatePlayerAccount(acc.id, updates);
+          updatePlayerAccount(acc.id, { name: name.trim(), pin });
           onDone();
         }
-      }} className="text-emerald-400 px-2 min-h-[36px] text-[12px] font-bold">✓ Lagre</button>
+      }} className="text-emerald-400 px-2 min-h-[36px] text-[12px] font-bold">✓</button>
     </div>
   );
 };

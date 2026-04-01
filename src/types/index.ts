@@ -105,7 +105,7 @@ export interface PlayerAccount {
   birthDate?: string;
   height?: number;
   weight?: number;
-  positionPreferences?: string[];
+  positionPreferences?: string;  // Kommaseparert liste, f.eks. "keeper,defender"
   experience?: string;
   profileImage?: string;
 }
@@ -184,5 +184,5 @@ export interface AppState {
   playerAccounts: PlayerAccount[];
   coachMessages: CoachMessage[];
   currentView: AppView;
-  currentUser: { role: UserRole; playerId?: string; name: string; accountId?: string } | null;
+  currentUser: { role: UserRole; playerId?: string; name: string } | null;
 }

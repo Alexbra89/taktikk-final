@@ -3,15 +3,18 @@ import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 
 export const LoginGate: React.FC = () => {
-  const store = useAppStore();
-  const { 
-    loginCoach, 
-    loginPlayer, 
-    playerAccounts, 
-    registerNewTeam,
+  const {
+    loginCoach,
+    loginPlayer,
+    playerAccounts,
     sport: currentSport,
-    loading: storeLoading
-  } = store;
+    setHomeTeamName,
+    setCoachEmail,
+    setCoachPassword,
+    setSport,
+    coachEmail,
+    coachPassword,
+  } = useAppStore();
 
   const [mode, setMode] = useState<'coach' | 'player' | 'register'>('coach');
   const [email, setEmail] = useState('');
@@ -26,343 +29,209 @@ export const LoginGate: React.FC = () => {
   const [regTeamName, setRegTeamName] = useState('');
   const [regSport, setRegSport] = useState<'football' | 'football7' | 'handball'>('football');
 
-  // Hent spillere med e-post
   const playersWithEmail = (playerAccounts as any[]).filter((p: any) => p.email);
 
-  const handleCoachLogin = async (e: React.FormEvent) => {
+  const handleCoachLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
-    try {
-      const success = loginCoach(email, password);
-      if (!success) {
-        setError('Feil e-post eller passord. Prøv: trener@lag.no / trener123');
-      }
-    } catch (err) {
-      setError('Innlogging feilet. Prøv igjen.');
-    } finally {
-      setLoading(false);
+    const success = loginCoach(email.trim(), password);
+    if (!success) {
+      setError(`Feil e-post eller passord. Standard: ${coachEmail} / ${coachPassword}`);
     }
+    setLoading(false);
   };
 
-  const handlePlayerLogin = async (e: React.FormEvent) => {
+  const handlePlayerLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
-    try {
-      const success = loginPlayer(email, password);
-      if (!success) {
-        setError('Feil e-post eller passord. Spør treneren om innloggingsdetaljer.');
-      }
-    } catch (err) {
-      setError('Innlogging feilet. Prøv igjen.');
-    } finally {
-      setLoading(false);
+    const success = loginPlayer(email.trim(), password);
+    if (!success) {
+      setError('Feil e-post eller passord. Spør treneren om innloggingsdetaljer.');
     }
+    setLoading(false);
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-    
-    if (!registerNewTeam) {
-      setError('Registreringsfunksjonen er ikke tilgjengelig.');
-      setLoading(false);
-      return;
-    }
-    
-    if (!regName.trim() || !regEmail.trim() || !regPassword.trim() || !regTeamName.trim()) {
-      setError('Fyll ut alle felt');
-      setLoading(false);
-      return;
-    }
-    
-    if (regPassword.length < 4) {
-      setError('Passordet må være minst 4 tegn');
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      const success = await registerNewTeam(regName, regEmail, regPassword, regSport);
-      if (!success) {
-        setError('E-post er allerede i bruk eller kunne ikke registrere lag');
-      }
-    } catch (err) {
-      console.error('Registration error:', err);
-      setError('Kunne ikke registrere lag. Sjekk at Supabase er koblet til.');
-    } finally {
-      setLoading(false);
+
+    if (!regName.trim())     { setError('Fyll inn ditt navn.'); return; }
+    if (!regEmail.trim())    { setError('Fyll inn e-post.'); return; }
+    if (!regTeamName.trim()) { setError('Fyll inn lagnavn.'); return; }
+    if (regPassword.length < 4) { setError('Passordet må være minst 4 tegn.'); return; }
+
+    // Registrer direkte i store (ingen ekstern auth)
+    setHomeTeamName(regTeamName.trim());
+    setCoachEmail(regEmail.trim());
+    setCoachPassword(regPassword);
+    setSport(regSport);
+
+    const success = loginCoach(regEmail.trim(), regPassword);
+    if (!success) {
+      setError('Kunne ikke logge inn etter registrering. Prøv igjen.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#060c18] to-[#0a1220] flex items-center justify-center p-4 overflow-visible">
-      <div className="w-full max-w-md overflow-visible">
-        
+    <div className="min-h-[100dvh] bg-[#060c18] flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🏋️⚽</div>
-          <h1 className="text-2xl font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
+          <div className="text-5xl mb-3">⚽</div>
+          <h1 className="text-2xl font-black mb-1"
+            style={{ background: 'linear-gradient(100deg,#38bdf8,#34d399)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             TAKTIKKBOARD
           </h1>
-          <p className="text-[11px] text-[#4a6080] mt-2">Taktikk og kommunikasjon for lagidretter</p>
+          <p className="text-[11px] text-[#4a6080]">Taktikk og kommunikasjon for lagidretter</p>
         </div>
 
-        {/* Mode selector - 3 knapper som ALLTID vises */}
+        {/* Mode-velger */}
         <div className="flex gap-2 mb-6 bg-[#0c1525] rounded-xl p-1 border border-[#1e3050]">
-          <button
-            type="button"
-            onClick={() => { setMode('coach'); setError(''); }}
-            className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
-              ${mode === 'coach' 
-                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' 
-                : 'text-[#4a6080] hover:text-slate-300'}`}
-          >
-            🏋️ Trener
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode('player'); setError(''); }}
-            className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
-              ${mode === 'player' 
-                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' 
-                : 'text-[#4a6080] hover:text-slate-300'}`}
-          >
-            👤 Spiller
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode('register'); setError(''); }}
-            className={`flex-1 py-3 rounded-lg text-[13px] font-bold transition-all min-h-[48px]
-              ${mode === 'register' 
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                : 'text-[#4a6080] hover:text-slate-300'}`}
-          >
-            ✨ Nytt lag
-          </button>
+          {([
+            ['coach',    '🏋️ Trener'],
+            ['player',   '👤 Spiller'],
+            ['register', '✨ Nytt lag'],
+          ] as const).map(([m, l]) => (
+            <button key={m} type="button"
+              onClick={() => { setMode(m); setError(''); setEmail(''); setPassword(''); }}
+              className={`flex-1 py-3 rounded-lg text-[12px] font-bold transition-all min-h-[48px]
+                ${mode === m
+                  ? m === 'register'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                  : 'text-[#4a6080] hover:text-slate-300'}`}>
+              {l}
+            </button>
+          ))}
         </div>
 
-        {/* Coach Login */}
+        {/* ── TRENER ── */}
         {mode === 'coach' && (
-          <form onSubmit={handleCoachLogin} className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
+          <form onSubmit={handleCoachLogin}
+            className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
             <h2 className="text-base font-bold text-slate-100 mb-5">🏋️ Trener-innlogging</h2>
-            
-            <div className="mb-4">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                E-post
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="trener@lag.no"
-                required
-              />
-            </div>
-            
-            <div className="mb-5">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                Passord
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-[12px] text-red-400">
-                {error}
-              </div>
-            )}
-            
-            <button
-              type="submit"
-              disabled={loading || storeLoading}
-              className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 transition min-h-[48px]"
-            >
+            <Field label="E-post">
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                className="lg-inp" placeholder={coachEmail} required autoFocus />
+            </Field>
+            <Field label="Passord">
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                className="lg-inp" placeholder="••••••••" required />
+            </Field>
+            {error && <ErrBox msg={error} />}
+            <button type="submit" disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30
+                text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 min-h-[52px]">
               {loading ? 'Logger inn...' : 'Logg inn som trener'}
             </button>
-            
-            <div className="mt-4 text-center text-[10px] text-[#3a5070]">
-              Standard: trener@lag.no / trener123
-            </div>
+            <p className="text-[10px] text-[#3a5070] mt-3 text-center">
+              Standard: {coachEmail} / {coachPassword}
+            </p>
           </form>
         )}
 
-        {/* Player Login */}
+        {/* ── SPILLER ── */}
         {mode === 'player' && (
-          <form onSubmit={handlePlayerLogin} className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
+          <form onSubmit={handlePlayerLogin}
+            className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
             <h2 className="text-base font-bold text-slate-100 mb-5">👤 Spiller-innlogging</h2>
-            
-            <div className="mb-4">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                E-post
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="ola@spiller.no"
-                required
-              />
-            </div>
-            
-            <div className="mb-5">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                Passord
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-[12px] text-red-400">
-                {error}
-              </div>
-            )}
-            
-            <button
-              type="submit"
-              disabled={loading || storeLoading}
-              className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 transition min-h-[48px]"
-            >
+            <Field label="E-post">
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                className="lg-inp" placeholder="ola@spiller.no" required autoFocus />
+            </Field>
+            <Field label="Passord">
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                className="lg-inp" placeholder="••••••••" required />
+            </Field>
+            {error && <ErrBox msg={error} />}
+            <button type="submit" disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30
+                text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 min-h-[52px]">
               {loading ? 'Logger inn...' : 'Logg inn som spiller'}
             </button>
-            
             {playersWithEmail.length > 0 && (
-              <div className="mt-5 pt-4 border-t border-[#1e3050]">
-                <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">
-                  Eksisterende spillere
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {playersWithEmail.slice(0, 5).map((player: any) => (
-                    <button
-                      key={player.id}
-                      type="button"
-                      onClick={() => setEmail(player.email)}
-                      className="text-[10px] px-2 py-1 rounded-full bg-[#111c30] border border-[#1e3050] text-[#4a6080] hover:text-sky-400 hover:border-sky-500/30 transition"
-                    >
-                      {player.name}
+              <div className="mt-4 pt-4 border-t border-[#1e3050]">
+                <p className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">
+                  Spillere i laget
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {playersWithEmail.slice(0, 6).map((p: any) => (
+                    <button key={p.id} type="button" onClick={() => setEmail(p.email)}
+                      className="text-[10px] px-2 py-1 rounded-full bg-[#111c30] border border-[#1e3050]
+                        text-[#4a6080] hover:text-sky-400 hover:border-sky-500/30 transition">
+                      {p.name}
                     </button>
                   ))}
                 </div>
-                <p className="text-[9px] text-[#3a5070] mt-2">
-                  Trykk på navnet for å fylle inn e-post. Spør treneren om passord.
-                </p>
               </div>
             )}
           </form>
         )}
 
-        {/* Register New Team */}
+        {/* ── REGISTRER NYTT LAG ── */}
         {mode === 'register' && (
-          <form onSubmit={handleRegister} className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
+          <form onSubmit={handleRegister}
+            className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
             <h2 className="text-base font-bold text-slate-100 mb-5">✨ Registrer nytt lag</h2>
-            
-            <div className="mb-4">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                Ditt navn (trener)
-              </label>
-              <input
-                type="text"
-                value={regName}
-                onChange={e => setRegName(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="Ola Nordmann"
-                required
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                E-post (brukes som innlogging)
-              </label>
-              <input
-                type="email"
-                value={regEmail}
-                onChange={e => setRegEmail(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="trener@lag.no"
-                required
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                Passord
-              </label>
-              <input
-                type="password"
-                value={regPassword}
-                onChange={e => setRegPassword(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="•••••••• (min 4 tegn)"
-                required
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                Lagnavn
-              </label>
-              <input
-                type="text"
-                value={regTeamName}
-                onChange={e => setRegTeamName(e.target.value)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                placeholder="Sotra SK"
-                required
-              />
-            </div>
-            
-            <div className="mb-5">
-              <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                Sport
-              </label>
-              <select
-                value={regSport}
-                onChange={e => setRegSport(e.target.value as any)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              >
-                <option value="football">Fotball 11er</option>
-                <option value="football7">Fotball 7er (barn)</option>
-                <option value="handball">Håndball</option>
+            <Field label="Ditt navn (trener)">
+              <input type="text" value={regName} onChange={e => setRegName(e.target.value)}
+                className="lg-inp" placeholder="Ola Nordmann" required autoFocus />
+            </Field>
+            <Field label="Lagnavn">
+              <input type="text" value={regTeamName} onChange={e => setRegTeamName(e.target.value)}
+                className="lg-inp" placeholder="Sotra SK" required />
+            </Field>
+            <Field label="E-post (innlogging)">
+              <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)}
+                className="lg-inp" placeholder="trener@lag.no" required />
+            </Field>
+            <Field label="Passord">
+              <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)}
+                className="lg-inp" placeholder="Minst 4 tegn" required />
+            </Field>
+            <Field label="Sport">
+              <select value={regSport} onChange={e => setRegSport(e.target.value as any)}
+                className="lg-inp">
+                <option value="football">⚽ Fotball 11er</option>
+                <option value="football7">⚽ Fotball 7er (barn)</option>
+                <option value="handball">🤾 Håndball</option>
               </select>
-            </div>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-[12px] text-red-400">
-                {error}
-              </div>
-            )}
-            
-            <button
-              type="submit"
-              disabled={loading || storeLoading}
-              className="w-full py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 disabled:opacity-50 transition min-h-[48px]"
-            >
-              {loading ? 'Oppretter...' : '✨ Opprett nytt lag'}
+            </Field>
+            {error && <ErrBox msg={error} />}
+            <button type="submit"
+              className="w-full py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30
+                text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 min-h-[52px] mt-2">
+              ✨ Opprett lag og logg inn
             </button>
           </form>
         )}
       </div>
+
+      <style>{`
+        .lg-inp { display:block; width:100%; background:#111c30; border:1px solid #1e3050;
+          border-radius:10px; padding:13px 16px; color:#e2e8f0; font-size:14px;
+          box-sizing:border-box; min-height:52px; }
+        .lg-inp:focus { outline:none; border-color:#38bdf8; }
+      `}</style>
     </div>
   );
 };
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="mb-4">
+    <div className="text-[10px] font-bold text-[#4a6080] uppercase tracking-widest mb-1.5">
+      {label}
+    </div>
+    {children}
+  </div>
+);
+
+const ErrBox: React.FC<{ msg: string }> = ({ msg }) => (
+  <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-[12px] text-red-400">
+    {msg}
+  </div>
+);

@@ -20,12 +20,13 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose }) => {
     birthDate: myAccount?.birthDate || '',
     height: myAccount?.height || '',
     weight: myAccount?.weight || '',
-    positionPreferences: myAccount?.positionPreferences || [],
+    positionPreferences: myAccount?.positionPreferences || '',
     experience: myAccount?.experience || '',
   });
   
+  // Konverter string til array for visning
   const [selectedPositions, setSelectedPositions] = useState<string[]>(
-    myAccount?.positionPreferences || []
+    myAccount?.positionPreferences ? myAccount.positionPreferences.split(',').filter(Boolean) : []
   );
   
   const roles = getRolesForSport(sport === 'football7' ? 'football' : sport);
@@ -44,7 +45,7 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose }) => {
       birthDate: formData.birthDate || undefined,
       height: formData.height ? Number(formData.height) : undefined,
       weight: formData.weight ? Number(formData.weight) : undefined,
-      positionPreferences: selectedPositions,
+      positionPreferences: selectedPositions.join(','), // Array til kommaseparert string
       experience: formData.experience || undefined,
     });
     
