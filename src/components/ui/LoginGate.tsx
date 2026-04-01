@@ -15,11 +15,12 @@ export const LoginGate: React.FC = () => {
     coachPassword,
   } = useAppStore();
 
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginType, setLoginType] = useState<'coach' | 'player'>('coach');
 
   // Registreringsfelter
   const [regName, setRegName] = useState('');
@@ -30,24 +31,21 @@ export const LoginGate: React.FC = () => {
 
   const playersWithEmail = (playerAccounts as any[]).filter((p: any) => p.email);
 
-  const handleCoachLogin = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const success = loginCoach(email.trim(), password);
+    
+    const success = loginType === 'coach' 
+      ? loginCoach(email.trim(), password)
+      : loginPlayer(email.trim(), password);
+    
     if (!success) {
-      setError(`Feil e-post eller passord. Standard: ${coachEmail} / ${coachPassword}`);
-    }
-    setLoading(false);
-  };
-
-  const handlePlayerLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    const success = loginPlayer(email.trim(), password);
-    if (!success) {
-      setError('Feil e-post eller passord. Spør treneren om innloggingsdetaljer.');
+      if (loginType === 'coach') {
+        setError(`Feil e-post eller passord. Standard: ${coachEmail} / ${coachPassword}`);
+      } else {
+        setError('Feil e-post eller passord. Spør treneren om innloggingsdetaljer.');
+      }
     }
     setLoading(false);
   };
@@ -61,7 +59,6 @@ export const LoginGate: React.FC = () => {
     if (!regTeamName.trim()) { setError('Fyll inn lagnavn.'); return; }
     if (regPassword.length < 4) { setError('Passordet må være minst 4 tegn.'); return; }
 
-    // Registrer direkte i store
     setHomeTeamName(regTeamName.trim());
     setCoachEmail(regEmail.trim());
     setCoachPassword(regPassword);
@@ -73,43 +70,30 @@ export const LoginGate: React.FC = () => {
     }
   };
 
-  const resetToLogin = () => {
-    setIsRegistering(false);
-    setError('');
-    setEmail('');
-    setPassword('');
-  };
+  if (showRegister) {
+    return (
+      <div className="min-h-screen bg-[#060c18] flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-3">⚽🏋️</div>
+            <h1 className="text-2xl font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
+              TAKTIKKBOARD
+            </h1>
+            <p className="text-[11px] text-[#4a6080] mt-2">Opprett nytt lag</p>
+          </div>
 
-  return (
-    <div className="min-h-[100dvh] bg-[#060c18] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-md">
-
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">⚽🏋️</div>
-          <h1 className="text-2xl font-black mb-1"
-            style={{ background: 'linear-gradient(100deg,#38bdf8,#34d399)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            TAKTIKKBOARD
-          </h1>
-          <p className="text-[11px] text-[#4a6080]">Taktikk og kommunikasjon for lagidretter</p>
-        </div>
-
-        {/* Registreringsskjema */}
-        {isRegistering ? (
-          <form onSubmit={handleRegister}
-            className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
+          <form onSubmit={handleRegister} className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
             
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-bold text-slate-100">✨ Registrer nytt lag</h2>
-              <button
-                type="button"
-                onClick={resetToLogin}
-                className="text-[11px] px-3 py-1.5 rounded-lg border border-[#1e3050] text-[#4a6080] hover:text-white transition"
-              >
-                ← Tilbake
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowRegister(false)}
+              className="mb-4 text-[11px] px-3 py-1.5 rounded-lg border border-[#1e3050] text-[#4a6080] hover:text-white transition"
+            >
+              ← Tilbake til innlogging
+            </button>
+
+            <h2 className="text-base font-bold text-slate-100 mb-5">✨ Registrer nytt lag</h2>
 
             <div className="mb-4">
               <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
@@ -196,149 +180,133 @@ export const LoginGate: React.FC = () => {
               ✨ Opprett lag og logg inn
             </button>
           </form>
-        ) : (
-          /* Innloggingsskjema */
-          <div className="space-y-4">
-            {/* Trener-innlogging */}
-            <form onSubmit={handleCoachLogin}
-              className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
-              <h2 className="text-base font-bold text-slate-100 mb-5">🏋️ Trener-innlogging</h2>
-              
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                  E-post
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                  placeholder="trener@lag.no"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                  Passord
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-              
-              {error && <ErrBox msg={error} />}
-              
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 min-h-[52px] transition"
-              >
-                {loading ? 'Logger inn...' : 'Logg inn som trener'}
-              </button>
-              
-              <p className="text-[10px] text-[#3a5070] mt-3 text-center">
-                Standard: {coachEmail} / {coachPassword}
-              </p>
-            </form>
-
-            {/* Spiller-innlogging */}
-            <form onSubmit={handlePlayerLogin}
-              className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
-              <h2 className="text-base font-bold text-slate-100 mb-5">👤 Spiller-innlogging</h2>
-              
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                  E-post
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                  placeholder="ola@spiller.no"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
-                  Passord
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-              
-              {error && <ErrBox msg={error} />}
-              
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 min-h-[52px] transition"
-              >
-                {loading ? 'Logger inn...' : 'Logg inn som spiller'}
-              </button>
-              
-              {playersWithEmail.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-[#1e3050]">
-                  <p className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">
-                    Spillere i laget
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {playersWithEmail.slice(0, 6).map((p: any) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setEmail(p.email)}
-                        className="text-[10px] px-2 py-1 rounded-full bg-[#111c30] border border-[#1e3050] text-[#4a6080] hover:text-sky-400 hover:border-sky-500/30 transition"
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </form>
-
-            {/* Registreringsknapp */}
-            <button
-              onClick={() => {
-                setIsRegistering(true);
-                setError('');
-                setEmail('');
-                setPassword('');
-              }}
-              className="w-full py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 transition min-h-[52px]"
-            >
-              ✨ Nytt lag? Registrer deg her
-            </button>
-          </div>
-        )}
+        </div>
       </div>
+    );
+  }
 
-      <style>{`
-        .lg-inp { display:block; width:100%; background:#111c30; border:1px solid #1e3050;
-          border-radius:10px; padding:13px 16px; color:#e2e8f0; font-size:14px;
-          box-sizing:border-box; min-height:52px; }
-        .lg-inp:focus { outline:none; border-color:#38bdf8; }
-      `}</style>
+  return (
+    <div className="min-h-screen bg-[#060c18] flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        
+        <div className="text-center mb-8">
+          <div className="text-5xl mb-3">⚽🏋️</div>
+          <h1 className="text-2xl font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
+            TAKTIKKBOARD
+          </h1>
+          <p className="text-[11px] text-[#4a6080] mt-2">Taktikk og kommunikasjon for lagidretter</p>
+        </div>
+
+        {/* Velg innloggingstype */}
+        <div className="flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => { setLoginType('coach'); setError(''); setEmail(''); setPassword(''); }}
+            className={`flex-1 py-3 rounded-xl text-[13px] font-bold transition-all min-h-[48px]
+              ${loginType === 'coach' 
+                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' 
+                : 'bg-[#0c1525] text-[#4a6080] border border-[#1e3050] hover:text-slate-300'}`}
+          >
+            🏋️ Trener
+          </button>
+          <button
+            type="button"
+            onClick={() => { setLoginType('player'); setError(''); setEmail(''); setPassword(''); }}
+            className={`flex-1 py-3 rounded-xl text-[13px] font-bold transition-all min-h-[48px]
+              ${loginType === 'player' 
+                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' 
+                : 'bg-[#0c1525] text-[#4a6080] border border-[#1e3050] hover:text-slate-300'}`}
+          >
+            👤 Spiller
+          </button>
+        </div>
+
+        {/* Innloggingsskjema */}
+        <form onSubmit={handleLogin} className="bg-[#0c1525] rounded-2xl p-6 border border-[#1e3050]">
+          <h2 className="text-base font-bold text-slate-100 mb-5">
+            {loginType === 'coach' ? '🏋️ Trener-innlogging' : '👤 Spiller-innlogging'}
+          </h2>
+          
+          <div className="mb-4">
+            <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
+              E-post
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
+              placeholder={loginType === 'coach' ? 'trener@lag.no' : 'ola@spiller.no'}
+              required
+            />
+          </div>
+          
+          <div className="mb-4">
+            <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
+              Passord
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+          
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-[12px] text-red-400">
+              {error}
+            </div>
+          )}
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 disabled:opacity-50 min-h-[52px] transition"
+          >
+            {loading ? 'Logger inn...' : `Logg inn som ${loginType === 'coach' ? 'trener' : 'spiller'}`}
+          </button>
+
+          {loginType === 'coach' && (
+            <p className="text-[10px] text-[#3a5070] mt-3 text-center">
+              Standard: {coachEmail} / {coachPassword}
+            </p>
+          )}
+
+          {loginType === 'player' && playersWithEmail.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-[#1e3050]">
+              <p className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">
+                Spillere i laget
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {playersWithEmail.slice(0, 6).map((p: any) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setEmail(p.email)}
+                    className="text-[10px] px-2 py-1 rounded-full bg-[#111c30] border border-[#1e3050] text-[#4a6080] hover:text-sky-400 hover:border-sky-500/30 transition"
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </form>
+
+        {/* Registreringsknapp */}
+        <button
+          onClick={() => {
+            setShowRegister(true);
+            setError('');
+          }}
+          className="w-full mt-4 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 transition min-h-[52px]"
+        >
+          ✨ Nytt lag? Registrer deg her
+        </button>
+      </div>
     </div>
   );
 };
-
-const ErrBox: React.FC<{ msg: string }> = ({ msg }) => (
-  <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-[12px] text-red-400">
-    {msg}
-  </div>
-);
