@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { getDrillsBySport, toDrillSport, DrillExercise, CATEGORY_LABELS } from '@/data/drills';
 
@@ -241,7 +241,7 @@ const NewTrainingForm: React.FC<{
     setSaving(true);
     
     const drillNotes = selectedDrills.map(d => 
-      `\n📋 ${d.name}\n${d.description}`
+      `\n📋 ${d.name}\n${d.description}\nVarighet: ${d.duration} min`
     ).join('');
     
     const focusNote = focusTags.length > 0 ? `Fokus: ${focusTags.join(', ')}` : '';
@@ -251,7 +251,9 @@ const NewTrainingForm: React.FC<{
       createdAt: new Date().toISOString(),
       title: drill.name,
       content: drill.description,
+      duration: drill.duration,
       focus: focusTags,
+      completed: false,
       targetPlayerIds: [],
     }));
 
@@ -553,7 +555,70 @@ const TrainingCard: React.FC<{
   );
 };
 
-// ═══ TRAINING DETAIL ══════════════════════════════════════════
+// ═══ STOPPEKLOKKE-KOMPONENT ═══════════════════════════════════
+
+const Stopwatch: React.FC<{
+  duration: number;
+  onComplete: () => void;
+  onCancel: () => void;
+}> = ({ duration, onComplete, onCancel }) => {
+  const [timeLeft, setTimeLeft] = useState(duration * 60);
+  const [isActive, setIsActive] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isActive && !isPaused && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isActive) {
+      setIsActive(false);
+      onComplete();
+    }
+    return () => clearInterval(interval);
+  }, [isActive, isPaused, timeLeft, onComplete]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = ((duration * 60 - timeLeft) / (duration * 60)) * 100;
+
+  return (
+    <div className="bg-[#0c1525] rounded-xl p-4 border border-[#1e3050]">
+      <div className="text-center">
+        <div className="text-4xl font-mono font-bold text-slate-200 mb-2">
+          {formatTime(timeLeft)}
+        </div>
+        <div className="w-full bg-[#1e3050] rounded-full h-2 mb-4">
+          <div 
+            className="bg-emerald-500 h-2 rounded-full transition-all duration-1000"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="flex gap-2 justify-center">
+          <button
+            onClick={() => setIsPaused(!isPaused)}
+            className="px-4 py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm font-semibold"
+          >
+            {isPaused ? '▶ Fortsett' : '⏸ Pause'}
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-semibold"
+          >
+            ⏹ Avbryt
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══ TRAINING DETAIL med stoppeklokke ═══════════════════════════
 
 const TrainingDetail: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
@@ -569,6 +634,8 @@ const TrainingDetail: React.FC<{
   const [noteContent, setNoteContent] = useState('');
   const [selectedDrill, setSelectedDrill] = useState<DrillExercise | null>(null);
   const [showDrillPicker, setShowDrillPicker] = useState(false);
+  const [activeStopwatch, setActiveStopwatch] = useState<string | null>(null);
+  const [completedDrills, setCompletedDrills] = useState<Set<string>>(new Set());
 
   const drills = getDrillsBySport(toDrillSport(sport));
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
@@ -596,6 +663,8 @@ const TrainingDetail: React.FC<{
         title: '✅ Fremmøte',
         content: 'Fremmøteregistrering',
         focus: [],
+        duration: 0,
+        completed: false,
         targetPlayerIds: [playerId],
       });
     }
@@ -606,10 +675,23 @@ const TrainingDetail: React.FC<{
     onAddNote({
       title: selectedDrill ? selectedDrill.name : noteTitle.trim(),
       content: selectedDrill ? selectedDrill.description : noteContent.trim(),
+      duration: selectedDrill?.duration || 0,
+      completed: false,
       focus: [],
       targetPlayerIds: [],
     });
     setNoteTitle(''); setNoteContent(''); setSelectedDrill(null); setShowAddNote(false);
+  };
+
+  const handleCompleteDrill = (noteId: string) => {
+    setCompletedDrills(prev => new Set(prev).add(noteId));
+    setActiveStopwatch(null);
+    
+    // Oppdater notatet som fullført i store
+    const updatedNotes = event.trainingNotes?.map((tn: any) =>
+      tn.id === noteId ? { ...tn, completed: true } : tn
+    );
+    onUpdate({ trainingNotes: updatedNotes });
   };
 
   const myNotes = myPlayerId
@@ -631,12 +713,31 @@ const TrainingDetail: React.FC<{
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
 
+        {/* Aktiv stoppeklokke */}
+        {activeStopwatch && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+            <div className="text-[11px] font-bold text-emerald-400 mb-2">⏱ Pågående øvelse</div>
+            <Stopwatch
+              duration={activeStopwatch === 'custom' ? 5 : (event.trainingNotes?.find((tn: any) => tn.id === activeStopwatch)?.duration || 5)}
+              onComplete={() => {
+                if (activeStopwatch !== 'custom') {
+                  handleCompleteDrill(activeStopwatch);
+                } else {
+                  setActiveStopwatch(null);
+                }
+              }}
+              onCancel={() => setActiveStopwatch(null)}
+            />
+          </div>
+        )}
+
         {event.teamNote && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
             <div className="text-[9.5px] font-bold text-amber-400 uppercase tracking-wider mb-2">📝 Fra trener</div>
             <p className="text-[12.5px] text-slate-300 leading-relaxed whitespace-pre-wrap">{event.teamNote}</p>
           </div>
         )}
+        
         {isCoach && (
           <div>
             <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Generelt notat</div>
@@ -738,18 +839,65 @@ const TrainingDetail: React.FC<{
 
           {(isCoach ? event.trainingNotes : myNotes)
             ?.filter((tn: any) => tn.title !== '✅ Fremmøte')
-            .map((tn: any) => (
-            <div key={tn.id} className="bg-[#0f1a2a] border border-[#1e3050] rounded-xl p-4 mb-2">
-              <div className="flex items-start justify-between mb-1">
-                <span className="text-[13px] font-bold text-slate-200">{tn.title}</span>
-                {isCoach && (
-                  <button onClick={() => onDeleteNote(tn.id)}
-                    className="text-red-400/50 hover:text-red-400 text-xs ml-2 flex-shrink-0">✕</button>
-                )}
-              </div>
-              <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap">{tn.content}</p>
-            </div>
-          ))}
+            .map((tn: any) => {
+              const isCompleted = completedDrills.has(tn.id) || tn.completed;
+              const hasTimer = tn.duration && tn.duration > 0;
+              
+              return (
+                <div key={tn.id} className={`bg-[#0f1a2a] border rounded-xl p-4 mb-2 transition-all
+                  ${isCompleted ? 'border-emerald-500/30 opacity-70' : 'border-[#1e3050]'}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-bold text-slate-200">{tn.title}</span>
+                        {hasTimer && (
+                          <span className="text-[9px] bg-[#1e3050] px-2 py-0.5 rounded-full text-amber-400">
+                            ⏱ {tn.duration} min
+                          </span>
+                        )}
+                        {isCompleted && (
+                          <span className="text-[9px] bg-emerald-500/20 px-2 py-0.5 rounded-full text-emerald-400">
+                            ✅ Fullført
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {isCoach && (
+                      <button onClick={() => onDeleteNote(tn.id)}
+                        className="text-red-400/50 hover:text-red-400 text-xs ml-2 flex-shrink-0">✕</button>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap mb-3">{tn.content}</p>
+                  
+                  {/* Stoppeklokke-knapp for spillere */}
+                  {!isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
+                    <button
+                      onClick={() => setActiveStopwatch(tn.id)}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
+                    >
+                      ⏱ Start øvelse ({tn.duration} min)
+                    </button>
+                  )}
+                  
+                  {/* Fullfør-knapp for trener */}
+                  {isCoach && !isCompleted && (
+                    <button
+                      onClick={() => handleCompleteDrill(tn.id)}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
+                    >
+                      ✅ Marker som fullført
+                    </button>
+                  )}
+                  
+                  {/* Vis at øvelsen pågår */}
+                  {!isCoach && activeStopwatch === tn.id && (
+                    <div className="mt-2 text-[10px] text-amber-400">
+                      ⏱ Øvelse pågår...
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
           {(isCoach ? event.trainingNotes : myNotes)?.filter((tn: any) => tn.title !== '✅ Fremmøte').length === 0 && (
             <p className="text-[11px] text-[#3a5070] italic">Ingen øvelser lagt til ennå.</p>

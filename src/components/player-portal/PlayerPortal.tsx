@@ -5,6 +5,7 @@ import { ROLE_META } from '@/data/roleInfo';
 import { VW, VH } from '@/data/formations';
 import { ReadOnlyTacticBoard } from '@/components/player-portal/PlayerHome';
 import { TrainingView } from '@/components/ui/TrainingView';
+import { CalendarView } from '@/components/calendar/CalendarView'; // Importer full kalender
 
 // ─── Helpers ──────────────────────────────────────────────────
 const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
@@ -129,10 +130,10 @@ export const PlayerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* KALENDER */}
+        {/* KALENDER - FULL KALENDER FOR BÅDE TRENER OG SPILLERE */}
         {tab === 'calendar' && (
-          <div className="flex-1 overflow-y-auto p-4 max-w-2xl w-full mx-auto">
-            <PlayerCalendarView events={events as any[]} sport={sport} />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <CalendarView />
           </div>
         )}
 
@@ -556,93 +557,6 @@ const AccountManager: React.FC = () => {
         .label-sm2 { font-size:9.5px; font-weight:700; color:#3a5070;
           text-transform:uppercase; letter-spacing:0.08em; display:block; }
       `}</style>
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════════
-//  PLAYER CALENDAR VIEW
-// ═══════════════════════════════════════════════════════════════
-export const PlayerCalendarView: React.FC<{ events: any[]; sport: string }> = ({ events, sport }) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const upcoming = events
-    .filter(e => e.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 15);
-
-  const past = events
-    .filter(e => e.date < today)
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5);
-
-  if (events.length === 0) return <EmptyState icon="📅" text="Ingen arrangementer planlagt ennå." />;
-
-  return (
-    <div>
-      <h3 className="text-base font-bold text-slate-100 mb-4">📅 Kommende</h3>
-      <div className="space-y-2 mb-6">
-        {upcoming.map(ev => (
-          <PlayerEventCard key={ev.id} event={ev} />
-        ))}
-        {upcoming.length === 0 && <p className="text-[#4a6080] text-sm italic">Ingen kommende arrangementer.</p>}
-      </div>
-
-      {past.length > 0 && (
-        <>
-          <h3 className="text-[11px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">Tidligere</h3>
-          <div className="space-y-2 opacity-60">
-            {past.map(ev => (
-              <PlayerEventCard key={ev.id} event={ev} />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-const PlayerEventCard: React.FC<{ event: any }> = ({ event }) => {
-  const [open, setOpen] = React.useState(false);
-  const isMatch    = event.type === 'match';
-  const dateStr    = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
-    weekday: 'short', day: 'numeric', month: 'short',
-  });
-  return (
-    <div className="bg-[#0f1a2a] border border-[#1e3050] rounded-xl overflow-hidden">
-      <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setOpen(!open)}>
-        <div className={`w-2 h-10 rounded-full flex-shrink-0 ${isMatch ? 'bg-red-400' : 'bg-emerald-400'}`} />
-        <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] font-bold text-slate-200">{event.title}</div>
-          <div className="text-[10.5px] text-[#4a6080]">
-            {isMatch ? '⚽ Kamp' : '🏃 Trening'} · {dateStr}
-            {event.time && ` · ${event.time}`}
-            {event.location && ` · 📍 ${event.location}`}
-          </div>
-        </div>
-        <span className="text-[#4a6080] text-[11px]">{open ? '▲' : '▼'}</span>
-      </div>
-      {open && (
-        <div className="px-4 pb-4 border-t border-[#1e3050] pt-3 space-y-2">
-          {event.teamNote ? (
-            <p className="text-[12px] text-slate-300 leading-relaxed whitespace-pre-wrap">{event.teamNote}</p>
-          ) : (
-            <p className="text-[11px] text-[#3a5070] italic">Ingen notat fra trener.</p>
-          )}
-          {(event.trainingNotes ?? []).map((tn: any) => (
-            <div key={tn.id} className="bg-[#0c1525] rounded-lg p-3 border border-[#1e3050]">
-              <div className="text-[11px] font-bold text-emerald-400 mb-1">📋 {tn.title}</div>
-              <p className="text-[11px] text-slate-300 leading-relaxed">{tn.content}</p>
-              {tn.focus?.length > 0 && (
-                <div className="flex gap-1 mt-2 flex-wrap">
-                  {tn.focus.map((f: string, i: number) => (
-                    <span key={i} className="text-[9.5px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">{f}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

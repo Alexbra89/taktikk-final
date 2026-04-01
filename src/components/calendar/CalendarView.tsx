@@ -22,11 +22,13 @@ export const CalendarView: React.FC = () => {
   const [showNewEvent, setShowNewEvent]   = useState(false);
   const [showAutoGen, setShowAutoGen]     = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [showTodayStatus, setShowTodayStatus] = useState(true);
 
   const { events, addEvent, updateEvent, deleteEvent, sport, currentUser, playerAccounts, ageGroup } = useAppStore();
 
   const isCoach = currentUser?.role === 'coach';
   const currentPlayerId = currentUser?.playerId;
+  const todayStr = today.toISOString().slice(0, 10);
 
   // Filtrer events basert på brukerrolle
   const filteredEvents = useMemo(() => {
@@ -41,6 +43,31 @@ export const CalendarView: React.FC = () => {
       return true;
     });
   }, [events, isCoach, currentPlayerId]);
+
+  // Hent dagens arrangement(er)
+  const todayEvents = useMemo(() => {
+    return filteredEvents.filter(e => e.date === todayStr);
+  }, [filteredEvents, todayStr]);
+
+  // Bestem dagens status
+  const getTodayStatus = () => {
+    if (todayEvents.length === 0) {
+      return { type: 'free', label: 'Fri', icon: '😴', color: 'text-gray-400', bgColor: 'bg-gray-500/10', borderColor: 'border-gray-500/30' };
+    }
+    
+    const hasMatch = todayEvents.some(e => e.type === 'match');
+    const hasTraining = todayEvents.some(e => e.type === 'training');
+    
+    if (hasMatch) {
+      return { type: 'match', label: 'Kamp', icon: '⚽', color: 'text-red-400', bgColor: 'bg-red-500/10', borderColor: 'border-red-500/30' };
+    }
+    if (hasTraining) {
+      return { type: 'training', label: 'Trening', icon: '🏃', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/30' };
+    }
+    return { type: 'free', label: 'Fri', icon: '😴', color: 'text-gray-400', bgColor: 'bg-gray-500/10', borderColor: 'border-gray-500/30' };
+  };
+
+  const todayStatus = getTodayStatus();
 
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -66,6 +93,47 @@ export const CalendarView: React.FC = () => {
     <div className="flex h-full overflow-hidden">
       {/* ── Kalender-kolonne ── */}
       <div className={`flex flex-col ${(selectedDate || showNewEvent || showAutoGen) ? "hidden sm:flex" : "flex"} w-full sm:w-80 flex-shrink-0 sm:flex-shrink-0 border-r border-[#1e3050] bg-[#0c1525]`}>
+        
+        {/* Dagens status - NYTT */}
+        {showTodayStatus && (
+          <div className={`m-3 p-3 rounded-xl border ${todayStatus.bgColor} ${todayStatus.borderColor}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{todayStatus.icon}</span>
+                <div>
+                  <div className="text-[9px] text-[#4a6080] uppercase tracking-wider">Dagens status</div>
+                  <div className={`text-sm font-bold ${todayStatus.color}`}>
+                    {todayStatus.label}
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowTodayStatus(false)}
+                className="text-[#4a6080] hover:text-slate-300 text-[10px]"
+              >
+                ✕
+              </button>
+            </div>
+            {todayEvents.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {todayEvents.slice(0, 2).map(event => (
+                  <div 
+                    key={event.id}
+                    onClick={() => { setSelectedDate(todayStr); setSelectedEvent(event.id); }}
+                    className="text-[10px] text-slate-300 hover:text-sky-400 cursor-pointer truncate"
+                  >
+                    {event.type === 'match' ? '⚽' : '🏃'} {event.title}
+                    {event.time && ` · ${event.time}`}
+                  </div>
+                ))}
+                {todayEvents.length > 2 && (
+                  <div className="text-[9px] text-[#4a6080]">+{todayEvents.length - 2} flere</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3050]">
           <button onClick={prevMonth} className="text-[#4a6080] hover:text-white text-lg w-8 h-8 flex items-center justify-center">‹</button>
           <span className="text-sm font-bold text-slate-200">{MONTHS[month]} {year}</span>
@@ -83,7 +151,7 @@ export const CalendarView: React.FC = () => {
           {Array.from({ length: daysInMonth }, (_, i) => i+1).map(day => {
             const iso      = isoDate(day);
             const dayEvts  = eventsOnDate(iso);
-            const isToday  = iso === today.toISOString().slice(0,10);
+            const isToday  = iso === todayStr;
             const isSel    = selectedDate === iso;
             return (
               <div key={day}
@@ -139,7 +207,7 @@ export const CalendarView: React.FC = () => {
 
         {showNewEvent && isCoach && !showAutoGen && (
           <NewEventForm
-            date={selectedDate ?? today.toISOString().slice(0,10)}
+            date={selectedDate ?? todayStr}
             sport={sport}
             ageGroup={ageGroup}
             playerAccounts={playerAccounts as any[]}
@@ -186,7 +254,7 @@ export const CalendarView: React.FC = () => {
               {isCoach ? 'Kommende arrangementer' : 'Dine kommende arrangementer'}
             </h2>
             {filteredEvents
-              .filter(e => e.date >= today.toISOString().slice(0,10))
+              .filter(e => e.date >= todayStr)
               .sort((a,b) => a.date.localeCompare(b.date))
               .slice(0, 10)
               .map(ev => (
@@ -196,7 +264,7 @@ export const CalendarView: React.FC = () => {
                   isCoach={isCoach}
                   currentPlayerId={currentPlayerId} />
               ))}
-            {filteredEvents.filter(e => e.date >= today.toISOString().slice(0,10)).length === 0 && (
+            {filteredEvents.filter(e => e.date >= todayStr).length === 0 && (
               <div className="text-center py-16">
                 <div className="text-4xl mb-3">📅</div>
                 <p className="text-[#4a6080] text-sm mb-4">Ingen kommende arrangementer.</p>

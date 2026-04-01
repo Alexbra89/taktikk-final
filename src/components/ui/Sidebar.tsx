@@ -46,13 +46,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             {homeTeamName || 'TAKTIKKBOARD'}
           </span>
         </div>
-        {/* Formation + sport */}
+        {/* Kun sport - fjernet formasjonsvisning */}
         <div className="flex items-center gap-2 text-[10px]">
           <span className="text-[#4a6080]">{sportEmoji} {sportLabel}</span>
-          <span className="text-[#2a4060]">·</span>
-          <span className="text-amber-400/70 font-semibold">
-            {FORMATION_NAMES[sport] ?? ''} formasjon
-          </span>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
           <span className="text-blue-400 font-semibold truncate">{homeTeamName || 'Hjemmelag'}</span>

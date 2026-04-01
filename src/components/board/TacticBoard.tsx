@@ -19,6 +19,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const playRef   = useRef({ from: 0, t: 0 });
   const stickyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const formationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [localStickyNote, setLocalStickyNote] = useState('');
 
   const [drawMode, setDrawMode]       = useState(false);
@@ -53,30 +54,49 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // Oppdater spillerposisjoner OG roller basert på valgt formasjon
+  // Oppdater spillerposisjoner OG roller basert på valgt formasjon - med debounce for bedre ytelse
   const updateFormation = useCallback((formationName: string) => {
     if (!phase) return;
     
-    const formation = availableFormations.find(f => f.name === formationName);
-    if (!formation) return;
+    // Clear previous debounce
+    if (formationDebounceRef.current) {
+      clearTimeout(formationDebounceRef.current);
+    }
     
-    const homePlayers = phase.players.filter(p => p.team === 'home');
-    const newFormationPlayers = formation.homePlayers;
-    
-    // Oppdater posisjoner og roller for hjemmelag-spillere
-    homePlayers.forEach((player, index) => {
-      if (newFormationPlayers[index]) {
-        // Oppdater posisjon
-        updatePlayerPosition(activePhaseIdx, player.id, newFormationPlayers[index].position);
-        // Oppdater rolle hvis den er forskjellig
-        if (player.role !== newFormationPlayers[index].role) {
-          updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role });
-        }
-      }
-    });
-    
-    setSelectedFormation(formationName);
+    // Debounce for å unngå for mange oppdateringer
+    formationDebounceRef.current = setTimeout(() => {
+      const formation = availableFormations.find(f => f.name === formationName);
+      if (!formation) return;
+      
+      const homePlayers = phase.players.filter(p => p.team === 'home');
+      const newFormationPlayers = formation.homePlayers;
+      
+      // Bruk requestAnimationFrame for å unngå UI-frys
+      requestAnimationFrame(() => {
+        homePlayers.forEach((player, index) => {
+          if (newFormationPlayers[index]) {
+            // Oppdater posisjon
+            updatePlayerPosition(activePhaseIdx, player.id, newFormationPlayers[index].position);
+            // Oppdater rolle hvis den er forskjellig
+            if (player.role !== newFormationPlayers[index].role) {
+              updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role });
+            }
+          }
+        });
+      });
+      
+      setSelectedFormation(formationName);
+    }, 300); // 300ms debounce for smoother opplevelse
   }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition, updatePlayerField]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (formationDebounceRef.current) {
+        clearTimeout(formationDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Sync local sticky note when phase changes
   useEffect(() => {
@@ -96,7 +116,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }, 500);
   }, [activePhaseIdx, updateStickyNote]);
 
-  // Cleanup debounce on unmount
+  // Cleanup sticky debounce on unmount
   useEffect(() => {
     return () => {
       if (stickyDebounceRef.current) {
@@ -232,7 +252,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           )}
         </div>
 
-        {/* Formasjonsvelger */}
+        {/* Formasjonsvelger - med debounce for bedre ytelse */}
         {availableFormations.length > 0 && (
           <div className="flex items-center gap-1 ml-2">
             <span className="text-[9px] text-[#4a6080]">📐 Formasjon:</span>
@@ -359,7 +379,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
                 const a = Math.atan2(p2.y-p1.y, p2.x-p1.x);
                 const s = 12;
                 return <polygon fill={drawColor} opacity={0.8}
-                  points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`}/>;
+                  points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`}/>
               })()}
             </g>
           )}
