@@ -72,8 +72,8 @@ export const LoginGate: React.FC = () => {
 
   if (showRegister) {
     return (
-      <div className="min-h-screen bg-[#060c18] flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+      <div className="min-h-screen bg-[#060c18] flex items-start justify-center p-4 overflow-y-auto">
+        <div className="w-full max-w-md my-8">
           
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">⚽🏋️</div>
@@ -186,8 +186,8 @@ export const LoginGate: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#060c18] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[#060c18] flex items-start justify-center p-4 overflow-y-auto">
+      <div className="w-full max-w-md my-8">
         
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">⚽🏋️</div>
