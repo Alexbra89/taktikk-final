@@ -11,10 +11,10 @@ function p(
   return { id, num, name, role, position: { x, y }, team, notes: '' };
 }
 
-// ─── FOTBALL 11er ────────────────────────────────────────────
+// ─── FOTBALL 11er - ULIKE FORMASJONER ─────────────────────────
 
-const FOOTBALL_PLAYERS: Player[] = [
-  // Hjemmelag
+// 4-3-3 (standard)
+const FOOTBALL_433_HOME: Player[] = [
   p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
   p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
   p('h3',  3,  'Midtback',    'defender',   185, 218, 'home'),
@@ -26,26 +26,72 @@ const FOOTBALL_PLAYERS: Player[] = [
   p('h9',  9,  'Spiss',       'forward',    400, 280, 'home'),
   p('h10', 10, 'Høyrekant',   'winger',     385, 148, 'home'),
   p('h11', 11, 'Venstrekant', 'winger',     385, 412, 'home'),
-
-  // Bortelag
-  p('a1',  1,  'Keeper',      'keeper',     812, 280, 'away'),
-  p('a2',  2,  'Høyreback',   'defender',   695, 118, 'away'),
-  p('a3',  3,  'Midtback',    'defender',   695, 218, 'away'),
-  p('a4',  4,  'Midtback',    'defender',   695, 342, 'away'),
-  p('a5',  5,  'Venstreback', 'defender',   695, 442, 'away'),
-  p('a6',  6,  'Def. midtb.', 'midfielder', 592, 280, 'away'),
-  p('a7',  7,  'Midtbane H',  'midfielder', 575, 175, 'away'),
-  p('a8',  8,  'Midtbane V',  'midfielder', 575, 385, 'away'),
-  p('a9',  9,  'Spiss',       'forward',    480, 280, 'away'),
-  p('a10', 10, 'Høyrekant',   'winger',     495, 148, 'away'),
-  p('a11', 11, 'Venstrekant', 'winger',     495, 412, 'away'),
 ];
 
-// ─── FOTBALL 7er ─────────────────────────────────────────────
-// 3-2-1 formasjon (keeper + 3 back + 2 midtbane + 1 spiss)
+// 4-4-2
+const FOOTBALL_442_HOME: Player[] = [
+  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
+  p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
+  p('h3',  3,  'Midtback',    'defender',   185, 218, 'home'),
+  p('h4',  4,  'Midtback',    'defender',   185, 342, 'home'),
+  p('h5',  5,  'Venstreback', 'defender',   185, 442, 'home'),
+  p('h6',  6,  'Høyre midt',  'midfielder', 288, 175, 'home'),
+  p('h7',  7,  'Sentral midt', 'midfielder', 288, 280, 'home'),
+  p('h8',  8,  'Sentral midt', 'midfielder', 288, 385, 'home'),
+  p('h9',  9,  'Venstre midt', 'midfielder', 305, 490, 'home'),
+  p('h10', 10, 'Spiss',       'forward',    400, 218, 'home'),
+  p('h11', 11, 'Spiss',       'forward',    400, 342, 'home'),
+];
 
-const FOOTBALL7_PLAYERS: Player[] = [
-  // Hjemmelag
+// 3-5-2
+const FOOTBALL_352_HOME: Player[] = [
+  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
+  p('h2',  2,  'Midtstopper', 'defender',   185, 148, 'home'),
+  p('h3',  3,  'Midtstopper', 'defender',   185, 280, 'home'),
+  p('h4',  4,  'Midtstopper', 'defender',   185, 412, 'home'),
+  p('h5',  5,  'Vingback V',  'wingback',   268, 442, 'home'),
+  p('h6',  6,  'Vingback H',  'wingback',   268, 118, 'home'),
+  p('h7',  7,  'Sentral midt', 'midfielder', 345, 215, 'home'),
+  p('h8',  8,  'Sentral midt', 'midfielder', 345, 345, 'home'),
+  p('h9',  9,  'Playmaker',   'playmaker',  345, 280, 'home'),
+  p('h10', 10, 'Spiss',       'forward',    450, 218, 'home'),
+  p('h11', 11, 'Spiss',       'forward',    450, 342, 'home'),
+];
+
+// 5-3-2
+const FOOTBALL_532_HOME: Player[] = [
+  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
+  p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
+  p('h3',  3,  'Midtstopper', 'defender',   185, 215, 'home'),
+  p('h4',  4,  'Midtstopper', 'defender',   185, 280, 'home'),
+  p('h5',  5,  'Midtstopper', 'defender',   185, 345, 'home'),
+  p('h6',  6,  'Venstreback', 'defender',   185, 442, 'home'),
+  p('h7',  7,  'Sentral midt', 'midfielder', 305, 215, 'home'),
+  p('h8',  8,  'Sentral midt', 'midfielder', 305, 345, 'home'),
+  p('h9',  9,  'Playmaker',   'playmaker',  325, 280, 'home'),
+  p('h10', 10, 'Spiss',       'forward',    420, 218, 'home'),
+  p('h11', 11, 'Spiss',       'forward',    420, 342, 'home'),
+];
+
+// 4-2-3-1
+const FOOTBALL_4231_HOME: Player[] = [
+  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
+  p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
+  p('h3',  3,  'Midtstopper', 'defender',   185, 215, 'home'),
+  p('h4',  4,  'Midtstopper', 'defender',   185, 345, 'home'),
+  p('h5',  5,  'Venstreback', 'defender',   185, 442, 'home'),
+  p('h6',  6,  'Def. midt',   'midfielder', 288, 218, 'home'),
+  p('h7',  7,  'Def. midt',   'midfielder', 288, 342, 'home'),
+  p('h8',  8,  'Høyre kant',  'winger',     345, 118, 'home'),
+  p('h9',  9,  'Playmaker',   'playmaker',  345, 280, 'home'),
+  p('h10', 10, 'Venstre kant', 'winger',    345, 442, 'home'),
+  p('h11', 11, 'Spiss',       'forward',    450, 280, 'home'),
+];
+
+// ─── FOTBALL 7er - FORMASJONER ───────────────────────────────
+
+// 3-2-1 (standard)
+const FOOTBALL7_321_HOME: Player[] = [
   p('h1', 1, 'Keeper',      'keeper',     68,  280, 'home'),
   p('h2', 2,  'Back V',     'defender',   190, 178, 'home'),
   p('h3', 3,  'Back M',     'defender',   190, 280, 'home'),
@@ -53,21 +99,34 @@ const FOOTBALL7_PLAYERS: Player[] = [
   p('h5', 5,  'Midtbane V', 'midfielder', 300, 215, 'home'),
   p('h6', 6,  'Midtbane H', 'midfielder', 300, 345, 'home'),
   p('h7', 7,  'Spiss',      'forward',    400, 280, 'home'),
-
-  // Bortelag
-  p('a1', 1, 'Keeper',      'keeper',     812, 280, 'away'),
-  p('a2', 2,  'Back V',     'defender',   690, 178, 'away'),
-  p('a3', 3,  'Back M',     'defender',   690, 280, 'away'),
-  p('a4', 4,  'Back H',     'defender',   690, 382, 'away'),
-  p('a5', 5,  'Midtbane V', 'midfielder', 580, 215, 'away'),
-  p('a6', 6,  'Midtbane H', 'midfielder', 580, 345, 'away'),
-  p('a7', 7,  'Spiss',      'forward',    480, 280, 'away'),
 ];
 
-// ─── HÅNDBALL 7er ────────────────────────────────────────────
+// 2-3-1
+const FOOTBALL7_231_HOME: Player[] = [
+  p('h1', 1, 'Keeper',      'keeper',     68,  280, 'home'),
+  p('h2', 2,  'Back V',     'defender',   190, 215, 'home'),
+  p('h3', 3,  'Back H',     'defender',   190, 345, 'home'),
+  p('h4', 4,  'Midtbane V', 'midfielder', 300, 148, 'home'),
+  p('h5', 5,  'Midtbane M', 'midfielder', 300, 280, 'home'),
+  p('h6', 6,  'Midtbane H', 'midfielder', 300, 412, 'home'),
+  p('h7', 7,  'Spiss',      'forward',    400, 280, 'home'),
+];
 
-const HANDBALL_PLAYERS: Player[] = [
-  // Hjemmelag
+// 2-2-2
+const FOOTBALL7_222_HOME: Player[] = [
+  p('h1', 1, 'Keeper',      'keeper',     68,  280, 'home'),
+  p('h2', 2,  'Back V',     'defender',   190, 215, 'home'),
+  p('h3', 3,  'Back H',     'defender',   190, 345, 'home'),
+  p('h4', 4,  'Midtbane V', 'midfielder', 300, 175, 'home'),
+  p('h5', 5,  'Midtbane H', 'midfielder', 300, 385, 'home'),
+  p('h6', 6,  'Spiss V',    'forward',    400, 215, 'home'),
+  p('h7', 7,  'Spiss H',    'forward',    400, 345, 'home'),
+];
+
+// ─── HÅNDBALL - FORMASJONER ───────────────────────────────────
+
+// 6-0 (standard)
+const HANDBALL_60_HOME: Player[] = [
   p('h1', 1, 'Keeper',       'hb_keeper',    62,  280, 'home'),
   p('h2', 2, 'V. fløy',      'hb_wing',      175, 108, 'home'),
   p('h3', 3, 'V. bakspill',  'hb_backcourt', 225, 215, 'home'),
@@ -75,18 +134,96 @@ const HANDBALL_PLAYERS: Player[] = [
   p('h5', 5, 'H. bakspill',  'hb_backcourt', 225, 345, 'home'),
   p('h6', 6, 'H. fløy',      'hb_wing',      175, 452, 'home'),
   p('h7', 7, 'Pivot',        'hb_pivot',     358, 280, 'home'),
-
-  // Bortelag
-  p('a1', 1, 'Keeper',       'hb_keeper',    818, 280, 'away'),
-  p('a2', 2, 'V. fløy',      'hb_wing',      705, 108, 'away'),
-  p('a3', 3, 'V. bakspill',  'hb_backcourt', 655, 215, 'away'),
-  p('a4', 4, 'Midtback',     'hb_center',    612, 280, 'away'),
-  p('a5', 5, 'H. bakspill',  'hb_backcourt', 655, 345, 'away'),
-  p('a6', 6, 'H. fløy',      'hb_wing',      705, 452, 'away'),
-  p('a7', 7, 'Pivot',        'hb_pivot',     522, 280, 'away'),
 ];
 
-// ─── SPORT-FORMASJONER ───────────────────────────────────────
+// 5-1
+const HANDBALL_51_HOME: Player[] = [
+  p('h1', 1, 'Keeper',       'hb_keeper',    62,  280, 'home'),
+  p('h2', 2, 'V. fløy',      'hb_wing',      175, 108, 'home'),
+  p('h3', 3, 'V. bakspill',  'hb_backcourt', 225, 215, 'home'),
+  p('h4', 4, 'Midtback',     'hb_center',    268, 280, 'home'),
+  p('h5', 5, 'H. bakspill',  'hb_backcourt', 225, 345, 'home'),
+  p('h6', 6, 'H. fløy',      'hb_wing',      175, 452, 'home'),
+  p('h7', 7, 'Spiss',        'hb_center',    358, 280, 'home'),
+];
+
+// 3-2-1 (håndball)
+const HANDBALL_321_HOME: Player[] = [
+  p('h1', 1, 'Keeper',       'hb_keeper',    62,  280, 'home'),
+  p('h2', 2, 'V. bakspill',  'hb_backcourt', 185, 148, 'home'),
+  p('h3', 3, 'Midtback',     'hb_center',    225, 280, 'home'),
+  p('h4', 4, 'H. bakspill',  'hb_backcourt', 185, 412, 'home'),
+  p('h5', 5, 'V. fløy',      'hb_wing',      280, 108, 'home'),
+  p('h6', 6, 'H. fløy',      'hb_wing',      280, 452, 'home'),
+  p('h7', 7, 'Pivot',        'hb_pivot',     340, 280, 'home'),
+];
+
+// ─── BORTELAG-POSISJONER (speilvendt) ─────────────────────────
+
+function mirrorPlayers(players: Player[], team: 'away'): Player[] {
+  return players.map(p => ({
+    ...p,
+    team,
+    position: { x: VW - p.position.x, y: p.position.y },
+  }));
+}
+
+// ─── FORMASJONSKONFIGURASJON ─────────────────────────────────
+
+export interface Formation {
+  name: string;
+  emoji: string;
+  homePlayers: Player[];
+  awayPlayers: Player[];
+}
+
+// Fotball 11er formasjoner
+export const FOOTBALL_FORMATIONS: Formation[] = [
+  { name: '4-3-3', emoji: '⚽', homePlayers: FOOTBALL_433_HOME, awayPlayers: mirrorPlayers(FOOTBALL_433_HOME, 'away') },
+  { name: '4-4-2', emoji: '⚽', homePlayers: FOOTBALL_442_HOME, awayPlayers: mirrorPlayers(FOOTBALL_442_HOME, 'away') },
+  { name: '3-5-2', emoji: '⚽', homePlayers: FOOTBALL_352_HOME, awayPlayers: mirrorPlayers(FOOTBALL_352_HOME, 'away') },
+  { name: '5-3-2', emoji: '⚽', homePlayers: FOOTBALL_532_HOME, awayPlayers: mirrorPlayers(FOOTBALL_532_HOME, 'away') },
+  { name: '4-2-3-1', emoji: '⚽', homePlayers: FOOTBALL_4231_HOME, awayPlayers: mirrorPlayers(FOOTBALL_4231_HOME, 'away') },
+];
+
+// Fotball 7er formasjoner
+export const FOOTBALL7_FORMATIONS: Formation[] = [
+  { name: '3-2-1', emoji: '⚽', homePlayers: FOOTBALL7_321_HOME, awayPlayers: mirrorPlayers(FOOTBALL7_321_HOME, 'away') },
+  { name: '2-3-1', emoji: '⚽', homePlayers: FOOTBALL7_231_HOME, awayPlayers: mirrorPlayers(FOOTBALL7_231_HOME, 'away') },
+  { name: '2-2-2', emoji: '⚽', homePlayers: FOOTBALL7_222_HOME, awayPlayers: mirrorPlayers(FOOTBALL7_222_HOME, 'away') },
+];
+
+// Håndball formasjoner
+export const HANDBALL_FORMATIONS: Formation[] = [
+  { name: '6-0', emoji: '🤾', homePlayers: HANDBALL_60_HOME, awayPlayers: mirrorPlayers(HANDBALL_60_HOME, 'away') },
+  { name: '5-1', emoji: '🤾', homePlayers: HANDBALL_51_HOME, awayPlayers: mirrorPlayers(HANDBALL_51_HOME, 'away') },
+  { name: '3-2-1', emoji: '🤾', homePlayers: HANDBALL_321_HOME, awayPlayers: mirrorPlayers(HANDBALL_321_HOME, 'away') },
+];
+
+// Hent formasjoner basert på sport
+export function getFormations(sport: Sport): Formation[] {
+  if (sport === 'handball') return HANDBALL_FORMATIONS;
+  if (sport === 'football7') return FOOTBALL7_FORMATIONS;
+  return FOOTBALL_FORMATIONS;
+}
+
+// Hent posisjoner for en formasjon
+export function getFormationPositions(formationName: string, sport: Sport): { x: number; y: number }[] {
+  const formations = getFormations(sport);
+  const formation = formations.find(f => f.name === formationName);
+  if (!formation) return [];
+  
+  return formation.homePlayers.map(p => ({ x: p.position.x, y: p.position.y }));
+}
+
+// Standard formasjon per sport
+export const DEFAULT_FORMATION: Record<Sport, string> = {
+  football: '4-3-3',
+  football7: '3-2-1',
+  handball: '6-0',
+};
+
+// ─── SPORT-FORMASJONER (for bakoverkompatibilitet) ───────────
 
 export const SPORT_FORMATIONS: Record<Sport, {
   name: string;
@@ -94,9 +231,9 @@ export const SPORT_FORMATIONS: Record<Sport, {
   teamSize: number;
   players: Player[];
 }> = {
-  football:  { name: 'Fotball 11er', emoji: '⚽', teamSize: 11, players: FOOTBALL_PLAYERS },
-  football7: { name: 'Fotball 7er',  emoji: '⚽', teamSize: 7,  players: FOOTBALL7_PLAYERS },
-  handball:  { name: 'Håndball',     emoji: '🤾', teamSize: 7,  players: HANDBALL_PLAYERS },
+  football:  { name: 'Fotball 11er', emoji: '⚽', teamSize: 11, players: FOOTBALL_433_HOME },
+  football7: { name: 'Fotball 7er',  emoji: '⚽', teamSize: 7,  players: FOOTBALL7_321_HOME },
+  handball:  { name: 'Håndball',     emoji: '🤾', teamSize: 7,  players: HANDBALL_60_HOME },
 };
 
 export function makePhase(

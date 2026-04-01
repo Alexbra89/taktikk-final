@@ -32,15 +32,15 @@ export const FootballPitch: React.FC = () => {
       <circle cx={m + 86} cy={H / 2} r={3.5} fill={s} />
       <circle cx={W - m - 86} cy={H / 2} r={3.5} fill={s} />
       
-      {/* Straffebue venstre - korrigert (bue utover fra 16-meteren) */}
+      {/* Straffebue venstre - bue utover (riktig vei) */}
       <path
         d={`M ${m + 86 + 68 * Math.cos(-0.93)} ${H / 2 + 68 * Math.sin(-0.93)}
-            A 68 68 0 0 0 ${m + 86 + 68 * Math.cos(0.93)} ${H / 2 + 68 * Math.sin(0.93)}`}
+            A 68 68 0 0 1 ${m + 86 + 68 * Math.cos(0.93)} ${H / 2 + 68 * Math.sin(0.93)}`}
       />
-      {/* Straffebue høyre - korrigert (bue utover fra 16-meteren) */}
+      {/* Straffebue høyre - bue utover (riktig vei) */}
       <path
         d={`M ${W - m - 86 + 68 * Math.cos(Math.PI - 0.93)} ${H / 2 + 68 * Math.sin(Math.PI - 0.93)}
-            A 68 68 0 0 1 ${W - m - 86 + 68 * Math.cos(Math.PI + 0.93)} ${H / 2 + 68 * Math.sin(Math.PI + 0.93)}`}
+            A 68 68 0 0 0 ${W - m - 86 + 68 * Math.cos(Math.PI + 0.93)} ${H / 2 + 68 * Math.sin(Math.PI + 0.93)}`}
       />
       
       {/* Mål venstre */}

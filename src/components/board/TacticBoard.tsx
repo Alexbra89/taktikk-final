@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Player } from '../../types';
-import { VW, VH } from '../../data/formations';
+import { VW, VH, getFormations, getFormationPositions, DEFAULT_FORMATION } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { HandballPitch } from './pitches/HandballPitch';
 import { DraggablePlayer, Ball, DrawingCanvas } from './BoardElements';
@@ -29,15 +29,46 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const [interpT, setInterpT]         = useState(0);
   const [liveDrawPts, setLiveDrawPts] = useState<{x:number;y:number}[]>([]);
   const [showSticky, setShowSticky]   = useState(false);
+  
+  // Formasjonsstate
+  const [selectedFormation, setSelectedFormation] = useState<string>('');
 
   const {
     sport, phases, activePhaseIdx,
     setActivePhaseIdx, addPhase, removePhase,
     updatePlayerPosition, updateBallPosition, addDrawing, clearDrawings,
-    updateStickyNote, awayTeamColor,
+    updateStickyNote, playerAccounts,
   } = useAppStore();
 
   const phase = phases[activePhaseIdx];
+  
+  // Hent tilgjengelige formasjoner for sport
+  const availableFormations = getFormations(sport === 'football7' ? 'football7' : sport);
+  const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport];
+
+  // Sett default formasjon når sport endres eller komponent laster
+  useEffect(() => {
+    if (availableFormations.length > 0 && !selectedFormation) {
+      setSelectedFormation(defaultFormation);
+    }
+  }, [sport, availableFormations, defaultFormation, selectedFormation]);
+
+  // Oppdater spillerposisjoner basert på valgt formasjon
+  const updateFormation = useCallback((formationName: string) => {
+    if (!phase) return;
+    
+    const positions = getFormationPositions(formationName, sport === 'football7' ? 'football7' : sport);
+    const homePlayers = phase.players.filter(p => p.team === 'home');
+    
+    // Oppdater posisjoner for hjemmelag-spillere (kun posisjoner som finnes)
+    homePlayers.forEach((player, index) => {
+      if (positions[index]) {
+        updatePlayerPosition(activePhaseIdx, player.id, positions[index]);
+      }
+    });
+    
+    setSelectedFormation(formationName);
+  }, [phase, activePhaseIdx, sport, updatePlayerPosition]);
 
   // Sync local sticky note when phase changes
   useEffect(() => {
@@ -193,6 +224,23 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           )}
         </div>
 
+        {/* Formasjonsvelger */}
+        {availableFormations.length > 0 && (
+          <div className="flex items-center gap-1 ml-2">
+            <span className="text-[9px] text-[#4a6080]">📐 Formasjon:</span>
+            <select
+              value={selectedFormation}
+              onChange={(e) => updateFormation(e.target.value)}
+              disabled={isPlaying}
+              className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1 text-[10px] text-slate-200 focus:outline-none focus:border-sky-500"
+            >
+              {availableFormations.map(f => (
+                <option key={f.name} value={f.name}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="flex-1 min-w-[8px]" />
 
         {/* Sticky note */}
@@ -267,7 +315,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             display: 'block',
             boxShadow: '0 0 60px rgba(0,0,0,0.9)',
             cursor: drawMode ? 'crosshair' : 'default',
-            touchAction: 'none',   // CRITICAL for mobile drawing
+            touchAction: 'none',
             userSelect: 'none',
           }}
           onPointerDown={onSvgPointerDown}
@@ -313,16 +361,25 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
               onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
           )}
 
-          {/* Kun hjemmelag vises – bortelag filtreres ut */}
-          {homeDisplayPlayers.map(player => (
-            <DraggablePlayer key={player.id} player={player}
-              isActive={!isPlaying && !drawMode}
-              isSelected={selectedPlayerId === player.id}
-              awayTeamColor={awayTeamColor}
-              onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
-              onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
-              showName />
-          ))}
+          {/* Kun hjemmelag vises – med navn fra playerAccounts */}
+          {homeDisplayPlayers.map(player => {
+            // Finn spillerkonto for å få riktig navn
+            const account = playerAccounts.find((a: any) => a.playerId === player.id);
+            const displayName = account?.name || player.name || `#${player.num}`;
+            
+            return (
+              <DraggablePlayer 
+                key={player.id} 
+                player={player}
+                displayName={displayName}
+                isActive={!isPlaying && !drawMode}
+                isSelected={selectedPlayerId === player.id}
+                onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
+                onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
+                showName 
+              />
+            );
+          })}
 
           {isPlaying && (
             <rect x={32} y={VH - 14} rx={3} height={5}

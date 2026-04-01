@@ -13,6 +13,7 @@ interface DraggablePlayerProps {
   onPositionChange: (position: { x: number; y: number }) => void;
   onSelect?: () => void;
   showName?: boolean;
+  displayName?: string; // NY
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -46,10 +47,10 @@ const NameEditor: React.FC<{
     onClose();
   };
 
-  // Keep editor within SVG bounds (VW=800, VH=600)
-  const fW = 230, fH = 150;
-  const fx = Math.max(5, Math.min(svgX - fW / 2, 795 - fW));
-  const fy = svgY + 26 + 11; // below the player name text
+  // Keep editor within SVG bounds (VW=880, VH=560)
+  const fW = 240, fH = 180;
+  const fx = Math.max(5, Math.min(svgX - fW / 2, 875 - fW));
+  const fy = svgY + 32;
 
   return (
     <foreignObject x={fx} y={fy} width={fW} height={fH} style={{ overflow: 'visible' }}>
@@ -142,6 +143,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   onPositionChange,
   onSelect,
   showName = true,
+  displayName, // NY
 }) => {
   const isDragging  = useRef(false);
   const hasMoved    = useRef(false);
@@ -161,7 +163,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     const ctm = svg.getScreenCTM();
     if (!ctm) return null;
     const { x, y } = pt.matrixTransform(ctm.inverse());
-    return { x: Math.max(55, Math.min(745, x)), y: Math.max(55, Math.min(545, y)) };
+    return { x: Math.max(55, Math.min(825, x)), y: Math.max(55, Math.min(505, y)) };
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -193,6 +195,10 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
 
   const { x, y } = player.position;
   const r = 18;
+  
+  // Bruk displayName hvis tilgjengelig, ellers player.name
+  const nameToShow = displayName || player.name || `#${player.num}`;
+  const truncatedName = nameToShow.length > 10 ? nameToShow.slice(0, 10) + '…' : nameToShow;
 
   return (
     <>
@@ -204,6 +210,9 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
         style={{ cursor: isActive ? 'grab' : 'default', userSelect: 'none', touchAction: 'none' }}
         filter="url(#dropShadow)"
       >
+        {/* Større hit area for bedre dra-funksjon */}
+        <circle cx={x} cy={y} r={28} fill="transparent" style={{ pointerEvents: 'all' }} />
+        
         {isSelected && (
           <circle cx={x} cy={y} r={r + 7} fill="none"
             stroke="#38bdf8" strokeWidth={2.5} strokeDasharray="5,3" opacity={0.9}/>
@@ -215,13 +224,13 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
           fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
           {player.num}
         </text>
-        {showName && player.name && (
-          <text x={x} y={y + r + 11} textAnchor="middle"
+        {showName && nameToShow && (
+          <text x={x} y={y + r + 13} textAnchor="middle"
             fill="white" fontSize={9} fontWeight="600"
             fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}
             paintOrder="stroke" stroke="rgba(0,0,0,0.7)"
             strokeWidth={3} strokeLinejoin="round">
-            {player.name.length > 9 ? player.name.slice(0, 9) + '…' : player.name}
+            {truncatedName}
           </text>
         )}
         <title>

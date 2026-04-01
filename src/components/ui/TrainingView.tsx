@@ -1,11 +1,11 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { getDrillsBySport, toDrillSport, DrillExercise } from '@/data/drills';
+import { getDrillsBySport, toDrillSport, DrillExercise, CATEGORY_LABELS } from '@/data/drills';
 
 // ═══════════════════════════════════════════════════════════════
 //  TRENING-VISNING — trener og spiller
-//  Trener: ser alle treninger, markerer fremmøte, legger til øvelser
+//  Trener: ser alle treninger, markerer fremmøte, legger til øvelser, START NY TRENING
 //  Spiller: ser egne treninger, individuell plan, eget fremmøte
 // ═══════════════════════════════════════════════════════════════
 
@@ -23,6 +23,7 @@ export const TrainingView: React.FC = () => {
 
   const [tab, setTab] = useState<'upcoming' | 'history' | 'individual'>('upcoming');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [showNewTraining, setShowNewTraining] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
   const trainings = useMemo(() =>
@@ -33,6 +34,19 @@ export const TrainingView: React.FC = () => {
   const past      = trainings.filter(e => e.date < today).reverse();
 
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
+
+  // Hvis vi viser ny treningsform
+  if (showNewTraining && isCoach) {
+    return (
+      <NewTrainingForm
+        onSave={(ev) => { addEvent(ev); setShowNewTraining(false); }}
+        onCancel={() => setShowNewTraining(false)}
+        sport={sport}
+        ageGroup={useAppStore().ageGroup}
+        playerAccounts={playerAccounts as any[]}
+      />
+    );
+  }
 
   if (selectedEvent) {
     return (
@@ -52,13 +66,26 @@ export const TrainingView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
+      {/* Header med "Start trening" knapp */}
       <div className="flex-shrink-0 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
-        <h2 className="text-sm font-black text-slate-100">🏃 Trening</h2>
-        <p className="text-[10px] text-[#4a6080] mt-0.5">
-          {isCoach ? 'Alle treninger — marker fremmøte og legg til øvelser'
-                   : 'Dine treninger og individuell plan'}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-black text-slate-100">🏃 Trening</h2>
+            <p className="text-[10px] text-[#4a6080] mt-0.5">
+              {isCoach ? 'Alle treninger — marker fremmøte og legg til øvelser'
+                       : 'Dine treninger og individuell plan'}
+            </p>
+          </div>
+          {isCoach && (
+            <button
+              onClick={() => setShowNewTraining(true)}
+              className="px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
+                text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[40px]"
+            >
+              ✨ Start trening
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -86,9 +113,13 @@ export const TrainingView: React.FC = () => {
                 <div className="text-3xl mb-2">📅</div>
                 <p className="text-[12px] text-[#4a6080]">Ingen kommende treninger.</p>
                 {isCoach && (
-                  <p className="text-[11px] text-[#3a5070] mt-1">
-                    Opprett treninger i Kalender-fanen.
-                  </p>
+                  <button
+                    onClick={() => setShowNewTraining(true)}
+                    className="mt-4 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
+                      text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25 transition"
+                  >
+                    ✨ Start ny trening
+                  </button>
                 )}
               </div>
             )}
@@ -135,7 +166,348 @@ export const TrainingView: React.FC = () => {
   );
 };
 
-// ═══ TRAINING CARD ════════════════════════════════════════════
+// ═══ NY TRENINGSFORM ═══════════════════════════════════════════
+
+const NewTrainingForm: React.FC<{
+  onSave: (ev: Omit<any, 'id'>) => void;
+  onCancel: () => void;
+  sport: string;
+  ageGroup: 'youth' | 'adult';
+  playerAccounts: any[];
+}> = ({ onSave, onCancel, sport, ageGroup, playerAccounts }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState(today);
+  const [time, setTime] = useState('18:00');
+  const [location, setLocation] = useState('');
+  const [teamNote, setTeamNote] = useState('');
+  const [focusTags, setFocusTags] = useState<string[]>([]);
+  const [selectedDrills, setSelectedDrills] = useState<DrillExercise[]>([]);
+  const [showDrillPicker, setShowDrillPicker] = useState(false);
+  const [drillSearch, setDrillSearch] = useState('');
+  const [drillCategory, setDrillCategory] = useState<string>('alle');
+  const [drillDifficulty, setDrillDifficulty] = useState<string>('alle');
+  const [saving, setSaving] = useState(false);
+
+  const allDrills = getDrillsBySport(toDrillSport(sport));
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(allDrills.map(d => d.category)));
+    return cats;
+  }, [allDrills]);
+
+  const filteredDrills = useMemo(() => {
+    let drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
+    
+    if (drillCategory !== 'alle') {
+      drills = drills.filter(d => d.category === drillCategory);
+    }
+    
+    if (drillDifficulty !== 'alle') {
+      drills = drills.filter(d => d.difficulty === drillDifficulty);
+    }
+    
+    if (drillSearch.trim()) {
+      const q = drillSearch.toLowerCase();
+      drills = drills.filter(d => 
+        d.name.toLowerCase().includes(q) || 
+        d.description.toLowerCase().includes(q)
+      );
+    }
+    
+    return drills;
+  }, [allDrills, ageGroup, drillCategory, drillDifficulty, drillSearch]);
+
+  const addDrill = (drill: DrillExercise) => {
+    if (!selectedDrills.some(d => d.id === drill.id)) {
+      setSelectedDrills(prev => [...prev, drill]);
+    }
+    setShowDrillPicker(false);
+  };
+
+  const removeDrill = (drillId: string) => {
+    setSelectedDrills(prev => prev.filter(d => d.id !== drillId));
+  };
+
+  const save = () => {
+    if (!title.trim()) {
+      alert('Fyll inn tittel');
+      return;
+    }
+    
+    setSaving(true);
+    
+    const drillNotes = selectedDrills.map(d => 
+      `\n📋 ${d.name}\n${d.description}`
+    ).join('');
+    
+    const focusNote = focusTags.length > 0 ? `Fokus: ${focusTags.join(', ')}` : '';
+
+    const trainingNotes = selectedDrills.map(drill => ({
+      id: `tn-${Date.now()}-${drill.id}`,
+      createdAt: new Date().toISOString(),
+      title: drill.name,
+      content: drill.description,
+      focus: focusTags,
+      targetPlayerIds: [],
+    }));
+
+    onSave({
+      type: 'training',
+      title: title.trim(),
+      date,
+      time,
+      location,
+      opponent: '',
+      result: '',
+      teamNote: [focusNote, teamNote, drillNotes].filter(Boolean).join('\n'),
+      trainingNotes,
+      matchNotes: [],
+    });
+    
+    setSaving(false);
+  };
+
+  const FOCUS_OPTIONS = [
+    'Pasningsspill','Pressing','Forsvarsstilling','Avslutning','Kontrapress',
+    'Innlegg','Dødball','Keepertrening','Kondisjon','Styrke','Taktikk','Individuell teknikk',
+  ];
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex-shrink-0 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
+        <button onClick={onCancel} className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-2 flex items-center gap-1">
+          ‹ Tilbake
+        </button>
+        <h2 className="text-base font-black text-slate-100">✨ Start ny trening</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
+
+        {/* Tittel */}
+        <div>
+          <label className="label-cal">Tittel *</label>
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="F.eks. Teknikktrening, 4-3-3 trening..."
+            className="inp-cal"
+          />
+        </div>
+
+        {/* Dato og tid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label-cal">Dato</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="inp-cal" />
+          </div>
+          <div>
+            <label className="label-cal">Tid</label>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} className="inp-cal" />
+          </div>
+        </div>
+
+        {/* Sted */}
+        <div>
+          <label className="label-cal">Sted</label>
+          <input
+            value={location}
+            onChange={e => setLocation(e.target.value)}
+            placeholder="Stadion / hall"
+            className="inp-cal"
+          />
+        </div>
+
+        {/* Fokusområder */}
+        <div>
+          <label className="label-cal">Fokusområder (valgfritt)</label>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {FOCUS_OPTIONS.slice(0, 8).map(f => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFocusTags(prev =>
+                  prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
+                )}
+                className={`px-2.5 py-1 rounded-full text-[10.5px] font-semibold border transition-all
+                  ${focusTags.includes(f)
+                    ? 'border-sky-500/60 bg-sky-500/15 text-sky-400'
+                    : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Øvelser */}
+        <div>
+          <label className="label-cal">Øvelser fra biblioteket (velg flere)</label>
+          
+          {/* Vis valgte øvelser */}
+          {selectedDrills.length > 0 && (
+            <div className="mb-2 space-y-1 max-h-32 overflow-y-auto">
+              {selectedDrills.map(drill => (
+                <div key={drill.id} className="flex items-center justify-between bg-[#0c1525] rounded-lg px-3 py-2 border border-[#1e3050]">
+                  <div className="flex-1">
+                    <div className="text-[11px] font-semibold text-slate-200">{drill.name}</div>
+                    <div className="text-[9px] text-[#4a6080]">{drill.duration} min · {drill.players} spillere · {drill.difficulty}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeDrill(drill.id)}
+                    className="text-red-400/70 hover:text-red-400 text-[11px] px-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <button
+            type="button"
+            onClick={() => setShowDrillPicker(!showDrillPicker)}
+            className="w-full mt-1 py-2 px-3 rounded-lg border border-[#1e3050] text-left text-[12px] text-[#4a6080] hover:border-sky-500/50 hover:text-slate-300 transition-all flex items-center justify-between"
+          >
+            <span>{selectedDrills.length > 0 ? `+ Legg til flere øvelser (${selectedDrills.length} valgt)` : '– Velg øvelser –'}</span>
+            <span>{showDrillPicker ? '▲' : '▼'}</span>
+          </button>
+          
+          {showDrillPicker && (
+            <div className="mt-2 bg-[#0c1525] border border-[#1e3050] rounded-xl overflow-hidden">
+              {/* Filtere linje */}
+              <div className="p-2 border-b border-[#1e3050] space-y-2">
+                <input
+                  type="text"
+                  placeholder="🔍 Søk etter øvelse..."
+                  value={drillSearch}
+                  onChange={e => setDrillSearch(e.target.value)}
+                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500"
+                />
+                
+                <div className="flex flex-wrap gap-1">
+                  <button onClick={() => setDrillCategory('alle')}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                      ${drillCategory === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
+                    Alle
+                  </button>
+                  {categories.map(cat => (
+                    <button key={cat} onClick={() => setDrillCategory(cat)}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                        ${drillCategory === cat ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
+                      {CATEGORY_LABELS[cat]?.split(' ')[1] || cat}
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="flex flex-wrap gap-1">
+                  <button onClick={() => setDrillDifficulty('alle')}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                      ${drillDifficulty === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
+                    Alle
+                  </button>
+                  {['enkel', 'middels', 'avansert'].map(level => (
+                    <button key={level} onClick={() => setDrillDifficulty(level)}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                        ${drillDifficulty === level ? 
+                          (level === 'enkel' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                           level === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                           'bg-red-500/20 text-red-400 border border-red-500/30') : 
+                          'text-[#4a6080] hover:text-slate-300'}`}>
+                        {level === 'enkel' ? '⭐ Enkel' : level === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
+                      </button>
+                    ))}
+                  </div>
+                
+                <div className="text-[9px] text-[#4a6080] text-right">
+                  {filteredDrills.length} øvelser
+                </div>
+              </div>
+              
+              <div className="max-h-64 overflow-y-auto">
+                {filteredDrills.length === 0 ? (
+                  <div className="text-center py-8 text-[#4a6080] text-[11px]">
+                    Ingen øvelser funnet
+                  </div>
+                ) : (
+                  filteredDrills.map(drill => {
+                    const isSelected = selectedDrills.some(sd => sd.id === drill.id);
+                    return (
+                      <button
+                        key={drill.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            removeDrill(drill.id);
+                          } else {
+                            addDrill(drill);
+                          }
+                        }}
+                        className={`w-full text-left px-3 py-2.5 text-[11.5px] hover:bg-[#111c30] border-b border-[#1e3050]/50 transition-all
+                          ${isSelected ? 'text-sky-400 bg-sky-500/10' : 'text-slate-300'}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px]">{isSelected ? '✓' : '○'}</span>
+                          <div className="flex-1">
+                            <div className="font-semibold">{drill.name}</div>
+                            <div className="text-[10px] text-[#4a6080]">
+                              {CATEGORY_LABELS[drill.category]} · {drill.duration} min · {drill.players} spillere · 
+                              <span className={
+                                drill.difficulty === 'enkel' ? 'text-emerald-400' : 
+                                drill.difficulty === 'middels' ? 'text-yellow-400' : 'text-red-400'
+                              }> {drill.difficulty}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Beskrivelse */}
+        <div>
+          <label className="label-cal">Beskrivelse / notat</label>
+          <textarea
+            value={teamNote}
+            onChange={e => setTeamNote(e.target.value)}
+            rows={3}
+            placeholder="Mål for økten, beskjeder til spillerne..."
+            className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5
+              text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed"
+          />
+        </div>
+
+        {/* Knapper */}
+        <div className="flex gap-2 pt-2">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !title.trim()}
+            className="flex-1 py-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 disabled:opacity-40 transition min-h-[48px]"
+          >
+            {saving ? 'Oppretter...' : '✨ Opprett trening'}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-3 rounded-xl border border-[#1e3050] text-[#4a6080] font-bold text-[13px] hover:text-slate-300 transition min-h-[48px]"
+          >
+            Avbryt
+          </button>
+        </div>
+      </div>
+
+      <CalStyle />
+    </div>
+  );
+};
+
+// ═══ TRAINING CARD (uendret) ═══════════════════════════════════
 
 const TrainingCard: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
@@ -145,7 +517,6 @@ const TrainingCard: React.FC<{
     weekday: 'short', day: 'numeric', month: 'short',
   });
 
-  // Check if this player is marked as attended
   const iAttended = myPlayerId && event.trainingNotes?.some(
     (tn: any) => tn.targetPlayerIds?.includes(myPlayerId)
   );
@@ -188,7 +559,7 @@ const TrainingCard: React.FC<{
   );
 };
 
-// ═══ TRAINING DETAIL ══════════════════════════════════════════
+// ═══ TRAINING DETAIL (uendret) ═════════════════════════════════
 
 const TrainingDetail: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
@@ -210,13 +581,11 @@ const TrainingDetail: React.FC<{
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  // All playerIds who attended (from all trainingNotes)
   const attendedIds = new Set<string>(
     event.trainingNotes?.flatMap((tn: any) => tn.targetPlayerIds ?? []) ?? []
   );
 
   const toggleAttendance = (playerId: string) => {
-    // Find or create an attendance note
     const attNote = event.trainingNotes?.find((tn: any) => tn.title === '✅ Fremmøte');
     if (attNote) {
       const ids: string[] = attNote.targetPlayerIds ?? [];
@@ -255,7 +624,6 @@ const TrainingDetail: React.FC<{
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
       <div className="flex-shrink-0 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
         <button onClick={onBack} className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-2 flex items-center gap-1">
           ‹ Tilbake
@@ -269,7 +637,6 @@ const TrainingDetail: React.FC<{
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
 
-        {/* Trenernotat */}
         {event.teamNote && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
             <div className="text-[9.5px] font-bold text-amber-400 uppercase tracking-wider mb-2">📝 Fra trener</div>
@@ -286,7 +653,6 @@ const TrainingDetail: React.FC<{
           </div>
         )}
 
-        {/* Fremmøte — kun trener */}
         {isCoach && (
           <div>
             <button onClick={() => setShowAttendance(!showAttendance)}
@@ -316,7 +682,6 @@ const TrainingDetail: React.FC<{
           </div>
         )}
 
-        {/* Øvelser / Notater */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider">
@@ -330,10 +695,8 @@ const TrainingDetail: React.FC<{
             )}
           </div>
 
-          {/* Legg til note/øvelse */}
           {isCoach && showAddNote && (
             <div className="bg-[#0c1525] border border-dashed border-[#1e3050] rounded-xl p-4 mb-3">
-              {/* Velg fra øvelsesbibliotek */}
               <button onClick={() => setShowDrillPicker(!showDrillPicker)}
                 className="w-full text-left py-2 px-3 rounded-lg border border-[#1e3050]
                   text-[12px] text-[#4a6080] hover:border-sky-500/50 mb-3 flex items-center justify-between">
@@ -379,7 +742,6 @@ const TrainingDetail: React.FC<{
             </div>
           )}
 
-          {/* Eksisterende noter */}
           {(isCoach ? event.trainingNotes : myNotes)
             ?.filter((tn: any) => tn.title !== '✅ Fremmøte')
             .map((tn: any) => (
@@ -404,7 +766,7 @@ const TrainingDetail: React.FC<{
   );
 };
 
-// ═══ INDIVIDUELL PANEL ════════════════════════════════════════
+// ═══ INDIVIDUELL PANEL (uendret) ═══════════════════════════════
 
 const CoachIndividualPanel: React.FC<{
   playerAccounts: any[];
@@ -496,3 +858,16 @@ const PlayerIndividualPanel: React.FC<{ acc: any }> = ({ acc }) => {
     </div>
   );
 };
+
+// ═══ STYLES ══════════════════════════════════════════════════
+
+const CalStyle = () => (
+  <style>{`
+    .inp-cal { width:100%; background:#111c30; border:1px solid #1e3050;
+      border-radius:8px; padding:8px 10px; color:#e2e8f0; font-size:12.5px;
+      margin-top:4px; box-sizing:border-box; min-height:38px; }
+    .inp-cal:focus { outline:none; border-color:#38bdf8; }
+    .label-cal { font-size:9.5px; font-weight:700; color:#3a5070;
+      text-transform:uppercase; letter-spacing:0.08em; display:block; }
+  `}</style>
+);

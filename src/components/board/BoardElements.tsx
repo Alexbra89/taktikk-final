@@ -14,10 +14,11 @@ interface DraggablePlayerProps {
   onPositionChange: (pos: { x: number; y: number }) => void;
   onSelect: () => void;
   showName?: boolean;
+  displayName?: string; // NY
 }
 
 export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
-  player, isActive, isSelected, awayTeamColor, onPositionChange, onSelect, showName = true,
+  player, isActive, isSelected, awayTeamColor, onPositionChange, onSelect, showName = true, displayName,
 }) => {
   const groupRef   = useRef<SVGGElement>(null);
   const isDragging = useRef(false);
@@ -106,6 +107,10 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     return '#22c55e';
   };
 
+  // Bruk displayName hvis tilgjengelig, ellers player.name
+  const nameToShow = displayName || player.name || `#${player.num}`;
+  const truncatedName = nameToShow.length > 10 ? nameToShow.slice(0, 10) + '…' : nameToShow;
+
   return (
     <>
       <g
@@ -145,13 +150,13 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
           {player.num}
         </text>
 
-        {/* Name */}
-        {showName && player.name && (
+        {/* Name - bruker displayName */}
+        {showName && nameToShow && (
           <text x={x} y={y + 33} textAnchor="middle" fill="white" fontSize="9.5"
             fontWeight="600" paintOrder="stroke"
             stroke="rgba(0,0,0,0.85)" strokeWidth={3}
             style={{ pointerEvents: 'none' }}>
-            {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
+            {truncatedName}
           </text>
         )}
 

@@ -216,7 +216,7 @@ export const CalendarView: React.FC = () => {
   );
 };
 
-// ═══ AUTOGENERER TRENINGSPLAN med ageGroup ════════════════════
+// ═══ AUTOGENERER TRENINGSPLAN – BRUKER LAGETS SPORT ═══════════
 
 const AutoGenForm: React.FC<{
   sport: string;
@@ -226,16 +226,13 @@ const AutoGenForm: React.FC<{
 }> = ({ sport, ageGroup, onGenerate, onCancel }) => {
   const today = new Date();
   const [weeks, setWeeks]         = useState(4);
-  const [perWeek, setPerWeek]     = useState(3);
   const [startDate, setStartDate] = useState(today.toISOString().slice(0,10));
   const [time, setTime]           = useState('18:00');
   const [location, setLocation]   = useState('');
-  const [activeSport, setActiveSport] = useState<'football'|'handball'>(
-    sport === 'handball' ? 'handball' : 'football'
-  );
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 3, 5]);
   const [focusTags, setFocusTags] = useState<string[]>([]);
 
+  const activeSport = sport === 'handball' ? 'handball' : 'football';
   const WEEKDAYS = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
 
   function toggleDay(d: number) {
@@ -261,11 +258,11 @@ const AutoGenForm: React.FC<{
       }
       current.setDate(current.getDate() + 7);
     }
-    return dates.slice(0, weeks * perWeek + 2);
+    return dates.slice(0, weeks * 3 + 2);
   }, [startDate, weeks, selectedDays]);
 
   function generate() {
-    const allDrills = getDrillsBySport(activeSport as any);
+    const allDrills = getDrillsBySport(activeSport);
     const drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
     const events: Omit<CalendarEvent,'id'>[] = [];
 
@@ -273,7 +270,7 @@ const AutoGenForm: React.FC<{
       const drill = drills[idx % drills.length];
       const focusLine = focusTags.length > 0 ? `\nFokus: ${focusTags.join(', ')}` : '';
       const drillDesc = drill
-        ? `\n\n📋 Ukens øvelse: ${drill.name}\n${drill.description}`
+        ? `\n\n📋 Øvelse: ${drill.name}\n${drill.description}`
         : '';
 
       events.push({
@@ -300,41 +297,18 @@ const AutoGenForm: React.FC<{
     onGenerate(events);
   }
 
+  const sportEmoji = activeSport === 'football' ? '⚽' : '🤾';
+  const sportName = activeSport === 'football' ? 'Fotball' : 'Håndball';
+
   return (
     <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-5 mb-5 max-w-2xl">
       <div className="flex items-center gap-2 mb-5">
         <span className="text-2xl">✨</span>
         <div>
           <h3 className="text-sm font-bold text-slate-200">Autogenerer treningsplan</h3>
-          <p className="text-[11px] text-[#4a6080]">Systemet lager treningsøkter med øvelser fra biblioteket</p>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <label className="label-cal">Sport</label>
-        <div className="flex gap-2 mt-1">
-          {(['football','handball'] as const).map(s => (
-            <button key={s} onClick={() => setActiveSport(s)}
-              className={`flex-1 py-2 rounded-lg text-[12px] font-bold border transition-all
-                ${activeSport === s
-                  ? 'border-sky-500 bg-sky-500/15 text-sky-400'
-                  : 'border-[#1e3050] text-[#4a6080]'}`}>
-              {s === 'football' ? '⚽ Fotball' : '🤾 Håndball'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <label className="label-cal">Aldersgruppe</label>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            ageGroup === 'youth' 
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-              : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-          }`}>
-            {ageGroup === 'youth' ? '🧒 Barn' : '🧑 Voksen'}
-          </span>
+          <p className="text-[11px] text-[#4a6080]">
+            {sportEmoji} {sportName} · {ageGroup === 'youth' ? '🧒 Barneøvelser' : '🧑 Voksenøvelser'}
+          </p>
         </div>
       </div>
 
@@ -448,20 +422,17 @@ const NewEventForm: React.FC<{
   const [isIndividualTraining, setIsIndividualTraining] = useState(false);
   const [saving, setSaving] = useState(false);
   
-  // FILTRERING FOR ØVELSER
   const [drillSearch, setDrillSearch] = useState('');
   const [drillCategory, setDrillCategory] = useState<string>('alle');
   const [drillDifficulty, setDrillDifficulty] = useState<string>('alle');
 
   const allDrillsForEvent = getDrillsBySport(sport === 'handball' ? 'handball' : 'football');
   
-  // Kategorier for filter
   const categories = useMemo(() => {
     const cats = Array.from(new Set(allDrillsForEvent.map(d => d.category)));
     return cats;
   }, [allDrillsForEvent]);
   
-  // Filtrerte øvelser
   const filteredDrills = useMemo(() => {
     let drills = allDrillsForEvent.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
     
@@ -595,7 +566,6 @@ const NewEventForm: React.FC<{
         )}
       </div>
 
-      {/* Individuell trening toggle */}
       {type === 'training' && (
         <div className="mb-3">
           <label className="label-cal">Trenings type</label>
@@ -622,7 +592,6 @@ const NewEventForm: React.FC<{
         </div>
       )}
 
-      {/* Velg spillere for individuell trening */}
       {type === 'training' && isIndividualTraining && (
         <div className="mb-3">
           <label className="label-cal">Velg spillere *</label>
@@ -647,7 +616,6 @@ const NewEventForm: React.FC<{
         </div>
       )}
 
-      {/* Fokusområder (kun trening) */}
       {type === 'training' && (
         <>
           <div className="mb-3">
@@ -667,11 +635,9 @@ const NewEventForm: React.FC<{
             </div>
           </div>
 
-          {/* Velg ØVELSER med FILTRERING */}
           <div className="mb-3">
             <label className="label-cal">Øvelser fra biblioteket (velg flere)</label>
             
-            {/* Vis valgte øvelser */}
             {selectedDrills.length > 0 && (
               <div className="mb-2 space-y-1 max-h-32 overflow-y-auto">
                 {selectedDrills.map(drill => (
@@ -703,9 +669,7 @@ const NewEventForm: React.FC<{
             
             {showDrillPicker && (
               <div className="mt-2 bg-[#0c1525] border border-[#1e3050] rounded-xl overflow-hidden">
-                {/* FILTERE LINJE */}
                 <div className="p-2 border-b border-[#1e3050] space-y-2">
-                  {/* Søk */}
                   <input
                     type="text"
                     placeholder="🔍 Søk etter øvelse..."
@@ -714,59 +678,45 @@ const NewEventForm: React.FC<{
                     className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500"
                   />
                   
-                  {/* Kategorifilter */}
                   <div className="flex flex-wrap gap-1">
-                    <button
-                      onClick={() => setDrillCategory('alle')}
+                    <button onClick={() => setDrillCategory('alle')}
                       className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
-                        ${drillCategory === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}
-                    >
+                        ${drillCategory === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                       Alle
                     </button>
                     {categories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setDrillCategory(cat)}
+                      <button key={cat} onClick={() => setDrillCategory(cat)}
                         className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
-                          ${drillCategory === cat ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}
-                      >
+                          ${drillCategory === cat ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                         {CATEGORY_LABELS[cat]?.split(' ')[1] || cat}
                       </button>
                     ))}
                   </div>
                   
-                  {/* Vanskelighetsgrad-filter */}
                   <div className="flex flex-wrap gap-1">
-                    <button
-                      onClick={() => setDrillDifficulty('alle')}
+                    <button onClick={() => setDrillDifficulty('alle')}
                       className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
-                        ${drillDifficulty === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}
-                    >
+                        ${drillDifficulty === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                       Alle
                     </button>
                     {['enkel', 'middels', 'avansert'].map(level => (
-                      <button
-                        key={level}
-                        onClick={() => setDrillDifficulty(level)}
+                      <button key={level} onClick={() => setDrillDifficulty(level)}
                         className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
                           ${drillDifficulty === level ? 
                             (level === 'enkel' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                              level === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
                              'bg-red-500/20 text-red-400 border border-red-500/30') : 
-                            'text-[#4a6080] hover:text-slate-300'}`}
-                      >
-                        {level === 'enkel' ? '⭐ Enkel' : level === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
-                      </button>
+                            'text-[#4a6080] hover:text-slate-300'}`}>
+                          {level === 'enkel' ? '⭐ Enkel' : level === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
+                        </button>
                     ))}
                   </div>
                   
-                  {/* Antall funnet */}
                   <div className="text-[9px] text-[#4a6080] text-right">
                     {filteredDrills.length} øvelser
                   </div>
                 </div>
                 
-                {/* ØVELSESLISTE */}
                 <div className="max-h-64 overflow-y-auto">
                   {filteredDrills.length === 0 ? (
                     <div className="text-center py-8 text-[#4a6080] text-[11px]">
@@ -813,7 +763,6 @@ const NewEventForm: React.FC<{
         </>
       )}
 
-      {/* Beskrivelse / notat */}
       <div className="mb-4">
         <label className="label-cal">Beskrivelse / notat</label>
         <textarea value={teamNote} onChange={e => setTeamNote(e.target.value)}
@@ -845,7 +794,7 @@ const NewEventForm: React.FC<{
   );
 };
 
-// ═══ EVENT CARD (uendret) ════════════════════════════════════
+// ═══ EVENT CARD ═══════════════════════════════════════════════
 
 const EventCard: React.FC<{ 
   event: CalendarEvent; 
@@ -885,7 +834,7 @@ const EventCard: React.FC<{
   );
 };
 
-// ═══ EVENT DETAIL (uendret, behold som original) ════════════════
+// ═══ EVENT DETAIL ═════════════════════════════════════════════
 
 const EventDetail: React.FC<{
   event: CalendarEvent;
