@@ -164,6 +164,7 @@ export async function loadFromSupabase(): Promise<Partial<{
   coachMessages: CoachMessage[];
   chatMessages: ChatMessage[];
   sport: Sport;
+  ageGroup: 'youth' | 'adult';
   homeTeamName: string;
   awayTeamName: string;
   awayTeamColor: string;
@@ -186,6 +187,7 @@ export async function loadFromSupabase(): Promise<Partial<{
     if (settRes.data) {
       const s = settRes.data;
       result.sport         = s.sport ?? 'football';
+      result.ageGroup      = s.age_group ?? 'adult';
       result.homeTeamName  = s.home_team_name;
       result.awayTeamName  = s.away_team_name;
       result.awayTeamColor = s.away_team_color;
@@ -305,7 +307,10 @@ interface AppStore {
   sendChat: (fromRole: 'coach'|'player', fromName: string, content: string, toPlayerId?: string) => void;
 
   sport: Sport;
+  ageGroup: 'youth' | 'adult';
   setSport: (s: Sport) => void;
+  setAgeGroup: (age: 'youth' | 'adult') => void;
+  
   phases: TacticPhase[];
   activePhaseIdx: number;
   setActivePhaseIdx: (i: number) => void;
@@ -375,6 +380,7 @@ const useAppStore = create<AppStore>()(
       refereePin: '0000',
       homeTeamName: 'Hjemmelag',
       awayTeamName: 'Bortelag',
+      ageGroup: 'adult',
 
       setCoachEmail: (email) => { set({ coachEmail: email }); pushSettings({ coach_email: email }); },
       setCoachPassword: (pw) => { set({ coachPassword: pw }); pushSettings({ coach_password: pw }); },
@@ -418,10 +424,12 @@ const useAppStore = create<AppStore>()(
       logout: () => set({ currentUser: null, currentView: 'board' }),
 
       sport: 'football',
+      ageGroup: 'adult',
       phases: [makePhase('Fase 1', 'football')],
       activePhaseIdx: 0,
 
       setSport: (s) => { set({ sport: s }); pushSettings({ sport: s }); },
+      setAgeGroup: (age) => { set({ ageGroup: age }); pushSettings({ age_group: age }); },
       setActivePhaseIdx: (i) => set({ activePhaseIdx: i }),
 
       addPhase: () => {
@@ -727,6 +735,7 @@ const useAppStore = create<AppStore>()(
       name: 'taktikkboard-v7',
       partialize: (s) => ({
         sport: s.sport,
+        ageGroup: s.ageGroup,
         phases: s.phases,
         activePhaseIdx: s.activePhaseIdx,
         events: s.events,

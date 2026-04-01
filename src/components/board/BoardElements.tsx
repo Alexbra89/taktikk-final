@@ -118,8 +118,9 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
         filter="url(#dropShadow)"
         opacity={player.injured ? 0.45 : 1}
       >
-        {/* Large invisible hit area for easier mobile touch */}
-        <circle cx={x} cy={y} r={38} fill="transparent" style={{ pointerEvents: 'all' }} />
+        {/* REDUSERT hit area – fra 38 til 24, så man må treffe selve spilleren */}
+        <circle cx={x} cy={y} r={24} fill="transparent" style={{ pointerEvents: 'all' }} />
+        
         {/* Playtime ring — only shown if minutes logged */}
         {(player.minutesPlayed ?? 0) > 0 && (
           <circle cx={x} cy={y} r={24} fill="none"
@@ -177,7 +178,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   );
 };
 
-// ═══ NameEditor ══════════════════════════════════════════════
+// ═══ NameEditor (uendret) ══════════════════════════════════════════════
 
 const NameEditor: React.FC<{
   player: Player; svgX: number; svgY: number; onClose: () => void;
@@ -259,7 +260,7 @@ const NameEditor: React.FC<{
   );
 };
 
-// ═══ Ball ════════════════════════════════════════════════════════
+// ═══ Ball (uendret) ════════════════════════════════════════════════════
 
 interface BallProps {
   position: { x: number; y: number };
@@ -318,8 +319,8 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
       style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none' }}
       filter="url(#dropShadow)">
-      {/* Large invisible hit area for ball */}
-      <circle cx={x} cy={y} r={32} fill="transparent" style={{ pointerEvents: 'all' }} />
+      {/* Redusert hit area for ball – fra 32 til 24 */}
+      <circle cx={x} cy={y} r={24} fill="transparent" style={{ pointerEvents: 'all' }} />
       <circle cx={x} cy={y} r={12} fill="white" />
       <circle cx={x} cy={y} r={12} fill="none" stroke="#ddd" strokeWidth={0.5} />
       {[
@@ -332,7 +333,7 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
   );
 };
 
-// ═══ DrawingCanvas ════════════════════════════════════════════════
+// ═══ DrawingCanvas (uendret) ════════════════════════════════════════════════
 
 interface DrawingCanvasProps { drawing: Drawing; }
 

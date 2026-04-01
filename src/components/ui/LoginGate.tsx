@@ -11,6 +11,7 @@ export const LoginGate: React.FC = () => {
     setCoachEmail,
     setCoachPassword,
     setSport,
+    setAgeGroup,
     coachEmail,
     coachPassword,
     syncFromSupabase,
@@ -28,9 +29,7 @@ export const LoginGate: React.FC = () => {
   const [regPassword, setRegPassword] = useState('');
   const [regTeamName, setRegTeamName] = useState('');
   const [regSport, setRegSport] = useState<'football' | 'football7' | 'handball'>('football');
-
-  // Ingen visning av eksisterende spillere – spillere må skrive e-post selv
-  // playersWithEmail er fjernet
+  const [regAgeGroup, setRegAgeGroup] = useState<'youth' | 'adult'>('adult');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +79,7 @@ export const LoginGate: React.FC = () => {
       setCoachEmail(regEmail.trim());
       setCoachPassword(regPassword);
       setSport(regSport);
+      setAgeGroup(regAgeGroup); // NY: lagre aldersgruppe
 
       // Sync fra Supabase for å hente eventuelle eksisterende data (men burde være tomt)
       setTimeout(() => {
@@ -153,15 +153,50 @@ export const LoginGate: React.FC = () => {
                 className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
               />
 
+              {/* Sport-valg */}
               <select
                 value={regSport}
                 onChange={e => setRegSport(e.target.value as any)}
                 className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
               >
-                <option value="football">⚽ Fotball 11er</option>
+                <option value="football">⚽ Fotball 11er (voksen)</option>
                 <option value="football7">⚽ Fotball 7er (barn)</option>
                 <option value="handball">🤾 Håndball</option>
               </select>
+
+              {/* Aldersgruppe-valg */}
+              <div className="mb-2">
+                <label className="text-[10px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1.5">
+                  Aldersgruppe
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRegAgeGroup('adult')}
+                    className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border transition-all min-h-[44px]
+                      ${regAgeGroup === 'adult'
+                        ? 'bg-sky-500/20 border-sky-500 text-sky-400'
+                        : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}
+                  >
+                    🧑 Voksen / Senior
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegAgeGroup('youth')}
+                    className={`flex-1 py-2.5 rounded-xl text-[12px] font-bold border transition-all min-h-[44px]
+                      ${regAgeGroup === 'youth'
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                        : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}
+                  >
+                    🧒 Barn / Junior
+                  </button>
+                </div>
+                <p className="text-[9px] text-[#4a6080] mt-1.5">
+                  {regAgeGroup === 'youth' 
+                    ? 'Øvelser og taktikk tilpasset barnefotball/ungdom'
+                    : 'Øvelser og taktikk for senior/voksen'}
+                </p>
+              </div>
 
               {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
 
@@ -231,8 +266,6 @@ export const LoginGate: React.FC = () => {
                     Standard: {coachEmail} / {coachPassword}
                   </p>
                 )}
-
-                {/* Spillere må skrive e-post selv – ingen liste over eksisterende spillere */}
               </form>
 
               <button

@@ -180,6 +180,7 @@ export type AppView = 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'tr
 
 export interface AppState {
   sport: Sport;
+  ageGroup: 'youth' | 'adult';  // NY: aldersgruppe for laget
   phases: TacticPhase[];
   activePhaseIdx: number;
   events: CalendarEvent[];

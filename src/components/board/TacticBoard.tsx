@@ -1,5 +1,5 @@
 'use client';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Player } from '../../types';
 import { VW, VH } from '../../data/formations';
@@ -18,6 +18,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const isDrawing = useRef(false);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const playRef   = useRef({ from: 0, t: 0 });
+  const stickyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [localStickyNote, setLocalStickyNote] = useState('');
 
   const [drawMode, setDrawMode]       = useState(false);
   const [drawColor, setDrawColor]     = useState('#f87171');
@@ -36,6 +38,33 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   } = useAppStore();
 
   const phase = phases[activePhaseIdx];
+
+  // Sync local sticky note when phase changes
+  useEffect(() => {
+    setLocalStickyNote(phase?.stickyNote ?? '');
+  }, [phase?.stickyNote, activePhaseIdx]);
+
+  // Debounced sticky note update
+  const handleStickyChange = useCallback((value: string) => {
+    setLocalStickyNote(value);
+    
+    if (stickyDebounceRef.current) {
+      clearTimeout(stickyDebounceRef.current);
+    }
+    
+    stickyDebounceRef.current = setTimeout(() => {
+      updateStickyNote(activePhaseIdx, value);
+    }, 500);
+  }, [activePhaseIdx, updateStickyNote]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (stickyDebounceRef.current) {
+        clearTimeout(stickyDebounceRef.current);
+      }
+    };
+  }, []);
 
   function startPlayback() {
     if (phases.length < 2) return;
@@ -215,10 +244,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
       {showSticky && phase && (
         <div className="flex-shrink-0 px-3 py-1.5 bg-amber-500/8 border-b border-amber-500/20 flex items-center gap-2">
           <span className="text-amber-400 text-[11px]">📌</span>
-          <input value={phase.stickyNote ?? ''}
-            onChange={e => updateStickyNote(activePhaseIdx, e.target.value)}
+          <input 
+            value={localStickyNote}
+            onChange={e => handleStickyChange(e.target.value)}
             placeholder={`Notat for ${phase.name}…`}
-            className="flex-1 bg-transparent border-none text-amber-100 text-[12px] placeholder-amber-500/40 focus:outline-none" />
+            className="flex-1 bg-transparent border-none text-amber-100 text-[12px] placeholder-amber-500/40 focus:outline-none" 
+          />
         </div>
       )}
 
