@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 
 // ═══════════════════════════════════════════════════════════════
@@ -16,6 +16,8 @@ export interface PlayerStats {
   yellowCards: number;
   redCards: number;
   minutesPlayed: number;
+  attendance: number;
+  totalTrainings: number;
 }
 
 export interface MatchStats {
@@ -46,7 +48,27 @@ export const StatsView: React.FC = () => {
   const [tab, setTab] = useState<'overview' | 'attendance' | 'playtime' | 'goals' | 'player'>('overview');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showStatForm, setShowStatForm] = useState(false);
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [matchStats, setMatchStats] = useState<MatchStats[]>([]);
+
+  // Last statistikk fra localStorage ved oppstart
+  useEffect(() => {
+    const saved = localStorage.getItem('taktikkboard_match_stats');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setMatchStats(parsed);
+      } catch (e) {
+        console.error('Kunne ikke laste statistikk', e);
+      }
+    }
+  }, []);
+
+  // Lagre statistikk til localStorage når den endres
+  useEffect(() => {
+    if (matchStats.length > 0) {
+      localStorage.setItem('taktikkboard_match_stats', JSON.stringify(matchStats));
+    }
+  }, [matchStats]);
 
   // All events
   const trainings = useMemo(() =>
@@ -61,11 +83,32 @@ export const StatsView: React.FC = () => {
   const phase = phases[activePhaseIdx] ?? phases[0];
   const homePlayers = (phase?.players ?? []).filter((p: any) => p.team === 'home');
 
-  // Hent lagrede statistikker fra localStorage
-  const [matchStats, setMatchStats] = useState<MatchStats[]>(() => {
-    const saved = localStorage.getItem('taktikkboard_match_stats');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Beregn fremmøte for hver spiller
+  const attendanceData = useMemo(() => {
+    const map: Record<string, { attended: number; total: number; name: string; number: number }> = {};
+
+    homePlayers.forEach((p: any) => {
+      const acc = playerAccounts.find((a: any) => a.playerId === p.id);
+      map[p.id] = {
+        attended: 0,
+        total: trainings.length,
+        name: acc?.name || p.name || `#${p.num}`,
+        number: p.num,
+      };
+    });
+
+    trainings.forEach(training => {
+      training.trainingNotes.forEach(note => {
+        note.targetPlayerIds?.forEach(playerId => {
+          if (map[playerId]) {
+            map[playerId].attended++;
+          }
+        });
+      });
+    });
+
+    return map;
+  }, [homePlayers, playerAccounts, trainings]);
 
   // Beregn totalstatistikk for hver spiller
   const playerStats = useMemo(() => {
@@ -83,6 +126,8 @@ export const StatsView: React.FC = () => {
         yellowCards: 0,
         redCards: 0,
         minutesPlayed: p.minutesPlayed || 0,
+        attendance: attendanceData[p.id]?.attended || 0,
+        totalTrainings: trainings.length,
       };
     });
 
@@ -100,10 +145,11 @@ export const StatsView: React.FC = () => {
     });
 
     return Object.values(statsMap).sort((a, b) => b.goals - a.goals);
-  }, [homePlayers, playerAccounts, matchStats]);
+  }, [homePlayers, playerAccounts, matchStats, attendanceData, trainings.length]);
 
   // Finn spillerens egne statistikker
   const myStats = myPlayerId ? playerStats.find(s => s.playerId === myPlayerId) : null;
+  const myAttendance = myPlayerId ? attendanceData[myPlayerId] : null;
 
   const today = new Date().toISOString().slice(0, 10);
   const upcomingTrainings = trainings.filter(e => e.date >= today).length;
@@ -111,38 +157,41 @@ export const StatsView: React.FC = () => {
 
   // Legg til statistikk for en kamp
   const addMatchStats = (matchId: string, playerId: string, stats: { goals: number; assists: number; yellowCards: number; redCards: number; minutesPlayed: number }) => {
-    const existingMatch = matchStats.find(m => m.matchId === matchId);
-    
-    if (existingMatch) {
-      const existingStat = existingMatch.stats.find(s => s.playerId === playerId);
-      if (existingStat) {
-        existingStat.goals += stats.goals;
-        existingStat.assists += stats.assists;
-        existingStat.yellowCards += stats.yellowCards;
-        existingStat.redCards += stats.redCards;
-        existingStat.minutesPlayed = stats.minutesPlayed;
+    setMatchStats(prevStats => {
+      const existingMatchIndex = prevStats.findIndex(m => m.matchId === matchId);
+      
+      if (existingMatchIndex !== -1) {
+        const updatedStats = [...prevStats];
+        const match = updatedStats[existingMatchIndex];
+        const existingStatIndex = match.stats.findIndex(s => s.playerId === playerId);
+        
+        if (existingStatIndex !== -1) {
+          match.stats[existingStatIndex].goals += stats.goals;
+          match.stats[existingStatIndex].assists += stats.assists;
+          match.stats[existingStatIndex].yellowCards += stats.yellowCards;
+          match.stats[existingStatIndex].redCards += stats.redCards;
+          match.stats[existingStatIndex].minutesPlayed = stats.minutesPlayed;
+        } else {
+          match.stats.push({ playerId, ...stats });
+        }
+        return updatedStats;
       } else {
-        existingMatch.stats.push({ playerId, ...stats });
+        const match = matches.find(m => m.id === matchId);
+        if (match) {
+          return [...prevStats, {
+            matchId,
+            matchTitle: match.title,
+            date: match.date,
+            opponent: match.opponent || 'Ukjent',
+            result: match.result || '0-0',
+            stats: [{ playerId, ...stats }],
+          }];
+        }
+        return prevStats;
       }
-      setMatchStats([...matchStats]);
-    } else {
-      const match = matches.find(m => m.id === matchId);
-      if (match) {
-        const newMatchStats: MatchStats = {
-          matchId,
-          matchTitle: match.title,
-          date: match.date,
-          opponent: match.opponent || 'Ukjent',
-          result: match.result || '0-0',
-          stats: [{ playerId, ...stats }],
-        };
-        setMatchStats([...matchStats, newMatchStats]);
-      }
-    }
+    });
     
-    localStorage.setItem('taktikkboard_match_stats', JSON.stringify(matchStats));
     setShowStatForm(false);
-    setSelectedMatchId(null);
   };
 
   // Hent toppscorere (top 5)
@@ -173,7 +222,7 @@ export const StatsView: React.FC = () => {
         )}
       </div>
 
-      {/* Tabs - Fikset type-feil */}
+      {/* Tabs */}
       <div className="flex-shrink-0 flex border-b border-[#1e3050] bg-[#0c1525] overflow-x-auto">
         {([
           ['overview', '📋 Oversikt'],
@@ -198,7 +247,6 @@ export const StatsView: React.FC = () => {
         {/* ── OVERSIKT ── */}
         {tab === 'overview' && (
           <div className="space-y-4 max-w-2xl mx-auto">
-            {/* Nøkkeltall */}
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Treninger totalt', value: trainings.length, color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/20' },
@@ -213,7 +261,6 @@ export const StatsView: React.FC = () => {
               ))}
             </div>
 
-            {/* Toppscorer og assists */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
                 <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-2">⚽ Toppscorer</div>
@@ -249,23 +296,30 @@ export const StatsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Siste kamper */}
             <div>
               <h3 className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">📅 Siste kamper</h3>
-              {matches.slice(0, 5).map(match => (
-                <div key={match.id} className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3 mb-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-[12px] font-bold text-slate-200">{match.title}</div>
-                      <div className="text-[10px] text-[#4a6080]">
-                        {new Date(match.date + 'T12:00:00').toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' })}
-                        {match.opponent && ` · vs ${match.opponent}`}
+              {matches.slice(0, 5).map(match => {
+                const matchStat = matchStats.find(ms => ms.matchId === match.id);
+                return (
+                  <div key={match.id} className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3 mb-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-[12px] font-bold text-slate-200">{match.title}</div>
+                        <div className="text-[10px] text-[#4a6080]">
+                          {new Date(match.date + 'T12:00:00').toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {match.opponent && ` · vs ${match.opponent}`}
+                        </div>
+                        {matchStat && matchStat.stats.length > 0 && (
+                          <div className="text-[9px] text-emerald-400/70 mt-1">
+                            📊 {matchStat.stats.reduce((sum, s) => sum + s.goals, 0)} mål, {matchStat.stats.reduce((sum, s) => sum + s.assists, 0)} assists
+                          </div>
+                        )}
                       </div>
+                      <div className="text-[13px] font-bold text-red-400">{match.result || '0-0'}</div>
                     </div>
-                    <div className="text-[13px] font-bold text-red-400">{match.result || '0-0'}</div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -323,14 +377,111 @@ export const StatsView: React.FC = () => {
         {/* ── FREMMØTE ── */}
         {tab === 'attendance' && (
           <div className="max-w-2xl mx-auto">
-            <p className="text-[12px] text-[#4a6080] text-center py-8">Fremmøte-statistikk vises her</p>
+            {isCoach ? (
+              <div className="space-y-2">
+                <p className="text-[10px] text-[#4a6080] mb-4">
+                  Fremmøte registreres via treningsnotater. ✅ markerer oppmøte.
+                </p>
+                {Object.values(attendanceData)
+                  .sort((a, b) => b.attended - a.attended)
+                  .map(data => {
+                    const pct = data.total > 0 ? Math.round((data.attended / data.total) * 100) : 0;
+                    const color = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
+                    return (
+                      <div key={data.name} className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className="text-[12px] font-bold text-slate-200">{data.name}</div>
+                            <div className="text-[9px] text-[#4a6080]">#{data.number}</div>
+                          </div>
+                          <div className="text-[11px] font-bold" style={{ color }}>
+                            {data.attended}/{data.total} ({pct}%)
+                          </div>
+                        </div>
+                        <div className="h-2 bg-[#1e3050] rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : myAttendance ? (
+              <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
+                <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">Ditt fremmøte</div>
+                <div className="text-3xl font-black text-slate-100 mb-1">
+                  {myAttendance.attended}/{myAttendance.total}
+                </div>
+                <div className="text-[12px] text-[#4a6080]">
+                  {myAttendance.total > 0
+                    ? `${Math.round((myAttendance.attended / myAttendance.total) * 100)}% oppmøte`
+                    : 'Ingen treninger registrert'}
+                </div>
+                {myAttendance.total > 0 && (
+                  <div className="h-3 bg-[#1e3050] rounded-full overflow-hidden mt-3">
+                    <div className="h-full rounded-full bg-sky-500 transition-all"
+                      style={{ width: `${Math.round((myAttendance.attended / myAttendance.total) * 100)}%` }} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[12px] text-[#4a6080] italic text-center py-8">Ingen fremmøtedata tilgjengelig.</p>
+            )}
           </div>
         )}
 
         {/* ── SPILLETID ── */}
         {tab === 'playtime' && (
           <div className="max-w-2xl mx-auto">
-            <p className="text-[12px] text-[#4a6080] text-center py-8">Spilletid-statistikk vises her</p>
+            {isCoach ? (
+              <div className="space-y-2">
+                <p className="text-[10px] text-[#4a6080] mb-4">
+                  Spilletid registreres via Smart Coach under kamp eller manuelt i spillereditoren.
+                </p>
+                {[...homePlayers]
+                  .sort((a: any, b: any) => (b.minutesPlayed ?? 0) - (a.minutesPlayed ?? 0))
+                  .map((p: any) => {
+                    const min = p.minutesPlayed ?? 0;
+                    const acc = playerAccounts.find((a: any) => a.playerId === p.id);
+                    const name = acc?.name || p.name || `#${p.num}`;
+                    const color = min > 60 ? '#22c55e' : min > 30 ? '#f59e0b' : '#64748b';
+                    const maxMin = Math.max(...homePlayers.map((pl: any) => pl.minutesPlayed ?? 0), 1);
+                    return (
+                      <div key={p.id} className="flex items-center gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
+                          style={{ background: color }}>
+                          {p.num}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-bold text-slate-200 truncate">{name}</div>
+                          <div className="h-1.5 bg-[#1e3050] rounded-full overflow-hidden mt-1.5">
+                            <div className="h-full rounded-full" style={{ width: `${(min / maxMin) * 100}%`, background: color }} />
+                          </div>
+                        </div>
+                        <div className="text-[11px] font-bold text-right w-14 flex-shrink-0" style={{ color }}>
+                          {min} min
+                        </div>
+                      </div>
+                    );
+                  })}
+                {homePlayers.length === 0 && (
+                  <p className="text-[12px] text-[#4a6080] italic text-center py-8">Ingen spillere registrert.</p>
+                )}
+              </div>
+            ) : (
+              (() => {
+                const myPlayer = homePlayers.find((p: any) => p.id === myPlayerId);
+                const min = myPlayer?.minutesPlayed ?? 0;
+                return (
+                  <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
+                    <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">Din spilletid</div>
+                    <div className="text-3xl font-black text-slate-100">{min} min</div>
+                    {min === 0 && (
+                      <p className="text-[11px] text-[#4a6080] mt-2">Ingen spilletid registrert ennå.</p>
+                    )}
+                  </div>
+                );
+              })()
+            )}
           </div>
         )}
 
@@ -394,7 +545,7 @@ export const StatsView: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  STATISTIKK-REGISTRERING MODAL
+//  STATISTIKK-REGISTRERING MODAL (uendret)
 // ═══════════════════════════════════════════════════════════════
 
 interface StatRegistrationModalProps {
@@ -420,6 +571,11 @@ const StatRegistrationModal: React.FC<StatRegistrationModalProps> = ({ matches, 
       return;
     }
     onSave(selectedMatchId, selectedPlayerId, { goals, assists, yellowCards, redCards, minutesPlayed });
+    setGoals(0);
+    setAssists(0);
+    setYellowCards(0);
+    setRedCards(0);
+    setMinutesPlayed(90);
   };
 
   return (
@@ -431,7 +587,6 @@ const StatRegistrationModal: React.FC<StatRegistrationModalProps> = ({ matches, 
         </div>
         
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {/* Velg kamp */}
           <div>
             <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">Kamp</label>
             <select
@@ -448,7 +603,6 @@ const StatRegistrationModal: React.FC<StatRegistrationModalProps> = ({ matches, 
             </select>
           </div>
 
-          {/* Velg spiller */}
           <div>
             <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">Spiller</label>
             <select
@@ -464,7 +618,6 @@ const StatRegistrationModal: React.FC<StatRegistrationModalProps> = ({ matches, 
             </select>
           </div>
 
-          {/* Statistikkfelter */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">⚽ Mål</label>

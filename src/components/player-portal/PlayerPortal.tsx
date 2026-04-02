@@ -8,6 +8,7 @@ import { TrainingView } from '@/components/ui/TrainingView';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { ChatPanel } from '@/components/ui/ChatPanel';
 import { StatsView } from '@/components/ui/StatsView';
+import { AttendanceView } from '@/components/ui/AttendanceView';
 import { useNotification } from '@/components/NotificationProvider';
 import { CalendarEvent } from '@/types';
 
@@ -26,7 +27,7 @@ export const PlayerPortal: React.FC = () => {
   } = useAppStore();
 
   const [replyText, setReplyText] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar' | 'training' | 'stats'>('tactics');
+  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar' | 'training' | 'stats' | 'attendance'>('tactics');
   const [chatInput, setChatInput] = useState('');
   const [selectedTraining, setSelectedTraining] = useState<CalendarEvent | null>(null);
 
@@ -62,19 +63,21 @@ export const PlayerPortal: React.FC = () => {
     { id: 'calendar', label: '📅 Kalender' },
     { id: 'training', label: '🏃 Trening' },
     { id: 'stats',    label: '📊 Statistikk' },
+    { id: 'attendance', label: '✅ Fremmøte' },
     { id: 'messages', label: '💬 Meldinger' },
     { id: 'chat',     label: '🗨️ Chat' },
     { id: 'accounts', label: '⚙️ Kontoer' },
   ];
 
   const playerTabs = [
-    { id: 'tactics',  label: '📋 Taktikk' },
-    { id: 'squad',    label: '👥 Tropp' },
-    { id: 'calendar', label: '📅 Kalender' },
-    { id: 'training', label: '🏃 Trening' },
-    { id: 'stats',    label: '📊 Statistikk' },
-    { id: 'messages', label: '💬 Meldinger' },
-    { id: 'chat',     label: '🗨️ Chat' },
+    { id: 'tactics',    label: '📋 Taktikk' },
+    { id: 'squad',      label: '👥 Tropp' },
+    { id: 'calendar',   label: '📅 Kalender' },
+    { id: 'training',   label: '🏃 Trening' },
+    { id: 'stats',      label: '📊 Statistikk' },
+    { id: 'attendance', label: '✅ Fremmøte' },
+    { id: 'messages',   label: '💬 Meldinger' },
+    { id: 'chat',       label: '🗨️ Chat' },
   ];
 
   const tabs = isCoach ? coachTabs : playerTabs;
@@ -101,7 +104,6 @@ export const PlayerPortal: React.FC = () => {
           </div>
         </div>
         <div className="flex-1" />
-        {/* Badge for uleste meldinger */}
         {hasUnreadMessages && unreadCount > 0 && (
           <div className="relative">
             <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
@@ -123,7 +125,6 @@ export const PlayerPortal: React.FC = () => {
                 ? 'text-sky-400 border-b-2 border-sky-400'
                 : 'text-[#3a5070] hover:text-slate-400'}`}>
             {t.label}
-            {/* Badge for uleste meldinger på chat-tabben */}
             {hasUnreadMessages && (t.id === 'chat' || t.id === 'messages') && (
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
             )}
@@ -131,7 +132,7 @@ export const PlayerPortal: React.FC = () => {
         ))}
       </div>
 
-      {/* ── Innhold — MOBILE FIX: flex-1 min-h-0 for korrekt overflow ── */}
+      {/* ── Innhold ── */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
         {/* TAKTIKK */}
@@ -139,11 +140,18 @@ export const PlayerPortal: React.FC = () => {
           <ReadOnlyTacticBoard />
         )}
 
-        {/* TROPP */}
+        {/* TROPP - REN TROPP UTEN EKSTRA MENY */}
         {tab === 'squad' && (
           <div className="flex-1 overflow-y-auto p-4">
             {phase
-              ? <SquadView phase={phase} playerAccounts={playerAccounts as any[]} isCoach={isCoach} setSpecialRole={setSpecialRole} activePhaseIdx={activePhaseIdx} />
+              ? <SquadView 
+                  phase={phase} 
+                  playerAccounts={playerAccounts as any[]} 
+                  isCoach={isCoach} 
+                  setSpecialRole={setSpecialRole} 
+                  activePhaseIdx={activePhaseIdx}
+                  currentUserId={currentUser?.playerId}
+                />
               : <EmptyState icon="👥" text="Ingen data." />}
           </div>
         )}
@@ -161,7 +169,7 @@ export const PlayerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* CHAT - med kaptein-støtte */}
+        {/* CHAT */}
         {tab === 'chat' && (
           <div className="flex-1 min-h-0 overflow-hidden">
             <ChatPanel
@@ -181,7 +189,7 @@ export const PlayerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* KALENDER - FULL KALENDER MED NAVIGASJON TIL TRENING */}
+        {/* KALENDER - FULL KALENDER FOR ALLE */}
         {tab === 'calendar' && (
           <div className="flex-1 min-h-0 overflow-hidden">
             {selectedTraining ? (
@@ -197,10 +205,17 @@ export const PlayerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* STATISTIKK - LESETILGANG FOR SPILLERE, FULL TILGANG FOR TRENER */}
+        {/* STATISTIKK */}
         {tab === 'stats' && (
           <div className="flex-1 min-h-0 overflow-hidden">
             <StatsView />
+          </div>
+        )}
+
+        {/* FREMMØTE - for kaptein og trener */}
+        {tab === 'attendance' && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <AttendanceView isCaptain={isCurrentUserCaptain} />
           </div>
         )}
 
@@ -215,34 +230,25 @@ export const PlayerPortal: React.FC = () => {
   );
 };
 
-// ═══ TROPP VIEW — med navn fra playerAccounts og sortering, samt kaptein-velger ═══════════════
+// ═══ TROPP VIEW — REN TROPP UTEN DASHBOARD MENY ═══════════════
 
-const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean; setSpecialRole: any; activePhaseIdx: number }> = ({ 
-  phase, playerAccounts, isCoach, setSpecialRole, activePhaseIdx 
+const SquadView: React.FC<{ 
+  phase: any; 
+  playerAccounts: any[]; 
+  isCoach: boolean; 
+  setSpecialRole: any; 
+  activePhaseIdx: number;
+  currentUserId?: string;
+}> = ({ 
+  phase, playerAccounts, isCoach, setSpecialRole, activePhaseIdx, currentUserId 
 }) => {
   const { homeTeamName } = useAppStore();
   const players: any[] = phase.players ?? [];
   const home = players.filter((p: any) => p.team === 'home');
   
-  // Grupper spillere etter rolle
-  const groupedByRole = home.reduce((acc: any, player: any) => {
-    const role = player.role;
-    if (!acc[role]) acc[role] = [];
-    acc[role].push(player);
-    return acc;
-  }, {});
-
-  // Sorter roller etter kategori
-  const roleOrder = ['keeper', 'defender', 'wingback', 'midfielder', 'winger', 'forward', 'playmaker'];
-  const sortedRoles = Object.keys(groupedByRole).sort((a, b) => {
-    const aIdx = roleOrder.indexOf(a);
-    const bIdx = roleOrder.indexOf(b);
-    if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
-    if (aIdx === -1) return 1;
-    if (bIdx === -1) return -1;
-    return aIdx - bIdx;
-  });
-
+  // Finn ut om denne spilleren er den innloggede spilleren
+  const isCurrentPlayer = (playerId: string) => playerId === currentUserId;
+  
   const getPlayerName = (player: any) => {
     const account = playerAccounts.find((a: any) => a.playerId === player.id);
     return account?.name || player.name || `#${player.num}`;
@@ -257,6 +263,24 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean;
     setSpecialRole(activePhaseIdx, playerId, 'captain', !currentlyCaptain);
   };
 
+  // Gruppér spillere etter posisjon
+  const groupedByRole = home.reduce((acc: any, player: any) => {
+    const role = player.role;
+    if (!acc[role]) acc[role] = [];
+    acc[role].push(player);
+    return acc;
+  }, {});
+
+  const roleOrder = ['keeper', 'defender', 'wingback', 'midfielder', 'winger', 'forward', 'playmaker'];
+  const sortedRoles = Object.keys(groupedByRole).sort((a, b) => {
+    const aIdx = roleOrder.indexOf(a);
+    const bIdx = roleOrder.indexOf(b);
+    if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
+    if (aIdx === -1) return 1;
+    if (bIdx === -1) return -1;
+    return aIdx - bIdx;
+  });
+
   const starters = home.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
   const substitutes = home.filter((p: any) => p.isStarter === false || p.isOnField === false);
 
@@ -264,10 +288,10 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean;
     <div className="max-w-4xl mx-auto">
       <h3 className="text-base font-bold text-slate-100 mb-4">
         👥 {homeTeamName || 'Hjemmelag'} – Tropp
-        {isCoach && <span className="ml-2 text-[10px] text-amber-400 font-normal">(Trykk 🪖 for å velge kaptein)</span>}
+        {isCoach && <span className="ml-2 text-[10px] text-amber-400">(Trykk 🪖 for å velge kaptein)</span>}
       </h3>
 
-      {/* Startoppstilling - gruppert etter posisjon */}
+      {/* Startoppstilling */}
       <div className="mb-6">
         <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-3">
           ⚽ Startoppstilling ({starters.length})
@@ -287,46 +311,45 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean;
                   </div>
                 </div>
                 <div className="divide-y divide-[#1e3050]">
-                  {rolePlayers.sort((a, b) => getNum(a) - getNum(b)).map(player => (
-                    <div key={player.id} className="flex items-center gap-3 p-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center
-                        text-[13px] font-black text-white flex-shrink-0 relative"
-                        style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
-                        {getNum(player)}
-                        {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <div className="text-[13px] font-bold text-slate-200 truncate">
-                            {getPlayerName(player)}
+                  {rolePlayers.sort((a, b) => getNum(a) - getNum(b)).map(player => {
+                    const isMe = isCurrentPlayer(player.id);
+                    return (
+                      <div key={player.id} className="flex items-center gap-3 p-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center
+                          text-[13px] font-black text-white flex-shrink-0 relative"
+                          style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
+                          {getNum(player)}
+                          {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className="text-[13px] font-bold text-slate-200 truncate">
+                              {getPlayerName(player)}
+                              {isMe && <span className="ml-2 text-[9px] text-sky-400">(deg)</span>}
+                            </div>
+                            {isCaptain(player) && <span className="text-[13px]">🪖</span>}
                           </div>
-                          {isCaptain(player) && (
-                            <span className="text-[13px]">🪖</span>
-                          )}
+                          <div className="text-[10px] text-[#4a6080]">
+                            #{getNum(player)} · {meta?.label || player.role}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-[#4a6080]">
-                          #{getNum(player)} · {meta?.label || player.role}
-                        </div>
+                        {(player.minutesPlayed ?? 0) > 0 && (
+                          <div className="text-[10px] text-emerald-400">{player.minutesPlayed} min</div>
+                        )}
+                        {isCoach && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleCaptain(player.id); }}
+                            className={`ml-2 px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px]
+                              ${isCaptain(player) 
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                                : 'bg-[#1e3050] text-[#4a6080] hover:text-slate-300 border border-transparent'}`}
+                          >
+                            🪖 {isCaptain(player) ? 'Kaptein' : 'Gjør til kaptein'}
+                          </button>
+                        )}
                       </div>
-                      {(player.minutesPlayed ?? 0) > 0 && (
-                        <div className="text-[10px] text-emerald-400">
-                          {player.minutesPlayed} min
-                        </div>
-                      )}
-                      {/* Kaptein-velger for trener */}
-                      {isCoach && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleCaptain(player.id); }}
-                          className={`ml-2 px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px]
-                            ${isCaptain(player) 
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                              : 'bg-[#1e3050] text-[#4a6080] hover:text-slate-300 border border-transparent'}`}
-                        >
-                          🪖 {isCaptain(player) ? 'Kaptein' : 'Gjør til kaptein'}
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -347,6 +370,7 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean;
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {substitutes.sort((a, b) => getNum(a) - getNum(b)).map(player => {
               const meta = getMeta(player.role);
+              const isMe = isCurrentPlayer(player.id);
               return (
                 <div key={player.id} className="flex items-center gap-3 p-3 bg-[#0f1a2a] rounded-xl border border-amber-500/20">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center
@@ -359,6 +383,7 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean;
                     <div className="flex items-center gap-2">
                       <div className="text-[13px] font-bold text-slate-200 truncate">
                         {getPlayerName(player)}
+                        {isMe && <span className="ml-2 text-[9px] text-sky-400">(deg)</span>}
                       </div>
                       {isCaptain(player) && <span className="text-[13px]">🪖</span>}
                     </div>
@@ -367,7 +392,6 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean;
                     </div>
                   </div>
                   <div className="text-[9px] text-amber-400 font-semibold">Innbytter</div>
-                  {/* Kaptein-velger for trener på innbyggere også */}
                   {isCoach && (
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleCaptain(player.id); }}
@@ -483,7 +507,7 @@ const MessageCard: React.FC<{
   </div>
 );
 
-// ═══ ACCOUNT MANAGER ═════════════════════════════════════════
+// ═══ ACCOUNT MANAGER (uendret) ════════════════════════════════
 
 const AccountManager: React.FC = () => {
   const { playerAccounts, addPlayerAccount, removePlayerAccount, phases, activePhaseIdx } = useAppStore();

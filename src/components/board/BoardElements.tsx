@@ -1,5 +1,5 @@
 'use client';
-import React, { useRef, useCallback, useState } from 'react';
+import React, { useRef, useCallback, useState, memo, useEffect } from 'react';
 import { Player, Drawing } from '../../types';
 import { ROLE_META } from '../../data/roleInfo';
 import { useAppStore } from '../../store/useAppStore';
@@ -17,7 +17,7 @@ interface DraggablePlayerProps {
   displayName?: string;
 }
 
-export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
+export const DraggablePlayer: React.FC<DraggablePlayerProps> = memo(({
   player, isActive, isSelected, awayTeamColor, onPositionChange, onSelect, showName = true, displayName,
 }) => {
   const groupRef   = useRef<SVGGElement>(null);
@@ -27,9 +27,8 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
   const pendingPos = useRef<{ x: number; y: number } | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   
-  // For bedre touch-respons
   const lastMoveTime = useRef(0);
-  const MOVE_THROTTLE_MS = 16; // ~60fps
+  const MOVE_THROTTLE_MS = 16;
 
   const meta      = ROLE_META[player.role] ?? ROLE_META['midfielder'];
   const isHome    = player.team === 'home';
@@ -49,7 +48,6 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     };
   }, []);
 
-  // RAF-throttled position update
   const flushPosition = useCallback(() => {
     if (pendingPos.current) {
       onPositionChange(pendingPos.current);
@@ -79,7 +77,6 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
     if (!isDragging.current || !isActive) return;
     e.preventDefault();
     
-    // Throttle for bedre ytelse
     const now = Date.now();
     if (now - lastMoveTime.current < MOVE_THROTTLE_MS) return;
     lastMoveTime.current = now;
@@ -133,12 +130,11 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
           cursor: isActive ? 'grab' : 'default', 
           userSelect: 'none', 
           touchAction: 'none',
-          willChange: 'transform' // For bedre ytelse
+          willChange: 'transform'
         }}
         filter="url(#dropShadow)"
         opacity={player.injured ? 0.45 : 1}
       >
-        {/* ØKT hit area for bedre touch-respons – fra 24 til 32 */}
         <circle cx={x} cy={y} r={32} fill="transparent" style={{ pointerEvents: 'all' }} />
         
         {(player.minutesPlayed ?? 0) > 0 && (
@@ -185,27 +181,49 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = ({
       </g>
 
       {showEditor && isActive && (
-        <NameEditor player={player} svgX={x} svgY={y} onClose={() => setShowEditor(false)} />
+        <NameEditor 
+          player={player} 
+          svgX={x} 
+          svgY={y} 
+          onClose={() => setShowEditor(false)} 
+        />
       )}
     </>
   );
-};
+});
 
-// ═══ NameEditor (uendret) ══════════════════════════════════════════════
+DraggablePlayer.displayName = 'DraggablePlayer';
+
+// ═══ NameEditor - OPTIMALISERT (raskere respons) ════════════════════
 
 const NameEditor: React.FC<{
   player: Player; svgX: number; svgY: number; onClose: () => void;
 }> = ({ player, svgX, svgY, onClose }) => {
   const { playerAccounts, activePhaseIdx, updatePlayerField } = useAppStore();
   const [customName, setCustomName] = useState(player.name ?? '');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
 
   const accounts = (playerAccounts as any[]).filter((a: any) => a.team === (player.team ?? 'home'));
   const meta = ROLE_META[player.role] ?? ROLE_META['midfielder'];
 
-  const apply = (name: string) => {
+  const apply = useCallback((name: string) => {
     updatePlayerField(activePhaseIdx, player.id, { name });
     onClose();
-  };
+  }, [activePhaseIdx, player.id, updatePlayerField, onClose]);
+
+  const handleSelectChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value) apply(e.target.value);
+  }, [apply]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') apply(customName);
+    if (e.key === 'Escape') onClose();
+  }, [customName, apply, onClose]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const fW = 240;
   const fx = Math.max(5, Math.min(svgX - fW / 2, 875 - fW));
@@ -213,32 +231,49 @@ const NameEditor: React.FC<{
 
   return (
     <foreignObject x={fx} y={fy} width={fW} height={190} style={{ overflow: 'visible' }}>
-      {/* @ts-ignore */}
-      <div xmlns="http://www.w3.org/1999/xhtml"
+      {/* Fjernet xmlns - det trengs ikke for div */}
+      <div
         onPointerDown={(e: any) => e.stopPropagation()}
         style={{
-          background: '#0c1525', border: '1px solid rgba(56,189,248,0.45)',
-          borderRadius: 12, padding: '10px',
+          background: '#0c1525',
+          border: '1px solid rgba(56,189,248,0.45)',
+          borderRadius: 12,
+          padding: '10px',
           boxShadow: '0 8px 40px rgba(0,0,0,0.85)',
           fontFamily: 'system-ui, sans-serif',
-        }}>
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <div style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
           <span style={{ fontSize: 9, fontWeight: 700, color: '#4a6080', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {meta.label} · #{player.num}
           </span>
-          <button onPointerDown={(e: any) => { e.stopPropagation(); onClose(); }}
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#4a6080', fontSize: 14, cursor: 'pointer' }}>✕</button>
+          <button 
+            onPointerDown={(e: any) => { e.stopPropagation(); onClose(); }}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#4a6080', fontSize: 14, cursor: 'pointer' }}
+          >
+            ✕
+          </button>
         </div>
 
         {accounts.length > 0 && (
-          <select defaultValue=""
-            onChange={(e: any) => { if (e.target.value) apply(e.target.value); }}
+          <select 
+            ref={selectRef}
+            defaultValue=""
+            onChange={handleSelectChange}
             style={{
-              width: '100%', background: '#111c30', border: '1px solid #1e3050',
-              borderRadius: 8, padding: '6px 8px', color: '#e2e8f0',
-              fontSize: 12, marginBottom: 6, minHeight: 36, boxSizing: 'border-box' as const,
-            }}>
+              width: '100%',
+              background: '#111c30',
+              border: '1px solid #1e3050',
+              borderRadius: 8,
+              padding: '6px 8px',
+              color: '#e2e8f0',
+              fontSize: 12,
+              marginBottom: 6,
+              minHeight: 36,
+              boxSizing: 'border-box' as const,
+            }}
+          >
             <option value="">– Velg registrert spiller –</option>
             {accounts.map((a: any) => (
               <option key={a.id} value={a.name}>{a.name}</option>
@@ -247,33 +282,47 @@ const NameEditor: React.FC<{
         )}
 
         <div style={{ display: 'flex', gap: 5 }}>
-          <input value={customName}
+          <input 
+            ref={inputRef}
+            value={customName}
             onChange={(e: any) => setCustomName(e.target.value)}
-            onKeyDown={(e: any) => {
-              if (e.key === 'Enter') apply(customName);
-              if (e.key === 'Escape') onClose();
-            }}
+            onKeyDown={handleKeyDown}
             placeholder="Skriv navn..."
-            autoFocus
             style={{
-              flex: 1, background: '#111c30', border: '1px solid #1e3050',
-              borderRadius: 8, padding: '5px 8px', color: '#e2e8f0',
-              fontSize: 12, minHeight: 34, boxSizing: 'border-box' as const,
-            }} />
-          <button onPointerDown={(e: any) => { e.stopPropagation(); apply(customName); }}
+              flex: 1,
+              background: '#111c30',
+              border: '1px solid #1e3050',
+              borderRadius: 8,
+              padding: '5px 8px',
+              color: '#e2e8f0',
+              fontSize: 12,
+              minHeight: 34,
+              boxSizing: 'border-box' as const,
+            }} 
+          />
+          <button 
+            onPointerDown={(e: any) => { e.stopPropagation(); apply(customName); }}
             style={{
-              padding: '0 10px', background: 'rgba(56,189,248,0.15)',
+              padding: '0 10px',
+              background: 'rgba(56,189,248,0.15)',
               border: '1px solid rgba(56,189,248,0.4)',
-              borderRadius: 8, color: '#38bdf8',
-              fontSize: 11, fontWeight: 700, minHeight: 34, cursor: 'pointer',
-            }}>✓</button>
+              borderRadius: 8,
+              color: '#38bdf8',
+              fontSize: 11,
+              fontWeight: 700,
+              minHeight: 34,
+              cursor: 'pointer',
+            }}
+          >
+            ✓
+          </button>
         </div>
       </div>
     </foreignObject>
   );
 };
 
-// ═══ Ball (med forbedret respons) ═══════════════════════════════════════
+// ═══ Ball ═══════════════════════════════════════════════════════
 
 interface BallProps {
   position: { x: number; y: number };
@@ -339,13 +388,16 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
     <g ref={ref}
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
       style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none', willChange: 'transform' }}
-      filter="url(#dropShadow)">
+      filter="url(#dropShadow)"
+    >
       <circle cx={x} cy={y} r={28} fill="transparent" style={{ pointerEvents: 'all' }} />
       <circle cx={x} cy={y} r={12} fill="white" />
       <circle cx={x} cy={y} r={12} fill="none" stroke="#ddd" strokeWidth={0.5} />
       {[
-        { dx: -4, dy: -4, r: 3.5 }, { dx: 4.5, dy: -2, r: 3 },
-        { dx: 0, dy: 5, r: 3 },     { dx: -5, dy: 2.5, r: 2.5 },
+        { dx: -4, dy: -4, r: 3.5 }, 
+        { dx: 4.5, dy: -2, r: 3 },
+        { dx: 0, dy: 5, r: 3 },     
+        { dx: -5, dy: 2.5, r: 2.5 },
       ].map((o, i) => (
         <circle key={i} cx={x + o.dx} cy={y + o.dy} r={o.r} fill="#111" opacity={0.72} />
       ))}
@@ -353,7 +405,7 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
   );
 };
 
-// ═══ DrawingCanvas (uendret) ════════════════════════════════════════════
+// ═══ DrawingCanvas ════════════════════════════════════════════════
 
 interface DrawingCanvasProps { drawing: Drawing; }
 

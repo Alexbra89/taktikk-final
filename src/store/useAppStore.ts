@@ -4,7 +4,7 @@ import {
   Sport, TacticPhase, CalendarEvent, PlayerAccount,
   CoachMessage, PlayerReply, AppView, Player, Drawing,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
-  SubstitutionSuggestion, SpecialRole,
+  SubstitutionSuggestion, SpecialRole, PlayerRole,
 } from '../types';
 import { makePhase } from '../data/formations';
 import { supabase } from '../lib/supabase';
@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase';
 let positionPushTimer: ReturnType<typeof setTimeout> | null = null;
 function debouncedPushPhases(phases: TacticPhase[]) {
   if (positionPushTimer) clearTimeout(positionPushTimer);
-  positionPushTimer = setTimeout(() => pushPhases(phases), 1200); // ØKT fra 800 til 1200ms
+  positionPushTimer = setTimeout(() => pushPhases(phases), 1200);
 }
 
 interface ChatMessage {
@@ -124,6 +124,7 @@ async function pushPlayerAccounts(accounts: PlayerAccount[]) {
       height: a.height ?? null,
       weight: a.weight ?? null,
       position_preferences: a.positionPreferences ?? null,
+      secondary_positions: a.secondaryPositions ?? null,
       experience: a.experience ?? null,
       profile_image: a.profileImage ?? null,
       preferred_foot: a.preferredFoot ?? null,
@@ -230,6 +231,7 @@ export async function loadFromSupabase(): Promise<Partial<{
         height: r.height ?? undefined,
         weight: r.weight ?? undefined,
         positionPreferences: r.position_preferences ?? undefined,
+        secondaryPositions: r.secondary_positions ?? undefined,
         experience: r.experience ?? undefined,
         profileImage: r.profile_image ?? undefined,
         preferredFoot: r.preferred_foot ?? undefined,
@@ -324,6 +326,9 @@ interface AppStore {
   updatePhaseName: (phaseIdx: number, name: string) => void;
   updateStickyNote: (phaseIdx: number, note: string) => void;
   setSpecialRole: (phaseIdx: number, playerId: string, role: SpecialRole, active: boolean) => void;
+  setSecondaryRoles: (phaseIdx: number, playerId: string, roles: PlayerRole[]) => void;
+  addSecondaryRole: (phaseIdx: number, playerId: string, role: PlayerRole) => void;
+  removeSecondaryRole: (phaseIdx: number, playerId: string, role: PlayerRole) => void;
   awayTeamColor: string;
   setAwayTeamColor: (color: string) => void;
   setPlayerInjury: (phaseIdx: number, playerId: string, injured: boolean, returnDate?: string) => void;
@@ -507,6 +512,41 @@ const useAppStore = create<AppStore>()(
               ? current.includes(role) ? current : [...current, role]
               : current.filter(r => r !== role);
             return { ...p, specialRoles: updated };
+          }),
+        });
+        set({ phases: newPhases });
+        pushPhases(newPhases);
+      },
+
+      setSecondaryRoles: (phaseIdx, playerId, roles) => {
+        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+          ...ph, players: ph.players.map(p => 
+            p.id === playerId ? { ...p, secondaryRoles: roles } : p
+          ),
+        });
+        set({ phases: newPhases });
+        pushPhases(newPhases);
+      },
+
+      addSecondaryRole: (phaseIdx, playerId, role) => {
+        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+          ...ph, players: ph.players.map(p => {
+            if (p.id !== playerId) return p;
+            const current = p.secondaryRoles ?? [];
+            if (current.includes(role)) return p;
+            return { ...p, secondaryRoles: [...current, role] };
+          }),
+        });
+        set({ phases: newPhases });
+        pushPhases(newPhases);
+      },
+
+      removeSecondaryRole: (phaseIdx, playerId, role) => {
+        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+          ...ph, players: ph.players.map(p => {
+            if (p.id !== playerId) return p;
+            const current = p.secondaryRoles ?? [];
+            return { ...p, secondaryRoles: current.filter(r => r !== role) };
           }),
         });
         set({ phases: newPhases });

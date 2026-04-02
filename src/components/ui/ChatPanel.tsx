@@ -41,19 +41,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     return player?.specialRoles?.includes('captain') ?? false;
   })();
 
-  // Scroll to bottom når nye meldinger kommer
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages.length]);
 
-  // Marker meldinger som lest når chat-panelet er synlig
   useEffect(() => {
     if (hasUnreadMessages) {
       markMessagesAsRead();
     }
   }, [hasUnreadMessages, markMessagesAsRead]);
 
-  // LYTT TIL NYE MELDINGER FOR NOTIFIKASJONER
   useEffect(() => {
     if (!chatMessages.length) return;
     
@@ -62,15 +59,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     
     lastMessageIdRef.current = latestMsg.id;
     
-    // Sjekk om meldingen er fra noen andre enn meg selv
     const isFromMe = latestMsg.fromName === currentUser?.name;
     const isForMe = !latestMsg.toPlayerId || 
                     latestMsg.toPlayerId === currentUser?.playerId ||
                     (coachView && latestMsg.fromRole === 'player');
     
-    // Bare varsle hvis meldingen er fra andre og vinduet er i bakgrunnen
     if (!isFromMe && isForMe && document.hidden && permission === 'granted') {
-      const fromName = latestMsg.fromRole === 'coach' ? '🏋️ Trener' : `👤 ${latestMsg.fromName}`;
+      const fromName = latestMsg.fromRole === 'coach' ? '🏋️ Trener' : 
+                       latestMsg.fromCaptain ? '🪖 Kaptein' : `👤 ${latestMsg.fromName}`;
       sendNotification(`Ny melding fra ${fromName}`, {
         body: latestMsg.content.slice(0, 100),
         tag: 'chat-message',
@@ -107,7 +103,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     ? chatMessages
     : chatMessages.filter((m: any) => !m.toPlayerId || m.toPlayerId === currentUser?.playerId);
 
-  // Be om notifikasjonstillatelse via knapp (hvis ikke allerede)
   const handleRequestPermission = async () => {
     if (permission !== 'granted') {
       await requestPermission();
@@ -116,11 +111,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header med mottaker-velger for coach OG kaptein */}
       {(coachView || isCurrentUserCaptain) && (
         <div className="flex-shrink-0 p-3 border-b border-[#1e3050] bg-[#0c1525]">
           
-          {/* Vis kaptein-badge */}
           {isCurrentUserCaptain && !coachView && (
             <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-500/20">
               <span className="text-amber-400 text-sm">🪖</span>
@@ -156,7 +149,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             </button>
           </div>
 
-          {/* Spiller-velger dropdown */}
           {!sendToAll && showPlayerSelector && (
             <div className="mt-2">
               <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">
@@ -182,7 +174,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             </div>
           )}
 
-          {/* Vis valgt mottaker */}
           {!sendToAll && targetPlayer && (
             <div className="mt-2 text-[10px] text-amber-400 bg-amber-500/10 rounded-lg px-3 py-1.5 inline-block">
               🎯 Sender til: {getPlayerName(targetPlayer)}
@@ -191,7 +182,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
       )}
 
-      {/* Notifikasjons-knapp (hvis ikke tillatelse gitt) */}
       {permission !== 'granted' && 'Notification' in window && (
         <div className="flex-shrink-0 p-2 bg-amber-500/10 border-b border-amber-500/20">
           <button
@@ -203,7 +193,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
       )}
 
-      {/* Meldinger */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {displayedMessages.length === 0 && (
           <div className="text-center py-12">
@@ -228,7 +217,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   ${isMe
                     ? 'bg-sky-500/20 border border-sky-500/30 text-slate-100 rounded-br-sm'
                     : isCaptainMsg
-                      ? 'bg-amber-500/15 border border-amber-500/30 text-amber-100'
+                      ? 'bg-amber-500/25 border-2 border-amber-500/50 text-amber-100 shadow-md' // MER SYNLIG FOR KAPTEIN
                       : msg.fromRole === 'coach'
                         ? 'bg-amber-500/10 border border-amber-500/20 text-amber-100'
                         : 'bg-[#0f1a2a] border border-[#1e3050] text-slate-300 rounded-bl-sm'}
@@ -236,9 +225,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               >
                 {!isMe && (
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[9.5px] font-bold ${isCaptainMsg ? 'text-amber-400' : 'text-amber-400'}`}>
+                    <span className={`text-[9.5px] font-bold ${isCaptainMsg ? 'text-amber-400 text-[11px]' : 'text-amber-400'}`}>
                       {isCaptainMsg ? '🪖 ' : msg.fromRole === 'coach' ? '🏋️ ' : '👤 '}{msg.fromName}
-                      {isCaptainMsg && <span className="ml-1 text-[8px] text-amber-400/80">(Kaptein)</span>}
+                      {isCaptainMsg && <span className="ml-1 text-[8px] text-amber-400/80 bg-amber-500/20 px-1.5 py-0.5 rounded-full">Kaptein</span>}
                     </span>
                     {(coachView || isCurrentUserCaptain) && msg.toPlayerId && (
                       <span className="text-[8px] text-amber-400/60 bg-amber-500/10 px-1.5 py-0.5 rounded-full">
@@ -258,7 +247,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <div className="flex-shrink-0 flex gap-2 p-4 border-t border-[#1e3050] bg-[#0c1525]">
         <input
           value={text}

@@ -9,7 +9,18 @@ import { Drill } from '@/types';
 // ═══════════════════════════════════════════════════════════════
 
 export const SmartCoach: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { sport } = useAppStore();
   const [tab, setTab] = useState<'timer' | 'subs' | 'drills'>('timer');
+  
+  // Bytteplan kun for håndball og 7er fotball
+  const showSubsTab = sport === 'handball' || sport === 'football7';
+  
+  // Definer tabs basert på sport
+  const allTabs = [
+    { id: 'timer' as const, label: '⏱ Klokke' },
+    ...(showSubsTab ? [{ id: 'subs' as const, label: '🔄 Bytteplan' }] : []),
+    { id: 'drills' as const, label: '📚 Øvelser' },
+  ];
 
   return (
     <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4"
@@ -25,22 +36,21 @@ export const SmartCoach: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </div>
 
         <div className="flex border-b border-[#1e3050] flex-shrink-0">
-          {([
-            ['timer', '⏱ Klokke'],
-            ['subs',  '🔄 Bytteplan'],
-            ['drills','📚 Øvelser'],
-          ] as const).map(([t, l]) => (
-            <button key={t} onClick={() => setTab(t)}
+          {allTabs.map((t) => (
+            <button 
+              key={t.id} 
+              onClick={() => setTab(t.id)}
               className={`flex-1 py-3 text-[12px] font-semibold transition-all min-h-[44px]
-                ${tab === t ? 'text-sky-400 border-b-2 border-sky-400' : 'text-[#3a5070] hover:text-slate-400'}`}>
-              {l}
+                ${tab === t.id ? 'text-sky-400 border-b-2 border-sky-400' : 'text-[#3a5070] hover:text-slate-400'}`}
+            >
+              {t.label}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
           {tab === 'timer'  && <TimerTab />}
-          {tab === 'subs'   && <SubsTab />}
+          {tab === 'subs'   && showSubsTab && <SubsTab />}
           {tab === 'drills' && <DrillsTab />}
         </div>
       </div>
@@ -86,7 +96,6 @@ const TimerTab: React.FC = () => {
   const phase   = phases[activePhaseIdx];
   const players = phase?.players.filter(p => p.team === 'home') ?? [];
 
-  // Hent navn fra playerAccounts
   const getPlayerName = (player: any) => {
     const account = playerAccounts.find((a: any) => a.playerId === player.id);
     return account?.name || player.name || `#${player.num}`;
@@ -101,7 +110,6 @@ const TimerTab: React.FC = () => {
         </div>
       )}
 
-      {/* Stor klokke */}
       <div className="text-center mb-5">
         <div className={`text-[52px] font-black tabular-nums tracking-tight
           ${matchTimer.running ? 'text-emerald-400' : display > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
@@ -112,7 +120,6 @@ const TimerTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Kontroller */}
       <div className="flex gap-2 mb-6">
         <button onClick={matchTimer.running ? stopTimer : startTimer}
           className={`flex-1 py-3 rounded-xl font-bold text-[13px] border transition-all min-h-[48px]
@@ -128,7 +135,6 @@ const TimerTab: React.FC = () => {
         </button>
       </div>
 
-      {/* Spilletid per spiller med navn */}
       <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">
         Spilletid per spiller
       </div>
@@ -168,13 +174,13 @@ const TimerTab: React.FC = () => {
   );
 };
 
-// ═══ BYTTEPLAN ═══════════════════════════════════════════════
+// ═══ BYTTEPLAN – KUN FOR HÅNDBALL OG 7ER ═══════════════════════
 
 const SubsTab: React.FC = () => {
   const { phases, activePhaseIdx, getSubstitutionSuggestions,
     updatePlayerField, togglePlayerOnField, matchTimer, playerAccounts } = useAppStore();
 
-  const [interval, setInterval2] = useState(10);
+  const [intervalVal, setIntervalVal] = useState(10);
   const phase    = phases[activePhaseIdx];
   const players  = phase?.players.filter(p => p.team === 'home') ?? [];
   const onField  = players.filter(p => p.isOnField !== false);
@@ -184,9 +190,8 @@ const SubsTab: React.FC = () => {
       ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
   );
   const minute = Math.floor(elapsed / 60);
-  const suggestions = getSubstitutionSuggestions(activePhaseIdx, interval);
+  const suggestions = getSubstitutionSuggestions(activePhaseIdx, intervalVal);
 
-  // Hent navn fra playerAccounts
   const getPlayerName = (player: any) => {
     const account = playerAccounts.find((a: any) => a.playerId === player.id);
     return account?.name || player.name || `#${player.num}`;
@@ -199,20 +204,18 @@ const SubsTab: React.FC = () => {
 
   return (
     <div>
-      {/* Minutt-intervall */}
       <div className="flex items-center gap-3 mb-5 bg-[#0f1a2a] rounded-xl p-3 border border-[#1e3050]">
         <span className="text-[11px] text-[#4a6080]">Varsle hvert</span>
         {([5, 10, 15, 20] as const).map(n => (
-          <button key={n} onClick={() => setInterval2(n)}
+          <button key={n} onClick={() => setIntervalVal(n)}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all
-              ${interval === n ? 'bg-sky-500/20 border-sky-500 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
+              ${intervalVal === n ? 'bg-sky-500/20 border-sky-500 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
             {n}m
           </button>
         ))}
         <span className="text-[11px] text-[#3a5070] ml-auto">Min: {minute}</span>
       </div>
 
-      {/* AI-forslag med navn */}
       {suggestions.length > 0 && (
         <div className="mb-5">
           <div className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">
@@ -250,13 +253,11 @@ const SubsTab: React.FC = () => {
         </div>
       )}
 
-      {/* Manuelt bytte med navn */}
       <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-2">
         Manuelt bytte
       </div>
       <ManualSwap onField={onField} onBench={onBench} onSwap={doSwap} getPlayerName={getPlayerName} />
 
-      {/* Oversikt med navn */}
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div>
           <div className="text-[9.5px] text-emerald-400 font-bold mb-1.5">På banen ({onField.length})</div>
@@ -327,7 +328,7 @@ const ManualSwap: React.FC<{
   );
 };
 
-// ═══ ØVELSESBIBLIOTEK MED UKE-ROTASJON – BRUKER ALDERSGRUPPE FRA STORE ═══════
+// ═══ ØVELSESBIBLIOTEK ══════════════════════════════════════════
 
 const DrillsTab: React.FC = () => {
   const { sport, phases, activePhaseIdx, updateStickyNote, ageGroup: storeAgeGroup } = useAppStore();
@@ -336,7 +337,6 @@ const DrillsTab: React.FC = () => {
   const [activeStep, setActiveStep]   = useState(0);
   const [showAll, setShowAll]         = useState(false);
 
-  // Bruk aldersgruppe fra store
   const ageGroup = storeAgeGroup;
 
   const week        = getISOWeek();
@@ -356,7 +356,6 @@ const DrillsTab: React.FC = () => {
 
   return (
     <div>
-      {/* Sport + Aldersgruppe (visning, ikke valg) */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] font-bold text-slate-400">{sportLabel[sport] ?? sport}</span>
         <div className="flex items-center gap-1.5">
@@ -372,7 +371,6 @@ const DrillsTab: React.FC = () => {
 
       {!activeDrill ? (
         <>
-          {/* Uke-banner */}
           {!showAll && (
             <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl
               bg-amber-500/10 border border-amber-500/20">
@@ -402,7 +400,6 @@ const DrillsTab: React.FC = () => {
             </div>
           )}
 
-          {/* Drill-liste */}
           <div className="space-y-2">
             {displayed.length === 0 ? (
               <p className="text-[12px] text-[#4a6080] text-center py-6">
@@ -436,7 +433,6 @@ const DrillsTab: React.FC = () => {
           </div>
         </>
       ) : (
-        // ── Drill-detalj ──
         <div>
           <button onClick={() => setActiveDrill(null)}
             className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-3 flex items-center gap-1">
@@ -448,7 +444,6 @@ const DrillsTab: React.FC = () => {
             {activeDrill.description}
           </p>
 
-          {/* Steg-indikator */}
           <div className="flex gap-1.5 mb-4">
             {activeDrill.steps.map((_, i) => (
               <button key={i} onClick={() => setActiveStep(i)}
@@ -458,7 +453,6 @@ const DrillsTab: React.FC = () => {
             ))}
           </div>
 
-          {/* Aktivt steg */}
           {activeDrill.steps[activeStep] && (
             <div className="bg-[#0f1a2a] rounded-xl p-4 border border-[#1e3050] mb-4">
               <div className="flex items-center gap-2.5 mb-2">
@@ -476,7 +470,6 @@ const DrillsTab: React.FC = () => {
             </div>
           )}
 
-          {/* Navigasjon */}
           <div className="flex gap-2 mb-2">
             <button onClick={() => setActiveStep(s => Math.max(0, s - 1))}
               disabled={activeStep === 0}

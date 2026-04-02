@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  TAKTIKKBOARD – Type-definisjoner (v5)
+//  TAKTIKKBOARD – Type-definisjoner (v6)
 // ═══════════════════════════════════════════════════════════════
 
 export type Sport = 'football' | 'football7' | 'handball';
@@ -27,6 +27,7 @@ export interface Player {
   num: number;
   name: string;
   role: PlayerRole;
+  secondaryRoles?: PlayerRole[]; // NYTT: sekundære posisjoner
   position: Position;
   team: 'home' | 'away';
   notes: string;
@@ -104,7 +105,8 @@ export interface PlayerAccount {
   birthDate?: string;
   height?: number;
   weight?: number;
-  positionPreferences?: string;
+  positionPreferences?: string; // Primær posisjon
+  secondaryPositions?: string;  // NYTT: sekundære posisjoner (komma-separert)
   experience?: string;
   profileImage?: string;
   preferredFoot?: string;
@@ -180,7 +182,7 @@ export type AppView = 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'tr
 
 export interface AppState {
   sport: Sport;
-  ageGroup: 'youth' | 'adult';  // NY: aldersgruppe for laget
+  ageGroup: 'youth' | 'adult';
   phases: TacticPhase[];
   activePhaseIdx: number;
   events: CalendarEvent[];

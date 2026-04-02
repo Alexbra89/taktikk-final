@@ -204,6 +204,43 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
           )}
         </Field>
 
+        {/* ── SEKUNDÆRE POSISJONER (NYTT) ── */}
+        <Field label="📌 SEKUNDÆRE POSISJONER (kan spille flere roller)">
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {roles.map(r => {
+              const rm = ROLE_META[r]; if (!rm) return null;
+              const isPrimary = player.role === r;
+              const isSecondary = player.secondaryRoles?.includes(r);
+              
+              // Ikke vis primærposisjonen som sekundær
+              if (isPrimary) return null;
+              
+              return (
+                <button 
+                  key={r} 
+                  onClick={() => {
+                    const current = player.secondaryRoles ?? [];
+                    if (isSecondary) {
+                      upd({ secondaryRoles: current.filter(sr => sr !== r) });
+                    } else {
+                      upd({ secondaryRoles: [...current, r] });
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all
+                    ${isSecondary 
+                      ? 'bg-purple-500/20 border-purple-500 text-purple-400' 
+                      : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
+                  {rm.emoji} {rm.label}
+                  {isSecondary && <span className="ml-1 text-[9px]">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-[9px] text-[#4a6080] mt-1.5">
+            💡 Sekundære posisjoner lar spilleren bytte inn på andre roller ved behov.
+          </div>
+        </Field>
+
         {/* ── Skademodul ── */}
         <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">
           <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">

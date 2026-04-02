@@ -34,17 +34,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
   const currentPlayerId = currentUser?.playerId;
   const todayStr = today.toISOString().slice(0, 10);
 
-  const filteredEvents = useMemo(() => {
-    if (isCoach) return events;
-    return events.filter(event => {
-      if (event.trainingNotes.some(note => note.targetPlayerIds?.length > 0)) {
-        return event.trainingNotes.some(note =>
-          note.targetPlayerIds?.includes(currentPlayerId || '')
-        );
-      }
-      return true;
-    });
-  }, [events, isCoach, currentPlayerId]);
+const filteredEvents = useMemo(() => {
+  // Trener ser alt
+  if (isCoach) return events;
+  
+  // Spillere ser alle arrangementer, men vi markerer individuelle
+  return events.map(event => {
+    // Sjekk om denne treningen er individuell for denne spilleren
+    const hasIndividualNote = event.trainingNotes.some(note =>
+      note.targetPlayerIds?.includes(currentPlayerId || '')
+    );
+    
+    // Legg til en markering, men behold arrangementet
+    return {
+      ...event,
+      isIndividualForMe: hasIndividualNote
+    };
+  });
+}, [events, isCoach, currentPlayerId]);
 
   const todayEvents = useMemo(() => {
     return filteredEvents.filter(e => e.date === todayStr);
