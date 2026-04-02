@@ -86,7 +86,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
       });
       
       setSelectedFormation(formationName);
-    }, 300); // 300ms debounce for smoother opplevelse
+    }, 300);
   }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition, updatePlayerField]);
 
   // Cleanup debounce on unmount
@@ -230,14 +230,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
-      {/* Control bar */}
-      <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] overflow-x-auto">
+      {/* Control bar - scrollbar på mobil */}
+      <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] overflow-x-auto overscroll-x-contain">
         {/* Faser */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {phases.map((ph, idx) => (
             <button key={ph.id}
               onClick={() => !isPlaying && setActivePhaseIdx(idx)}
-              className={`px-2 py-1 rounded text-[10px] font-semibold border transition-all min-h-[32px] whitespace-nowrap
+              className={`px-2 py-1 rounded text-[10px] font-semibold border transition-all min-h-[44px] whitespace-nowrap
                 ${activePhaseIdx === idx ? 'bg-sky-500/15 border-sky-500 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}
                 ${isPlaying ? 'opacity-50' : ''}`}>
               {ph.name}
@@ -245,22 +245,22 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             </button>
           ))}
           <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
-            className="w-7 h-7 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] text-sm disabled:opacity-40">＋</button>
+            className="w-8 h-8 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] text-base disabled:opacity-40">＋</button>
           {phases.length > 1 && (
             <button onClick={() => !isPlaying && removePhase(activePhaseIdx)} disabled={isPlaying}
-              className="w-7 h-7 flex items-center justify-center rounded text-red-400 border border-[#1e3050] text-sm disabled:opacity-40">🗑️</button>
+              className="w-8 h-8 flex items-center justify-center rounded text-red-400 border border-[#1e3050] text-base disabled:opacity-40">🗑️</button>
           )}
         </div>
 
-        {/* Formasjonsvelger - med debounce for bedre ytelse */}
+        {/* Formasjonsvelger */}
         {availableFormations.length > 0 && (
-          <div className="flex items-center gap-1 ml-2">
-            <span className="text-[9px] text-[#4a6080]">📐 Formasjon:</span>
+          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+            <span className="text-[9px] text-[#4a6080] hidden sm:inline">📐 Formasjon:</span>
             <select
               value={selectedFormation}
               onChange={(e) => updateFormation(e.target.value)}
               disabled={isPlaying}
-              className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1 text-[10px] text-slate-200 focus:outline-none focus:border-sky-500"
+              className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[40px]"
             >
               {availableFormations.map(f => (
                 <option key={f.name} value={f.name}>{f.name}</option>
@@ -273,14 +273,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
         {/* Sticky note */}
         <button onClick={() => setShowSticky(!showSticky)}
-          className={`px-2 py-1 rounded text-[11px] border min-h-[32px] transition-all
+          className={`px-2 py-1 rounded text-[13px] border min-h-[40px] transition-all flex-shrink-0
             ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
           📌
         </button>
 
         {/* Draw mode */}
         <button onClick={() => setDrawMode(!drawMode)}
-          className={`px-2 py-1 rounded text-[10px] font-bold border min-h-[32px] transition-all whitespace-nowrap
+          className={`px-2 py-1 rounded text-[11px] font-bold border min-h-[40px] transition-all whitespace-nowrap flex-shrink-0
             ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
           {drawMode ? '✏️ Stopp' : '✏️ Tegn'}
         </button>
@@ -288,24 +288,24 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
         {/* Draw colors — only when drawing */}
         {drawMode && DRAW_COLORS.map(c => (
           <button key={c} onClick={() => setDrawColor(c)}
-            className={`w-6 h-6 rounded-full border-2 flex-shrink-0 transition-all
+            className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
               ${drawColor === c ? 'border-white scale-110' : 'border-transparent opacity-60'}`}
             style={{ background: c }} />
         ))}
 
         {(phase?.drawings?.length ?? 0) > 0 && (
           <button onClick={() => clearDrawings(activePhaseIdx)}
-            className="px-2 py-1 rounded text-[11px] border border-[#1e3050] text-red-400/70 min-h-[32px]">🗑️</button>
+            className="px-2 py-1 rounded text-[13px] border border-[#1e3050] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
         )}
 
         {/* Playback */}
         <div className="flex items-center gap-1 bg-[#111c30] rounded px-1.5 py-1 border border-[#1e3050] flex-shrink-0">
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.max(0, activePhaseIdx-1))}
             disabled={isPlaying || activePhaseIdx === 0}
-            className="text-slate-400 disabled:opacity-30 text-sm px-0.5 min-w-[24px] min-h-[28px]">⏮</button>
+            className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏮</button>
           <button onClick={() => isPlaying ? stopPlayback() : startPlayback()}
             disabled={phases.length < 2}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border transition-all
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm border transition-all
               ${phases.length < 2 ? 'border-[#1e3050] text-[#334155] cursor-not-allowed'
                 : isPlaying ? 'border-red-500 bg-red-500/15 text-red-400'
                 : 'border-sky-500 bg-sky-500/15 text-sky-400'}`}>
@@ -313,23 +313,23 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           </button>
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.min(phases.length-1, activePhaseIdx+1))}
             disabled={isPlaying || activePhaseIdx === phases.length-1}
-            className="text-slate-400 disabled:opacity-30 text-sm px-0.5 min-w-[24px] min-h-[28px]">⏭</button>
+            className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏭</button>
         </div>
       </div>
 
       {showSticky && phase && (
-        <div className="flex-shrink-0 px-3 py-1.5 bg-amber-500/8 border-b border-amber-500/20 flex items-center gap-2">
-          <span className="text-amber-400 text-[11px]">📌</span>
+        <div className="flex-shrink-0 px-3 py-2 bg-amber-500/8 border-b border-amber-500/20 flex items-center gap-2">
+          <span className="text-amber-400 text-[13px]">📌</span>
           <input 
             value={localStickyNote}
             onChange={e => handleStickyChange(e.target.value)}
             placeholder={`Notat for ${phase.name}…`}
-            className="flex-1 bg-transparent border-none text-amber-100 text-[12px] placeholder-amber-500/40 focus:outline-none" 
+            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/40 focus:outline-none min-h-[40px]" 
           />
         </div>
       )}
 
-      {/* SVG — flex-1 min-h-0 critical for mobile */}
+      {/* SVG — forbedret for mobil touch */}
       <div className="flex-1 min-h-0 flex items-center justify-center bg-[#050c18]" style={{padding:'4px'}}>
         <svg
           ref={svgRef}
@@ -345,6 +345,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             cursor: drawMode ? 'crosshair' : 'default',
             touchAction: 'none',
             userSelect: 'none',
+            WebkitTapHighlightColor: 'transparent',
           }}
           onPointerDown={onSvgPointerDown}
           onPointerMove={onSvgPointerMove}
@@ -371,16 +372,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           {liveDrawPts.length > 1 && (
             <g>
               <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
-                stroke={drawColor} strokeWidth={3} fill="none"
+                stroke={drawColor} strokeWidth={4} fill="none"
                 strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
-              {(() => {
-                const p1 = liveDrawPts[liveDrawPts.length-2];
-                const p2 = liveDrawPts[liveDrawPts.length-1];
-                const a = Math.atan2(p2.y-p1.y, p2.x-p1.x);
-                const s = 12;
-                return <polygon fill={drawColor} opacity={0.8}
-                  points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`}/>
-              })()}
             </g>
           )}
 
@@ -391,7 +384,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
           {/* Kun hjemmelag vises – med navn */}
           {homeDisplayPlayers.map(player => {
-            // Finn spillerkonto for å få riktig navn
             const account = playerAccounts.find((a: any) => a.playerId === player.id);
             const displayName = account?.name || player.name || `#${player.num}`;
             

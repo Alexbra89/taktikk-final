@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import NotificationProvider from '@/components/NotificationProvider';
 
 export const metadata: Metadata = {
   title: 'Taktikkboard',
@@ -30,7 +31,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
       </head>
-      <body className="overscroll-none">{children}</body>
+      <body className="overscroll-none">
+        <NotificationProvider>
+          {children}
+        </NotificationProvider>
+      </body>
     </html>
   );
 }

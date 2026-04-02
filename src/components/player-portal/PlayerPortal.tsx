@@ -5,7 +5,8 @@ import { ROLE_META } from '@/data/roleInfo';
 import { VW, VH } from '@/data/formations';
 import { ReadOnlyTacticBoard } from '@/components/player-portal/PlayerHome';
 import { TrainingView } from '@/components/ui/TrainingView';
-import { CalendarView } from '@/components/calendar/CalendarView'; // Importer full kalender
+import { CalendarView } from '@/components/calendar/CalendarView';
+import { ChatPanel } from '@/components/ui/ChatPanel';
 
 // ─── Helpers ──────────────────────────────────────────────────
 const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
@@ -18,7 +19,7 @@ export const PlayerPortal: React.FC = () => {
   const {
     currentUser, playerAccounts, coachMessages, events,
     phases, sport, replyToMessage, logout, chatMessages, sendChat,
-    homeTeamName, awayTeamName, activePhaseIdx, deleteEvent,
+    homeTeamName, awayTeamName, activePhaseIdx, deleteEvent, setSpecialRole,
   } = useAppStore();
 
   const [replyText, setReplyText] = useState<Record<string, string>>({});
@@ -27,6 +28,17 @@ export const PlayerPortal: React.FC = () => {
 
   const isCoach  = currentUser?.role === 'coach';
   const playerId = currentUser?.playerId;
+  const phase = phases[activePhaseIdx] ?? phases[0] ?? null;
+
+  // Sjekk om currentUser er kaptein
+  const isCurrentUserCaptain = (() => {
+    if (!phase || isCoach) return false;
+    const player = phase.players.find(p => 
+      p.id === currentUser?.playerId ||
+      (playerAccounts as any[]).find(acc => acc.playerId === p.id && acc.id === currentUser?.accountId)
+    );
+    return player?.specialRoles?.includes('captain') ?? false;
+  })();
 
   const tabs = [
     { id: 'tactics',  label: '📋 Taktikk' },
@@ -42,12 +54,9 @@ export const PlayerPortal: React.FC = () => {
     isCoach ? true : m.playerId === playerId
   );
 
-  const phase = phases[activePhaseIdx] ?? phases[0] ?? null;
-
-  const sendChatMsg = () => {
-    const txt = chatInput.trim();
-    if (!txt || !currentUser) return;
-    sendChat(currentUser.role as 'coach' | 'player', currentUser.name, txt);
+  const sendChatMsg = (text: string, targetPlayerId?: string) => {
+    if (!text.trim() || !currentUser) return;
+    sendChat(currentUser.role as 'coach' | 'player', currentUser.name, text, targetPlayerId);
     setChatInput('');
   };
 
@@ -59,7 +68,7 @@ export const PlayerPortal: React.FC = () => {
         <div>
           <div className="text-sm font-black text-slate-100">{currentUser?.name}</div>
           <div className="text-[10px] text-[#3a5070]">
-            {isCoach ? 'Trener · Full tilgang' : 'Spiller'}
+            {isCoach ? 'Trener · Full tilgang' : isCurrentUserCaptain ? '🪖 Kaptein' : 'Spiller'}
           </div>
         </div>
         <div className="flex-1" />
@@ -94,7 +103,7 @@ export const PlayerPortal: React.FC = () => {
         {tab === 'squad' && (
           <div className="flex-1 overflow-y-auto p-4">
             {phase
-              ? <SquadView phase={phase} playerAccounts={playerAccounts as any[]} />
+              ? <SquadView phase={phase} playerAccounts={playerAccounts as any[]} isCoach={isCoach} setSpecialRole={setSpecialRole} activePhaseIdx={activePhaseIdx} />
               : <EmptyState icon="👥" text="Ingen data." />}
           </div>
         )}
@@ -112,15 +121,17 @@ export const PlayerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* CHAT */}
+        {/* CHAT - med kaptein-støtte */}
         {tab === 'chat' && (
-          <ChatView
-            messages={chatMessages as any[]}
-            currentUser={currentUser}
-            input={chatInput}
-            setInput={setChatInput}
-            onSend={sendChatMsg}
-          />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ChatPanel
+              currentUser={currentUser}
+              chatMessages={chatMessages as any[]}
+              onSend={sendChatMsg}
+              coachView={isCoach}
+              isCaptain={isCurrentUserCaptain}
+            />
+          </div>
         )}
 
         {/* TRENING */}
@@ -148,9 +159,11 @@ export const PlayerPortal: React.FC = () => {
   );
 };
 
-// ═══ TROPP VIEW — med navn fra playerAccounts og sortering ═══════════════
+// ═══ TROPP VIEW — med navn fra playerAccounts og sortering, samt kaptein-velger ═══════════════
 
-const SquadView: React.FC<{ phase: any; playerAccounts: any[] }> = ({ phase, playerAccounts }) => {
+const SquadView: React.FC<{ phase: any; playerAccounts: any[]; isCoach: boolean; setSpecialRole: any; activePhaseIdx: number }> = ({ 
+  phase, playerAccounts, isCoach, setSpecialRole, activePhaseIdx 
+}) => {
   const { homeTeamName } = useAppStore();
   const players: any[] = phase.players ?? [];
   const home = players.filter((p: any) => p.team === 'home');
@@ -181,6 +194,13 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[] }> = ({ phase, pla
 
   const isCaptain = (player: any) => player.specialRoles?.includes('captain');
 
+  const toggleCaptain = (playerId: string) => {
+    if (!isCoach) return;
+    const player = home.find(p => p.id === playerId);
+    const currentlyCaptain = player?.specialRoles?.includes('captain');
+    setSpecialRole(activePhaseIdx, playerId, 'captain', !currentlyCaptain);
+  };
+
   const starters = home.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
   const substitutes = home.filter((p: any) => p.isStarter === false || p.isOnField === false);
 
@@ -188,6 +208,7 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[] }> = ({ phase, pla
     <div className="max-w-4xl mx-auto">
       <h3 className="text-base font-bold text-slate-100 mb-4">
         👥 {homeTeamName || 'Hjemmelag'} – Tropp
+        {isCoach && <span className="ml-2 text-[10px] text-amber-400 font-normal">(Trykk 🪖 for å velge kaptein)</span>}
       </h3>
 
       {/* Startoppstilling - gruppert etter posisjon */}
@@ -224,7 +245,7 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[] }> = ({ phase, pla
                             {getPlayerName(player)}
                           </div>
                           {isCaptain(player) && (
-                            <span className="text-[11px]">🪖</span>
+                            <span className="text-[13px]">🪖</span>
                           )}
                         </div>
                         <div className="text-[10px] text-[#4a6080]">
@@ -235,6 +256,18 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[] }> = ({ phase, pla
                         <div className="text-[10px] text-emerald-400">
                           {player.minutesPlayed} min
                         </div>
+                      )}
+                      {/* Kaptein-velger for trener */}
+                      {isCoach && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleCaptain(player.id); }}
+                          className={`ml-2 px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px]
+                            ${isCaptain(player) 
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                              : 'bg-[#1e3050] text-[#4a6080] hover:text-slate-300 border border-transparent'}`}
+                        >
+                          🪖 {isCaptain(player) ? 'Kaptein' : 'Gjør til kaptein'}
+                        </button>
                       )}
                     </div>
                   ))}
@@ -271,13 +304,25 @@ const SquadView: React.FC<{ phase: any; playerAccounts: any[] }> = ({ phase, pla
                       <div className="text-[13px] font-bold text-slate-200 truncate">
                         {getPlayerName(player)}
                       </div>
-                      {isCaptain(player) && <span className="text-[11px]">🪖</span>}
+                      {isCaptain(player) && <span className="text-[13px]">🪖</span>}
                     </div>
                     <div className="text-[10px] text-[#4a6080]">
                       #{getNum(player)} · {meta?.label || player.role}
                     </div>
                   </div>
                   <div className="text-[9px] text-amber-400 font-semibold">Innbytter</div>
+                  {/* Kaptein-velger for trener på innbyggere også */}
+                  {isCoach && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleCaptain(player.id); }}
+                      className={`ml-2 px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px]
+                        ${isCaptain(player) 
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                          : 'bg-[#1e3050] text-[#4a6080] hover:text-slate-300 border border-transparent'}`}
+                    >
+                      🪖 {isCaptain(player) ? 'Kaptein' : 'Gjør til kaptein'}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -322,70 +367,6 @@ const PlaytimeBar: React.FC<{ players: any[] }> = ({ players }) => {
               </div>
             );
           })}
-      </div>
-    </div>
-  );
-};
-
-// ═══ CHAT VIEW ═══════════════════════════════════════════════
-
-const ChatView: React.FC<{
-  messages: any[];
-  currentUser: any;
-  input: string;
-  setInput: (v: string) => void;
-  onSend: () => void;
-}> = ({ messages, currentUser, input, setInput, onSend }) => {
-  const bottomRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
-
-  return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0
-          ? <EmptyState icon="🗨️" text="Ingen meldinger i chatten ennå." />
-          : messages.map((msg: any) => {
-            const isMe = msg.fromName === currentUser?.name;
-            return (
-              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5
-                  ${isMe
-                    ? 'bg-sky-500/20 border border-sky-500/30 text-sky-100'
-                    : msg.fromRole === 'coach'
-                      ? 'bg-amber-500/10 border border-amber-500/20 text-amber-100'
-                      : 'bg-[#0f1a2a] border border-[#1e3050] text-slate-200'}`}>
-                  {!isMe && (
-                    <div className="text-[9px] font-bold text-[#4a6080] mb-1 uppercase tracking-wider">
-                      {msg.fromRole === 'coach' ? '🏋️ ' : '👤 '}{msg.fromName}
-                    </div>
-                  )}
-                  <p className="text-[13px] leading-relaxed">{msg.content}</p>
-                  <div className="text-[9px] text-[#3a5070] mt-1 text-right">
-                    {new Date(msg.createdAt).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        <div ref={bottomRef}/>
-      </div>
-
-      <div className="flex-shrink-0 p-3 bg-[#0c1525] border-t border-[#1e3050] flex gap-2">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && onSend()}
-          placeholder="Skriv melding..."
-          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5
-            text-[13px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[44px]"
-        />
-        <button onClick={onSend}
-          className="px-4 rounded-xl bg-sky-500/15 border border-sky-500/30
-            text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 min-h-[44px]">
-          Send
-        </button>
       </div>
     </div>
   );

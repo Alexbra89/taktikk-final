@@ -8,6 +8,13 @@ export const FootballPitch: React.FC = () => {
   const s = 'rgba(255,255,255,0.78)';
   const sw = 1.8;
 
+  // Straffebue parametere
+  const penaltySpotX = m + 86;
+  const penaltySpotY = H / 2;
+  const arcRadius = 68;
+  const startAngle = -0.92;
+  const endAngle = 0.92;
+
   return (
     <g stroke={s} strokeWidth={sw} fill="none">
       {/* Ytre ramme */}
@@ -36,22 +43,16 @@ export const FootballPitch: React.FC = () => {
       <circle cx={m + 86} cy={H / 2} r={3.5} fill={s} />
       <circle cx={W - m - 86} cy={H / 2} r={3.5} fill={s} />
       
-      {/* Venstre halvbue (straffebue) - KORREKT */}
+      {/* Venstre halvbue (straffebue) - KORREKT HALVSIRKEL */}
       <path
-        d={`M ${m + 86 + 68 * Math.cos(-0.93)} ${H / 2 + 68 * Math.sin(-0.93)}
-            A 68 68 0 0 1 ${m + 86 + 68 * Math.cos(0.93)} ${H / 2 + 68 * Math.sin(0.93)}`}
-        stroke={s}
-        strokeWidth={sw}
-        fill="none"
+        d={`M ${penaltySpotX + arcRadius * Math.cos(startAngle)} ${penaltySpotY + arcRadius * Math.sin(startAngle)}
+            A ${arcRadius} ${arcRadius} 0 0 1 ${penaltySpotX + arcRadius * Math.cos(endAngle)} ${penaltySpotY + arcRadius * Math.sin(endAngle)}`}
       />
       
-      {/* Høyre halvbue (straffebue) - KORREKT */}
+      {/* Høyre halvbue (straffebue) - KORREKT HALVSIRKEL */}
       <path
-        d={`M ${W - m - 86 + 68 * Math.cos(Math.PI - 0.93)} ${H / 2 + 68 * Math.sin(Math.PI - 0.93)}
-            A 68 68 0 0 0 ${W - m - 86 + 68 * Math.cos(Math.PI + 0.93)} ${H / 2 + 68 * Math.sin(Math.PI + 0.93)}`}
-        stroke={s}
-        strokeWidth={sw}
-        fill="none"
+        d={`M ${W - m - 86 + arcRadius * Math.cos(Math.PI - startAngle)} ${H / 2 + arcRadius * Math.sin(Math.PI - startAngle)}
+            A ${arcRadius} ${arcRadius} 0 0 0 ${W - m - 86 + arcRadius * Math.cos(Math.PI - endAngle)} ${H / 2 + arcRadius * Math.sin(Math.PI - endAngle)}`}
       />
       
       {/* Mål venstre */}
