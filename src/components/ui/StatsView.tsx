@@ -50,7 +50,7 @@ export const StatsView: React.FC = () => {
   const [showStatForm, setShowStatForm] = useState(false);
   const [matchStats, setMatchStats] = useState<MatchStats[]>([]);
 
-  // Last statistikk fra localStorage ved oppstart
+  // Last statistikk fra localStorage
   useEffect(() => {
     const saved = localStorage.getItem('taktikkboard_match_stats');
     if (saved) {
@@ -63,14 +63,13 @@ export const StatsView: React.FC = () => {
     }
   }, []);
 
-  // Lagre statistikk til localStorage når den endres
+  // Lagre statistikk
   useEffect(() => {
     if (matchStats.length > 0) {
       localStorage.setItem('taktikkboard_match_stats', JSON.stringify(matchStats));
     }
   }, [matchStats]);
 
-  // All events
   const trainings = useMemo(() =>
     events.filter(e => e.type === 'training').sort((a, b) => b.date.localeCompare(a.date)),
     [events]
@@ -83,49 +82,67 @@ export const StatsView: React.FC = () => {
   const phase = phases[activePhaseIdx] ?? phases[0];
   const homePlayers = (phase?.players ?? []).filter((p: any) => p.team === 'home');
 
-  // Beregn fremmøte for hver spiller
+  // ALLE spillere (fra playerAccounts + board) - beste fra korte versjonen
+  const allClubPlayers = useMemo(() => {
+    const result: Array<{ id: string; name: string; num?: number; role?: string; minutesPlayed: number }> = [];
+    
+    // Fra playerAccounts (alle registrerte)
+    (playerAccounts as any[]).filter((a: any) => a.team === 'home').forEach((acc: any) => {
+      const bp = homePlayers.find((p: any) => p.id === acc.playerId);
+      result.push({
+        id: acc.playerId,
+        name: acc.name,
+        num: bp?.num,
+        role: bp?.role,
+        minutesPlayed: bp?.minutesPlayed ?? 0,
+      });
+    });
+    
+    // Board spillere ikke i accounts
+    homePlayers.forEach((p: any) => {
+      if (!result.find(r => r.id === p.id)) {
+        result.push({ id: p.id, name: p.name || `#${p.num}`, num: p.num, role: p.role, minutesPlayed: p.minutesPlayed ?? 0 });
+      }
+    });
+    return result;
+  }, [playerAccounts, homePlayers]);
+
+  // Fremmøte data
   const attendanceData = useMemo(() => {
     const map: Record<string, { attended: number; total: number; name: string; number: number }> = {};
-
-    homePlayers.forEach((p: any) => {
-      const acc = playerAccounts.find((a: any) => a.playerId === p.id);
+    allClubPlayers.forEach(p => {
       map[p.id] = {
         attended: 0,
         total: trainings.length,
-        name: acc?.name || p.name || `#${p.num}`,
-        number: p.num,
+        name: p.name,
+        number: p.num ?? 0,
       };
     });
-
     trainings.forEach(training => {
       training.trainingNotes.forEach(note => {
         note.targetPlayerIds?.forEach(playerId => {
-          if (map[playerId]) {
-            map[playerId].attended++;
-          }
+          if (map[playerId]) map[playerId].attended++;
         });
       });
     });
-
     return map;
-  }, [homePlayers, playerAccounts, trainings]);
+  }, [allClubPlayers, trainings]);
 
-  // Beregn totalstatistikk for hver spiller
+  // Statistikk for hver spiller
   const playerStats = useMemo(() => {
     const statsMap: Record<string, PlayerStats> = {};
 
-    homePlayers.forEach((p: any) => {
-      const acc = playerAccounts.find((a: any) => a.playerId === p.id);
+    allClubPlayers.forEach((p: any) => {
       statsMap[p.id] = {
         playerId: p.id,
-        playerName: acc?.name || p.name || `#${p.num}`,
-        playerNumber: p.num,
+        playerName: p.name,
+        playerNumber: p.num ?? 0,
         matchesPlayed: 0,
         goals: 0,
         assists: 0,
         yellowCards: 0,
         redCards: 0,
-        minutesPlayed: p.minutesPlayed || 0,
+        minutesPlayed: p.minutesPlayed,
         attendance: attendanceData[p.id]?.attended || 0,
         totalTrainings: trainings.length,
       };
@@ -145,9 +162,8 @@ export const StatsView: React.FC = () => {
     });
 
     return Object.values(statsMap).sort((a, b) => b.goals - a.goals);
-  }, [homePlayers, playerAccounts, matchStats, attendanceData, trainings.length]);
+  }, [allClubPlayers, matchStats, attendanceData, trainings.length]);
 
-  // Finn spillerens egne statistikker
   const myStats = myPlayerId ? playerStats.find(s => s.playerId === myPlayerId) : null;
   const myAttendance = myPlayerId ? attendanceData[myPlayerId] : null;
 
@@ -155,7 +171,6 @@ export const StatsView: React.FC = () => {
   const upcomingTrainings = trainings.filter(e => e.date >= today).length;
   const completedTrainings = trainings.filter(e => e.date < today).length;
 
-  // Legg til statistikk for en kamp
   const addMatchStats = (matchId: string, playerId: string, stats: { goals: number; assists: number; yellowCards: number; redCards: number; minutesPlayed: number }) => {
     setMatchStats(prevStats => {
       const existingMatchIndex = prevStats.findIndex(m => m.matchId === matchId);
@@ -190,14 +205,11 @@ export const StatsView: React.FC = () => {
         return prevStats;
       }
     });
-    
     setShowStatForm(false);
   };
 
-  // Hent toppscorere (top 5)
   const topScorers = playerStats.filter(s => s.goals > 0).slice(0, 5);
   const topAssists = playerStats.filter(s => s.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 5);
-
   const selectedPlayer = selectedPlayerId ? playerStats.find(s => s.playerId === selectedPlayerId) : null;
 
   return (
@@ -208,9 +220,7 @@ export const StatsView: React.FC = () => {
           📊 Statistikk — {homeTeamName || 'Laget'}
         </h2>
         {!isCoach && myStats && (
-          <p className="text-[10px] text-[#4a6080] mt-0.5">
-            Du ser kun din egen statistikk
-          </p>
+          <p className="text-[10px] text-[#4a6080] mt-0.5">Du ser kun din egen statistikk</p>
         )}
         {isCoach && (
           <button
@@ -412,14 +422,11 @@ export const StatsView: React.FC = () => {
                   {myAttendance.attended}/{myAttendance.total}
                 </div>
                 <div className="text-[12px] text-[#4a6080]">
-                  {myAttendance.total > 0
-                    ? `${Math.round((myAttendance.attended / myAttendance.total) * 100)}% oppmøte`
-                    : 'Ingen treninger registrert'}
+                  {myAttendance.total > 0 ? `${Math.round((myAttendance.attended / myAttendance.total) * 100)}% oppmøte` : 'Ingen treninger registrert'}
                 </div>
                 {myAttendance.total > 0 && (
                   <div className="h-3 bg-[#1e3050] rounded-full overflow-hidden mt-3">
-                    <div className="h-full rounded-full bg-sky-500 transition-all"
-                      style={{ width: `${Math.round((myAttendance.attended / myAttendance.total) * 100)}%` }} />
+                    <div className="h-full rounded-full bg-sky-500" style={{ width: `${Math.round((myAttendance.attended / myAttendance.total) * 100)}%` }} />
                   </div>
                 )}
               </div>
@@ -437,50 +444,39 @@ export const StatsView: React.FC = () => {
                 <p className="text-[10px] text-[#4a6080] mb-4">
                   Spilletid registreres via Smart Coach under kamp eller manuelt i spillereditoren.
                 </p>
-                {[...homePlayers]
-                  .sort((a: any, b: any) => (b.minutesPlayed ?? 0) - (a.minutesPlayed ?? 0))
-                  .map((p: any) => {
-                    const min = p.minutesPlayed ?? 0;
-                    const acc = playerAccounts.find((a: any) => a.playerId === p.id);
-                    const name = acc?.name || p.name || `#${p.num}`;
+                {[...allClubPlayers]
+                  .sort((a, b) => b.minutesPlayed - a.minutesPlayed)
+                  .map(p => {
+                    const min = p.minutesPlayed;
                     const color = min > 60 ? '#22c55e' : min > 30 ? '#f59e0b' : '#64748b';
-                    const maxMin = Math.max(...homePlayers.map((pl: any) => pl.minutesPlayed ?? 0), 1);
+                    const maxMin = Math.max(...allClubPlayers.map(pl => pl.minutesPlayed), 1);
                     return (
                       <div key={p.id} className="flex items-center gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
                           style={{ background: color }}>
-                          {p.num}
+                          {p.num ?? '?'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[12px] font-bold text-slate-200 truncate">{name}</div>
+                          <div className="text-[12px] font-bold text-slate-200 truncate">{p.name}</div>
                           <div className="h-1.5 bg-[#1e3050] rounded-full overflow-hidden mt-1.5">
                             <div className="h-full rounded-full" style={{ width: `${(min / maxMin) * 100}%`, background: color }} />
                           </div>
                         </div>
                         <div className="text-[11px] font-bold text-right w-14 flex-shrink-0" style={{ color }}>
-                          {min} min
+                          {min > 0 ? `${min} min` : '—'}
                         </div>
                       </div>
                     );
                   })}
-                {homePlayers.length === 0 && (
-                  <p className="text-[12px] text-[#4a6080] italic text-center py-8">Ingen spillere registrert.</p>
-                )}
               </div>
             ) : (
-              (() => {
-                const myPlayer = homePlayers.find((p: any) => p.id === myPlayerId);
-                const min = myPlayer?.minutesPlayed ?? 0;
-                return (
-                  <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
-                    <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">Din spilletid</div>
-                    <div className="text-3xl font-black text-slate-100">{min} min</div>
-                    {min === 0 && (
-                      <p className="text-[11px] text-[#4a6080] mt-2">Ingen spilletid registrert ennå.</p>
-                    )}
-                  </div>
-                );
-              })()
+              <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
+                <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">Din spilletid</div>
+                <div className="text-3xl font-black text-slate-100">{myStats?.minutesPlayed ?? 0} min</div>
+                {(myStats?.minutesPlayed ?? 0) === 0 && (
+                  <p className="text-[11px] text-[#4a6080] mt-2">Ingen spilletid registrert ennå.</p>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -488,10 +484,7 @@ export const StatsView: React.FC = () => {
         {/* ── SPILLERDETALJ (trener) ── */}
         {tab === 'player' && selectedPlayer && isCoach && (
           <div className="max-w-2xl mx-auto">
-            <button 
-              onClick={() => setSelectedPlayerId(null)}
-              className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-4 flex items-center gap-1"
-            >
+            <button onClick={() => setSelectedPlayerId(null)} className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-4 flex items-center gap-1">
               ‹ Tilbake til oversikt
             </button>
             <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
@@ -522,21 +515,16 @@ export const StatsView: React.FC = () => {
         )}
       </div>
 
-      {/* ── REGISTRER STATISTIKK MODAL (trener) ── */}
+      {/* ── REGISTRER STATISTIKK MODAL ── */}
       {showStatForm && isCoach && (
         <StatRegistrationModal
           matches={matches}
-          players={homePlayers.map(p => {
-            const acc = playerAccounts.find((a: any) => a.playerId === p.id);
-            return {
-              id: p.id,
-              name: acc?.name || p.name || `#${p.num}`,
-              number: p.num,
-            };
-          })}
-          onSave={(matchId, playerId, stats) => {
-            addMatchStats(matchId, playerId, stats);
-          }}
+          players={allClubPlayers.map(p => ({
+            id: p.id,
+            name: p.name,
+            number: p.num ?? 0,
+          }))}
+          onSave={(matchId, playerId, stats) => addMatchStats(matchId, playerId, stats)}
           onClose={() => setShowStatForm(false)}
         />
       )}
@@ -545,7 +533,7 @@ export const StatsView: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  STATISTIKK-REGISTRERING MODAL (uendret)
+//  STATISTIKK-REGISTRERING MODAL
 // ═══════════════════════════════════════════════════════════════
 
 interface StatRegistrationModalProps {
@@ -589,107 +577,45 @@ const StatRegistrationModal: React.FC<StatRegistrationModalProps> = ({ matches, 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">Kamp</label>
-            <select
-              value={selectedMatchId}
-              onChange={e => setSelectedMatchId(e.target.value)}
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              required
-            >
-              {matches.map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.title} ({new Date(m.date).toLocaleDateString('nb-NO')})
-                </option>
-              ))}
+            <select value={selectedMatchId} onChange={e => setSelectedMatchId(e.target.value)} className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500" required>
+              {matches.map(m => <option key={m.id} value={m.id}>{m.title} ({new Date(m.date).toLocaleDateString('nb-NO')})</option>)}
             </select>
           </div>
 
           <div>
             <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">Spiller</label>
-            <select
-              value={selectedPlayerId}
-              onChange={e => setSelectedPlayerId(e.target.value)}
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              required
-            >
+            <select value={selectedPlayerId} onChange={e => setSelectedPlayerId(e.target.value)} className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500" required>
               <option value="">Velg spiller...</option>
-              {players.map(p => (
-                <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
-              ))}
+              {players.map(p => <option key={p.id} value={p.id}>#{p.number} {p.name}</option>)}
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">⚽ Mål</label>
-              <input
-                type="number"
-                min="0"
-                max="10"
-                value={goals}
-                onChange={e => setGoals(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              />
+              <input type="number" min="0" max="10" value={goals} onChange={e => setGoals(parseInt(e.target.value) || 0)} className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500" />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">🎯 Målgivende</label>
-              <input
-                type="number"
-                min="0"
-                max="10"
-                value={assists}
-                onChange={e => setAssists(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              />
+              <input type="number" min="0" max="10" value={assists} onChange={e => setAssists(parseInt(e.target.value) || 0)} className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500" />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">🟨 Gule kort</label>
-              <input
-                type="number"
-                min="0"
-                max="2"
-                value={yellowCards}
-                onChange={e => setYellowCards(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              />
+              <input type="number" min="0" max="2" value={yellowCards} onChange={e => setYellowCards(parseInt(e.target.value) || 0)} className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500" />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">🟥 Røde kort</label>
-              <input
-                type="number"
-                min="0"
-                max="1"
-                value={redCards}
-                onChange={e => setRedCards(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              />
+              <input type="number" min="0" max="1" value={redCards} onChange={e => setRedCards(parseInt(e.target.value) || 0)} className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500" />
             </div>
             <div className="col-span-2">
               <label className="block text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">⏱ Spilte minutter</label>
-              <input
-                type="number"
-                min="0"
-                max="120"
-                value={minutesPlayed}
-                onChange={e => setMinutesPlayed(parseInt(e.target.value) || 0)}
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500"
-              />
+              <input type="number" min="0" max="120" value={minutesPlayed} onChange={e => setMinutesPlayed(parseInt(e.target.value) || 0)} className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500" />
             </div>
           </div>
 
           <div className="flex gap-2 pt-2">
-            <button
-              type="submit"
-              className="flex-1 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 transition"
-            >
-              Lagre statistikk
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[13px] hover:text-slate-300"
-            >
-              Avbryt
-            </button>
+            <button type="submit" className="flex-1 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 transition">Lagre statistikk</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[13px] hover:text-slate-300">Avbryt</button>
           </div>
         </form>
       </div>

@@ -25,16 +25,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const players = phase?.players ?? [];
   const homePlayers = players.filter(p => p.team === 'home');
   
-  // Hent innbyggere som kan spille samme posisjon (inkludert sekundære posisjoner)
+  // Hent innbyggere som kan spille samme posisjon
   const getEligibleSubstitutes = (outPlayer: any) => {
     return homePlayers.filter(p => 
-      (p.isStarter === false || p.isOnField === false) && // Er innbytter
-      (p.role === outPlayer.role || // Samme primærposisjon
-       (p.secondaryRoles && p.secondaryRoles.includes(outPlayer.role))) // Eller sekundærposisjon
+      (p.isStarter === false || p.isOnField === false) &&
+      (p.role === outPlayer.role ||
+       (p.secondaryRoles && p.secondaryRoles.includes(outPlayer.role)))
     );
   };
 
-  // Bytt en spiller fra start til innbytter
+  // Bytt en spiller
   const substitutePlayer = (outPlayerId: string, inPlayerId: string) => {
     updatePlayerField(activePhaseIdx, outPlayerId, { 
       isStarter: false,
@@ -49,12 +49,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     setEligibleSubs([]);
   };
 
+  // Lag 11 plasser (inkludert tomme) for startoppstilling
+  const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : 7;
   const starters = homePlayers.filter(p => p.isStarter !== false && p.isOnField !== false);
   const subs = homePlayers.filter(p => p.isStarter === false || p.isOnField === false);
+  
+  // Lag en array med 11 plasser (fyll med tomme plasser hvis nødvendig)
+const filledStarters: (any)[] = [...starters];
+while (filledStarters.length < teamSize) {
+  filledStarters.push(null); // Tom plass
+}
 
   const sportEmoji = sport === 'handball' ? '🤾' : '⚽';
   const sportLabel = sport === 'handball' ? 'Håndball' : sport === 'football7' ? 'Fotball 7er' : 'Fotball 11er';
-  const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : 7;
 
   return (
     <aside className="flex-shrink-0 flex flex-col h-full bg-[#0c1525] border-r border-[#1e3050] overflow-hidden"
@@ -105,23 +112,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                 <span className="text-[8px] text-red-400">⚠️ Mangler {teamSize - starters.length} spillere</span>
               )}
             </div>
-            {starters.map(p => {
+            
+            {/* Vis 11 plasser (inkludert tomme) */}
+            {filledStarters.map((player, index) => {
+              if (!player) {
+                // Tom plass
+                return (
+                  <div key={`empty-${index}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5 border border-dashed border-[#1e3050] opacity-50">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 bg-[#1e3050]">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-semibold text-slate-400 italic">Ledig plass</div>
+                      <div className="text-[9px] text-[#4a6080]">Ingen spiller tildelt</div>
+                    </div>
+                  </div>
+                );
+              }
+              
               return (
                 <PlayerRow 
-                  key={p.id} 
-                  player={p} 
-                  selected={selectedPlayerId === p.id} 
+                  key={player.id} 
+                  player={player} 
+                  selected={selectedPlayerId === player.id} 
                   onSelect={onSelectPlayer} 
                   playerAccounts={playerAccounts as any[]}
                   isStarter={true}
                   onSubstituteOut={() => {
-                    const eligible = getEligibleSubstitutes(p);
+                    const eligible = getEligibleSubstitutes(player);
                     if (eligible.length > 0) {
-                      setSelectedOutPlayer(p);
+                      setSelectedOutPlayer(player);
                       setEligibleSubs(eligible);
-                      setShowSubConfirm({ outId: p.id, inId: eligible[0].id });
+                      setShowSubConfirm({ outId: player.id, inId: eligible[0].id });
                     } else {
-                      alert(`Ingen innbyggere tilgjengelig for posisjonen "${ROLE_META[p.role]?.label || p.role}".\n\nSpillere kan kun byttes med samme posisjon.`);
+                      alert(`Ingen innbyggere tilgjengelig for posisjonen "${ROLE_META[player.role as keyof typeof ROLE_META]?.label || player.role}".\n\nSpillere kan kun byttes med samme posisjon.`);
                     }
                   }}
                 />
@@ -157,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                         setEligibleSubs([p]);
                         setShowSubConfirm({ outId: samePositionStarter.id, inId: p.id });
                       } else {
-                        alert(`Ingen startere med posisjon "${ROLE_META[p.role]?.label || p.role}" tilgjengelig for bytte.`);
+                        alert(`Ingen startere med posisjon "${ROLE_META[p.role as keyof typeof ROLE_META]?.label || p.role}" tilgjengelig for bytte.`);
                       }
                     }}
                   />
@@ -344,11 +368,13 @@ const AssignTab: React.FC<{
 }> = ({ players, playerAccounts, phaseIdx, onUpdate, homeTeamName }) => {
   const homePlayers = players.filter(p => p.team === 'home');
   
-  // Sjekk om en spiller kan spille en gitt posisjon (primær eller sekundær)
+  // Sjekk om en spiller kan spille en gitt posisjon
   const canPlayPosition = (playerAccount: any, positionRole: string): boolean => {
-    // Sjekk primærposisjon (positionPreferences)
+    // Hvis ingen preferanser er satt, vis spilleren (fallback)
+    if (!playerAccount.positionPreferences && !playerAccount.secondaryPositions) {
+      return true;
+    }
     if (playerAccount.positionPreferences === positionRole) return true;
-    // Sjekk sekundære posisjoner (secondaryPositions - komma-separert)
     if (playerAccount.secondaryPositions) {
       const secondaryRoles = playerAccount.secondaryPositions.split(',').map((r: string) => r.trim());
       if (secondaryRoles.includes(positionRole)) return true;
@@ -356,16 +382,29 @@ const AssignTab: React.FC<{
     return false;
   };
 
+  // Håndter tildeling - oppdaterer spillernavnet på brettet
+  const handleAssign = (playerId: string, accountId: string) => {
+    const account = playerAccounts.find((a: any) => a.id === accountId);
+    if (account) {
+      // Oppdater navnet på spilleren på brettet
+      onUpdate(phaseIdx, playerId, { name: account.name });
+      console.log(`Tildelt ${account.name} til posisjon ${playerId}`);
+    } else {
+      // Fjern tilknytning
+      onUpdate(phaseIdx, playerId, { name: '' });
+    }
+  };
+
   return (
     <div>
       <p className="text-[10px] text-[#4a6080] mb-3 leading-relaxed">
-        Koble spillerkontoer til brett-posisjoner. <span className="text-amber-400">💡 Kun spillere med riktig posisjon vises</span>
+        Koble spillerkontoer til brett-posisjoner. <span className="text-amber-400">💡 Velg en spiller fra listen</span>
       </p>
       <div className="space-y-1.5">
         {homePlayers.map(p => {
           const m = ROLE_META[p.role as keyof typeof ROLE_META] ?? null;
           
-          // Filtrer kun spillerkontoer som kan spille denne posisjonen
+          // Filtrer spillerkontoer som kan spille denne posisjonen
           const eligibleAccounts = playerAccounts.filter((a: any) => 
             a.team !== 'away' && canPlayPosition(a, p.role)
           );
@@ -385,27 +424,21 @@ const AssignTab: React.FC<{
                 </div>
                 <select 
                   value={currentAccount?.id ?? ''}
-                  onChange={e => {
-                    const acc = playerAccounts.find((a: any) => a.id === e.target.value);
-                    if (acc) {
-                      onUpdate(phaseIdx, p.id, { name: acc.name });
-                    } else {
-                      onUpdate(phaseIdx, p.id, { name: '' });
-                    }
-                  }}
+                  onChange={e => handleAssign(p.id, e.target.value)}
                   className="w-full mt-0.5 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1
                     text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[32px]"
                 >
                   <option value="">– Ingen tilknytning –</option>
                   {eligibleAccounts.map((a: any) => (
                     <option key={a.id} value={a.id}>
-                      {a.name} {a.secondaryPositions ? `(kan også: ${a.secondaryPositions.split(',').slice(0,2).join(', ')})` : ''}
+                      {a.name} {a.positionPreferences ? `(${a.positionPreferences})` : ''}
+                      {a.secondaryPositions ? ` + ${a.secondaryPositions.split(',').slice(0,2).join(', ')}` : ''}
                     </option>
                   ))}
                 </select>
                 {eligibleAccounts.length === 0 && (
                   <div className="text-[8px] text-amber-400 mt-0.5">
-                    ⚠️ Ingen spillere kan spille {m?.label}. Legg til sekundære posisjoner i spillerprofilen.
+                    ⚠️ Ingen spillere tilgjengelig. Opprett spillerkontoer i "⚙️ Kontoer" fanen.
                   </div>
                 )}
               </div>

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { getDrillsBySport, toDrillSport, DrillExercise, CATEGORY_LABELS } from '@/data/drills';
 import { CalendarEvent } from '@/types';
@@ -46,14 +46,15 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
   const past     = trainings.filter(e => e.date < today).reverse();
 
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
-
   const ageGroup = storeAgeGroup;
 
   // DEBUG: Sjekk om øvelser lastes
-  const testDrills = getDrillsBySport(toDrillSport(sport));
+  const sportKey = toDrillSport(sport);
+  const allDrills = getDrillsBySport(sportKey);
   console.log('🔍 TrainingView - Sport:', sport);
-  console.log('🔍 TrainingView - Antall øvelser:', testDrills.length);
-  console.log('🔍 TrainingView - Første øvelse:', testDrills[0]?.name);
+  console.log('🔍 TrainingView - SportKey:', sportKey);
+  console.log('🔍 TrainingView - Antall øvelser:', allDrills.length);
+  console.log('🔍 TrainingView - Første øvelse:', allDrills[0]?.name);
 
   if (showNewTraining && isCoach) {
     return (
@@ -288,7 +289,7 @@ const NewTrainingForm: React.FC<{
       createdAt: new Date().toISOString(),
       title: drill.name,
       content: drill.description,
-      duration: drill.duration,
+      duration: drill.duration || 5,
       focus: focusTags,
       completed: false,
       targetPlayerIds: [],
@@ -593,7 +594,7 @@ const Stopwatch: React.FC<{
   onComplete: () => void;
   onCancel: () => void;
 }> = ({ duration, onComplete, onCancel }) => {
-  const [timeLeft, setTimeLeft] = useState(duration * 60);
+  const [timeLeft, setTimeLeft] = useState((duration || 5) * 60);
   const [isActive, setIsActive] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -698,7 +699,7 @@ const TrainingDetail: React.FC<{
     onAddNote({
       title: selectedDrill ? selectedDrill.name : noteTitle.trim(),
       content: selectedDrill ? selectedDrill.description : noteContent.trim(),
-      duration: selectedDrill?.duration || 0,
+      duration: selectedDrill?.duration || 5,
       completed: false,
       focus: [],
       targetPlayerIds: [],
@@ -720,6 +721,10 @@ const TrainingDetail: React.FC<{
         tn.targetPlayerIds?.includes(myPlayerId) || tn.targetPlayerIds?.length === 0
       )
     : event.trainingNotes ?? [];
+
+  const handleTeamNoteChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onUpdate({ teamNote: e.target.value });
+  }, [onUpdate]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -763,7 +768,7 @@ const TrainingDetail: React.FC<{
         {isCoach && (
           <div>
             <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Generelt notat</div>
-            <textarea value={event.teamNote ?? ''} onChange={e => onUpdate({ teamNote: e.target.value })}
+            <textarea value={event.teamNote ?? ''} onChange={handleTeamNoteChange}
               rows={3} placeholder="Mål for økten, beskjeder til spillerne..."
               className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5
                 text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
