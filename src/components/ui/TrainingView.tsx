@@ -49,6 +49,12 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
 
   const ageGroup = storeAgeGroup;
 
+  // DEBUG: Sjekk om øvelser lastes
+  const testDrills = getDrillsBySport(toDrillSport(sport));
+  console.log('🔍 TrainingView - Sport:', sport);
+  console.log('🔍 TrainingView - Antall øvelser:', testDrills.length);
+  console.log('🔍 TrainingView - Første øvelse:', testDrills[0]?.name);
+
   if (showNewTraining && isCoach) {
     return (
       <NewTrainingForm
@@ -185,7 +191,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
   );
 };
 
-// ═══ NY TRENINGSFORM ═══════════════════════════════════════════
+// ═══ NY TRENINGSFORM med "Legg til egen øvelse" knapp ════════════
 
 const NewTrainingForm: React.FC<{
   onSave: (ev: Omit<any, 'id'>) => void;
@@ -207,6 +213,10 @@ const NewTrainingForm: React.FC<{
   const [drillCategory, setDrillCategory]     = useState<string>('alle');
   const [drillDifficulty, setDrillDifficulty] = useState<string>('alle');
   const [saving, setSaving] = useState(false);
+  const [customDrillName, setCustomDrillName] = useState('');
+  const [customDrillDesc, setCustomDrillDesc] = useState('');
+  const [customDrillDuration, setCustomDrillDuration] = useState(10);
+  const [showCustomDrill, setShowCustomDrill] = useState(false);
 
   const allDrills = getDrillsBySport(toDrillSport(sport));
   const categories = useMemo(() => {
@@ -231,6 +241,32 @@ const NewTrainingForm: React.FC<{
       setSelectedDrills(prev => [...prev, drill]);
     }
     setShowDrillPicker(false);
+  };
+
+  const addCustomDrill = () => {
+    if (!customDrillName.trim()) {
+      alert('Fyll inn øvelsesnavn');
+      return;
+    }
+    const newDrill: DrillExercise = {
+      id: `custom-${Date.now()}`,
+      sport: toDrillSport(sport),
+      category: 'offensivt',
+      name: customDrillName.trim(),
+      duration: customDrillDuration,
+      players: 'alle',
+      difficulty: 'enkel',
+      description: customDrillDesc.trim() || 'Egendefinert øvelse',
+      steps: [{ id: 's1', name: 'Øvelse', description: customDrillDesc.trim() || 'Gjenta øvelsen etter instruksjoner' }],
+      tips: [],
+      equipment: [],
+      ageGroup: ageGroup,
+    };
+    setSelectedDrills(prev => [...prev, newDrill]);
+    setCustomDrillName('');
+    setCustomDrillDesc('');
+    setCustomDrillDuration(10);
+    setShowCustomDrill(false);
   };
 
   const removeDrill = (drillId: string) => {
@@ -340,7 +376,7 @@ const NewTrainingForm: React.FC<{
                 <div key={drill.id} className="flex items-center justify-between bg-[#0c1525] rounded-lg px-3 py-2 border border-[#1e3050]">
                   <div className="flex-1">
                     <div className="text-[11px] font-semibold text-slate-200">{drill.name}</div>
-                    <div className="text-[9px] text-[#4a6080]">{drill.duration} min · {drill.players} spillere · {drill.difficulty}</div>
+                    <div className="text-[9px] text-[#4a6080]">{drill.duration} min · {drill.players} spillere</div>
                   </div>
                   <button type="button" onClick={() => removeDrill(drill.id)}
                     className="text-red-400/70 hover:text-red-400 text-[11px] px-2">✕</button>
@@ -354,6 +390,54 @@ const NewTrainingForm: React.FC<{
             <span>{selectedDrills.length > 0 ? `+ Legg til flere øvelser (${selectedDrills.length} valgt)` : '– Velg øvelser –'}</span>
             <span>{showDrillPicker ? '▲' : '▼'}</span>
           </button>
+
+          {/* Legg til egen øvelse knapp */}
+          <button
+            type="button"
+            onClick={() => setShowCustomDrill(!showCustomDrill)}
+            className="w-full mt-2 py-2 px-3 rounded-lg border border-dashed border-sky-500/50 text-left text-[12px] text-sky-400 hover:bg-sky-500/10 transition-all flex items-center justify-between"
+          >
+            <span>➕ Legg til egen øvelse</span>
+            <span>{showCustomDrill ? '▲' : '▼'}</span>
+          </button>
+
+          {showCustomDrill && (
+            <div className="mt-2 p-3 bg-[#0c1525] rounded-xl border border-sky-500/30">
+              <input
+                type="text"
+                placeholder="Øvelsesnavn *"
+                value={customDrillName}
+                onChange={e => setCustomDrillName(e.target.value)}
+                className="w-full mb-2 bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12px] text-slate-200"
+              />
+              <textarea
+                placeholder="Beskrivelse (valgfritt)"
+                value={customDrillDesc}
+                onChange={e => setCustomDrillDesc(e.target.value)}
+                rows={2}
+                className="w-full mb-2 bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12px] text-slate-200 resize-y"
+              />
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[11px] text-[#4a6080]">Varighet:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={customDrillDuration}
+                  onChange={e => setCustomDrillDuration(Number(e.target.value))}
+                  className="w-20 bg-[#111c30] border border-[#1e3050] rounded-lg px-2 py-1 text-[12px] text-slate-200 text-center"
+                />
+                <span className="text-[11px] text-[#4a6080]">minutter</span>
+              </div>
+              <button
+                type="button"
+                onClick={addCustomDrill}
+                className="w-full py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[12px] font-semibold hover:bg-emerald-500/25"
+              >
+                ✓ Legg til øvelse
+              </button>
+            </div>
+          )}
 
           {showDrillPicker && (
             <div className="mt-2 bg-[#0c1525] border border-[#1e3050] rounded-xl overflow-hidden">
@@ -397,7 +481,9 @@ const NewTrainingForm: React.FC<{
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {filteredDrills.length === 0 ? (
-                  <div className="text-center py-8 text-[#4a6080] text-[11px]">Ingen øvelser funnet</div>
+                  <div className="text-center py-8 text-[#4a6080] text-[11px]">
+                    Ingen øvelser funnet. Klikk "Legg til egen øvelse" for å opprette en.
+                  </div>
                 ) : (
                   filteredDrills.map(drill => {
                     const isSelected = selectedDrills.some(sd => sd.id === drill.id);
@@ -777,7 +863,7 @@ const TrainingDetail: React.FC<{
             ?.filter((tn: any) => tn.title !== '✅ Fremmøte')
             .map((tn: any) => {
               const isCompleted = completedDrills.has(tn.id) || tn.completed;
-              const hasTimer    = tn.duration && tn.duration > 0;
+              const hasTimer = (tn.duration && tn.duration > 0) || tn.duration === undefined;
 
               return (
                 <div key={tn.id} className={`bg-[#0f1a2a] border rounded-xl p-4 mb-2 transition-all
@@ -788,7 +874,7 @@ const TrainingDetail: React.FC<{
                         <span className="text-[13px] font-bold text-slate-200">{tn.title}</span>
                         {hasTimer && (
                           <span className="text-[9px] bg-[#1e3050] px-2 py-0.5 rounded-full text-amber-400">
-                            ⏱ {tn.duration} min
+                            ⏱ {tn.duration || 5} min
                           </span>
                         )}
                         {isCompleted && (
@@ -806,15 +892,22 @@ const TrainingDetail: React.FC<{
                   <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap mb-3">{tn.content}</p>
 
                   {!isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
-                    <button onClick={() => setActiveStopwatch(tn.id)}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1">
-                      ⏱ Start øvelse ({tn.duration} min)
+                    <button 
+                      onClick={() => {
+                        console.log('Starting stopwatch for:', tn.id, 'Duration:', tn.duration || 5);
+                        setActiveStopwatch(tn.id);
+                      }}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
+                    >
+                      ⏱ Start øvelse ({tn.duration || 5} min)
                     </button>
                   )}
 
                   {isCoach && !isCompleted && (
-                    <button onClick={() => handleCompleteDrill(tn.id)}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1">
+                    <button 
+                      onClick={() => handleCompleteDrill(tn.id)}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
+                    >
                       ✅ Marker som fullført
                     </button>
                   )}
