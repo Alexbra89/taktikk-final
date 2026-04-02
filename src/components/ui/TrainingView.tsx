@@ -2,13 +2,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { getDrillsBySport, toDrillSport, DrillExercise, CATEGORY_LABELS } from '@/data/drills';
+import { CalendarEvent } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════
 //  TRENING-VISNING — trener og spiller
 // ═══════════════════════════════════════════════════════════════
 
-export const TrainingView: React.FC = () => {
-  // ALLE HOOKS FØRST – i riktig rekkefølge
+interface TrainingViewProps {
+  initialTraining?: CalendarEvent;
+  onBack?: () => void;
+}
+
+export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onBack }) => {
   const store = useAppStore();
   const {
     currentUser, events, playerAccounts, phases, activePhaseIdx,
@@ -23,23 +28,27 @@ export const TrainingView: React.FC = () => {
   const myAcc      = (playerAccounts as any[]).find((a: any) => a.id === myAccId);
 
   const [tab, setTab] = useState<'upcoming' | 'history' | 'individual'>('upcoming');
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(initialTraining?.id || null);
   const [showNewTraining, setShowNewTraining] = useState(false);
+
+  useEffect(() => {
+    if (initialTraining?.id) {
+      setSelectedEventId(initialTraining.id);
+    }
+  }, [initialTraining]);
 
   const today = new Date().toISOString().slice(0, 10);
   const trainings = useMemo(() =>
     events.filter(e => e.type === 'training').sort((a, b) => a.date.localeCompare(b.date)),
     [events]
   );
-  const upcoming  = trainings.filter(e => e.date >= today);
-  const past      = trainings.filter(e => e.date < today).reverse();
+  const upcoming = trainings.filter(e => e.date >= today);
+  const past     = trainings.filter(e => e.date < today).reverse();
 
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
 
-  // HENT ALDERSGRUPPE HER – etter alle hooks
   const ageGroup = storeAgeGroup;
 
-  // ── CONDITIONAL RETURNS (ETTER ALLE HOOKS) ──
   if (showNewTraining && isCoach) {
     return (
       <NewTrainingForm
@@ -60,7 +69,10 @@ export const TrainingView: React.FC = () => {
         myPlayerId={myPlayerId}
         playerAccounts={playerAccounts as any[]}
         sport={sport}
-        onBack={() => setSelectedEventId(null)}
+        onBack={() => {
+          setSelectedEventId(null);
+          if (initialTraining && onBack) onBack();
+        }}
         onUpdate={(fields) => updateEvent(selectedEvent.id, fields)}
         onAddNote={(note) => addTrainingNote(selectedEvent.id, note)}
         onDeleteNote={(nid) => deleteTrainingNote(selectedEvent.id, nid)}
@@ -70,15 +82,24 @@ export const TrainingView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header med "Start trening" knapp */}
       <div className="flex-shrink-0 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-black text-slate-100">🏃 Trening</h2>
-            <p className="text-[10px] text-[#4a6080] mt-0.5">
-              {isCoach ? 'Alle treninger — marker fremmøte og legg til øvelser'
-                       : 'Dine treninger og individuell plan'}
-            </p>
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="mr-1 px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[11px] font-semibold hover:bg-sky-500/25 transition"
+              >
+                ‹ Tilbake til kalender
+              </button>
+            )}
+            <div>
+              <h2 className="text-sm font-black text-slate-100">🏃 Trening</h2>
+              <p className="text-[10px] text-[#4a6080] mt-0.5">
+                {isCoach ? 'Alle treninger — marker fremmøte og legg til øvelser'
+                         : 'Dine treninger og individuell plan'}
+              </p>
+            </div>
           </div>
           {isCoach && (
             <button
@@ -92,12 +113,11 @@ export const TrainingView: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex-shrink-0 flex border-b border-[#1e3050] bg-[#0c1525]">
         {([
           ['upcoming', `📅 Kommende (${upcoming.length})`],
           ['history',  `📋 Historikk (${past.length})`],
-          ['individual','🎯 Individuell'],
+          ['individual', '🎯 Individuell'],
         ] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex-1 py-3 text-[10.5px] font-semibold transition-all min-h-[44px] leading-tight px-1
@@ -109,7 +129,6 @@ export const TrainingView: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto p-4">
 
-        {/* ── KOMMENDE ── */}
         {tab === 'upcoming' && (
           <div className="space-y-3 max-w-2xl mx-auto">
             {upcoming.length === 0 && (
@@ -117,11 +136,9 @@ export const TrainingView: React.FC = () => {
                 <div className="text-3xl mb-2">📅</div>
                 <p className="text-[12px] text-[#4a6080]">Ingen kommende treninger.</p>
                 {isCoach && (
-                  <button
-                    onClick={() => setShowNewTraining(true)}
+                  <button onClick={() => setShowNewTraining(true)}
                     className="mt-4 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
-                      text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25 transition"
-                  >
+                      text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25 transition">
                     ✨ Start ny trening
                   </button>
                 )}
@@ -135,7 +152,6 @@ export const TrainingView: React.FC = () => {
           </div>
         )}
 
-        {/* ── HISTORIKK ── */}
         {tab === 'history' && (
           <div className="space-y-3 max-w-2xl mx-auto">
             {past.length === 0 && (
@@ -152,7 +168,6 @@ export const TrainingView: React.FC = () => {
           </div>
         )}
 
-        {/* ── INDIVIDUELL ── */}
         {tab === 'individual' && (
           <div className="max-w-2xl mx-auto">
             {isCoach ? (
@@ -180,44 +195,34 @@ const NewTrainingForm: React.FC<{
   playerAccounts: any[];
 }> = ({ onSave, onCancel, sport, ageGroup, playerAccounts }) => {
   const today = new Date().toISOString().slice(0, 10);
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(today);
-  const [time, setTime] = useState('18:00');
+  const [title, setTitle]       = useState('');
+  const [date, setDate]         = useState(today);
+  const [time, setTime]         = useState('18:00');
   const [location, setLocation] = useState('');
   const [teamNote, setTeamNote] = useState('');
   const [focusTags, setFocusTags] = useState<string[]>([]);
   const [selectedDrills, setSelectedDrills] = useState<DrillExercise[]>([]);
   const [showDrillPicker, setShowDrillPicker] = useState(false);
-  const [drillSearch, setDrillSearch] = useState('');
-  const [drillCategory, setDrillCategory] = useState<string>('alle');
+  const [drillSearch, setDrillSearch]         = useState('');
+  const [drillCategory, setDrillCategory]     = useState<string>('alle');
   const [drillDifficulty, setDrillDifficulty] = useState<string>('alle');
   const [saving, setSaving] = useState(false);
 
   const allDrills = getDrillsBySport(toDrillSport(sport));
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(allDrills.map(d => d.category)));
-    return cats;
+    return Array.from(new Set(allDrills.map(d => d.category)));
   }, [allDrills]);
 
   const filteredDrills = useMemo(() => {
     let drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
-    
-    if (drillCategory !== 'alle') {
-      drills = drills.filter(d => d.category === drillCategory);
-    }
-    
-    if (drillDifficulty !== 'alle') {
-      drills = drills.filter(d => d.difficulty === drillDifficulty);
-    }
-    
+    if (drillCategory !== 'alle') drills = drills.filter(d => d.category === drillCategory);
+    if (drillDifficulty !== 'alle') drills = drills.filter(d => d.difficulty === drillDifficulty);
     if (drillSearch.trim()) {
       const q = drillSearch.toLowerCase();
-      drills = drills.filter(d => 
-        d.name.toLowerCase().includes(q) || 
-        d.description.toLowerCase().includes(q)
+      drills = drills.filter(d =>
+        d.name.toLowerCase().includes(q) || d.description.toLowerCase().includes(q)
       );
     }
-    
     return drills;
   }, [allDrills, ageGroup, drillCategory, drillDifficulty, drillSearch]);
 
@@ -233,17 +238,13 @@ const NewTrainingForm: React.FC<{
   };
 
   const save = () => {
-    if (!title.trim()) {
-      alert('Fyll inn tittel');
-      return;
-    }
-    
+    if (!title.trim()) { alert('Fyll inn tittel'); return; }
     setSaving(true);
-    
-    const drillNotes = selectedDrills.map(d => 
+
+    const drillNotes = selectedDrills.map(d =>
       `\n📋 ${d.name}\n${d.description}\nVarighet: ${d.duration} min`
     ).join('');
-    
+
     const focusNote = focusTags.length > 0 ? `Fokus: ${focusTags.join(', ')}` : '';
 
     const trainingNotes = selectedDrills.map(drill => ({
@@ -269,13 +270,13 @@ const NewTrainingForm: React.FC<{
       trainingNotes,
       matchNotes: [],
     });
-    
+
     setSaving(false);
   };
 
   const FOCUS_OPTIONS = [
-    'Pasningsspill','Pressing','Forsvarsstilling','Avslutning','Kontrapress',
-    'Innlegg','Dødball','Keepertrening','Kondisjon','Styrke','Taktikk','Individuell teknikk',
+    'Pasningsspill', 'Pressing', 'Forsvarsstilling', 'Avslutning', 'Kontrapress',
+    'Innlegg', 'Dødball', 'Keepertrening', 'Kondisjon', 'Styrke', 'Taktikk', 'Individuell teknikk',
   ];
 
   return (
@@ -288,15 +289,11 @@ const NewTrainingForm: React.FC<{
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
-
         <div>
           <label className="label-cal">Tittel *</label>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
+          <input value={title} onChange={e => setTitle(e.target.value)}
             placeholder="F.eks. Teknikktrening, 4-3-3 trening..."
-            className="inp-cal"
-          />
+            className="inp-cal" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -312,29 +309,22 @@ const NewTrainingForm: React.FC<{
 
         <div>
           <label className="label-cal">Sted</label>
-          <input
-            value={location}
-            onChange={e => setLocation(e.target.value)}
-            placeholder="Stadion / hall"
-            className="inp-cal"
-          />
+          <input value={location} onChange={e => setLocation(e.target.value)}
+            placeholder="Stadion / hall" className="inp-cal" />
         </div>
 
         <div>
           <label className="label-cal">Fokusområder (valgfritt)</label>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {FOCUS_OPTIONS.slice(0, 8).map(f => (
-              <button
-                key={f}
-                type="button"
+              <button key={f} type="button"
                 onClick={() => setFocusTags(prev =>
                   prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
                 )}
                 className={`px-2.5 py-1 rounded-full text-[10.5px] font-semibold border transition-all
                   ${focusTags.includes(f)
                     ? 'border-sky-500/60 bg-sky-500/15 text-sky-400'
-                    : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}
-              >
+                    : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
                 {f}
               </button>
             ))}
@@ -343,7 +333,7 @@ const NewTrainingForm: React.FC<{
 
         <div>
           <label className="label-cal">Øvelser fra biblioteket (velg flere)</label>
-          
+
           {selectedDrills.length > 0 && (
             <div className="mb-2 space-y-1 max-h-32 overflow-y-auto">
               {selectedDrills.map(drill => (
@@ -352,38 +342,25 @@ const NewTrainingForm: React.FC<{
                     <div className="text-[11px] font-semibold text-slate-200">{drill.name}</div>
                     <div className="text-[9px] text-[#4a6080]">{drill.duration} min · {drill.players} spillere · {drill.difficulty}</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeDrill(drill.id)}
-                    className="text-red-400/70 hover:text-red-400 text-[11px] px-2"
-                  >
-                    ✕
-                  </button>
+                  <button type="button" onClick={() => removeDrill(drill.id)}
+                    className="text-red-400/70 hover:text-red-400 text-[11px] px-2">✕</button>
                 </div>
               ))}
             </div>
           )}
-          
-          <button
-            type="button"
-            onClick={() => setShowDrillPicker(!showDrillPicker)}
-            className="w-full mt-1 py-2 px-3 rounded-lg border border-[#1e3050] text-left text-[12px] text-[#4a6080] hover:border-sky-500/50 hover:text-slate-300 transition-all flex items-center justify-between"
-          >
+
+          <button type="button" onClick={() => setShowDrillPicker(!showDrillPicker)}
+            className="w-full mt-1 py-2 px-3 rounded-lg border border-[#1e3050] text-left text-[12px] text-[#4a6080] hover:border-sky-500/50 hover:text-slate-300 transition-all flex items-center justify-between">
             <span>{selectedDrills.length > 0 ? `+ Legg til flere øvelser (${selectedDrills.length} valgt)` : '– Velg øvelser –'}</span>
             <span>{showDrillPicker ? '▲' : '▼'}</span>
           </button>
-          
+
           {showDrillPicker && (
             <div className="mt-2 bg-[#0c1525] border border-[#1e3050] rounded-xl overflow-hidden">
               <div className="p-2 border-b border-[#1e3050] space-y-2">
-                <input
-                  type="text"
-                  placeholder="🔍 Søk etter øvelse..."
-                  value={drillSearch}
-                  onChange={e => setDrillSearch(e.target.value)}
-                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500"
-                />
-                
+                <input type="text" placeholder="🔍 Søk etter øvelse..."
+                  value={drillSearch} onChange={e => setDrillSearch(e.target.value)}
+                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500" />
                 <div className="flex flex-wrap gap-1">
                   <button onClick={() => setDrillCategory('alle')}
                     className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
@@ -398,7 +375,6 @@ const NewTrainingForm: React.FC<{
                     </button>
                   ))}
                 </div>
-                
                 <div className="flex flex-wrap gap-1">
                   <button onClick={() => setDrillDifficulty('alle')}
                     className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
@@ -408,53 +384,35 @@ const NewTrainingForm: React.FC<{
                   {['enkel', 'middels', 'avansert'].map(level => (
                     <button key={level} onClick={() => setDrillDifficulty(level)}
                       className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
-                        ${drillDifficulty === level ? 
-                          (level === 'enkel' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                           level === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                           'bg-red-500/20 text-red-400 border border-red-500/30') : 
-                          'text-[#4a6080] hover:text-slate-300'}`}>
+                        ${drillDifficulty === level
+                          ? level === 'enkel' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : level === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'text-[#4a6080] hover:text-slate-300'}`}>
                       {level === 'enkel' ? '⭐ Enkel' : level === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
                     </button>
                   ))}
                 </div>
-                
-                <div className="text-[9px] text-[#4a6080] text-right">
-                  {filteredDrills.length} øvelser
-                </div>
+                <div className="text-[9px] text-[#4a6080] text-right">{filteredDrills.length} øvelser</div>
               </div>
-              
               <div className="max-h-64 overflow-y-auto">
                 {filteredDrills.length === 0 ? (
-                  <div className="text-center py-8 text-[#4a6080] text-[11px]">
-                    Ingen øvelser funnet
-                  </div>
+                  <div className="text-center py-8 text-[#4a6080] text-[11px]">Ingen øvelser funnet</div>
                 ) : (
                   filteredDrills.map(drill => {
                     const isSelected = selectedDrills.some(sd => sd.id === drill.id);
                     return (
-                      <button
-                        key={drill.id}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            removeDrill(drill.id);
-                          } else {
-                            addDrill(drill);
-                          }
-                        }}
+                      <button key={drill.id} type="button"
+                        onClick={() => isSelected ? removeDrill(drill.id) : addDrill(drill)}
                         className={`w-full text-left px-3 py-2.5 text-[11.5px] hover:bg-[#111c30] border-b border-[#1e3050]/50 transition-all
-                          ${isSelected ? 'text-sky-400 bg-sky-500/10' : 'text-slate-300'}`}
-                      >
+                          ${isSelected ? 'text-sky-400 bg-sky-500/10' : 'text-slate-300'}`}>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px]">{isSelected ? '✓' : '○'}</span>
                           <div className="flex-1">
                             <div className="font-semibold">{drill.name}</div>
                             <div className="text-[10px] text-[#4a6080]">
-                              {CATEGORY_LABELS[drill.category]} · {drill.duration} min · {drill.players} spillere · 
-                              <span className={
-                                drill.difficulty === 'enkel' ? 'text-emerald-400' : 
-                                drill.difficulty === 'middels' ? 'text-yellow-400' : 'text-red-400'
-                              }> {drill.difficulty}</span>
+                              {CATEGORY_LABELS[drill.category]} · {drill.duration} min · {drill.players} spillere ·
+                              <span className={drill.difficulty === 'enkel' ? 'text-emerald-400' : drill.difficulty === 'middels' ? 'text-yellow-400' : 'text-red-400'}> {drill.difficulty}</span>
                             </div>
                           </div>
                         </div>
@@ -469,30 +427,19 @@ const NewTrainingForm: React.FC<{
 
         <div>
           <label className="label-cal">Beskrivelse / notat</label>
-          <textarea
-            value={teamNote}
-            onChange={e => setTeamNote(e.target.value)}
-            rows={3}
-            placeholder="Mål for økten, beskjeder til spillerne..."
+          <textarea value={teamNote} onChange={e => setTeamNote(e.target.value)}
+            rows={3} placeholder="Mål for økten, beskjeder til spillerne..."
             className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5
-              text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed"
-          />
+              text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
         </div>
 
         <div className="flex gap-2 pt-2">
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || !title.trim()}
-            className="flex-1 py-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 disabled:opacity-40 transition min-h-[48px]"
-          >
+          <button type="button" onClick={save} disabled={saving || !title.trim()}
+            className="flex-1 py-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 disabled:opacity-40 transition min-h-[48px]">
             {saving ? 'Oppretter...' : '✨ Opprett trening'}
           </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-3 rounded-xl border border-[#1e3050] text-[#4a6080] font-bold text-[13px] hover:text-slate-300 transition min-h-[48px]"
-          >
+          <button type="button" onClick={onCancel}
+            className="px-4 py-3 rounded-xl border border-[#1e3050] text-[#4a6080] font-bold text-[13px] hover:text-slate-300 transition min-h-[48px]">
             Avbryt
           </button>
         </div>
@@ -541,9 +488,7 @@ const TrainingCard: React.FC<{
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           {isCoach && attendeeCount > 0 && (
-            <div className="text-[9.5px] text-emerald-400 font-bold">
-              ✅ {attendeeCount} møtte
-            </div>
+            <div className="text-[9.5px] text-emerald-400 font-bold">✅ {attendeeCount} møtte</div>
           )}
           {!isCoach && iAttended && (
             <div className="text-[9.5px] text-emerald-400 font-bold">✅ Du møtte</div>
@@ -555,7 +500,7 @@ const TrainingCard: React.FC<{
   );
 };
 
-// ═══ STOPPEKLOKKE-KOMPONENT ═══════════════════════════════════
+// ═══ STOPPEKLOKKE ═════════════════════════════════════════════
 
 const Stopwatch: React.FC<{
   duration: number;
@@ -590,26 +535,18 @@ const Stopwatch: React.FC<{
   return (
     <div className="bg-[#0c1525] rounded-xl p-4 border border-[#1e3050]">
       <div className="text-center">
-        <div className="text-4xl font-mono font-bold text-slate-200 mb-2">
-          {formatTime(timeLeft)}
-        </div>
+        <div className="text-4xl font-mono font-bold text-slate-200 mb-2">{formatTime(timeLeft)}</div>
         <div className="w-full bg-[#1e3050] rounded-full h-2 mb-4">
-          <div 
-            className="bg-emerald-500 h-2 rounded-full transition-all duration-1000"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="bg-emerald-500 h-2 rounded-full transition-all duration-1000"
+            style={{ width: `${progress}%` }} />
         </div>
         <div className="flex gap-2 justify-center">
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            className="px-4 py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm font-semibold"
-          >
+          <button onClick={() => setIsPaused(!isPaused)}
+            className="px-4 py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm font-semibold">
             {isPaused ? '▶ Fortsett' : '⏸ Pause'}
           </button>
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-semibold"
-          >
+          <button onClick={onCancel}
+            className="px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-sm font-semibold">
             ⏹ Avbryt
           </button>
         </div>
@@ -618,7 +555,7 @@ const Stopwatch: React.FC<{
   );
 };
 
-// ═══ TRAINING DETAIL med stoppeklokke ═══════════════════════════
+// ═══ TRAINING DETAIL ══════════════════════════════════════════
 
 const TrainingDetail: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
@@ -629,10 +566,10 @@ const TrainingDetail: React.FC<{
   onDeleteNote: (nid: string) => void;
 }> = ({ event, isCoach, myPlayerId, playerAccounts, sport, onBack, onUpdate, onAddNote, onDeleteNote }) => {
   const [showAttendance, setShowAttendance] = useState(false);
-  const [showAddNote, setShowAddNote] = useState(false);
-  const [noteTitle, setNoteTitle] = useState('');
-  const [noteContent, setNoteContent] = useState('');
-  const [selectedDrill, setSelectedDrill] = useState<DrillExercise | null>(null);
+  const [showAddNote, setShowAddNote]       = useState(false);
+  const [noteTitle, setNoteTitle]           = useState('');
+  const [noteContent, setNoteContent]       = useState('');
+  const [selectedDrill, setSelectedDrill]   = useState<DrillExercise | null>(null);
   const [showDrillPicker, setShowDrillPicker] = useState(false);
   const [activeStopwatch, setActiveStopwatch] = useState<string | null>(null);
   const [completedDrills, setCompletedDrills] = useState<Set<string>>(new Set());
@@ -686,8 +623,6 @@ const TrainingDetail: React.FC<{
   const handleCompleteDrill = (noteId: string) => {
     setCompletedDrills(prev => new Set(prev).add(noteId));
     setActiveStopwatch(null);
-    
-    // Oppdater notatet som fullført i store
     const updatedNotes = event.trainingNotes?.map((tn: any) =>
       tn.id === noteId ? { ...tn, completed: true } : tn
     );
@@ -695,7 +630,9 @@ const TrainingDetail: React.FC<{
   };
 
   const myNotes = myPlayerId
-    ? event.trainingNotes?.filter((tn: any) => tn.targetPlayerIds?.includes(myPlayerId) || tn.targetPlayerIds?.length === 0)
+    ? event.trainingNotes?.filter((tn: any) =>
+        tn.targetPlayerIds?.includes(myPlayerId) || tn.targetPlayerIds?.length === 0
+      )
     : event.trainingNotes ?? [];
 
   return (
@@ -713,7 +650,6 @@ const TrainingDetail: React.FC<{
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
 
-        {/* Aktiv stoppeklokke */}
         {activeStopwatch && (
           <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
             <div className="text-[11px] font-bold text-emerald-400 mb-2">⏱ Pågående øvelse</div>
@@ -737,7 +673,7 @@ const TrainingDetail: React.FC<{
             <p className="text-[12.5px] text-slate-300 leading-relaxed whitespace-pre-wrap">{event.teamNote}</p>
           </div>
         )}
-        
+
         {isCoach && (
           <div>
             <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Generelt notat</div>
@@ -841,8 +777,8 @@ const TrainingDetail: React.FC<{
             ?.filter((tn: any) => tn.title !== '✅ Fremmøte')
             .map((tn: any) => {
               const isCompleted = completedDrills.has(tn.id) || tn.completed;
-              const hasTimer = tn.duration && tn.duration > 0;
-              
+              const hasTimer    = tn.duration && tn.duration > 0;
+
               return (
                 <div key={tn.id} className={`bg-[#0f1a2a] border rounded-xl p-4 mb-2 transition-all
                   ${isCompleted ? 'border-emerald-500/30 opacity-70' : 'border-[#1e3050]'}`}>
@@ -868,32 +804,23 @@ const TrainingDetail: React.FC<{
                     )}
                   </div>
                   <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap mb-3">{tn.content}</p>
-                  
-                  {/* Stoppeklokke-knapp for spillere */}
+
                   {!isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
-                    <button
-                      onClick={() => setActiveStopwatch(tn.id)}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
-                    >
+                    <button onClick={() => setActiveStopwatch(tn.id)}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1">
                       ⏱ Start øvelse ({tn.duration} min)
                     </button>
                   )}
-                  
-                  {/* Fullfør-knapp for trener */}
+
                   {isCoach && !isCompleted && (
-                    <button
-                      onClick={() => handleCompleteDrill(tn.id)}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
-                    >
+                    <button onClick={() => handleCompleteDrill(tn.id)}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1">
                       ✅ Marker som fullført
                     </button>
                   )}
-                  
-                  {/* Vis at øvelsen pågår */}
+
                   {!isCoach && activeStopwatch === tn.id && (
-                    <div className="mt-2 text-[10px] text-amber-400">
-                      ⏱ Øvelse pågår...
-                    </div>
+                    <div className="mt-2 text-[10px] text-amber-400">⏱ Øvelse pågår...</div>
                   )}
                 </div>
               );
@@ -915,8 +842,8 @@ const CoachIndividualPanel: React.FC<{
   onUpdate: (id: string, note: string) => void;
 }> = ({ playerAccounts, onUpdate }) => {
   const [selected, setSelected] = useState<string | null>(null);
-  const [note, setNote] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [note, setNote]         = useState('');
+  const [saved, setSaved]       = useState(false);
 
   const acc = playerAccounts.find((a: any) => a.id === selected);
 
@@ -931,11 +858,7 @@ const CoachIndividualPanel: React.FC<{
         <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Velg spiller</div>
         <div className="grid grid-cols-2 gap-2 mb-4">
           {playerAccounts.map((a: any) => (
-            <button key={a.id} onClick={() => {
-              setSelected(a.id);
-              setNote(a.individualTrainingNote ?? '');
-              setSaved(false);
-            }}
+            <button key={a.id} onClick={() => { setSelected(a.id); setNote(a.individualTrainingNote ?? ''); setSaved(false); }}
               className={`p-2.5 rounded-xl border text-left transition-all
                 ${selected === a.id
                   ? 'bg-sky-500/10 border-sky-500/40 text-sky-300'

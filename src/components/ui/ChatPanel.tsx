@@ -26,7 +26,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const lastMessageIdRef = useRef<string | null>(null);
 
   const { playerAccounts, phases, activePhaseIdx } = useAppStore();
-  const { sendNotification, permission, requestPermission } = useNotification();
+  const { sendNotification, permission, requestPermission, markMessagesAsRead, hasUnreadMessages } = useNotification();
 
   const phase = phases[activePhaseIdx];
   const allPlayers = phase?.players?.filter(p => p.team === 'home') ?? [];
@@ -41,9 +41,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     return player?.specialRoles?.includes('captain') ?? false;
   })();
 
+  // Scroll to bottom når nye meldinger kommer
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages.length]);
+
+  // Marker meldinger som lest når chat-panelet er synlig
+  useEffect(() => {
+    if (hasUnreadMessages) {
+      markMessagesAsRead();
+    }
+  }, [hasUnreadMessages, markMessagesAsRead]);
 
   // LYTT TIL NYE MELDINGER FOR NOTIFIKASJONER
   useEffect(() => {
@@ -66,7 +74,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       sendNotification(`Ny melding fra ${fromName}`, {
         body: latestMsg.content.slice(0, 100),
         tag: 'chat-message',
-        data: { type: 'chat', messageId: latestMsg.id },
       });
     }
   }, [chatMessages, currentUser, coachView, permission, sendNotification]);
@@ -128,7 +135,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 setTargetPlayer(null);
                 setShowPlayerSelector(false);
               }}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all min-h-[36px]
                 ${sendToAll
                   ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
                   : 'bg-[#111c30] text-[#4a6080] border border-[#1e3050] hover:text-slate-300'}`}
@@ -140,7 +147,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 setSendToAll(false);
                 setShowPlayerSelector(!showPlayerSelector);
               }}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all min-h-[36px]
                 ${!sendToAll || showPlayerSelector
                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   : 'bg-[#111c30] text-[#4a6080] border border-[#1e3050] hover:text-slate-300'}`}
@@ -163,7 +170,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       setTargetPlayer(player.playerId);
                       setShowPlayerSelector(false);
                     }}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all min-h-[32px]
                       ${targetPlayer === player.playerId
                         ? 'bg-amber-500/20 border-amber-500 text-amber-400'
                         : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}
@@ -189,7 +196,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <div className="flex-shrink-0 p-2 bg-amber-500/10 border-b border-amber-500/20">
           <button
             onClick={handleRequestPermission}
-            className="w-full py-1.5 rounded-lg text-[10px] font-semibold text-amber-400 hover:bg-amber-500/20 transition"
+            className="w-full py-1.5 rounded-lg text-[10px] font-semibold text-amber-400 hover:bg-amber-500/20 transition min-h-[36px]"
           >
             🔔 Aktiver varsler for nye meldinger
           </button>

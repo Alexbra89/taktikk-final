@@ -7,6 +7,9 @@ import { ReadOnlyTacticBoard } from '@/components/player-portal/PlayerHome';
 import { TrainingView } from '@/components/ui/TrainingView';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { ChatPanel } from '@/components/ui/ChatPanel';
+import { StatsView } from '@/components/ui/StatsView';
+import { useNotification } from '@/components/NotificationProvider';
+import { CalendarEvent } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────
 const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
@@ -23,12 +26,24 @@ export const PlayerPortal: React.FC = () => {
   } = useAppStore();
 
   const [replyText, setReplyText] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar' | 'training'>('tactics');
+  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar' | 'training' | 'stats'>('tactics');
   const [chatInput, setChatInput] = useState('');
+  const [selectedTraining, setSelectedTraining] = useState<CalendarEvent | null>(null);
+
+  const { markMessagesAsRead, hasUnreadMessages, unreadCount } = useNotification();
 
   const isCoach  = currentUser?.role === 'coach';
   const playerId = currentUser?.playerId;
   const phase = phases[activePhaseIdx] ?? phases[0] ?? null;
+
+  // Marker meldinger som lest når man åpner chat eller messages
+  useEffect(() => {
+    if (tab === 'chat' || tab === 'messages') {
+      if (hasUnreadMessages) {
+        markMessagesAsRead();
+      }
+    }
+  }, [tab, hasUnreadMessages, markMessagesAsRead]);
 
   // Sjekk om currentUser er kaptein
   const isCurrentUserCaptain = (() => {
@@ -40,15 +55,29 @@ export const PlayerPortal: React.FC = () => {
     return player?.specialRoles?.includes('captain') ?? false;
   })();
 
-  const tabs = [
+  // Tabs for trener og spiller
+  const coachTabs = [
     { id: 'tactics',  label: '📋 Taktikk' },
     { id: 'squad',    label: '👥 Tropp' },
     { id: 'calendar', label: '📅 Kalender' },
     { id: 'training', label: '🏃 Trening' },
+    { id: 'stats',    label: '📊 Statistikk' },
     { id: 'messages', label: '💬 Meldinger' },
     { id: 'chat',     label: '🗨️ Chat' },
-    ...(isCoach ? [{ id: 'accounts', label: '⚙️ Kontoer' }] : []),
+    { id: 'accounts', label: '⚙️ Kontoer' },
   ];
+
+  const playerTabs = [
+    { id: 'tactics',  label: '📋 Taktikk' },
+    { id: 'squad',    label: '👥 Tropp' },
+    { id: 'calendar', label: '📅 Kalender' },
+    { id: 'training', label: '🏃 Trening' },
+    { id: 'stats',    label: '📊 Statistikk' },
+    { id: 'messages', label: '💬 Meldinger' },
+    { id: 'chat',     label: '🗨️ Chat' },
+  ];
+
+  const tabs = isCoach ? coachTabs : playerTabs;
 
   const myMessages = (coachMessages as any[]).filter((m: any) =>
     isCoach ? true : m.playerId === playerId
@@ -62,7 +91,7 @@ export const PlayerPortal: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#060c18]">
-      {/* Header */}
+      {/* Header med badge for uleste meldinger */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050] flex-shrink-0">
         <div className="text-2xl">{isCoach ? '🏋️' : '👤'}</div>
         <div>
@@ -72,21 +101,32 @@ export const PlayerPortal: React.FC = () => {
           </div>
         </div>
         <div className="flex-1" />
+        {/* Badge for uleste meldinger */}
+        {hasUnreadMessages && unreadCount > 0 && (
+          <div className="relative">
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-[10px] text-red-400 font-bold mr-1">{unreadCount}</span>
+          </div>
+        )}
         <button onClick={logout}
           className="text-[11px] text-[#4a6080] hover:text-red-400 transition px-2 min-h-[44px]">
           Logg ut
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs med badge på chat */}
       <div className="flex border-b border-[#1e3050] bg-[#0c1525] overflow-x-auto flex-shrink-0">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
-            className={`px-4 py-3 text-[12px] font-semibold whitespace-nowrap transition-all min-h-[44px]
+            className={`relative px-4 py-3 text-[12px] font-semibold whitespace-nowrap transition-all min-h-[44px]
               ${tab === t.id
                 ? 'text-sky-400 border-b-2 border-sky-400'
                 : 'text-[#3a5070] hover:text-slate-400'}`}>
             {t.label}
+            {/* Badge for uleste meldinger på chat-tabben */}
+            {hasUnreadMessages && (t.id === 'chat' || t.id === 'messages') && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            )}
           </button>
         ))}
       </div>
@@ -141,10 +181,26 @@ export const PlayerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* KALENDER - FULL KALENDER FOR BÅDE TRENER OG SPILLERE */}
+        {/* KALENDER - FULL KALENDER MED NAVIGASJON TIL TRENING */}
         {tab === 'calendar' && (
           <div className="flex-1 min-h-0 overflow-hidden">
-            <CalendarView />
+            {selectedTraining ? (
+              <TrainingView 
+                initialTraining={selectedTraining} 
+                onBack={() => setSelectedTraining(null)} 
+              />
+            ) : (
+              <CalendarView 
+                onGoToTraining={(training) => setSelectedTraining(training)} 
+              />
+            )}
+          </div>
+        )}
+
+        {/* STATISTIKK - LESETILGANG FOR SPILLERE, FULL TILGANG FOR TRENER */}
+        {tab === 'stats' && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <StatsView />
           </div>
         )}
 

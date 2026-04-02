@@ -6,6 +6,9 @@ interface NotificationContextType {
   permission: NotificationPermission;
   requestPermission: () => void;
   sendNotification: (title: string, options?: NotificationOptions) => void;
+  markMessagesAsRead: () => void;
+  unreadCount: number;
+  hasUnreadMessages: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -39,8 +42,11 @@ const playBeep = () => {
 export default function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [hasShownPrompt, setHasShownPrompt] = useState(false);
+  const [unreadMessageIds, setUnreadMessageIds] = useState<Set<string>>(new Set());
   const lastMessageIdRef = useRef<string | null>(null);
   const lastCoachMessageIdRef = useRef<string | null>(null);
+  const lastChatCountRef = useRef<number>(0);
+  const lastCoachCountRef = useRef<number>(0);
 
   const { chatMessages, coachMessages, currentUser, events } = useAppStore();
   const isCoach = currentUser?.role === 'coach';
@@ -87,6 +93,13 @@ export default function NotificationProvider({ children }: { children: React.Rea
     };
   };
 
+  // Marker alle meldinger som lest
+  const markMessagesAsRead = () => {
+    if (unreadMessageIds.size > 0) {
+      setUnreadMessageIds(new Set());
+    }
+  };
+
   // Lytt til nye chat-meldinger
   useEffect(() => {
     if (permission !== 'granted') return;
@@ -95,21 +108,29 @@ export default function NotificationProvider({ children }: { children: React.Rea
     if (!latestMessage) return;
     
     const isNewMessage = lastMessageIdRef.current !== latestMessage.id;
+    const isNewChat = chatMessages.length !== lastChatCountRef.current;
     
-    if (isNewMessage && latestMessage.id) {
+    if ((isNewMessage || isNewChat) && latestMessage.id) {
       lastMessageIdRef.current = latestMessage.id;
+      lastChatCountRef.current = chatMessages.length;
       
       const isFromMe = latestMessage.fromName === currentUser?.name;
       const isForMe = !latestMessage.toPlayerId || 
                       latestMessage.toPlayerId === myPlayerId ||
                       (isCoach && latestMessage.fromRole === 'player');
       
-      if (!isFromMe && isForMe && document.hidden) {
-        const fromName = latestMessage.fromRole === 'coach' ? '🏋️ Trener' : `👤 ${latestMessage.fromName}`;
-        sendNotification(`Ny melding fra ${fromName}`, {
-          body: latestMessage.content.slice(0, 100),
-          tag: 'chat-message',
-        });
+      // Legg til i uleste hvis meldingen er til meg og ikke fra meg
+      if (!isFromMe && isForMe) {
+        setUnreadMessageIds(prev => new Set(prev).add(latestMessage.id));
+        
+        // Send notifikasjon kun hvis vinduet er i bakgrunnen
+        if (document.hidden) {
+          const fromName = latestMessage.fromRole === 'coach' ? '🏋️ Trener' : `👤 ${latestMessage.fromName}`;
+          sendNotification(`Ny melding fra ${fromName}`, {
+            body: latestMessage.content.slice(0, 100),
+            tag: 'chat-message',
+          });
+        }
       }
     }
   }, [chatMessages, permission, currentUser, myPlayerId, isCoach]);
@@ -123,9 +144,13 @@ export default function NotificationProvider({ children }: { children: React.Rea
     
     const isForMe = latestMessage.playerId === myPlayerId;
     const isNew = lastCoachMessageIdRef.current !== latestMessage.id;
+    const isNewCoach = coachMessages.length !== lastCoachCountRef.current;
     
-    if (isForMe && isNew && latestMessage.id) {
+    if ((isNew || isNewCoach) && isForMe && latestMessage.id) {
       lastCoachMessageIdRef.current = latestMessage.id;
+      lastCoachCountRef.current = coachMessages.length;
+      
+      setUnreadMessageIds(prev => new Set(prev).add(latestMessage.id));
       
       if (document.hidden) {
         sendNotification('📬 Ny melding fra trener', {
@@ -184,8 +209,17 @@ export default function NotificationProvider({ children }: { children: React.Rea
     }
   }, [hasShownPrompt, permission]);
 
+  const hasUnreadMessages = unreadMessageIds.size > 0;
+
   return (
-    <NotificationContext.Provider value={{ permission, requestPermission, sendNotification }}>
+    <NotificationContext.Provider value={{ 
+      permission, 
+      requestPermission, 
+      sendNotification,
+      markMessagesAsRead,
+      unreadCount: unreadMessageIds.size,
+      hasUnreadMessages,
+    }}>
       {children}
     </NotificationContext.Provider>
   );

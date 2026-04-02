@@ -1,257 +1,270 @@
-import { Sport, Player, TacticPhase } from '../types';
+// src/data/formations.ts
 
 export const VW = 880;
 export const VH = 560;
 
-function p(
-  id: string, num: number, name: string,
-  role: Player['role'], x: number, y: number,
-  team: 'home' | 'away'
-): Player {
-  return { id, num, name, role, position: { x, y }, team, notes: '' };
-}
-
-// ─── FOTBALL 11er - ULIKE FORMASJONER ─────────────────────────
-
-// 4-3-3 (standard)
-const FOOTBALL_433_HOME: Player[] = [
-  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
-  p('h3',  3,  'Midtback',    'defender',   185, 218, 'home'),
-  p('h4',  4,  'Midtback',    'defender',   185, 342, 'home'),
-  p('h5',  5,  'Venstreback', 'defender',   185, 442, 'home'),
-  p('h6',  6,  'Def. midtb.', 'midfielder', 288, 280, 'home'),
-  p('h7',  7,  'Midtbane H',  'midfielder', 305, 175, 'home'),
-  p('h8',  8,  'Midtbane V',  'midfielder', 305, 385, 'home'),
-  p('h9',  9,  'Spiss',       'forward',    400, 280, 'home'),
-  p('h10', 10, 'Høyrekant',   'winger',     385, 148, 'home'),
-  p('h11', 11, 'Venstrekant', 'winger',     385, 412, 'home'),
-];
-
-// 4-4-2
-const FOOTBALL_442_HOME: Player[] = [
-  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
-  p('h3',  3,  'Midtback',    'defender',   185, 218, 'home'),
-  p('h4',  4,  'Midtback',    'defender',   185, 342, 'home'),
-  p('h5',  5,  'Venstreback', 'defender',   185, 442, 'home'),
-  p('h6',  6,  'Høyre midt',  'midfielder', 288, 175, 'home'),
-  p('h7',  7,  'Sentral midt', 'midfielder', 288, 280, 'home'),
-  p('h8',  8,  'Sentral midt', 'midfielder', 288, 385, 'home'),
-  p('h9',  9,  'Venstre midt', 'midfielder', 305, 490, 'home'),
-  p('h10', 10, 'Spiss',       'forward',    400, 218, 'home'),
-  p('h11', 11, 'Spiss',       'forward',    400, 342, 'home'),
-];
-
-// 3-5-2
-const FOOTBALL_352_HOME: Player[] = [
-  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2',  2,  'Midtstopper', 'defender',   185, 148, 'home'),
-  p('h3',  3,  'Midtstopper', 'defender',   185, 280, 'home'),
-  p('h4',  4,  'Midtstopper', 'defender',   185, 412, 'home'),
-  p('h5',  5,  'Vingback V',  'wingback',   268, 442, 'home'),
-  p('h6',  6,  'Vingback H',  'wingback',   268, 118, 'home'),
-  p('h7',  7,  'Sentral midt', 'midfielder', 345, 215, 'home'),
-  p('h8',  8,  'Sentral midt', 'midfielder', 345, 345, 'home'),
-  p('h9',  9,  'Playmaker',   'playmaker',  345, 280, 'home'),
-  p('h10', 10, 'Spiss',       'forward',    450, 218, 'home'),
-  p('h11', 11, 'Spiss',       'forward',    450, 342, 'home'),
-];
-
-// 5-3-2
-const FOOTBALL_532_HOME: Player[] = [
-  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
-  p('h3',  3,  'Midtstopper', 'defender',   185, 215, 'home'),
-  p('h4',  4,  'Midtstopper', 'defender',   185, 280, 'home'),
-  p('h5',  5,  'Midtstopper', 'defender',   185, 345, 'home'),
-  p('h6',  6,  'Venstreback', 'defender',   185, 442, 'home'),
-  p('h7',  7,  'Sentral midt', 'midfielder', 305, 215, 'home'),
-  p('h8',  8,  'Sentral midt', 'midfielder', 305, 345, 'home'),
-  p('h9',  9,  'Playmaker',   'playmaker',  325, 280, 'home'),
-  p('h10', 10, 'Spiss',       'forward',    420, 218, 'home'),
-  p('h11', 11, 'Spiss',       'forward',    420, 342, 'home'),
-];
-
-// 4-2-3-1
-const FOOTBALL_4231_HOME: Player[] = [
-  p('h1',  1,  'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2',  2,  'Høyreback',   'defender',   185, 118, 'home'),
-  p('h3',  3,  'Midtstopper', 'defender',   185, 215, 'home'),
-  p('h4',  4,  'Midtstopper', 'defender',   185, 345, 'home'),
-  p('h5',  5,  'Venstreback', 'defender',   185, 442, 'home'),
-  p('h6',  6,  'Def. midt',   'midfielder', 288, 218, 'home'),
-  p('h7',  7,  'Def. midt',   'midfielder', 288, 342, 'home'),
-  p('h8',  8,  'Høyre kant',  'winger',     345, 118, 'home'),
-  p('h9',  9,  'Playmaker',   'playmaker',  345, 280, 'home'),
-  p('h10', 10, 'Venstre kant', 'winger',    345, 442, 'home'),
-  p('h11', 11, 'Spiss',       'forward',    450, 280, 'home'),
-];
-
-// ─── FOTBALL 7er - FORMASJONER ───────────────────────────────
-
-// 3-2-1 (standard)
-const FOOTBALL7_321_HOME: Player[] = [
-  p('h1', 1, 'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2', 2,  'Back V',     'defender',   190, 178, 'home'),
-  p('h3', 3,  'Back M',     'defender',   190, 280, 'home'),
-  p('h4', 4,  'Back H',     'defender',   190, 382, 'home'),
-  p('h5', 5,  'Midtbane V', 'midfielder', 300, 215, 'home'),
-  p('h6', 6,  'Midtbane H', 'midfielder', 300, 345, 'home'),
-  p('h7', 7,  'Spiss',      'forward',    400, 280, 'home'),
-];
-
-// 2-3-1
-const FOOTBALL7_231_HOME: Player[] = [
-  p('h1', 1, 'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2', 2,  'Back V',     'defender',   190, 215, 'home'),
-  p('h3', 3,  'Back H',     'defender',   190, 345, 'home'),
-  p('h4', 4,  'Midtbane V', 'midfielder', 300, 148, 'home'),
-  p('h5', 5,  'Midtbane M', 'midfielder', 300, 280, 'home'),
-  p('h6', 6,  'Midtbane H', 'midfielder', 300, 412, 'home'),
-  p('h7', 7,  'Spiss',      'forward',    400, 280, 'home'),
-];
-
-// 2-2-2
-const FOOTBALL7_222_HOME: Player[] = [
-  p('h1', 1, 'Keeper',      'keeper',     68,  280, 'home'),
-  p('h2', 2,  'Back V',     'defender',   190, 215, 'home'),
-  p('h3', 3,  'Back H',     'defender',   190, 345, 'home'),
-  p('h4', 4,  'Midtbane V', 'midfielder', 300, 175, 'home'),
-  p('h5', 5,  'Midtbane H', 'midfielder', 300, 385, 'home'),
-  p('h6', 6,  'Spiss V',    'forward',    400, 215, 'home'),
-  p('h7', 7,  'Spiss H',    'forward',    400, 345, 'home'),
-];
-
-// ─── HÅNDBALL - FORMASJONER ───────────────────────────────────
-
-// 6-0 (standard)
-const HANDBALL_60_HOME: Player[] = [
-  p('h1', 1, 'Keeper',       'hb_keeper',    62,  280, 'home'),
-  p('h2', 2, 'V. fløy',      'hb_wing',      175, 108, 'home'),
-  p('h3', 3, 'V. bakspill',  'hb_backcourt', 225, 215, 'home'),
-  p('h4', 4, 'Midtback',     'hb_center',    268, 280, 'home'),
-  p('h5', 5, 'H. bakspill',  'hb_backcourt', 225, 345, 'home'),
-  p('h6', 6, 'H. fløy',      'hb_wing',      175, 452, 'home'),
-  p('h7', 7, 'Pivot',        'hb_pivot',     358, 280, 'home'),
-];
-
-// 5-1
-const HANDBALL_51_HOME: Player[] = [
-  p('h1', 1, 'Keeper',       'hb_keeper',    62,  280, 'home'),
-  p('h2', 2, 'V. fløy',      'hb_wing',      175, 108, 'home'),
-  p('h3', 3, 'V. bakspill',  'hb_backcourt', 225, 215, 'home'),
-  p('h4', 4, 'Midtback',     'hb_center',    268, 280, 'home'),
-  p('h5', 5, 'H. bakspill',  'hb_backcourt', 225, 345, 'home'),
-  p('h6', 6, 'H. fløy',      'hb_wing',      175, 452, 'home'),
-  p('h7', 7, 'Spiss',        'hb_center',    358, 280, 'home'),
-];
-
-// 3-2-1 (håndball)
-const HANDBALL_321_HOME: Player[] = [
-  p('h1', 1, 'Keeper',       'hb_keeper',    62,  280, 'home'),
-  p('h2', 2, 'V. bakspill',  'hb_backcourt', 185, 148, 'home'),
-  p('h3', 3, 'Midtback',     'hb_center',    225, 280, 'home'),
-  p('h4', 4, 'H. bakspill',  'hb_backcourt', 185, 412, 'home'),
-  p('h5', 5, 'V. fløy',      'hb_wing',      280, 108, 'home'),
-  p('h6', 6, 'H. fløy',      'hb_wing',      280, 452, 'home'),
-  p('h7', 7, 'Pivot',        'hb_pivot',     340, 280, 'home'),
-];
-
-// ─── BORTELAG-POSISJONER (speilvendt) ─────────────────────────
-
-function mirrorPlayers(players: Player[], team: 'away'): Player[] {
-  return players.map(p => ({
-    ...p,
-    team,
-    position: { x: VW - p.position.x, y: p.position.y },
-  }));
-}
-
-// ─── FORMASJONSKONFIGURASJON ─────────────────────────────────
-
-export interface Formation {
-  name: string;
-  emoji: string;
-  homePlayers: Player[];
-  awayPlayers: Player[];
-}
-
-// Fotball 11er formasjoner
-export const FOOTBALL_FORMATIONS: Formation[] = [
-  { name: '4-3-3', emoji: '⚽', homePlayers: FOOTBALL_433_HOME, awayPlayers: mirrorPlayers(FOOTBALL_433_HOME, 'away') },
-  { name: '4-4-2', emoji: '⚽', homePlayers: FOOTBALL_442_HOME, awayPlayers: mirrorPlayers(FOOTBALL_442_HOME, 'away') },
-  { name: '3-5-2', emoji: '⚽', homePlayers: FOOTBALL_352_HOME, awayPlayers: mirrorPlayers(FOOTBALL_352_HOME, 'away') },
-  { name: '5-3-2', emoji: '⚽', homePlayers: FOOTBALL_532_HOME, awayPlayers: mirrorPlayers(FOOTBALL_532_HOME, 'away') },
-  { name: '4-2-3-1', emoji: '⚽', homePlayers: FOOTBALL_4231_HOME, awayPlayers: mirrorPlayers(FOOTBALL_4231_HOME, 'away') },
-];
-
-// Fotball 7er formasjoner
-export const FOOTBALL7_FORMATIONS: Formation[] = [
-  { name: '3-2-1', emoji: '⚽', homePlayers: FOOTBALL7_321_HOME, awayPlayers: mirrorPlayers(FOOTBALL7_321_HOME, 'away') },
-  { name: '2-3-1', emoji: '⚽', homePlayers: FOOTBALL7_231_HOME, awayPlayers: mirrorPlayers(FOOTBALL7_231_HOME, 'away') },
-  { name: '2-2-2', emoji: '⚽', homePlayers: FOOTBALL7_222_HOME, awayPlayers: mirrorPlayers(FOOTBALL7_222_HOME, 'away') },
-];
-
-// Håndball formasjoner
-export const HANDBALL_FORMATIONS: Formation[] = [
-  { name: '6-0', emoji: '🤾', homePlayers: HANDBALL_60_HOME, awayPlayers: mirrorPlayers(HANDBALL_60_HOME, 'away') },
-  { name: '5-1', emoji: '🤾', homePlayers: HANDBALL_51_HOME, awayPlayers: mirrorPlayers(HANDBALL_51_HOME, 'away') },
-  { name: '3-2-1', emoji: '🤾', homePlayers: HANDBALL_321_HOME, awayPlayers: mirrorPlayers(HANDBALL_321_HOME, 'away') },
-];
-
-// Hent formasjoner basert på sport
-export function getFormations(sport: Sport): Formation[] {
-  if (sport === 'handball') return HANDBALL_FORMATIONS;
-  if (sport === 'football7') return FOOTBALL7_FORMATIONS;
-  return FOOTBALL_FORMATIONS;
-}
-
-// Hent posisjoner for en formasjon
-export function getFormationPositions(formationName: string, sport: Sport): { x: number; y: number }[] {
-  const formations = getFormations(sport);
-  const formation = formations.find(f => f.name === formationName);
-  if (!formation) return [];
+// Posisjoner for 11er fotball
+const POS_11ER = {
+  // Keeper
+  GK: { x: VW/2, y: VH - 45 },
   
-  return formation.homePlayers.map(p => ({ x: p.position.x, y: p.position.y }));
+  // Forsvar (4)
+  LB: { x: VW/2 - 180, y: VH - 110 },
+  LCB: { x: VW/2 - 70, y: VH - 110 },
+  RCB: { x: VW/2 + 70, y: VH - 110 },
+  RB: { x: VW/2 + 180, y: VH - 110 },
+  
+  // Midtbane (3-4-5)
+  CDM: { x: VW/2, y: VH - 180 },
+  LCM: { x: VW/2 - 100, y: VH - 220 },
+  RCM: { x: VW/2 + 100, y: VH - 220 },
+  CAM: { x: VW/2, y: VH - 260 },
+  LM: { x: VW/2 - 200, y: VH - 200 },
+  RM: { x: VW/2 + 200, y: VH - 200 },
+  
+  // Angrep (2-3)
+  LW: { x: VW/2 - 160, y: VH - 330 },
+  RW: { x: VW/2 + 160, y: VH - 330 },
+  ST: { x: VW/2, y: VH - 350 },
+  LS: { x: VW/2 - 80, y: VH - 340 },
+  RS: { x: VW/2 + 80, y: VH - 340 },
+  
+  // Vingbacker (for 3-5-2)
+  LWB: { x: VW/2 - 220, y: VH - 130 },
+  RWB: { x: VW/2 + 220, y: VH - 130 },
+};
+
+// Roller mapping
+const ROLE_MAP: Record<string, string> = {
+  GK: 'keeper',
+  LB: 'defender', LCB: 'defender', RCB: 'defender', RB: 'defender',
+  LWB: 'wingback', RWB: 'wingback',
+  CDM: 'midfielder', LCM: 'midfielder', RCM: 'midfielder', CAM: 'playmaker',
+  LM: 'midfielder', RM: 'midfielder',
+  LW: 'winger', RW: 'winger',
+  ST: 'forward', LS: 'forward', RS: 'forward',
+};
+
+interface FormationPlayer {
+  role: string;
+  position: { x: number; y: number };
 }
 
-// Standard formasjon per sport
-export const DEFAULT_FORMATION: Record<Sport, string> = {
+interface Formation {
+  name: string;
+  description: string;
+  homePlayers: FormationPlayer[];
+}
+
+// Alle formasjoner for 11er fotball
+export const FORMATIONS_11ER: Formation[] = [
+  {
+    name: '4-3-3',
+    description: 'Offensiv fotball med tre spisser. Gir gode muligheter for gjennombrudd og press høyt i banen.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LB },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'defender', position: POS_11ER.RB },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.LCM },
+      { role: 'midfielder', position: POS_11ER.RCM },
+      { role: 'winger', position: POS_11ER.LW },
+      { role: 'forward', position: POS_11ER.ST },
+      { role: 'winger', position: POS_11ER.RW },
+    ],
+  },
+  {
+    name: '4-4-2',
+    description: 'Klassisk, balansert formasjon. Bra for forsvarsspill og raske overganger via kantene.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LB },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'defender', position: POS_11ER.RB },
+      { role: 'midfielder', position: POS_11ER.LM },
+      { role: 'midfielder', position: POS_11ER.LCM },
+      { role: 'midfielder', position: POS_11ER.RCM },
+      { role: 'midfielder', position: POS_11ER.RM },
+      { role: 'forward', position: POS_11ER.LS },
+      { role: 'forward', position: POS_11ER.RS },
+    ],
+  },
+  {
+    name: '4-2-3-1',
+    description: 'Solid defensiv struktur med to defensive midtbanespillere. Bra for kontroll og ballbesittelse.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LB },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'defender', position: POS_11ER.RB },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.LM },
+      { role: 'playmaker', position: POS_11ER.CAM },
+      { role: 'midfielder', position: POS_11ER.RM },
+      { role: 'forward', position: POS_11ER.ST },
+    ],
+  },
+  {
+    name: '3-5-2',
+    description: 'Sentral midtbanekontroll med vingbacker som dekker bredden. Bra for å dominere midtbanen.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: { x: VW/2, y: VH - 110 } },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'wingback', position: POS_11ER.LWB },
+      { role: 'wingback', position: POS_11ER.RWB },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.LCM },
+      { role: 'midfielder', position: POS_11ER.RCM },
+      { role: 'forward', position: POS_11ER.LS },
+      { role: 'forward', position: POS_11ER.RS },
+    ],
+  },
+  {
+    name: '5-3-2',
+    description: 'Defensiv solid formasjon med fem backer. Bra for kontringer og mot sterke lag.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LB },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: { x: VW/2, y: VH - 110 } },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'defender', position: POS_11ER.RB },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.LCM },
+      { role: 'midfielder', position: POS_11ER.RCM },
+      { role: 'forward', position: POS_11ER.LS },
+      { role: 'forward', position: POS_11ER.RS },
+    ],
+  },
+  {
+    name: '3-4-3',
+    description: 'Offensivt og presshøyt. Bra for lag som vil dominere og skape mange sjanser.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: { x: VW/2, y: VH - 110 } },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'midfielder', position: POS_11ER.LM },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.CAM },
+      { role: 'midfielder', position: POS_11ER.RM },
+      { role: 'winger', position: POS_11ER.LW },
+      { role: 'forward', position: POS_11ER.ST },
+      { role: 'winger', position: POS_11ER.RW },
+    ],
+  },
+  {
+    name: '4-1-4-1',
+    description: 'Defensivt kompakt med en defensiv midtbanespiller. Bra mot sterke lag.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LB },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'defender', position: POS_11ER.RB },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.LM },
+      { role: 'midfielder', position: POS_11ER.LCM },
+      { role: 'midfielder', position: POS_11ER.RCM },
+      { role: 'midfielder', position: POS_11ER.RM },
+      { role: 'forward', position: POS_11ER.ST },
+    ],
+  },
+  {
+    name: '4-5-1',
+    description: 'Maksimal kontroll på midtbanen. Bra for å holde på ballen og kontrollere tempo.',
+    homePlayers: [
+      { role: 'keeper', position: POS_11ER.GK },
+      { role: 'defender', position: POS_11ER.LB },
+      { role: 'defender', position: POS_11ER.LCB },
+      { role: 'defender', position: POS_11ER.RCB },
+      { role: 'defender', position: POS_11ER.RB },
+      { role: 'midfielder', position: POS_11ER.LM },
+      { role: 'midfielder', position: POS_11ER.LCM },
+      { role: 'midfielder', position: POS_11ER.CDM },
+      { role: 'midfielder', position: POS_11ER.RCM },
+      { role: 'midfielder', position: POS_11ER.RM },
+      { role: 'forward', position: POS_11ER.ST },
+    ],
+  },
+];
+
+// For 7er fotball
+const POS_7ER = {
+  GK: { x: VW/2, y: VH - 45 },
+  CB: { x: VW/2, y: VH - 130 },
+  LWB: { x: VW/2 - 150, y: VH - 130 },
+  RWB: { x: VW/2 + 150, y: VH - 130 },
+  CM: { x: VW/2, y: VH - 220 },
+  CAM: { x: VW/2, y: VH - 300 },
+  ST: { x: VW/2, y: VH - 380 },
+  LW: { x: VW/2 - 120, y: VH - 300 },
+  RW: { x: VW/2 + 120, y: VH - 300 },
+};
+
+export const FORMATIONS_7ER: Formation[] = [
+  {
+    name: '2-3-1',
+    description: 'Balansert formasjon for 7er fotball. Bra for både forsvar og angrep.',
+    homePlayers: [
+      { role: 'keeper', position: POS_7ER.GK },
+      { role: 'defender', position: POS_7ER.CB },
+      { role: 'defender', position: POS_7ER.CB },
+      { role: 'midfielder', position: POS_7ER.LWB },
+      { role: 'midfielder', position: POS_7ER.CM },
+      { role: 'midfielder', position: POS_7ER.RWB },
+      { role: 'forward', position: POS_7ER.ST },
+    ],
+  },
+  {
+    name: '2-2-2',
+    description: 'Jevn fordeling mellom forsvar, midtbane og angrep.',
+    homePlayers: [
+      { role: 'keeper', position: POS_7ER.GK },
+      { role: 'defender', position: POS_7ER.CB },
+      { role: 'defender', position: POS_7ER.CB },
+      { role: 'midfielder', position: POS_7ER.CM },
+      { role: 'midfielder', position: POS_7ER.CM },
+      { role: 'forward', position: POS_7ER.LW },
+      { role: 'forward', position: POS_7ER.RW },
+    ],
+  },
+  {
+    name: '3-2-1',
+    description: 'Defensivt solid, bra for kontringer.',
+    homePlayers: [
+      { role: 'keeper', position: POS_7ER.GK },
+      { role: 'defender', position: POS_7ER.CB },
+      { role: 'defender', position: POS_7ER.CB },
+      { role: 'defender', position: POS_7ER.CB },
+      { role: 'midfielder', position: POS_7ER.CM },
+      { role: 'midfielder', position: POS_7ER.CM },
+      { role: 'forward', position: POS_7ER.ST },
+    ],
+  },
+];
+
+export const getFormations = (sport: string): Formation[] => {
+  if (sport === 'football7') return FORMATIONS_7ER;
+  return FORMATIONS_11ER;
+};
+
+export const DEFAULT_FORMATION: Record<string, string> = {
   football: '4-3-3',
-  football7: '3-2-1',
+  football7: '2-3-1',
   handball: '6-0',
 };
 
-// ─── SPORT-FORMASJONER (for bakoverkompatibilitet) ───────────
-
-export const SPORT_FORMATIONS: Record<Sport, {
-  name: string;
-  emoji: string;
-  teamSize: number;
-  players: Player[];
-}> = {
-  football:  { name: 'Fotball 11er', emoji: '⚽', teamSize: 11, players: FOOTBALL_433_HOME },
-  football7: { name: 'Fotball 7er',  emoji: '⚽', teamSize: 7,  players: FOOTBALL7_321_HOME },
-  handball:  { name: 'Håndball',     emoji: '🤾', teamSize: 7,  players: HANDBALL_60_HOME },
+// For å hente formasjonsbeskrivelse
+export const getFormationDescription = (formationName: string, sport: string): string => {
+  const formations = getFormations(sport);
+  const formation = formations.find(f => f.name === formationName);
+  return formation?.description || 'Ingen beskrivelse tilgjengelig.';
 };
-
-export function makePhase(
-  name: string,
-  sport: Sport,
-  sourcePlayers?: Player[],
-  sourceBall?: { x: number; y: number },
-): TacticPhase {
-  const base = SPORT_FORMATIONS[sport];
-  return {
-    id: `ph-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    name,
-    players: (sourcePlayers ?? base.players).map(pl => ({
-      ...pl,
-      position: { ...pl.position },
-    })),
-    ball: sourceBall ? { ...sourceBall } : { x: VW / 2, y: VH / 2 },
-    drawings: [],
-    description: '',
-  };
-}
