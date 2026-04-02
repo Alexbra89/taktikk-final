@@ -1,8 +1,8 @@
 'use client';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Player } from '../../types';
-import { VW, VH, getFormations, getFormationPositions, DEFAULT_FORMATION } from '../../data/formations';
+import { Player, PlayerRole } from '../../types';
+import { VW, VH, getFormations, DEFAULT_FORMATION } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { HandballPitch } from './pitches/HandballPitch';
 import { DraggablePlayer, Ball, DrawingCanvas } from './BoardElements';
@@ -79,7 +79,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             updatePlayerPosition(activePhaseIdx, player.id, newFormationPlayers[index].position);
             // Oppdater rolle hvis den er forskjellig
             if (player.role !== newFormationPlayers[index].role) {
-              updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role });
+              updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role as PlayerRole });
             }
           }
         });

@@ -1,5 +1,7 @@
 // src/data/formations.ts
 
+import { TacticPhase, Player, Position, PlayerRole } from '../types';
+
 export const VW = 880;
 export const VH = 560;
 
@@ -32,17 +34,6 @@ const POS_11ER = {
   // Vingbacker (for 3-5-2)
   LWB: { x: VW/2 - 220, y: VH - 130 },
   RWB: { x: VW/2 + 220, y: VH - 130 },
-};
-
-// Roller mapping
-const ROLE_MAP: Record<string, string> = {
-  GK: 'keeper',
-  LB: 'defender', LCB: 'defender', RCB: 'defender', RB: 'defender',
-  LWB: 'wingback', RWB: 'wingback',
-  CDM: 'midfielder', LCM: 'midfielder', RCM: 'midfielder', CAM: 'playmaker',
-  LM: 'midfielder', RM: 'midfielder',
-  LW: 'winger', RW: 'winger',
-  ST: 'forward', LS: 'forward', RS: 'forward',
 };
 
 interface FormationPlayer {
@@ -267,4 +258,42 @@ export const getFormationDescription = (formationName: string, sport: string): s
   const formations = getFormations(sport);
   const formation = formations.find(f => f.name === formationName);
   return formation?.description || 'Ingen beskrivelse tilgjengelig.';
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  makePhase - Lager en ny fase for taktikkbrettet
+// ═══════════════════════════════════════════════════════════════
+
+export const makePhase = (
+  name: string, 
+  sport: string, 
+  existingPlayers?: Player[], 
+  existingBall?: Position
+): TacticPhase => {
+  const formations = getFormations(sport === 'football7' ? 'football7' : sport);
+  const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport];
+  const formation = formations.find(f => f.name === defaultFormation) || formations[0];
+  
+  const players = existingPlayers || formation.homePlayers.map((p, idx) => ({
+    id: `p-${Date.now()}-${idx}`,
+    num: idx + 1,
+    name: '',
+    role: p.role as PlayerRole,
+    position: p.position,
+    team: 'home' as const,
+    notes: '',
+    isStarter: idx < 11,
+    isOnField: idx < 11,
+    minutesPlayed: 0,
+    specialRoles: [],
+  }));
+
+  return {
+    id: `phase-${Date.now()}`,
+    name,
+    players,
+    ball: existingBall || { x: VW / 2, y: VH / 2 },
+    drawings: [],
+    stickyNote: '',
+  };
 };
