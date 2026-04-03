@@ -50,79 +50,47 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  const updateFormation = useCallback((formationName: string) => {
-    if (!phase) return;
+  // 🔧 OPPDATERT: ROTERER POSISJONER FOR HORISONTAL BANE
+const updateFormation = useCallback((formationName: string) => {
+  if (!phase) return;
 
-    if (formationDebounceRef.current) {
-      clearTimeout(formationDebounceRef.current);
-    }
+  if (formationDebounceRef.current) {
+    clearTimeout(formationDebounceRef.current);
+  }
 
-    formationDebounceRef.current = setTimeout(() => {
-      const formation = availableFormations.find(f => f.name === formationName);
-      if (!formation) return;
+  formationDebounceRef.current = setTimeout(() => {
+    const formation = availableFormations.find(f => f.name === formationName);
+    if (!formation) return;
 
-      const homePlayers = phase.players.filter(p => p.team === 'home');
+    const homePlayers = phase.players
+      .filter(p => p.team === 'home')
+      .slice(0, formation.homePlayers.length);
 
-      requestAnimationFrame(() => {
+    // Roter posisjoner for horisontal bane (mål venstre/høyre)
+    const rotatePosition = (pos: { x: number; y: number }) => ({
+      x: pos.y,
+      y: VW - pos.x,
+    });
 
-        const formationByRole: Record<string, { x: number; y: number }[]> = {};
-        formation.homePlayers.forEach(fp => {
-          if (!formationByRole[fp.role]) {
-            formationByRole[fp.role] = [];
-          }
-          formationByRole[fp.role].push(fp.position);
+    requestAnimationFrame(() => {
+      formation.homePlayers.forEach((fp, index) => {
+        const player = homePlayers[index];
+        if (!player) return;
+
+        const rotated = rotatePosition(fp.position);
+
+        updatePlayerField(activePhaseIdx, player.id, {
+          position: rotated,
+          role: fp.role as PlayerRole,
         });
-
-        const playersByRole: Record<string, Player[]> = {};
-        homePlayers.forEach(player => {
-          const role = player.role || 'midfielder';
-          if (!playersByRole[role]) {
-            playersByRole[role] = [];
-          }
-          playersByRole[role].push(player);
-        });
-
-        Object.keys(formationByRole).forEach(role => {
-          const positions = formationByRole[role];
-          const players = playersByRole[role] || [];
-
-          players.forEach((player, index) => {
-            const pos = positions[index];
-
-            if (pos) {
-              updatePlayerPosition(activePhaseIdx, player.id, pos);
-            } else {
-              const fallback = positions[positions.length - 1];
-              if (fallback) {
-                updatePlayerPosition(activePhaseIdx, player.id, {
-                  x: fallback.x + (index * 10),
-                  y: fallback.y + (index * 10),
-                });
-              }
-            }
-          });
-        });
-
-        const usedIds = new Set(
-          Object.values(playersByRole).flat().map(p => p.id)
-        );
-
-        homePlayers.forEach(player => {
-          if (!usedIds.has(player.id)) {
-            const fallbackPos = formation.homePlayers.find(p => p.role === 'midfielder')?.position;
-            if (fallbackPos) {
-              updatePlayerPosition(activePhaseIdx, player.id, fallbackPos);
-            }
-          }
-        });
-
       });
+    });
 
-      setSelectedFormation(formationName);
+    setSelectedFormation(formationName);
 
-    }, 200);
+  }, 100);
 
-  }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition]);
+}, [phase, activePhaseIdx, availableFormations, updatePlayerField]);
 
   useEffect(() => {
     return () => {
@@ -252,7 +220,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     if (!dragged) return;
 
     if (target && dragged.id !== target.id) {
-
       updatePlayerField(activePhaseIdx, dragged.id, {
         position: target.position,
       });
