@@ -31,8 +31,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const [liveDrawPts, setLiveDrawPts] = useState<{x:number;y:number}[]>([]);
   const [showSticky, setShowSticky]   = useState(false);
   const [dragOverPlayerId, setDragOverPlayerId] = useState<string | null>(null);
-  
-  // Formasjonsstate
   const [selectedFormation, setSelectedFormation] = useState<string>('');
 
   const {
@@ -43,54 +41,48 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   } = useAppStore();
 
   const phase = phases[activePhaseIdx];
-  
-  // Hent tilgjengelige formasjoner for sport
   const availableFormations = getFormations(sport === 'football7' ? 'football7' : sport);
   const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport];
 
-  // Sett default formasjon når sport endres eller komponent laster
   useEffect(() => {
     if (availableFormations.length > 0 && !selectedFormation) {
       setSelectedFormation(defaultFormation);
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // 🔧 FIX: Oppdater spillerposisjoner basert på valgt formasjon – match etter rolle
+  // FIXED: Round-robin position assignment per role
   const updateFormation = useCallback((formationName: string) => {
     if (!phase) return;
-    
-    if (formationDebounceRef.current) {
-      clearTimeout(formationDebounceRef.current);
-    }
-    
+    if (formationDebounceRef.current) clearTimeout(formationDebounceRef.current);
     formationDebounceRef.current = setTimeout(() => {
       const formation = availableFormations.find(f => f.name === formationName);
       if (!formation) return;
-      
       const homePlayers = [...phase.players.filter(p => p.team === 'home')];
       const newFormationPlayers = formation.homePlayers;
-      
       requestAnimationFrame(() => {
-        // For hver spiller, finn riktig posisjon basert på rollen deres
+        // Group all positions by role
+        const positionsByRole: Record<string, { x: number; y: number }[]> = {};
+        newFormationPlayers.forEach(fp => {
+          if (!positionsByRole[fp.role]) positionsByRole[fp.role] = [];
+          positionsByRole[fp.role].push(fp.position);
+        });
+        // Round-robin: each player with same role gets unique position
+        const roleIndex: Record<string, number> = {};
         homePlayers.forEach((player) => {
-          // Finn en posisjon i den nye formasjonen som matcher spillerens rolle
-          const matchingPosition = newFormationPlayers.find(fp => fp.role === player.role);
-          
-          if (matchingPosition) {
-            // Oppdater posisjon basert på rollen
-            updatePlayerPosition(activePhaseIdx, player.id, matchingPosition.position);
-          } else {
-            // Hvis rollen ikke finnes i formasjonen, behold posisjonen
-            console.warn(`Rolle ${player.role} finnes ikke i formasjon ${formationName}`);
+          const role = player.role;
+          const positions = positionsByRole[role];
+          if (positions && positions.length > 0) {
+            const idx = roleIndex[role] ?? 0;
+            const pos = positions[idx % positions.length];
+            roleIndex[role] = idx + 1;
+            updatePlayerPosition(activePhaseIdx, player.id, pos);
           }
         });
       });
-      
       setSelectedFormation(formationName);
     }, 300);
   }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition]);
 
-  // Cleanup
   useEffect(() => {
     return () => {
       if (formationDebounceRef.current) clearTimeout(formationDebounceRef.current);
@@ -98,7 +90,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     };
   }, []);
 
-  // Sync local sticky note
   useEffect(() => {
     setLocalStickyNote(phase?.stickyNote ?? '');
   }, [phase?.stickyNote, activePhaseIdx]);
@@ -205,29 +196,19 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     setLiveDrawPts([]);
   }
 
-  // DRAG AND DROP: Håndter når en spiller slippes på en annen spiller eller tom posisjon
   const handleDrop = (e: React.DragEvent, targetPlayerId?: string) => {
     e.preventDefault();
     setDragOverPlayerId(null);
-    
     const draggedPlayerId = e.dataTransfer.getData('text/plain');
     if (!draggedPlayerId) return;
-    
     const draggedPlayer = phase?.players.find(p => p.id === draggedPlayerId);
     const targetPlayer = targetPlayerId ? phase?.players.find(p => p.id === targetPlayerId) : null;
-    
     if (!draggedPlayer) return;
-    
-    // Slipp på en annen spiller -> bytt plass
     if (targetPlayer && draggedPlayer.id !== targetPlayer.id) {
-      // Bytt isStarter status
       const draggedIsStarter = draggedPlayer.isStarter;
       const targetIsStarter = targetPlayer.isStarter;
-      
       updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: targetIsStarter });
       updatePlayerField(activePhaseIdx, targetPlayer.id, { isStarter: draggedIsStarter });
-      
-      // Bytt posisjoner
       updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: targetPlayer.position });
       updatePlayerField(activePhaseIdx, targetPlayer.id, { position: draggedPlayer.position });
     }
@@ -238,20 +219,13 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDragEnter = (playerId: string) => {
-    setDragOverPlayerId(playerId);
-  };
+  const handleDragEnter = (playerId: string) => setDragOverPlayerId(playerId);
+  const handleDragLeave = () => setDragOverPlayerId(null);
 
-  const handleDragLeave = () => {
-    setDragOverPlayerId(null);
-  };
-
-  // Vis ALLE hjemmespillere på banen
   const allDisplayPlayers = getDisplayPlayers();
   const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home');
   const displayBall = getDisplayBall();
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
-
   const DRAW_COLORS = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
 
   return (
@@ -259,7 +233,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
       {/* Control bar */}
       <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] overflow-x-auto overscroll-x-contain">
-        {/* Faser */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {phases.map((ph, idx) => (
             <button key={ph.id}
@@ -279,10 +252,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           )}
         </div>
 
-        {/* Formasjonsvelger */}
         {availableFormations.length > 0 && (
           <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-            <span className="text-[9px] text-[#4a6080] hidden sm:inline">📐 Formasjon:</span>
+            <span className="text-[9px] text-[#4a6080] hidden sm:inline">📐</span>
             <select
               value={selectedFormation}
               onChange={(e) => updateFormation(e.target.value)}
@@ -298,21 +270,18 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
         <div className="flex-1 min-w-[8px]" />
 
-        {/* Sticky note */}
         <button onClick={() => setShowSticky(!showSticky)}
           className={`px-2 py-1 rounded text-[13px] border min-h-[40px] transition-all flex-shrink-0
             ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
           📌
         </button>
 
-        {/* Draw mode */}
         <button onClick={() => setDrawMode(!drawMode)}
           className={`px-2 py-1 rounded text-[11px] font-bold border min-h-[40px] transition-all whitespace-nowrap flex-shrink-0
             ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
           {drawMode ? '✏️ Stopp' : '✏️ Tegn'}
         </button>
 
-        {/* Draw colors */}
         {drawMode && DRAW_COLORS.map(c => (
           <button key={c} onClick={() => setDrawColor(c)}
             className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
@@ -325,7 +294,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             className="px-2 py-1 rounded text-[13px] border border-[#1e3050] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
         )}
 
-        {/* Playback */}
         <div className="flex items-center gap-1 bg-[#111c30] rounded px-1.5 py-1 border border-[#1e3050] flex-shrink-0">
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.max(0, activePhaseIdx-1))}
             disabled={isPlaying || activePhaseIdx === 0}
@@ -347,31 +315,25 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
       {showSticky && phase && (
         <div className="flex-shrink-0 px-3 py-2 bg-amber-500/8 border-b border-amber-500/20 flex items-center gap-2">
           <span className="text-amber-400 text-[13px]">📌</span>
-          <input 
+          <input
             value={localStickyNote}
             onChange={e => handleStickyChange(e.target.value)}
             placeholder={`Notat for ${phase.name}…`}
-            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/40 focus:outline-none min-h-[40px]" 
+            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/40 focus:outline-none min-h-[40px]"
           />
         </div>
       )}
 
-      {/* SVG */}
       <div className="flex-1 min-h-0 flex items-center justify-center bg-[#050c18]" style={{padding:'4px'}}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VW} ${VH}`}
           preserveAspectRatio="xMidYMid meet"
           style={{
-            width: '100%',
-            height: '100%',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            display: 'block',
-            boxShadow: '0 0 60px rgba(0,0,0,0.9)',
+            width: '100%', height: '100%', maxWidth: '100%', maxHeight: '100%',
+            display: 'block', boxShadow: '0 0 60px rgba(0,0,0,0.9)',
             cursor: drawMode ? 'crosshair' : 'default',
-            touchAction: 'none',
-            userSelect: 'none',
+            touchAction: 'none', userSelect: 'none',
             WebkitTapHighlightColor: 'transparent',
           }}
           onPointerDown={onSvgPointerDown}
@@ -397,13 +359,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
           {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
 
-          {/* Live drawing preview */}
           {liveDrawPts.length > 1 && (
-            <g>
-              <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
-                stroke={drawColor} strokeWidth={4} fill="none"
-                strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
-            </g>
+            <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
+              stroke={drawColor} strokeWidth={4} fill="none"
+              strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
           )}
 
           {phase && (
@@ -411,14 +370,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
               onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
           )}
 
-          {/* Vis ALLE hjemmespillere på banen – med drag-and-drop */}
           {homeDisplayPlayers.map(player => {
-            const account = playerAccounts.find((a: any) => a.playerId === player.id);
+            const account = (playerAccounts as any[]).find((a: any) => a.playerId === player.id);
             const displayName = account?.name || player.name || `#${player.num}`;
             const isDragOver = dragOverPlayerId === player.id;
-            
             return (
-              <g 
+              <g
                 key={player.id}
                 onDragStart={(e) => {
                   e.dataTransfer.setData('text/plain', player.id);
@@ -429,27 +386,19 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
                 onDragEnter={() => handleDragEnter(player.id)}
                 onDragLeave={handleDragLeave}
               >
-                {/* Drop indicator */}
                 {isDragOver && (
-                  <circle
-                    cx={player.position.x}
-                    cy={player.position.y}
-                    r={28}
-                    fill="none"
-                    stroke="#38bdf8"
-                    strokeWidth={3}
-                    strokeDasharray="6,4"
-                    opacity={0.8}
-                  />
+                  <circle cx={player.position.x} cy={player.position.y} r={28}
+                    fill="none" stroke="#38bdf8" strokeWidth={3}
+                    strokeDasharray="6,4" opacity={0.8} />
                 )}
-                <DraggablePlayer 
+                <DraggablePlayer
                   player={player}
                   displayName={displayName}
                   isActive={!isPlaying && !drawMode}
                   isSelected={selectedPlayerId === player.id}
                   onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
                   onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
-                  showName 
+                  showName
                 />
               </g>
             );
