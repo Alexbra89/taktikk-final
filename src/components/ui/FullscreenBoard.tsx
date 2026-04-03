@@ -155,101 +155,103 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         </button>
       </div>
 
-      {/* ── SVG bane — tar all plass ── */}
-      <div className="flex-1 min-h-0 flex items-center justify-center bg-[#050c18]"
-        style={{ padding: '4px' }}>
-        <svg
-          viewBox={`0 0 ${VW} ${VH}`}
-          preserveAspectRatio="xMidYMid meet"
-          style={{
-            width: '100%', height: '100%',
-            maxWidth: '100%', maxHeight: '100%',
-            display: 'block',
-            touchAction: 'none', userSelect: 'none',
-          }}
-        >
-          <defs>
-            <filter id="ds3">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
-            </filter>
-            <pattern id="gr3" patternUnits="userSpaceOnUse" width="50" height="50">
-              <rect width="50" height="50" fill="#1b5e2a"/>
-              <rect width="50" height="25" fill="#1d6430"/>
-            </pattern>
-          </defs>
-          <rect width={VW} height={VH} fill="url(#gr3)"/>
+      {/* ── SVG bane — med scrolling ── */}
+      <div className="flex-1 min-h-0 overflow-auto" style={{ padding: '4px' }}>
+        <div className="min-w-[880px] min-h-[560px] flex items-center justify-center">
+          <svg
+            viewBox={`0 0 ${VW} ${VH}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              touchAction: 'none',
+              userSelect: 'none',
+            }}
+          >
+            <defs>
+              <filter id="ds3">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
+              </filter>
+              <pattern id="gr3" patternUnits="userSpaceOnUse" width="50" height="50">
+                <rect width="50" height="50" fill="#1b5e2a"/>
+                <rect width="50" height="25" fill="#1d6430"/>
+              </pattern>
+            </defs>
+            <rect width={VW} height={VH} fill="url(#gr3)"/>
 
-          {(sport === 'football' || sport === 'football7') && <FootballPitch />}
-          {sport === 'handball' && <HandballPitch />}
+            {(sport === 'football' || sport === 'football7') && <FootballPitch />}
+            {sport === 'handball' && <HandballPitch />}
 
-          {/* Tegninger */}
-          {(phase.drawings ?? []).map((d: any) => {
-            if (!d.pts || d.pts.length < 2) return null;
-            const p1 = d.pts[d.pts.length - 2];
-            const p2 = d.pts[d.pts.length - 1];
-            const a  = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            const s  = 12;
-            return (
-              <g key={d.id}>
-                <polyline points={d.pts.map((p: any) => `${p.x},${p.y}`).join(' ')}
-                  stroke={d.color ?? '#f87171'} strokeWidth={3} fill="none"
-                  strokeLinecap="round" strokeLinejoin="round" />
-                <polygon fill={d.color ?? '#f87171'} opacity={0.88}
-                  points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`} />
+            {/* Tegninger */}
+            {(phase.drawings ?? []).map((d: any) => {
+              if (!d.pts || d.pts.length < 2) return null;
+              const p1 = d.pts[d.pts.length - 2];
+              const p2 = d.pts[d.pts.length - 1];
+              const a  = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+              const s  = 12;
+              return (
+                <g key={d.id}>
+                  <polyline points={d.pts.map((p: any) => `${p.x},${p.y}`).join(' ')}
+                    stroke={d.color ?? '#f87171'} strokeWidth={3} fill="none"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                  <polygon fill={d.color ?? '#f87171'} opacity={0.88}
+                    points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`} />
+                </g>
+              );
+            })}
+
+            {/* Ball */}
+            {displayBall && (
+              <g filter="url(#ds3)">
+                <circle cx={displayBall.x} cy={displayBall.y} r={11} fill="white" stroke="#ccc" strokeWidth={1}/>
+                {[{dx:-3,dy:-3,r:3},{dx:3.5,dy:-1.5,r:2.5},{dx:0,dy:4,r:2.5},{dx:-4,dy:2,r:2}].map((o,i) => (
+                  <circle key={i} cx={displayBall.x+o.dx} cy={displayBall.y+o.dy} r={o.r} fill="#111" opacity={0.7}/>
+                ))}
               </g>
-            );
-          })}
+            )}
 
-          {/* Ball */}
-          {displayBall && (
-            <g filter="url(#ds3)">
-              <circle cx={displayBall.x} cy={displayBall.y} r={11} fill="white" stroke="#ccc" strokeWidth={1}/>
-              {[{dx:-3,dy:-3,r:3},{dx:3.5,dy:-1.5,r:2.5},{dx:0,dy:4,r:2.5},{dx:-4,dy:2,r:2}].map((o,i) => (
-                <circle key={i} cx={displayBall.x+o.dx} cy={displayBall.y+o.dy} r={o.r} fill="#111" opacity={0.7}/>
-              ))}
-            </g>
-          )}
-
-          {/* Spillere — hjemmelaget, kun startere */}
-          {homePlayers.map((player: any) => {
-            const meta = getMeta(player.role);
-            const fill = meta?.color ?? '#64748b';
-            const { x, y } = player.position;
-            return (
-              <g key={player.id} filter="url(#ds3)" opacity={player.injured ? 0.5 : 1}>
-                <circle cx={x} cy={y} r={38} fill="transparent" />
-                <circle cx={x} cy={y} r={21} fill="rgba(255,255,255,0.9)"/>
-                <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
-                {(player.specialRoles ?? []).includes('captain') && (
-                  <text x={x - 13} y={y - 13} fontSize={13} style={{ pointerEvents: 'none' }}>🪖</text>
-                )}
-                <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
-                  fill="white" fontSize={12} fontWeight="800"
-                  fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
-                  {player.num}
-                </text>
-                {player.name && (
-                  <text x={x} y={y + 31} textAnchor="middle"
-                    fill="white" fontSize={9.5} fontWeight="600"
-                    fontFamily="system-ui, sans-serif"
-                    paintOrder="stroke" stroke="rgba(0,0,0,0.8)" strokeWidth={3}
-                    style={{ pointerEvents: 'none' }}>
-                    {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
+            {/* Spillere — hjemmelaget, kun startere */}
+            {homePlayers.map((player: any) => {
+              const meta = getMeta(player.role);
+              const fill = meta?.color ?? '#64748b';
+              const { x, y } = player.position;
+              return (
+                <g key={player.id} filter="url(#ds3)" opacity={player.injured ? 0.5 : 1}>
+                  <circle cx={x} cy={y} r={38} fill="transparent" />
+                  <circle cx={x} cy={y} r={21} fill="rgba(255,255,255,0.9)"/>
+                  <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
+                  {(player.specialRoles ?? []).includes('captain') && (
+                    <text x={x - 13} y={y - 13} fontSize={13} style={{ pointerEvents: 'none' }}>🪖</text>
+                  )}
+                  <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
+                    fill="white" fontSize={12} fontWeight="800"
+                    fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
+                    {player.num}
                   </text>
-                )}
-                {player.injured && (
-                  <text x={x - 10} y={y - 14} fontSize={12} style={{ pointerEvents: 'none' }}>🩹</text>
-                )}
-              </g>
-            );
-          })}
+                  {player.name && (
+                    <text x={x} y={y + 31} textAnchor="middle"
+                      fill="white" fontSize={9.5} fontWeight="600"
+                      fontFamily="system-ui, sans-serif"
+                      paintOrder="stroke" stroke="rgba(0,0,0,0.8)" strokeWidth={3}
+                      style={{ pointerEvents: 'none' }}>
+                      {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
+                    </text>
+                  )}
+                  {player.injured && (
+                    <text x={x - 10} y={y - 14} fontSize={12} style={{ pointerEvents: 'none' }}>🩹</text>
+                  )}
+                </g>
+              );
+            })}
 
-          {/* Fremdriftsbar */}
-          {isPlaying && (
-            <rect x={32} y={VH - 12} rx={3} height={5}
-              width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8}/>
-          )}
-        </svg>
+            {/* Fremdriftsbar */}
+            {isPlaying && (
+              <rect x={32} y={VH - 12} rx={3} height={5}
+                width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8}/>
+            )}
+          </svg>
+        </div>
       </div>
 
       {/* Sticky note */}

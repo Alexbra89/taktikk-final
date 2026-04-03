@@ -55,37 +55,40 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // Oppdater spillerposisjoner OG roller basert på valgt formasjon - med sortering
+  // 🔧 FIX: Oppdater spillerposisjoner basert på valgt formasjon – match etter rolle
   const updateFormation = useCallback((formationName: string) => {
-  if (!phase) return;
-  
-  if (formationDebounceRef.current) {
-    clearTimeout(formationDebounceRef.current);
-  }
-  
-  formationDebounceRef.current = setTimeout(() => {
-    const formation = availableFormations.find(f => f.name === formationName);
-    if (!formation) return;
+    if (!phase) return;
     
-    // 🔧 FIX: Bruk rekkefølgen i formasjonen, ikke sorter etter nummer
-    const homePlayers = [...phase.players.filter(p => p.team === 'home')];
-    const newFormationPlayers = formation.homePlayers;
+    if (formationDebounceRef.current) {
+      clearTimeout(formationDebounceRef.current);
+    }
     
-    requestAnimationFrame(() => {
-      // Oppdater posisjoner basert på formasjonens rekkefølge
-      homePlayers.forEach((player, index) => {
-        if (newFormationPlayers[index]) {
-          updatePlayerPosition(activePhaseIdx, player.id, newFormationPlayers[index].position);
-          if (player.role !== newFormationPlayers[index].role) {
-            updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role as PlayerRole });
+    formationDebounceRef.current = setTimeout(() => {
+      const formation = availableFormations.find(f => f.name === formationName);
+      if (!formation) return;
+      
+      const homePlayers = [...phase.players.filter(p => p.team === 'home')];
+      const newFormationPlayers = formation.homePlayers;
+      
+      requestAnimationFrame(() => {
+        // For hver spiller, finn riktig posisjon basert på rollen deres
+        homePlayers.forEach((player) => {
+          // Finn en posisjon i den nye formasjonen som matcher spillerens rolle
+          const matchingPosition = newFormationPlayers.find(fp => fp.role === player.role);
+          
+          if (matchingPosition) {
+            // Oppdater posisjon basert på rollen
+            updatePlayerPosition(activePhaseIdx, player.id, matchingPosition.position);
+          } else {
+            // Hvis rollen ikke finnes i formasjonen, behold posisjonen
+            console.warn(`Rolle ${player.role} finnes ikke i formasjon ${formationName}`);
           }
-        }
+        });
       });
-    });
-    
-    setSelectedFormation(formationName);
-  }, 300);
-}, [phase, activePhaseIdx, availableFormations, updatePlayerPosition, updatePlayerField]);
+      
+      setSelectedFormation(formationName);
+    }, 300);
+  }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition]);
 
   // Cleanup
   useEffect(() => {
@@ -243,7 +246,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     setDragOverPlayerId(null);
   };
 
-  // 🔧 FIX: Vis ALLE hjemmespillere på banen (ikke bare startere)
+  // Vis ALLE hjemmespillere på banen
   const allDisplayPlayers = getDisplayPlayers();
   const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home');
   const displayBall = getDisplayBall();
@@ -408,7 +411,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
               onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
           )}
 
-          {/* 🔧 FIX: Vis ALLE hjemmespillere på banen – med drag-and-drop */}
+          {/* Vis ALLE hjemmespillere på banen – med drag-and-drop */}
           {homeDisplayPlayers.map(player => {
             const account = playerAccounts.find((a: any) => a.playerId === player.id);
             const displayName = account?.name || player.name || `#${player.num}`;

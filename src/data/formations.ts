@@ -5,35 +5,35 @@ import { TacticPhase, Player, Position, PlayerRole } from '../types';
 export const VW = 880;
 export const VH = 560;
 
-// Posisjoner for 11er fotball
+// Posisjoner for 11er fotball - KORREKT for bane med eget mål nederst
 const POS_11ER = {
-  // Keeper
+  // Keeper (nederst - eget mål)
   GK: { x: VW/2, y: VH - 45 },
   
-  // Forsvar (4)
-  LB: { x: VW/2 - 180, y: VH - 110 },
-  LCB: { x: VW/2 - 70, y: VH - 110 },
-  RCB: { x: VW/2 + 70, y: VH - 110 },
-  RB: { x: VW/2 + 180, y: VH - 110 },
+  // Forsvar (rett over keeper)
+  LB: { x: VW/2 - 180, y: VH - 120 },
+  LCB: { x: VW/2 - 70, y: VH - 120 },
+  RCB: { x: VW/2 + 70, y: VH - 120 },
+  RB: { x: VW/2 + 180, y: VH - 120 },
   
-  // Midtbane (3-4-5)
-  CDM: { x: VW/2, y: VH - 180 },
-  LCM: { x: VW/2 - 100, y: VH - 220 },
-  RCM: { x: VW/2 + 100, y: VH - 220 },
-  CAM: { x: VW/2, y: VH - 260 },
-  LM: { x: VW/2 - 200, y: VH - 200 },
-  RM: { x: VW/2 + 200, y: VH - 200 },
+  // Midtbane (midt på banen)
+  CDM: { x: VW/2, y: VH - 200 },
+  LCM: { x: VW/2 - 100, y: VH - 250 },
+  RCM: { x: VW/2 + 100, y: VH - 250 },
+  CAM: { x: VW/2, y: VH - 280 },
+  LM: { x: VW/2 - 200, y: VH - 220 },
+  RM: { x: VW/2 + 200, y: VH - 220 },
   
-  // Angrep (2-3)
-  LW: { x: VW/2 - 160, y: VH - 330 },
-  RW: { x: VW/2 + 160, y: VH - 330 },
-  ST: { x: VW/2, y: VH - 350 },
-  LS: { x: VW/2 - 80, y: VH - 340 },
-  RS: { x: VW/2 + 80, y: VH - 340 },
+  // Angrep (øverst - motstanderens mål)
+  LW: { x: VW/2 - 160, y: VH - 360 },
+  RW: { x: VW/2 + 160, y: VH - 360 },
+  ST: { x: VW/2, y: VH - 380 },
+  LS: { x: VW/2 - 80, y: VH - 370 },
+  RS: { x: VW/2 + 80, y: VH - 370 },
   
-  // Vingbacker (for 3-5-2)
-  LWB: { x: VW/2 - 220, y: VH - 130 },
-  RWB: { x: VW/2 + 220, y: VH - 130 },
+  // Vingbacker
+  LWB: { x: VW/2 - 200, y: VH - 150 },
+  RWB: { x: VW/2 + 200, y: VH - 150 },
 };
 
 interface FormationPlayer {
