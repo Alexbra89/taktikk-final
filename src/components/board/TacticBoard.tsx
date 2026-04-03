@@ -30,6 +30,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const [interpT, setInterpT]         = useState(0);
   const [liveDrawPts, setLiveDrawPts] = useState<{x:number;y:number}[]>([]);
   const [showSticky, setShowSticky]   = useState(false);
+  const [dragOverPlayerId, setDragOverPlayerId] = useState<string | null>(null);
   
   // Formasjonsstate
   const [selectedFormation, setSelectedFormation] = useState<string>('');
@@ -54,24 +55,23 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // Oppdater spillerposisjoner OG roller basert på valgt formasjon - med debounce for bedre ytelse
+  // 🔧 FIX: Oppdater spillerposisjoner OG roller basert på valgt formasjon - med sortering
   const updateFormation = useCallback((formationName: string) => {
     if (!phase) return;
     
-    // Clear previous debounce
     if (formationDebounceRef.current) {
       clearTimeout(formationDebounceRef.current);
     }
     
-    // Debounce for å unngå for mange oppdateringer
     formationDebounceRef.current = setTimeout(() => {
       const formation = availableFormations.find(f => f.name === formationName);
       if (!formation) return;
       
-      const homePlayers = phase.players.filter(p => p.team === 'home');
+      // 🔧 FIX: Sorter homePlayers etter nummer for å matche rekkefølgen i formasjonen
+      const homePlayers = [...phase.players.filter(p => p.team === 'home')]
+        .sort((a, b) => (a.num || 0) - (b.num || 0));
       const newFormationPlayers = formation.homePlayers;
       
-      // Bruk requestAnimationFrame for å unngå UI-frys
       requestAnimationFrame(() => {
         homePlayers.forEach((player, index) => {
           if (newFormationPlayers[index]) {
@@ -89,41 +89,26 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }, 300);
   }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition, updatePlayerField]);
 
-  // Cleanup debounce on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
-      if (formationDebounceRef.current) {
-        clearTimeout(formationDebounceRef.current);
-      }
+      if (formationDebounceRef.current) clearTimeout(formationDebounceRef.current);
+      if (stickyDebounceRef.current) clearTimeout(stickyDebounceRef.current);
     };
   }, []);
 
-  // Sync local sticky note when phase changes
+  // Sync local sticky note
   useEffect(() => {
     setLocalStickyNote(phase?.stickyNote ?? '');
   }, [phase?.stickyNote, activePhaseIdx]);
 
-  // Debounced sticky note update
   const handleStickyChange = useCallback((value: string) => {
     setLocalStickyNote(value);
-    
-    if (stickyDebounceRef.current) {
-      clearTimeout(stickyDebounceRef.current);
-    }
-    
+    if (stickyDebounceRef.current) clearTimeout(stickyDebounceRef.current);
     stickyDebounceRef.current = setTimeout(() => {
       updateStickyNote(activePhaseIdx, value);
     }, 500);
   }, [activePhaseIdx, updateStickyNote]);
-
-  // Cleanup sticky debounce on unmount
-  useEffect(() => {
-    return () => {
-      if (stickyDebounceRef.current) {
-        clearTimeout(stickyDebounceRef.current);
-      }
-    };
-  }, []);
 
   function startPlayback() {
     if (phases.length < 2) return;
@@ -219,18 +204,59 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     setLiveDrawPts([]);
   }
 
-  // Filtrer kun hjemmelag-spillere for visning
+  // 🔧 DRAG AND DROP: Håndter når en spiller slippes på en annen spiller eller tom posisjon
+  const handleDrop = (e: React.DragEvent, targetPlayerId?: string) => {
+    e.preventDefault();
+    setDragOverPlayerId(null);
+    
+    const draggedPlayerId = e.dataTransfer.getData('text/plain');
+    if (!draggedPlayerId) return;
+    
+    const draggedPlayer = phase?.players.find(p => p.id === draggedPlayerId);
+    const targetPlayer = targetPlayerId ? phase?.players.find(p => p.id === targetPlayerId) : null;
+    
+    if (!draggedPlayer) return;
+    
+    // Slipp på en annen spiller -> bytt plass
+    if (targetPlayer && draggedPlayer.id !== targetPlayer.id) {
+      // Bytt isStarter status
+      const draggedIsStarter = draggedPlayer.isStarter;
+      const targetIsStarter = targetPlayer.isStarter;
+      
+      updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: targetIsStarter });
+      updatePlayerField(activePhaseIdx, targetPlayer.id, { isStarter: draggedIsStarter });
+      
+      // Bytt posisjoner
+      updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: targetPlayer.position });
+      updatePlayerField(activePhaseIdx, targetPlayer.id, { position: draggedPlayer.position });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (playerId: string) => {
+    setDragOverPlayerId(playerId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverPlayerId(null);
+  };
+
+  // Filtrer kun startere for visning på banen
   const allDisplayPlayers = getDisplayPlayers();
-  const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home');
-  const displayBall    = getDisplayBall();
-  const progressFrac   = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
+  const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home' && player.isStarter === true);
+  const displayBall = getDisplayBall();
+  const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
 
   const DRAW_COLORS = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden" onDragOver={handleDragOver} onDrop={handleDrop}>
 
-      {/* Control bar - scrollbar på mobil */}
+      {/* Control bar */}
       <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] overflow-x-auto overscroll-x-contain">
         {/* Faser */}
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -285,7 +311,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           {drawMode ? '✏️ Stopp' : '✏️ Tegn'}
         </button>
 
-        {/* Draw colors — only when drawing */}
+        {/* Draw colors */}
         {drawMode && DRAW_COLORS.map(c => (
           <button key={c} onClick={() => setDrawColor(c)}
             className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
@@ -329,7 +355,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
         </div>
       )}
 
-      {/* SVG — forbedret for mobil touch */}
+      {/* SVG */}
       <div className="flex-1 min-h-0 flex items-center justify-center bg-[#050c18]" style={{padding:'4px'}}>
         <svg
           ref={svgRef}
@@ -351,6 +377,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           onPointerMove={onSvgPointerMove}
           onPointerUp={onSvgPointerUp}
           onPointerLeave={onSvgPointerUp}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         >
           <defs>
             <filter id="dropShadow">
@@ -382,22 +410,47 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
               onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
           )}
 
-          {/* Kun hjemmelag vises – med navn */}
+          {/* Kun startere på banen – med drag-and-drop */}
           {homeDisplayPlayers.map(player => {
             const account = playerAccounts.find((a: any) => a.playerId === player.id);
             const displayName = account?.name || player.name || `#${player.num}`;
+            const isDragOver = dragOverPlayerId === player.id;
             
             return (
-              <DraggablePlayer 
-                key={player.id} 
-                player={player}
-                displayName={displayName}
-                isActive={!isPlaying && !drawMode}
-                isSelected={selectedPlayerId === player.id}
-                onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
-                onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
-                showName 
-              />
+              <g 
+                key={player.id}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', player.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, player.id)}
+                onDragEnter={() => handleDragEnter(player.id)}
+                onDragLeave={handleDragLeave}
+              >
+                {/* Drop indicator */}
+                {isDragOver && (
+                  <circle
+                    cx={player.position.x}
+                    cy={player.position.y}
+                    r={28}
+                    fill="none"
+                    stroke="#38bdf8"
+                    strokeWidth={3}
+                    strokeDasharray="6,4"
+                    opacity={0.8}
+                  />
+                )}
+                <DraggablePlayer 
+                  player={player}
+                  displayName={displayName}
+                  isActive={!isPlaying && !drawMode}
+                  isSelected={selectedPlayerId === player.id}
+                  onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
+                  onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
+                  showName 
+                />
+              </g>
             );
           })}
 

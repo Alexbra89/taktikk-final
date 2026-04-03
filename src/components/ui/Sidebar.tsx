@@ -27,8 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   
   const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : 7;
   
-  // 🔧 FIX: Bruk isStarter for å avgjøre hvem som starter (ikke isOnField)
-  // isOnField brukes for midlertidige bytter under kamp
+  // Bruk isStarter for å avgjøre hvem som starter
   const starters = homePlayers.filter(p => p.isStarter === true);
   const subs = homePlayers.filter(p => p.isStarter !== true);
   
@@ -39,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   }
   const fieldDisplay = fieldSlots.slice(0, teamSize);
   
-  // 🔧 FIX: Bytte funksjon – bytter isStarter status
+  // Bytte funksjon – bytter isStarter status
   const swapPlayers = (playerOutId: string, playerInId: string) => {
     const playerOut = homePlayers.find(p => p.id === playerOutId);
     const playerIn = homePlayers.find(p => p.id === playerInId);
@@ -50,18 +49,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     updatePlayerField(activePhaseIdx, playerOutId, { isStarter: false });
     updatePlayerField(activePhaseIdx, playerInId, { isStarter: true });
     
-    // Bytt også posisjoner hvis ønskelig
+    // Bytt også posisjoner
     if (playerOut.position && playerIn.position) {
       updatePlayerField(activePhaseIdx, playerOutId, { position: playerIn.position });
       updatePlayerField(activePhaseIdx, playerInId, { position: playerOut.position });
     }
     
-    setShowSubConfirm(null);
-    setSelectedOutPlayer(null);
-    setEligibleSubs([]);
+    // Force en liten forsinkelse for å sikre at state oppdateres
+    setTimeout(() => {
+      setShowSubConfirm(null);
+      setSelectedOutPlayer(null);
+      setEligibleSubs([]);
+    }, 50);
   };
   
-  // 🔧 FIX: Alle innbyggere er tilgjengelige for bytte (ikke bare samme posisjon)
+  // Alle innbyggere er tilgjengelige for bytte
   const getAvailableSubs = (outPlayer: any) => {
     return subs.filter(p => p.id !== outPlayer.id);
   };
@@ -70,24 +72,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const sportLabel = sport === 'handball' ? 'Håndball' : sport === 'football7' ? 'Fotball 7er' : 'Fotball 11er';
 
   const getPositionNameForIndex = (index: number): string => {
-    // Dynamisk basert på sport og formasjon
     if (sport === 'football7') {
       const positions7 = ['Keeper', 'Back', 'Back', 'Midtbane', 'Midtbane', 'Spiss', 'Spiss'];
       return positions7[index] || `Posisjon ${index + 1}`;
     }
     // Standard 11er formasjon (4-4-2)
     const positions11 = [
-      'Keeper',      // 1
-      'Høyreback',   // 2
-      'Venstreback', // 3
-      'Midtstopper', // 4
-      'Midtstopper', // 5
-      'Høyre midtbane',   // 6
-      'Sentral midtbane', // 7
-      'Venstre midtbane', // 8
-      'Høyre spiss',      // 9
-      'Sentral spiss',    // 10
-      'Venstre spiss'     // 11
+      'Keeper', 'Høyreback', 'Venstreback', 'Midtstopper', 'Midtstopper',
+      'Høyre midtbane', 'Sentral midtbane', 'Venstre midtbane',
+      'Høyre spiss', 'Sentral spiss', 'Venstre spiss'
     ];
     return positions11[index] || `Posisjon ${index + 1}`;
   };
@@ -130,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
-        {/* ── SPILLERLISTE ── */}
+        {/* SPILLERLISTE */}
         {tab === 'players' && phase && (
           <>
             <div className="flex items-center justify-between mb-1">
@@ -197,14 +190,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                     playerAccounts={playerAccounts as any[]}
                     isStarter={false}
                     onSubstituteIn={() => {
-                      // Finn en spiller på banen som kan byttes ut
                       if (starters.length > 0) {
                         const anyStarter = starters[0];
                         setSelectedOutPlayer(anyStarter);
                         setEligibleSubs([p]);
                         setShowSubConfirm({ outId: anyStarter.id, inId: p.id });
                       } else if (starters.length < teamSize) {
-                        // Hvis det er ledig plass, sett spilleren direkte inn som starter
                         updatePlayerField(activePhaseIdx, p.id, { isStarter: true });
                       } else {
                         alert(`Ingen startere tilgjengelig for bytte.`);
@@ -217,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           </>
         )}
 
-        {/* ── TILDEL ── */}
+        {/* TILDEL */}
         {tab === 'assign' && phase && (
           <AssignTab 
             players={players} 
@@ -228,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           />
         )}
 
-        {/* ── ROLLER ── */}
+        {/* ROLLER */}
         {tab === 'roles' && (
           <div className="space-y-1">
             <p className="text-[10px] text-[#4a6080] px-1 mb-2">Trykk for rollebeskrivelse</p>

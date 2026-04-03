@@ -48,13 +48,8 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
   const ageGroup = storeAgeGroup;
 
-  // DEBUG: Sjekk om øvelser lastes
   const sportKey = toDrillSport(sport);
   const allDrills = getDrillsBySport(sportKey);
-  console.log('🔍 TrainingView - Sport:', sport);
-  console.log('🔍 TrainingView - SportKey:', sportKey);
-  console.log('🔍 TrainingView - Antall øvelser:', allDrills.length);
-  console.log('🔍 TrainingView - Første øvelse:', allDrills[0]?.name);
 
   if (showNewTraining && isCoach) {
     return (
@@ -402,7 +397,6 @@ const NewTrainingForm: React.FC<{
             <span>{showDrillPicker ? '▲' : '▼'}</span>
           </button>
 
-          {/* Legg til egen øvelse knapp */}
           <button
             type="button"
             onClick={() => setShowCustomDrill(!showCustomDrill)}
@@ -547,7 +541,7 @@ const NewTrainingForm: React.FC<{
   );
 };
 
-// ═══ TRAINING CARD - OPPDATERT med Start knapp ═══════════════════════════════
+// ═══ TRAINING CARD ════════════════════════════════════════════
 
 const TrainingCard: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
@@ -594,7 +588,6 @@ const TrainingCard: React.FC<{
             <span className="text-[#3a5070] text-[11px]">›</span>
           </div>
         </div>
-        {/* Start knapp - vises kun for kommende treninger */}
         {isUpcoming && onStart && (
           <button
             onClick={(e) => { e.stopPropagation(); onStart(); }}
@@ -664,6 +657,95 @@ const Stopwatch: React.FC<{
   );
 };
 
+// ═══ DETALJERT ØVELSESMODAL ═══════════════════════════════════════
+
+const DrillDetailModal: React.FC<{
+  drill: DrillExercise | null;
+  onClose: () => void;
+}> = ({ drill, onClose }) => {
+  if (!drill) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#0c1525] border border-[#1e3050] rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        
+        <div className="sticky top-0 bg-[#0c1525] border-b border-[#1e3050] px-5 py-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-bold text-slate-100">{drill.name}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold
+                ${drill.difficulty === 'enkel' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : drill.difficulty === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                  : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                {drill.difficulty === 'enkel' ? '⭐ Enkel' : drill.difficulty === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
+              </span>
+              <span className="text-[10px] text-[#4a6080]">⏱ {drill.duration} min</span>
+              <span className="text-[10px] text-[#4a6080]">👥 {drill.players} spillere</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-[#4a6080] hover:text-white text-2xl min-h-[44px] px-2">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          
+          <div>
+            <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">📋 Beskrivelse</div>
+            <p className="text-[13px] text-slate-300 leading-relaxed">{drill.description}</p>
+          </div>
+
+          {drill.steps && drill.steps.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">📝 Steg-for-steg</div>
+              <ol className="space-y-2">
+                {drill.steps.map((step, idx) => (
+                  <li key={step.id} className="flex gap-2">
+                    <span className="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div>
+                      <div className="text-[12px] font-semibold text-slate-200">{step.name}</div>
+                      {step.description && (
+                        <p className="text-[11px] text-[#7a9ab8] mt-0.5">{step.description}</p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {drill.tips && drill.tips.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-2">💡 Tips</div>
+              <ul className="space-y-1">
+                {drill.tips.map((tip, idx) => (
+                  <li key={idx} className="text-[11px] text-slate-300 flex gap-2">
+                    <span className="text-amber-400">•</span>
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {drill.equipment && drill.equipment.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-2">🛠 Utstyr</div>
+              <div className="flex flex-wrap gap-1.5">
+                {drill.equipment.map((item, idx) => (
+                  <span key={idx} className="text-[10px] px-2 py-1 rounded-full bg-[#0f1a2a] border border-[#1e3050] text-slate-300">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ═══ TRAINING DETAIL ══════════════════════════════════════════
 
 const TrainingDetail: React.FC<{
@@ -682,6 +764,7 @@ const TrainingDetail: React.FC<{
   const [showDrillPicker, setShowDrillPicker] = useState(false);
   const [activeStopwatch, setActiveStopwatch] = useState<string | null>(null);
   const [completedDrills, setCompletedDrills] = useState<Set<string>>(new Set());
+  const [selectedDrillForModal, setSelectedDrillForModal] = useState<DrillExercise | null>(null);
 
   const drills = getDrillsBySport(toDrillSport(sport));
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
@@ -747,6 +830,11 @@ const TrainingDetail: React.FC<{
   const handleTeamNoteChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onUpdate({ teamNote: e.target.value });
   }, [onUpdate]);
+
+  // Hjelpefunksjon for å finne full drill fra tittel
+  const findDrillByName = (title: string) => {
+    return drills.find(d => d.name === title);
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -891,14 +979,24 @@ const TrainingDetail: React.FC<{
             .map((tn: any) => {
               const isCompleted = completedDrills.has(tn.id) || tn.completed;
               const hasTimer = (tn.duration && tn.duration > 0) || tn.duration === undefined;
+              const fullDrill = findDrillByName(tn.title);
 
               return (
                 <div key={tn.id} className={`bg-[#0f1a2a] border rounded-xl p-4 mb-2 transition-all
                   ${isCompleted ? 'border-emerald-500/30 opacity-70' : 'border-[#1e3050]'}`}>
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-bold text-slate-200">{tn.title}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => {
+                            if (fullDrill) {
+                              setSelectedDrillForModal(fullDrill);
+                            }
+                          }}
+                          className="text-[13px] font-bold text-slate-200 hover:text-sky-400 hover:underline transition text-left"
+                        >
+                          {tn.title}
+                        </button>
                         {hasTimer && (
                           <span className="text-[9px] bg-[#1e3050] px-2 py-0.5 rounded-full text-amber-400">
                             ⏱ {tn.duration || 5} min
@@ -930,7 +1028,19 @@ const TrainingDetail: React.FC<{
                     </button>
                   )}
 
-                  {isCoach && !isCompleted && (
+                  {isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
+                    <button 
+                      onClick={() => {
+                        console.log('Coach starting stopwatch for:', tn.id, 'Duration:', tn.duration || 5);
+                        setActiveStopwatch(tn.id);
+                      }}
+                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
+                    >
+                      ⏱ Start øvelse ({tn.duration || 5} min)
+                    </button>
+                  )}
+
+                  {isCoach && !isCompleted && !hasTimer && (
                     <button 
                       onClick={() => handleCompleteDrill(tn.id)}
                       className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
@@ -942,6 +1052,10 @@ const TrainingDetail: React.FC<{
                   {!isCoach && activeStopwatch === tn.id && (
                     <div className="mt-2 text-[10px] text-amber-400">⏱ Øvelse pågår...</div>
                   )}
+
+                  {isCoach && activeStopwatch === tn.id && (
+                    <div className="mt-2 text-[10px] text-amber-400">⏱ Øvelse pågår (trener)...</div>
+                  )}
                 </div>
               );
             })}
@@ -951,6 +1065,14 @@ const TrainingDetail: React.FC<{
           )}
         </div>
       </div>
+
+      {/* Detaljert øvelsesmodal */}
+      {selectedDrillForModal && (
+        <DrillDetailModal
+          drill={selectedDrillForModal}
+          onClose={() => setSelectedDrillForModal(null)}
+        />
+      )}
     </div>
   );
 };
