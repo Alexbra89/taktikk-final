@@ -27,37 +27,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   
   const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : 7;
   
-  // 🔧 Hent alle spillere sortert etter nummer
-  const sortedHomePlayers = [...homePlayers].sort((a, b) => (a.num || 0) - (b.num || 0));
-  
-  // 🔧 Bygg startoppstilling (banen) – ALLTID teamSize plasser
-  // Vi bruker isOnField for å avgjøre hvem som er på banen
-  const onFieldPlayers = sortedHomePlayers.filter(p => p.isOnField === true);
-  const benchPlayers = sortedHomePlayers.filter(p => p.isOnField !== true);
+  // 🔧 FIX: Bruk isStarter for å avgjøre hvem som starter (ikke isOnField)
+  // isOnField brukes for midlertidige bytter under kamp
+  const starters = homePlayers.filter(p => p.isStarter === true);
+  const subs = homePlayers.filter(p => p.isStarter !== true);
   
   // Fyll opp banen til teamSize med null for tomme plasser
-  const fieldSlots: (any | null)[] = [...onFieldPlayers];
+  const fieldSlots: (any | null)[] = [...starters];
   while (fieldSlots.length < teamSize) {
     fieldSlots.push(null);
   }
   const fieldDisplay = fieldSlots.slice(0, teamSize);
   
-  // 🔧 Bytte funksjon – bytter plass mellom to spillere
+  // 🔧 FIX: Bytte funksjon – bytter isStarter status
   const swapPlayers = (playerOutId: string, playerInId: string) => {
-    // Hent begge spillerne
     const playerOut = homePlayers.find(p => p.id === playerOutId);
     const playerIn = homePlayers.find(p => p.id === playerInId);
     
     if (!playerOut || !playerIn) return;
     
-    // Bytt isOnField status
-    updatePlayerField(activePhaseIdx, playerOutId, { isOnField: false });
-    updatePlayerField(activePhaseIdx, playerInId, { isOnField: true });
+    // Bytt isStarter status
+    updatePlayerField(activePhaseIdx, playerOutId, { isStarter: false });
+    updatePlayerField(activePhaseIdx, playerInId, { isStarter: true });
     
-    // 🔧 OPSJONELT: Behold posisjonen? Hvis ja, bytt også position
-    // Dette kan gjøres hvis du vil at innbyggeren skal ta samme posisjon på banen
+    // Bytt også posisjoner hvis ønskelig
     if (playerOut.position && playerIn.position) {
-      // Bytt posisjoner
       updatePlayerField(activePhaseIdx, playerOutId, { position: playerIn.position });
       updatePlayerField(activePhaseIdx, playerInId, { position: playerOut.position });
     }
@@ -67,27 +61,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     setEligibleSubs([]);
   };
   
-  // Finn alle spillere som kan bytte inn (alle som ikke er på banen)
+  // 🔧 FIX: Alle innbyggere er tilgjengelige for bytte (ikke bare samme posisjon)
   const getAvailableSubs = (outPlayer: any) => {
-    return benchPlayers.filter(p => 
-      p.id !== outPlayer.id &&
-      (p.role === outPlayer.role || (p.secondaryRoles && p.secondaryRoles.includes(outPlayer.role)))
-    );
+    return subs.filter(p => p.id !== outPlayer.id);
   };
 
   const sportEmoji = sport === 'handball' ? '🤾' : '⚽';
   const sportLabel = sport === 'handball' ? 'Håndball' : sport === 'football7' ? 'Fotball 7er' : 'Fotball 11er';
 
   const getPositionNameForIndex = (index: number): string => {
-    const positions = [
-      'Keeper', 'Høyreback', 'Venstreback', 'Midtstopper', 'Midtstopper',
-      'Defensiv midtbane', 'Sentral midtbane', 'Offensiv midtbane',
-      'Høyreving', 'Venstreving', 'Spiss'
-    ];
+    // Dynamisk basert på sport og formasjon
     if (sport === 'football7') {
-      return ['Keeper', 'Back', 'Back', 'Midtbane', 'Midtbane', 'Spiss', 'Spiss'][index] || `Posisjon ${index + 1}`;
+      const positions7 = ['Keeper', 'Back', 'Back', 'Midtbane', 'Midtbane', 'Spiss', 'Spiss'];
+      return positions7[index] || `Posisjon ${index + 1}`;
     }
-    return positions[index] || `Posisjon ${index + 1}`;
+    // Standard 11er formasjon (4-4-2)
+    const positions11 = [
+      'Keeper',      // 1
+      'Høyreback',   // 2
+      'Venstreback', // 3
+      'Midtstopper', // 4
+      'Midtstopper', // 5
+      'Høyre midtbane',   // 6
+      'Sentral midtbane', // 7
+      'Venstre midtbane', // 8
+      'Høyre spiss',      // 9
+      'Sentral spiss',    // 10
+      'Venstre spiss'     // 11
+    ];
+    return positions11[index] || `Posisjon ${index + 1}`;
   };
 
   const getPlayerDisplayName = (player: any) => {
@@ -133,10 +135,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           <>
             <div className="flex items-center justify-between mb-1">
               <div className="text-[8.5px] font-bold text-sky-400 uppercase tracking-widest">
-                ⚽ Bane ({onFieldPlayers.length}/{teamSize})
+                ⚽ Startoppstilling ({starters.length}/{teamSize})
               </div>
-              {onFieldPlayers.length < teamSize && (
-                <span className="text-[8px] text-red-400">⚠️ Mangler {teamSize - onFieldPlayers.length} spillere</span>
+              {starters.length < teamSize && (
+                <span className="text-[8px] text-red-400">⚠️ Mangler {teamSize - starters.length} spillere</span>
               )}
             </div>
             
@@ -163,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                   selected={selectedPlayerId === player.id} 
                   onSelect={onSelectPlayer} 
                   playerAccounts={playerAccounts as any[]}
-                  isOnField={true}
+                  isStarter={true}
                   onSubstituteOut={() => {
                     const eligible = getAvailableSubs(player);
                     if (eligible.length > 0) {
@@ -171,43 +173,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                       setEligibleSubs(eligible);
                       setShowSubConfirm({ outId: player.id, inId: eligible[0].id });
                     } else {
-                      alert(`Ingen innbyggere tilgjengelig for posisjonen "${ROLE_META[player.role as keyof typeof ROLE_META]?.label || player.role}".`);
+                      alert(`Ingen innbyggere tilgjengelig.`);
                     }
                   }}
                 />
               );
             })}
 
-            {/* Innbyttere – alle som ikke er på banen */}
-            {benchPlayers.length > 0 && (
+            {/* Innbyttere – alle som ikke er startere */}
+            {subs.length > 0 && (
               <>
                 <div className="flex items-center gap-2 my-2 px-1">
                   <div className="h-px flex-1 bg-[#1e3050]" />
-                  <span className="text-[8.5px] font-bold text-amber-400 uppercase tracking-widest">🪑 Innbyttere ({benchPlayers.length})</span>
+                  <span className="text-[8.5px] font-bold text-amber-400 uppercase tracking-widest">🪑 Innbyttere ({subs.length})</span>
                   <div className="h-px flex-1 bg-[#1e3050]" />
                 </div>
-                {benchPlayers.map(p => (
+                {subs.map(p => (
                   <PlayerRow 
                     key={p.id} 
                     player={p} 
                     selected={selectedPlayerId === p.id} 
                     onSelect={onSelectPlayer} 
                     playerAccounts={playerAccounts as any[]}
-                    isOnField={false}
+                    isStarter={false}
                     onSubstituteIn={() => {
-                      // Finn en spiller på banen som kan byttes ut (samme posisjon)
-                      const samePositionField = onFieldPlayers.find(s => 
-                        s.role === p.role || (s.secondaryRoles && s.secondaryRoles.includes(p.role))
-                      );
-                      if (samePositionField) {
-                        setSelectedOutPlayer(samePositionField);
+                      // Finn en spiller på banen som kan byttes ut
+                      if (starters.length > 0) {
+                        const anyStarter = starters[0];
+                        setSelectedOutPlayer(anyStarter);
                         setEligibleSubs([p]);
-                        setShowSubConfirm({ outId: samePositionField.id, inId: p.id });
-                      } else if (onFieldPlayers.length < teamSize) {
-                        // Hvis det er ledig plass på banen, sett spilleren direkte inn
-                        updatePlayerField(activePhaseIdx, p.id, { isOnField: true });
+                        setShowSubConfirm({ outId: anyStarter.id, inId: p.id });
+                      } else if (starters.length < teamSize) {
+                        // Hvis det er ledig plass, sett spilleren direkte inn som starter
+                        updatePlayerField(activePhaseIdx, p.id, { isStarter: true });
                       } else {
-                        alert(`Ingen spillere på banen med posisjon "${ROLE_META[p.role as keyof typeof ROLE_META]?.label || p.role}" tilgjengelig for bytte.`);
+                        alert(`Ingen startere tilgjengelig for bytte.`);
                       }
                     }}
                   />
@@ -267,7 +267,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             </p>
             {eligibleSubs.length > 1 && (
               <div className="mb-4">
-                <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">Andre innbyggere (samme posisjon):</div>
+                <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">Andre innbyggere:</div>
                 <div className="flex flex-wrap gap-1">
                   {eligibleSubs.slice(1).map(sub => (
                     <button key={sub.id} onClick={() => setShowSubConfirm({ outId: showSubConfirm.outId, inId: sub.id })}
@@ -299,10 +299,10 @@ const PlayerRow: React.FC<{
   player: any; selected: boolean;
   onSelect: (id: string | null) => void;
   playerAccounts?: any[];
-  isOnField: boolean;
+  isStarter: boolean;
   onSubstituteOut?: () => void;
   onSubstituteIn?: () => void;
-}> = ({ player, selected, onSelect, playerAccounts = [], isOnField, onSubstituteOut, onSubstituteIn }) => {
+}> = ({ player, selected, onSelect, playerAccounts = [], isStarter, onSubstituteOut, onSubstituteIn }) => {
   const m = ROLE_META[player.role as keyof typeof ROLE_META] ?? ROLE_META['midfielder'];
   const account = playerAccounts.find((acc: any) => acc.playerId === player.id);
   const displayName = account?.name || player.name || `#${player.num}`;
@@ -310,7 +310,7 @@ const PlayerRow: React.FC<{
   return (
     <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5 border transition-all
       ${selected ? 'bg-sky-500/10 border-sky-500/40' : 'border-transparent hover:bg-[#111c30]'}
-      ${!isOnField ? 'opacity-80' : ''}`}>
+      ${!isStarter ? 'opacity-80' : ''}`}>
       <div onClick={() => onSelect(selected ? null : player.id)} className="flex items-center gap-2 flex-1 cursor-pointer active:scale-[0.98] touch-manipulation">
         <div className="relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
           style={{ background: m.color, opacity: player.injured ? 0.5 : 1 }}>
@@ -320,16 +320,16 @@ const PlayerRow: React.FC<{
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[11px] font-semibold truncate text-slate-200">{displayName}</div>
-          <div className="text-[9px] text-[#3a5070]">{m.label}{!isOnField && <span className="text-amber-400 ml-1">· innbytter</span>}</div>
+          <div className="text-[9px] text-[#3a5070]">{m.label}{!isStarter && <span className="text-amber-400 ml-1">· innbytter</span>}</div>
         </div>
       </div>
-      {isOnField && onSubstituteOut && (
+      {isStarter && onSubstituteOut && (
         <button onClick={(e) => { e.stopPropagation(); onSubstituteOut(); }} 
           className="px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] flex-shrink-0 bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25">
           🔄 Bytte ut
         </button>
       )}
-      {!isOnField && onSubstituteIn && (
+      {!isStarter && onSubstituteIn && (
         <button onClick={(e) => { e.stopPropagation(); onSubstituteIn(); }} 
           className="px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] flex-shrink-0 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25">
           ⬆️ Til start

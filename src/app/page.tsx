@@ -11,12 +11,12 @@ import { PlayerHome } from '@/components/player-portal/PlayerHome';
 import { LoginGate } from '@/components/ui/LoginGate';
 import { SmartCoach } from '@/components/ui/SmartCoach';
 import { MatchReportModal } from '@/components/ui/MatchReport';
-import { AppView } from '@/types';
+import { AppView, CalendarEvent } from '@/types';
 import { StatsView } from '@/components/ui/StatsView';
 import { PlayerManager } from '@/components/ui/PlayerManager';
 import { TrainingView } from '@/components/ui/TrainingView';
 import { FullscreenBoard } from '@/components/ui/FullscreenBoard';
-import ChatPanel from '@/components/ui/ChatPanel';
+import { ChatPanel } from '@/components/ui/ChatPanel';
 
 // ─── Innstillinger-modal ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -166,6 +166,7 @@ export default function Home() {
   const [mobileCoachTab, setMobileCoachTab]           = useState<CoachTab>('board');
   const [lastReadChatCount, setLastReadChatCount]     = useState(0);
   const [syncing, setSyncing]                         = useState(false);
+  const [selectedTraining, setSelectedTraining]       = useState<CalendarEvent | null>(null);
 
   // Hent fra store (etter useState, før useEffect)
   const {
@@ -188,8 +189,6 @@ export default function Home() {
 
     // 🔧 FIX: IKKE re-sync på hver database-endring!
     // Dette forårsaket at events ble overskrevet.
-    // Hvis du MÅ ha realtime, bruk en debounce eller sjekk hvilken tabell som endres.
-    
     // Kommenter ut subscription for å unngå at events overskrives:
     // const unsub = subscribeToSupabase(() => {
     //   useAppStore.getState().syncFromSupabase();
@@ -254,7 +253,7 @@ export default function Home() {
             {([
               { view: 'board',    label: 'Brett',    emoji: '📋' },
               { view: 'calendar', label: 'Kalender', emoji: '📅' },
-              { view: 'players',  label: 'Tropp',    emoji: '👥' },
+              // { view: 'players',  label: 'Tropp',    emoji: '👥' }
               { view: 'stats',    label: 'Stats',    emoji: '📊' },
               { view: 'training', label: 'Trening',   emoji: '🏃' },
               { view: 'admin',    label: 'Spillere',  emoji: '⚙️' },
@@ -327,10 +326,27 @@ export default function Home() {
             </div>
           </>
         )}
-        {currentView === 'calendar' && isCoach && <div className="flex-1 overflow-hidden"><CalendarView /></div>}
+        {currentView === 'calendar' && isCoach && (
+          <div className="flex-1 overflow-hidden">
+            <CalendarView onGoToTraining={(training) => {
+              setSelectedTraining(training);
+              setView('training');
+            }} />
+          </div>
+        )}
         {currentView === 'players'  && isCoach && <div className="flex-1 overflow-hidden"><PlayerPortal /></div>}
         {currentView === 'stats'    && isCoach && <div className="flex-1 overflow-hidden"><StatsView /></div>}
-        {currentView === 'training' && isCoach && <div className="flex-1 overflow-hidden"><TrainingView /></div>}
+        {currentView === 'training' && isCoach && (
+          <div className="flex-1 overflow-hidden">
+            <TrainingView 
+              initialTraining={selectedTraining || undefined} 
+              onBack={() => {
+                setSelectedTraining(null);
+                setView('calendar');
+              }} 
+            />
+          </div>
+        )}
         {currentView === 'admin'    && isCoach && <div className="flex-1 overflow-hidden"><PlayerManager /></div>}
         {role === 'player'          && <div className="flex-1 overflow-hidden"><PlayerHome /></div>}
       </main>
@@ -408,7 +424,15 @@ export default function Home() {
 
         {/* TRENER — trening */}
         {isCoach && mobileCoachTab === 'training' && (
-          <div className="h-full overflow-hidden"><TrainingView /></div>
+          <div className="h-full overflow-hidden">
+            <TrainingView 
+              initialTraining={selectedTraining || undefined} 
+              onBack={() => {
+                setSelectedTraining(null);
+                setMobileCoachTab('calendar');
+              }} 
+            />
+          </div>
         )}
 
         {/* TRENER — spilleradmin */}
@@ -423,7 +447,12 @@ export default function Home() {
 
         {/* TRENER — kalender */}
         {isCoach && mobileCoachTab === 'calendar' && (
-          <div className="h-full overflow-hidden"><CalendarView /></div>
+          <div className="h-full overflow-hidden">
+            <CalendarView onGoToTraining={(training) => {
+              setSelectedTraining(training);
+              setMobileCoachTab('training');
+            }} />
+          </div>
         )}
 
         {/* TRENER — tropp/spilleradmin */}

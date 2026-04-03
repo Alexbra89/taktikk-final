@@ -1,6 +1,7 @@
 'use client';
 import React, { useMemo, useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { PlayerProfile } from '@/components/player-portal/PlayerProfile';
 
 // ═══════════════════════════════════════════════════════════════
 //  TYPER FOR STATISTIKK
@@ -49,6 +50,7 @@ export const StatsView: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showStatForm, setShowStatForm] = useState(false);
   const [matchStats, setMatchStats] = useState<MatchStats[]>([]);
+  const [showPlayerProfile, setShowPlayerProfile] = useState(false);  // 🔧 NY STATE
 
   // Last statistikk fra localStorage
   useEffect(() => {
@@ -82,11 +84,10 @@ export const StatsView: React.FC = () => {
   const phase = phases[activePhaseIdx] ?? phases[0];
   const homePlayers = (phase?.players ?? []).filter((p: any) => p.team === 'home');
 
-  // ALLE spillere (fra playerAccounts + board) - beste fra korte versjonen
+  // ALLE spillere (fra playerAccounts + board)
   const allClubPlayers = useMemo(() => {
     const result: Array<{ id: string; name: string; num?: number; role?: string; minutesPlayed: number }> = [];
     
-    // Fra playerAccounts (alle registrerte)
     (playerAccounts as any[]).filter((a: any) => a.team === 'home').forEach((acc: any) => {
       const bp = homePlayers.find((p: any) => p.id === acc.playerId);
       result.push({
@@ -98,7 +99,6 @@ export const StatsView: React.FC = () => {
       });
     });
     
-    // Board spillere ikke i accounts
     homePlayers.forEach((p: any) => {
       if (!result.find(r => r.id === p.id)) {
         result.push({ id: p.id, name: p.name || `#${p.num}`, num: p.num, role: p.role, minutesPlayed: p.minutesPlayed ?? 0 });
@@ -212,6 +212,9 @@ export const StatsView: React.FC = () => {
   const topAssists = playerStats.filter(s => s.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 5);
   const selectedPlayer = selectedPlayerId ? playerStats.find(s => s.playerId === selectedPlayerId) : null;
 
+  // 🔧 HENT UT VALGT SPILLER FOR PROFIL
+  const selectedPlayerForProfile = selectedPlayerId ? allClubPlayers.find(p => p.id === selectedPlayerId) : null;
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#060c18]">
       {/* Header */}
@@ -243,7 +246,10 @@ export const StatsView: React.FC = () => {
         ] as const).map(([id, label]) => (
           <button 
             key={id} 
-            onClick={() => setTab(id as 'overview' | 'attendance' | 'playtime' | 'goals' | 'player')}
+            onClick={() => {
+              setTab(id as 'overview' | 'attendance' | 'playtime' | 'goals' | 'player');
+              setShowPlayerProfile(false);
+            }}
             className={`px-3 py-3 text-[11px] font-semibold transition-all min-h-[44px] whitespace-nowrap
               ${tab === id ? 'text-sky-400 border-b-2 border-sky-400' : 'text-[#3a5070]'}`}
           >
@@ -276,7 +282,11 @@ export const StatsView: React.FC = () => {
                 <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-2">⚽ Toppscorer</div>
                 {topScorers.length > 0 ? (
                   topScorers.map((s, i) => (
-                    <div key={s.playerId} className="flex items-center justify-between py-1 border-b border-[#1e3050] last:border-0">
+                    <div 
+                      key={s.playerId} 
+                      onClick={() => { setSelectedPlayerId(s.playerId); setTab('player'); setShowPlayerProfile(false); }}
+                      className="flex items-center justify-between py-1 border-b border-[#1e3050] last:border-0 cursor-pointer hover:bg-[#111c30] transition"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-[#4a6080]">#{i + 1}</span>
                         <span className="text-[11px] text-slate-200">{s.playerName}</span>
@@ -292,7 +302,11 @@ export const StatsView: React.FC = () => {
                 <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-2">🎯 Flest assists</div>
                 {topAssists.length > 0 ? (
                   topAssists.map((s, i) => (
-                    <div key={s.playerId} className="flex items-center justify-between py-1 border-b border-[#1e3050] last:border-0">
+                    <div 
+                      key={s.playerId} 
+                      onClick={() => { setSelectedPlayerId(s.playerId); setTab('player'); setShowPlayerProfile(false); }}
+                      className="flex items-center justify-between py-1 border-b border-[#1e3050] last:border-0 cursor-pointer hover:bg-[#111c30] transition"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-[#4a6080]">#{i + 1}</span>
                         <span className="text-[11px] text-slate-200">{s.playerName}</span>
@@ -348,7 +362,7 @@ export const StatsView: React.FC = () => {
                 playerStats.map(s => (
                   <div 
                     key={s.playerId} 
-                    onClick={() => { setSelectedPlayerId(s.playerId); setTab('player'); }}
+                    onClick={() => { setSelectedPlayerId(s.playerId); setTab('player'); setShowPlayerProfile(false); }}
                     className="grid grid-cols-5 gap-2 p-3 border-b border-[#1e3050] hover:bg-[#111c30] cursor-pointer transition"
                   >
                     <div className="col-span-2">
@@ -398,7 +412,14 @@ export const StatsView: React.FC = () => {
                     const pct = data.total > 0 ? Math.round((data.attended / data.total) * 100) : 0;
                     const color = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444';
                     return (
-                      <div key={data.name} className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
+                      <div 
+                        key={data.name} 
+                        onClick={() => {
+                          const player = allClubPlayers.find(p => p.name === data.name);
+                          if (player) { setSelectedPlayerId(player.id); setTab('player'); setShowPlayerProfile(false); }
+                        }}
+                        className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3 cursor-pointer hover:bg-[#111c30] transition"
+                      >
                         <div className="flex items-center justify-between mb-2">
                           <div>
                             <div className="text-[12px] font-bold text-slate-200">{data.name}</div>
@@ -451,7 +472,11 @@ export const StatsView: React.FC = () => {
                     const color = min > 60 ? '#22c55e' : min > 30 ? '#f59e0b' : '#64748b';
                     const maxMin = Math.max(...allClubPlayers.map(pl => pl.minutesPlayed), 1);
                     return (
-                      <div key={p.id} className="flex items-center gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
+                      <div 
+                        key={p.id} 
+                        onClick={() => { setSelectedPlayerId(p.id); setTab('player'); setShowPlayerProfile(false); }}
+                        className="flex items-center gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3 cursor-pointer hover:bg-[#111c30] transition"
+                      >
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black text-white flex-shrink-0"
                           style={{ background: color }}>
                           {p.num ?? '?'}
@@ -481,36 +506,60 @@ export const StatsView: React.FC = () => {
           </div>
         )}
 
-        {/* ── SPILLERDETALJ (trener) ── */}
+        {/* ── SPILLERDETALJ (trener) ── Viser statistikk ELLER profil */}
         {tab === 'player' && selectedPlayer && isCoach && (
           <div className="max-w-2xl mx-auto">
-            <button onClick={() => setSelectedPlayerId(null)} className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-4 flex items-center gap-1">
-              ‹ Tilbake til oversikt
-            </button>
-            <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
-                <span className="text-3xl font-black text-white">#{selectedPlayer.playerNumber}</span>
-              </div>
-              <h3 className="text-xl font-bold text-slate-100 mb-1">{selectedPlayer.playerName}</h3>
-              <div className="grid grid-cols-4 gap-2 mt-4">
-                <div className="bg-[#0f1a2a] rounded-xl p-2">
-                  <div className="text-2xl font-black text-emerald-400">{selectedPlayer.goals}</div>
-                  <div className="text-[9px] text-[#4a6080]">Mål</div>
-                </div>
-                <div className="bg-[#0f1a2a] rounded-xl p-2">
-                  <div className="text-2xl font-black text-sky-400">{selectedPlayer.assists}</div>
-                  <div className="text-[9px] text-[#4a6080]">Assists</div>
-                </div>
-                <div className="bg-[#0f1a2a] rounded-xl p-2">
-                  <div className="text-2xl font-black text-amber-400">{selectedPlayer.matchesPlayed}</div>
-                  <div className="text-[9px] text-[#4a6080]">Kamper</div>
-                </div>
-                <div className="bg-[#0f1a2a] rounded-xl p-2">
-                  <div className="text-2xl font-black text-indigo-400">{Math.floor(selectedPlayer.minutesPlayed / 90)}</div>
-                  <div className="text-[9px] text-[#4a6080]">Hele kamper</div>
-                </div>
-              </div>
+            {/* Velg visning: Statistikk eller Profil */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setShowPlayerProfile(false)}
+                className={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all
+                  ${!showPlayerProfile ? 'bg-sky-500/20 border border-sky-500/30 text-sky-400' : 'bg-[#0f1a2a] border border-[#1e3050] text-[#4a6080]'}`}
+              >
+                📊 Statistikk
+              </button>
+              <button
+                onClick={() => setShowPlayerProfile(true)}
+                className={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all
+                  ${showPlayerProfile ? 'bg-sky-500/20 border border-sky-500/30 text-sky-400' : 'bg-[#0f1a2a] border border-[#1e3050] text-[#4a6080]'}`}
+              >
+                👤 Spillerprofil
+              </button>
             </div>
+
+            {showPlayerProfile && selectedPlayerForProfile ? (
+              <PlayerProfile />
+            ) : (
+              <>
+                <button onClick={() => setSelectedPlayerId(null)} className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-4 flex items-center gap-1">
+                  ‹ Tilbake til oversikt
+                </button>
+                <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
+                    <span className="text-3xl font-black text-white">#{selectedPlayer.playerNumber}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-100 mb-1">{selectedPlayer.playerName}</h3>
+                  <div className="grid grid-cols-4 gap-2 mt-4">
+                    <div className="bg-[#0f1a2a] rounded-xl p-2">
+                      <div className="text-2xl font-black text-emerald-400">{selectedPlayer.goals}</div>
+                      <div className="text-[9px] text-[#4a6080]">Mål</div>
+                    </div>
+                    <div className="bg-[#0f1a2a] rounded-xl p-2">
+                      <div className="text-2xl font-black text-sky-400">{selectedPlayer.assists}</div>
+                      <div className="text-[9px] text-[#4a6080]">Assists</div>
+                    </div>
+                    <div className="bg-[#0f1a2a] rounded-xl p-2">
+                      <div className="text-2xl font-black text-amber-400">{selectedPlayer.matchesPlayed}</div>
+                      <div className="text-[9px] text-[#4a6080]">Kamper</div>
+                    </div>
+                    <div className="bg-[#0f1a2a] rounded-xl p-2">
+                      <div className="text-2xl font-black text-indigo-400">{Math.floor(selectedPlayer.minutesPlayed / 90)}</div>
+                      <div className="text-[9px] text-[#4a6080]">Hele kamper</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
