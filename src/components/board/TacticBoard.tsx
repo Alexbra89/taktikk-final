@@ -50,37 +50,78 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // FIXED: Round-robin position assignment per role
   const updateFormation = useCallback((formationName: string) => {
     if (!phase) return;
-    if (formationDebounceRef.current) clearTimeout(formationDebounceRef.current);
+
+    if (formationDebounceRef.current) {
+      clearTimeout(formationDebounceRef.current);
+    }
+
     formationDebounceRef.current = setTimeout(() => {
       const formation = availableFormations.find(f => f.name === formationName);
       if (!formation) return;
-      const homePlayers = [...phase.players.filter(p => p.team === 'home')];
-      const newFormationPlayers = formation.homePlayers;
+
+      const homePlayers = phase.players.filter(p => p.team === 'home');
+
       requestAnimationFrame(() => {
-        // Group all positions by role
-        const positionsByRole: Record<string, { x: number; y: number }[]> = {};
-        newFormationPlayers.forEach(fp => {
-          if (!positionsByRole[fp.role]) positionsByRole[fp.role] = [];
-          positionsByRole[fp.role].push(fp.position);
+
+        const formationByRole: Record<string, { x: number; y: number }[]> = {};
+        formation.homePlayers.forEach(fp => {
+          if (!formationByRole[fp.role]) {
+            formationByRole[fp.role] = [];
+          }
+          formationByRole[fp.role].push(fp.position);
         });
-        // Round-robin: each player with same role gets unique position
-        const roleIndex: Record<string, number> = {};
-        homePlayers.forEach((player) => {
-          const role = player.role;
-          const positions = positionsByRole[role];
-          if (positions && positions.length > 0) {
-            const idx = roleIndex[role] ?? 0;
-            const pos = positions[idx % positions.length];
-            roleIndex[role] = idx + 1;
-            updatePlayerPosition(activePhaseIdx, player.id, pos);
+
+        const playersByRole: Record<string, Player[]> = {};
+        homePlayers.forEach(player => {
+          const role = player.role || 'midfielder';
+          if (!playersByRole[role]) {
+            playersByRole[role] = [];
+          }
+          playersByRole[role].push(player);
+        });
+
+        Object.keys(formationByRole).forEach(role => {
+          const positions = formationByRole[role];
+          const players = playersByRole[role] || [];
+
+          players.forEach((player, index) => {
+            const pos = positions[index];
+
+            if (pos) {
+              updatePlayerPosition(activePhaseIdx, player.id, pos);
+            } else {
+              const fallback = positions[positions.length - 1];
+              if (fallback) {
+                updatePlayerPosition(activePhaseIdx, player.id, {
+                  x: fallback.x + (index * 10),
+                  y: fallback.y + (index * 10),
+                });
+              }
+            }
+          });
+        });
+
+        const usedIds = new Set(
+          Object.values(playersByRole).flat().map(p => p.id)
+        );
+
+        homePlayers.forEach(player => {
+          if (!usedIds.has(player.id)) {
+            const fallbackPos = formation.homePlayers.find(p => p.role === 'midfielder')?.position;
+            if (fallbackPos) {
+              updatePlayerPosition(activePhaseIdx, player.id, fallbackPos);
+            }
           }
         });
+
       });
+
       setSelectedFormation(formationName);
-    }, 300);
+
+    }, 200);
+
   }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition]);
 
   useEffect(() => {
@@ -199,19 +240,52 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const handleDrop = (e: React.DragEvent, targetPlayerId?: string) => {
     e.preventDefault();
     setDragOverPlayerId(null);
+
     const draggedPlayerId = e.dataTransfer.getData('text/plain');
-    if (!draggedPlayerId) return;
-    const draggedPlayer = phase?.players.find(p => p.id === draggedPlayerId);
-    const targetPlayer = targetPlayerId ? phase?.players.find(p => p.id === targetPlayerId) : null;
-    if (!draggedPlayer) return;
-    if (targetPlayer && draggedPlayer.id !== targetPlayer.id) {
-      const draggedIsStarter = draggedPlayer.isStarter;
-      const targetIsStarter = targetPlayer.isStarter;
-      updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: targetIsStarter });
-      updatePlayerField(activePhaseIdx, targetPlayer.id, { isStarter: draggedIsStarter });
-      updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: targetPlayer.position });
-      updatePlayerField(activePhaseIdx, targetPlayer.id, { position: draggedPlayer.position });
+    if (!draggedPlayerId || !phase) return;
+
+    const dragged = phase.players.find(p => p.id === draggedPlayerId);
+    const target = targetPlayerId
+      ? phase.players.find(p => p.id === targetPlayerId)
+      : null;
+
+    if (!dragged) return;
+
+    if (target && dragged.id !== target.id) {
+
+      updatePlayerField(activePhaseIdx, dragged.id, {
+        position: target.position,
+      });
+      updatePlayerField(activePhaseIdx, target.id, {
+        position: dragged.position,
+      });
+
+      updatePlayerField(activePhaseIdx, dragged.id, {
+        role: target.role,
+      });
+      updatePlayerField(activePhaseIdx, target.id, {
+        role: dragged.role,
+      });
+
+      updatePlayerField(activePhaseIdx, dragged.id, {
+        isStarter: target.isStarter,
+        isOnField: target.isOnField,
+      });
+      updatePlayerField(activePhaseIdx, target.id, {
+        isStarter: dragged.isStarter,
+        isOnField: dragged.isOnField,
+      });
+
+      return;
     }
+
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = ((e.clientX - rect.left) / rect.width) * VW;
+    const y = ((e.clientY - rect.top) / rect.height) * VH;
+
+    updatePlayerPosition(activePhaseIdx, dragged.id, { x, y });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -231,7 +305,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   return (
     <div className="flex flex-col h-full overflow-hidden" onDragOver={handleDragOver} onDrop={handleDrop}>
 
-      {/* Control bar */}
       <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] overflow-x-auto overscroll-x-contain">
         <div className="flex items-center gap-1 flex-shrink-0">
           {phases.map((ph, idx) => (

@@ -123,6 +123,12 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = memo(({
       <g
         ref={groupRef}
         data-player="true"
+        onDragStart={(e) => {
+          if (isActive) {
+            e.dataTransfer.setData('text/plain', player.id);
+            e.dataTransfer.effectAllowed = 'move';
+          }
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -194,7 +200,7 @@ export const DraggablePlayer: React.FC<DraggablePlayerProps> = memo(({
 
 DraggablePlayer.displayName = 'DraggablePlayer';
 
-// ═══ NameEditor - OPTIMALISERT (raskere respons) ════════════════════
+// ═══ NameEditor ═══════════════════════════════════════════════════
 
 const NameEditor: React.FC<{
   player: Player; svgX: number; svgY: number; onClose: () => void;
@@ -231,7 +237,6 @@ const NameEditor: React.FC<{
 
   return (
     <foreignObject x={fx} y={fy} width={fW} height={190} style={{ overflow: 'visible' }}>
-      {/* Fjernet xmlns - det trengs ikke for div */}
       <div
         onPointerDown={(e: any) => e.stopPropagation()}
         style={{
