@@ -50,47 +50,53 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // 🔧 OPPDATERT: ROTERER POSISJONER FOR HORISONTAL BANE
-const updateFormation = useCallback((formationName: string) => {
-  if (!phase) return;
+  // 🔧 ENDELIG FIX: Stabil sortering + rotasjon for horisontal bane
+  const updateFormation = useCallback((formationName: string) => {
+    if (!phase) return;
 
-  if (formationDebounceRef.current) {
-    clearTimeout(formationDebounceRef.current);
-  }
+    if (formationDebounceRef.current) {
+      clearTimeout(formationDebounceRef.current);
+    }
 
-  formationDebounceRef.current = setTimeout(() => {
-    const formation = availableFormations.find(f => f.name === formationName);
-    if (!formation) return;
+    formationDebounceRef.current = setTimeout(() => {
+      const formation = availableFormations.find(f => f.name === formationName);
+      if (!formation) return;
 
-    const homePlayers = phase.players
-      .filter(p => p.team === 'home')
-      .slice(0, formation.homePlayers.length);
+      // ✅ 1. Stabil sortering etter nummer (VELDIG VIKTIG)
+      const homePlayers = [...phase.players]
+        .filter(p => p.team === 'home')
+        .sort((a, b) => (a.num || 0) - (b.num || 0));
 
-    // Roter posisjoner for horisontal bane (mål venstre/høyre)
-    const rotatePosition = (pos: { x: number; y: number }) => ({
-      x: pos.y,
-      y: VW - pos.x,
-    });
+      console.log('🔍 Spillere sortert:', homePlayers.map(p => ({ num: p.num, role: p.role })));
 
-    requestAnimationFrame(() => {
-      formation.homePlayers.forEach((fp, index) => {
-        const player = homePlayers[index];
-        if (!player) return;
+      // ✅ 2. Roter koordinater for horisontal bane (mål venstre/høyre)
+      const rotate = (pos: { x: number; y: number }) => ({
+        x: pos.y,
+        y: VW - pos.x,
+      });
 
-        const rotated = rotatePosition(fp.position);
+      requestAnimationFrame(() => {
+        // ✅ 3. Map eksakt 1:1
+        formation.homePlayers.forEach((fp, index) => {
+          const player = homePlayers[index];
+          if (!player) return;
 
-        updatePlayerField(activePhaseIdx, player.id, {
-          position: rotated,
-          role: fp.role as PlayerRole,
+          const newPos = rotate(fp.position);
+
+          console.log(`📍 Spiller #${player.num} (${player.role}) → posisjon (${newPos.x}, ${newPos.y})`);
+
+          updatePlayerField(activePhaseIdx, player.id, {
+            position: newPos,
+            role: fp.role as PlayerRole,
+          });
         });
       });
-    });
 
-    setSelectedFormation(formationName);
+      setSelectedFormation(formationName);
 
-  }, 100);
+    }, 50);
 
-}, [phase, activePhaseIdx, availableFormations, updatePlayerField]);
+  }, [phase, activePhaseIdx, availableFormations, updatePlayerField]);
 
   useEffect(() => {
     return () => {
