@@ -114,7 +114,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
               className="px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
                 text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[40px]"
             >
-              ✨ Start trening
+              ✨ Opprett ny trening
             </button>
           )}
         </div>
@@ -146,15 +146,20 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
                   <button onClick={() => setShowNewTraining(true)}
                     className="mt-4 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
                       text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25 transition">
-                    ✨ Start ny trening
+                    ✨ Opprett ny trening
                   </button>
                 )}
               </div>
             )}
             {upcoming.map(ev => (
-              <TrainingCard key={ev.id} event={ev} isCoach={isCoach}
+              <TrainingCard 
+                key={ev.id} 
+                event={ev} 
+                isCoach={isCoach}
                 myPlayerId={myPlayerId}
-                onClick={() => setSelectedEventId(ev.id)} />
+                onClick={() => setSelectedEventId(ev.id)}
+                onStart={() => setSelectedEventId(ev.id)}
+              />
             ))}
           </div>
         )}
@@ -168,9 +173,14 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
               </div>
             )}
             {past.map(ev => (
-              <TrainingCard key={ev.id} event={ev} isCoach={isCoach}
-                myPlayerId={myPlayerId} past
-                onClick={() => setSelectedEventId(ev.id)} />
+              <TrainingCard 
+                key={ev.id} 
+                event={ev} 
+                isCoach={isCoach}
+                myPlayerId={myPlayerId} 
+                past
+                onClick={() => setSelectedEventId(ev.id)}
+              />
             ))}
           </div>
         )}
@@ -537,12 +547,12 @@ const NewTrainingForm: React.FC<{
   );
 };
 
-// ═══ TRAINING CARD ════════════════════════════════════════════
+// ═══ TRAINING CARD - OPPDATERT med Start knapp ═══════════════════════════════
 
 const TrainingCard: React.FC<{
   event: any; isCoach: boolean; myPlayerId?: string;
-  past?: boolean; onClick: () => void;
-}> = ({ event, isCoach, myPlayerId, past, onClick }) => {
+  past?: boolean; onClick: () => void; onStart?: () => void;
+}> = ({ event, isCoach, myPlayerId, past, onClick, onStart }) => {
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
     weekday: 'short', day: 'numeric', month: 'short',
   });
@@ -554,34 +564,46 @@ const TrainingCard: React.FC<{
   const attendeeCount = event.trainingNotes?.reduce((acc: number, tn: any) =>
     acc + (tn.targetPlayerIds?.length ?? 0), 0) ?? 0;
 
+  const isUpcoming = !past && new Date(event.date) >= new Date();
+
   return (
-    <div onClick={onClick}
-      className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] hover:border-[#2e4060]
-        cursor-pointer transition-all active:scale-[0.99]">
+    <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] hover:border-[#2e4060] transition-all">
       <div className="flex items-center gap-3 p-3.5">
-        <div className={`w-2 h-12 rounded-full flex-shrink-0 ${past ? 'bg-[#2e4060]' : 'bg-emerald-400'}`} />
-        <div className="flex-1 min-w-0">
-          <div className="text-[13px] font-bold text-slate-200 truncate">{event.title}</div>
-          <div className="text-[10.5px] text-[#4a6080]">
-            {dateStr}{event.time && ` · ${event.time}`}
-            {event.location && ` · 📍 ${event.location}`}
-          </div>
-          {event.trainingNotes?.length > 0 && (
-            <div className="text-[10px] text-emerald-400/70 mt-0.5">
-              📋 {event.trainingNotes[0].title}
-              {event.trainingNotes.length > 1 && ` +${event.trainingNotes.length - 1}`}
+        <div onClick={onClick} className="flex-1 flex items-center gap-3 cursor-pointer active:scale-[0.99]">
+          <div className={`w-2 h-12 rounded-full flex-shrink-0 ${past ? 'bg-[#2e4060]' : 'bg-emerald-400'}`} />
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-bold text-slate-200 truncate">{event.title}</div>
+            <div className="text-[10.5px] text-[#4a6080]">
+              {dateStr}{event.time && ` · ${event.time}`}
+              {event.location && ` · 📍 ${event.location}`}
             </div>
-          )}
+            {event.trainingNotes?.length > 0 && (
+              <div className="text-[10px] text-emerald-400/70 mt-0.5">
+                📋 {event.trainingNotes[0].title}
+                {event.trainingNotes.length > 1 && ` +${event.trainingNotes.length - 1}`}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            {isCoach && attendeeCount > 0 && (
+              <div className="text-[9.5px] text-emerald-400 font-bold">✅ {attendeeCount} møtte</div>
+            )}
+            {!isCoach && iAttended && (
+              <div className="text-[9.5px] text-emerald-400 font-bold">✅ Du møtte</div>
+            )}
+            <span className="text-[#3a5070] text-[11px]">›</span>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          {isCoach && attendeeCount > 0 && (
-            <div className="text-[9.5px] text-emerald-400 font-bold">✅ {attendeeCount} møtte</div>
-          )}
-          {!isCoach && iAttended && (
-            <div className="text-[9.5px] text-emerald-400 font-bold">✅ Du møtte</div>
-          )}
-          <span className="text-[#3a5070] text-[11px]">›</span>
-        </div>
+        {/* Start knapp - vises kun for kommende treninger */}
+        {isUpcoming && onStart && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onStart(); }}
+            className="px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30
+              text-emerald-400 text-[11px] font-bold hover:bg-emerald-500/25 transition min-h-[40px]"
+          >
+            ▶ Start
+          </button>
+        )}
       </div>
     </div>
   );

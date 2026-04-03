@@ -52,6 +52,29 @@ export default function NotificationProvider({ children }: { children: React.Rea
   const isCoach = currentUser?.role === 'coach';
   const myPlayerId = currentUser?.playerId;
 
+  // 🔧 FIKSE: Last inn uleste meldinger fra localStorage ved oppstart
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedUnread = localStorage.getItem('taktikkboard_unread_messages');
+      if (savedUnread) {
+        try {
+          const ids = JSON.parse(savedUnread);
+          setUnreadMessageIds(new Set(ids));
+        } catch (e) {
+          console.log('Kunne ikke laste uleste meldinger', e);
+        }
+      }
+    }
+  }, []);
+
+  // 🔧 FIKSE: Lagre uleste meldinger til localStorage når de endres
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const idsArray = Array.from(unreadMessageIds);
+      localStorage.setItem('taktikkboard_unread_messages', JSON.stringify(idsArray));
+    }
+  }, [unreadMessageIds]);
+
   // Be om tillatelse ved første interaksjon
   const requestPermission = async () => {
     if (!('Notification' in window)) {
@@ -93,10 +116,25 @@ export default function NotificationProvider({ children }: { children: React.Rea
     };
   };
 
-  // Marker alle meldinger som lest
+  // 🔧 FIKSE: Marker alle meldinger som lest - også oppdater localStorage
   const markMessagesAsRead = () => {
     if (unreadMessageIds.size > 0) {
       setUnreadMessageIds(new Set());
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('taktikkboard_unread_messages', JSON.stringify([]));
+      }
+      console.log('✅ Alle meldinger markert som lest');
+    }
+  };
+
+  // 🔧 FIKSE: Marker en spesifikk melding som lest
+  const markMessageAsRead = (messageId: string) => {
+    if (unreadMessageIds.has(messageId)) {
+      setUnreadMessageIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
     }
   };
 

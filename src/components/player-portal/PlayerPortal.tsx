@@ -4,13 +4,8 @@ import { useAppStore } from '@/store/useAppStore';
 import { ROLE_META } from '@/data/roleInfo';
 import { VW, VH } from '@/data/formations';
 import { ReadOnlyTacticBoard } from '@/components/player-portal/PlayerHome';
-import { TrainingView } from '@/components/ui/TrainingView';
 import { CalendarView } from '@/components/calendar/CalendarView';
-import { ChatPanel } from '@/components/ui/ChatPanel';
-import { StatsView } from '@/components/ui/StatsView';
-import { AttendanceView } from '@/components/ui/AttendanceView';
-import { useNotification } from '@/components/NotificationProvider';
-import { CalendarEvent } from '@/types';
+import { TrainingView } from '@/components/ui/TrainingView';
 
 // ─── Helpers ──────────────────────────────────────────────────
 const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
@@ -23,100 +18,88 @@ export const PlayerPortal: React.FC = () => {
   const {
     currentUser, playerAccounts, coachMessages, events,
     phases, sport, replyToMessage, logout, chatMessages, sendChat,
-    homeTeamName, awayTeamName, activePhaseIdx, deleteEvent, setSpecialRole,
+    homeTeamName, awayTeamName, activePhaseIdx, deleteEvent,
   } = useAppStore();
 
   const [replyText, setReplyText] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar' | 'training' | 'stats' | 'attendance'>('tactics');
+  const [tab, setTab] = useState<'messages' | 'squad' | 'tactics' | 'chat' | 'accounts' | 'calendar' | 'training'>('tactics');
   const [chatInput, setChatInput] = useState('');
-  const [selectedTraining, setSelectedTraining] = useState<CalendarEvent | null>(null);
-
-  const { markMessagesAsRead, hasUnreadMessages, unreadCount } = useNotification();
+  const [lastSeenChatCount, setLastSeenChatCount] = React.useState(() => 
+    (typeof window !== 'undefined' ? parseInt(localStorage.getItem('lastSeenChatCount') || '0') : 0)
+  );
+  const [lastSeenMsgCount, setLastSeenMsgCount] = React.useState(() =>
+    (typeof window !== 'undefined' ? parseInt(localStorage.getItem('lastSeenMsgCount') || '0') : 0)
+  );
 
   const isCoach  = currentUser?.role === 'coach';
   const playerId = currentUser?.playerId;
-  const phase = phases[activePhaseIdx] ?? phases[0] ?? null;
 
-  // Marker meldinger som lest når man åpner chat eller messages
-  useEffect(() => {
-    if (tab === 'chat' || tab === 'messages') {
-      if (hasUnreadMessages) {
-        markMessagesAsRead();
-      }
-    }
-  }, [tab, hasUnreadMessages, markMessagesAsRead]);
+  // Track unread messages
+  const unreadChat = Math.max(0, (chatMessages as any[]).length - lastSeenChatCount);
+  const myMsgCount = (coachMessages as any[]).filter((m: any) => isCoach ? true : m.playerId === playerId).length;
+  const unreadMsgs = Math.max(0, myMsgCount - lastSeenMsgCount);
 
-  // Sjekk om currentUser er kaptein
-  const isCurrentUserCaptain = (() => {
-    if (!phase || isCoach) return false;
-    const player = phase.players.find(p => 
-      p.id === currentUser?.playerId ||
-      (playerAccounts as any[]).find(acc => acc.playerId === p.id && acc.id === currentUser?.accountId)
-    );
-    return player?.specialRoles?.includes('captain') ?? false;
-  })();
+  const markChatRead = React.useCallback(() => {
+    const count = (chatMessages as any[]).length;
+    setLastSeenChatCount(count);
+    if (typeof window !== 'undefined') localStorage.setItem('lastSeenChatCount', String(count));
+  }, [chatMessages]);
 
-  // Tabs for trener og spiller
-  const coachTabs = [
+  const markMsgsRead = React.useCallback(() => {
+    const count = (coachMessages as any[]).filter((m: any) => isCoach ? true : m.playerId === playerId).length;
+    setLastSeenMsgCount(count);
+    if (typeof window !== 'undefined') localStorage.setItem('lastSeenMsgCount', String(count));
+  }, [coachMessages, isCoach, playerId]);
+
+  // Mark as read when switching to chat/messages
+  React.useEffect(() => {
+    if (tab === 'chat')     markChatRead();
+    if (tab === 'messages') markMsgsRead();
+  }, [tab, markChatRead, markMsgsRead]);
+
+  const tabs = [
     { id: 'tactics',  label: '📋 Taktikk' },
     { id: 'squad',    label: '👥 Tropp' },
     { id: 'calendar', label: '📅 Kalender' },
     { id: 'training', label: '🏃 Trening' },
-    { id: 'stats',    label: '📊 Statistikk' },
-    { id: 'attendance', label: '✅ Fremmøte' },
     { id: 'messages', label: '💬 Meldinger' },
     { id: 'chat',     label: '🗨️ Chat' },
-    { id: 'accounts', label: '⚙️ Kontoer' },
+    ...(isCoach ? [{ id: 'accounts', label: '⚙️ Kontoer' }] : []),
   ];
-
-  const playerTabs = [
-    { id: 'tactics',    label: '📋 Taktikk' },
-    { id: 'squad',      label: '👥 Tropp' },
-    { id: 'calendar',   label: '📅 Kalender' },
-    { id: 'training',   label: '🏃 Trening' },
-    { id: 'stats',      label: '📊 Statistikk' },
-    { id: 'attendance', label: '✅ Fremmøte' },
-    { id: 'messages',   label: '💬 Meldinger' },
-    { id: 'chat',       label: '🗨️ Chat' },
-  ];
-
-  const tabs = isCoach ? coachTabs : playerTabs;
 
   const myMessages = (coachMessages as any[]).filter((m: any) =>
     isCoach ? true : m.playerId === playerId
   );
 
-  const sendChatMsg = (text: string, targetPlayerId?: string) => {
-    if (!text.trim() || !currentUser) return;
-    sendChat(currentUser.role as 'coach' | 'player', currentUser.name, text, targetPlayerId);
+  // Bruk aktiv fase fra store (synkronisert med trenerens taktikkbrett)
+  const phase = phases[activePhaseIdx] ?? phases[0] ?? null;
+
+  const sendChatMsg = () => {
+    const txt = chatInput.trim();
+    if (!txt || !currentUser) return;
+    sendChat(currentUser.role as 'coach' | 'player', currentUser.name, txt);
     setChatInput('');
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#060c18]">
-      {/* Header med badge for uleste meldinger */}
+      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050] flex-shrink-0">
         <div className="text-2xl">{isCoach ? '🏋️' : '👤'}</div>
         <div>
           <div className="text-sm font-black text-slate-100">{currentUser?.name}</div>
           <div className="text-[10px] text-[#3a5070]">
-            {isCoach ? 'Trener · Full tilgang' : isCurrentUserCaptain ? '🪖 Kaptein' : 'Spiller'}
+            {isCoach ? 'Trener · Full tilgang' : 'Spiller'}
           </div>
         </div>
         <div className="flex-1" />
-        {hasUnreadMessages && unreadCount > 0 && (
-          <div className="relative">
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-[10px] text-red-400 font-bold mr-1">{unreadCount}</span>
-          </div>
-        )}
         <button onClick={logout}
           className="text-[11px] text-[#4a6080] hover:text-red-400 transition px-2 min-h-[44px]">
           Logg ut
         </button>
       </div>
 
-      {/* Tabs med badge på chat */}
+      {/* Tabs */}
       <div className="flex border-b border-[#1e3050] bg-[#0c1525] overflow-x-auto flex-shrink-0">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
@@ -125,14 +108,21 @@ export const PlayerPortal: React.FC = () => {
                 ? 'text-sky-400 border-b-2 border-sky-400'
                 : 'text-[#3a5070] hover:text-slate-400'}`}>
             {t.label}
-            {hasUnreadMessages && (t.id === 'chat' || t.id === 'messages') && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            {t.id === 'chat'     && unreadChat > 0 && (
+              <span className="absolute top-1.5 right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full text-[8px] font-black text-white flex items-center justify-center px-0.5">
+                {unreadChat}
+              </span>
+            )}
+            {t.id === 'messages' && unreadMsgs > 0 && (
+              <span className="absolute top-1.5 right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full text-[8px] font-black text-white flex items-center justify-center px-0.5">
+                {unreadMsgs}
+              </span>
             )}
           </button>
         ))}
       </div>
 
-      {/* ── Innhold ── */}
+      {/* ── Innhold — MOBILE FIX: flex-1 min-h-0 for korrekt overflow ── */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
         {/* TAKTIKK */}
@@ -140,18 +130,11 @@ export const PlayerPortal: React.FC = () => {
           <ReadOnlyTacticBoard />
         )}
 
-        {/* TROPP - REN TROPP UTEN EKSTRA MENY */}
+        {/* TROPP — 🔧 FIKSE 1: Viser navn korrekt */}
         {tab === 'squad' && (
           <div className="flex-1 overflow-y-auto p-4">
             {phase
-              ? <SquadView 
-                  phase={phase} 
-                  playerAccounts={playerAccounts as any[]} 
-                  isCoach={isCoach} 
-                  setSpecialRole={setSpecialRole} 
-                  activePhaseIdx={activePhaseIdx}
-                  currentUserId={currentUser?.playerId}
-                />
+              ? <SquadView phase={phase} playerAccounts={playerAccounts as any[]} />
               : <EmptyState icon="👥" text="Ingen data." />}
           </div>
         )}
@@ -171,15 +154,13 @@ export const PlayerPortal: React.FC = () => {
 
         {/* CHAT */}
         {tab === 'chat' && (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ChatPanel
-              currentUser={currentUser}
-              chatMessages={chatMessages as any[]}
-              onSend={sendChatMsg}
-              coachView={isCoach}
-              isCaptain={isCurrentUserCaptain}
-            />
-          </div>
+          <ChatView
+            messages={chatMessages as any[]}
+            currentUser={currentUser}
+            input={chatInput}
+            setInput={setChatInput}
+            onSend={sendChatMsg}
+          />
         )}
 
         {/* TRENING */}
@@ -189,37 +170,13 @@ export const PlayerPortal: React.FC = () => {
           </div>
         )}
 
-        {/* KALENDER - FULL KALENDER FOR ALLE */}
+        {/* KALENDER — 🔧 FIKSE 2: Bruker full CalendarView (allerede riktig) */}
         {tab === 'calendar' && (
           <div className="flex-1 min-h-0 overflow-hidden">
-            {selectedTraining ? (
-              <TrainingView 
-                initialTraining={selectedTraining} 
-                onBack={() => setSelectedTraining(null)} 
-              />
-            ) : (
-              <CalendarView 
-                onGoToTraining={(training) => setSelectedTraining(training)} 
-              />
-            )}
+            <CalendarView />
           </div>
         )}
 
-        {/* STATISTIKK */}
-        {tab === 'stats' && (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <StatsView />
-          </div>
-        )}
-
-        {/* FREMMØTE - for kaptein og trener */}
-        {tab === 'attendance' && (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <AttendanceView isCaptain={isCurrentUserCaptain} />
-          </div>
-        )}
-
-        {/* KONTOER (trener only) */}
         {tab === 'accounts' && isCoach && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl w-full mx-auto">
             <AccountManager />
@@ -230,187 +187,99 @@ export const PlayerPortal: React.FC = () => {
   );
 };
 
-// ═══ TROPP VIEW — REN TROPP UTEN DASHBOARD MENY ═══════════════
+// ═══ TROPP VIEW — 🔧 FIKSE 1: Forbedret navnevisning ══════════════════════════════
 
-const SquadView: React.FC<{ 
-  phase: any; 
-  playerAccounts: any[]; 
-  isCoach: boolean; 
-  setSpecialRole: any; 
-  activePhaseIdx: number;
-  currentUserId?: string;
-}> = ({ 
-  phase, playerAccounts, isCoach, setSpecialRole, activePhaseIdx, currentUserId 
-}) => {
+const SquadView: React.FC<{ phase: any; playerAccounts?: any[] }> = ({ phase, playerAccounts = [] }) => {
   const { homeTeamName } = useAppStore();
   const players: any[] = phase.players ?? [];
-  const home = players.filter((p: any) => p.team === 'home');
+  const home       = players.filter((p: any) => p.team === 'home');
   
-  // Finn ut om denne spilleren er den innloggede spilleren
-  const isCurrentPlayer = (playerId: string) => playerId === currentUserId;
-  
-  const getPlayerName = (player: any) => {
-    const account = playerAccounts.find((a: any) => a.playerId === player.id);
-    return account?.name || player.name || `#${player.num}`;
-  };
-
-  const isCaptain = (player: any) => player.specialRoles?.includes('captain');
-
-  const toggleCaptain = (playerId: string) => {
-    if (!isCoach) return;
-    const player = home.find(p => p.id === playerId);
-    const currentlyCaptain = player?.specialRoles?.includes('captain');
-    setSpecialRole(activePhaseIdx, playerId, 'captain', !currentlyCaptain);
-  };
-
-  // Gruppér spillere etter posisjon
-  const groupedByRole = home.reduce((acc: any, player: any) => {
-    const role = player.role;
-    if (!acc[role]) acc[role] = [];
-    acc[role].push(player);
-    return acc;
-  }, {});
-
-  const roleOrder = ['keeper', 'defender', 'wingback', 'midfielder', 'winger', 'forward', 'playmaker'];
-  const sortedRoles = Object.keys(groupedByRole).sort((a, b) => {
-    const aIdx = roleOrder.indexOf(a);
-    const bIdx = roleOrder.indexOf(b);
-    if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
-    if (aIdx === -1) return 1;
-    if (bIdx === -1) return -1;
-    return aIdx - bIdx;
+  // 🔧 FIKSE: Bedre matching mellom posisjon og spillerkonto
+  const enriched = home.map((p: any) => {
+    // Forsøk å finne konto via playerAccountId (hvis lagret)
+    let acc = playerAccounts.find((a: any) => a.id === p.playerAccountId);
+    // Hvis ikke, prøv via playerId
+    if (!acc) acc = playerAccounts.find((a: any) => a.playerId === p.id);
+    // Hvis fortsatt ikke, prøv via name (fallback)
+    if (!acc && p.name) acc = playerAccounts.find((a: any) => a.name === p.name);
+    
+    const displayName = acc?.name || p.name || `#${p.num}`;
+    return { ...p, name: displayName, accountId: acc?.id };
   });
+  
+  const starters    = enriched.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
+  const substitutes = enriched.filter((p: any) => p.isStarter === false || p.isOnField === false);
 
-  const starters = home.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
-  const substitutes = home.filter((p: any) => p.isStarter === false || p.isOnField === false);
+  // Debug logging
+  console.log('🔍 SquadView - homePlayers:', home.length);
+  console.log('🔍 SquadView - enriched navn:', enriched.map(p => ({ num: p.num, name: p.name, role: p.role })));
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       <h3 className="text-base font-bold text-slate-100 mb-4">
         👥 {homeTeamName || 'Hjemmelag'} – Tropp
-        {isCoach && <span className="ml-2 text-[10px] text-amber-400">(Trykk 🪖 for å velge kaptein)</span>}
       </h3>
 
-      {/* Startoppstilling */}
-      <div className="mb-6">
-        <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-3">
+      <div className="mb-2">
+        <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-2">
           ⚽ Startoppstilling ({starters.length})
         </div>
-        <div className="space-y-4">
-          {sortedRoles.map(role => {
-            const rolePlayers = starters.filter(p => p.role === role);
-            if (rolePlayers.length === 0) return null;
-            const meta = getMeta(role);
-            return (
-              <div key={role} className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] overflow-hidden">
-                <div className="px-3 py-2 bg-[#0c1525] border-b border-[#1e3050]">
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full" style={{ background: meta?.color || '#555' }} />
-                    <span className="text-[11px] font-bold text-slate-300">{meta?.label || role}</span>
-                    <span className="text-[9px] text-[#4a6080]">({rolePlayers.length})</span>
-                  </div>
-                </div>
-                <div className="divide-y divide-[#1e3050]">
-                  {rolePlayers.sort((a, b) => getNum(a) - getNum(b)).map(player => {
-                    const isMe = isCurrentPlayer(player.id);
-                    return (
-                      <div key={player.id} className="flex items-center gap-3 p-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center
-                          text-[13px] font-black text-white flex-shrink-0 relative"
-                          style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
-                          {getNum(player)}
-                          {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <div className="text-[13px] font-bold text-slate-200 truncate">
-                              {getPlayerName(player)}
-                              {isMe && <span className="ml-2 text-[9px] text-sky-400">(deg)</span>}
-                            </div>
-                            {isCaptain(player) && <span className="text-[13px]">🪖</span>}
-                          </div>
-                          <div className="text-[10px] text-[#4a6080]">
-                            #{getNum(player)} · {meta?.label || player.role}
-                          </div>
-                        </div>
-                        {(player.minutesPlayed ?? 0) > 0 && (
-                          <div className="text-[10px] text-emerald-400">{player.minutesPlayed} min</div>
-                        )}
-                        {isCoach && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); toggleCaptain(player.id); }}
-                            className={`ml-2 px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px]
-                              ${isCaptain(player) 
-                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                                : 'bg-[#1e3050] text-[#4a6080] hover:text-slate-300 border border-transparent'}`}
-                          >
-                            🪖 {isCaptain(player) ? 'Kaptein' : 'Gjør til kaptein'}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {starters.length === 0 ? (
+          <p className="text-[12px] text-[#3a5070] italic">Ingen spillere i startoppstillingen</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+            {starters.sort((a: any, b: any) => getNum(a) - getNum(b)).map((p: any) => (
+              <PlayerRow key={p.id} player={p} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Innbyttere */}
-      {substitutes.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 my-4">
-            <div className="h-px flex-1 bg-[#1e3050]"/>
-            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-2">
-              🪑 Innbyttere ({substitutes.length})
-            </span>
-            <div className="h-px flex-1 bg-[#1e3050]"/>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {substitutes.sort((a, b) => getNum(a) - getNum(b)).map(player => {
-              const meta = getMeta(player.role);
-              const isMe = isCurrentPlayer(player.id);
-              return (
-                <div key={player.id} className="flex items-center gap-3 p-3 bg-[#0f1a2a] rounded-xl border border-amber-500/20">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center
-                    text-[13px] font-black text-white flex-shrink-0"
-                    style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
-                    {getNum(player)}
-                    {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-[13px] font-bold text-slate-200 truncate">
-                        {getPlayerName(player)}
-                        {isMe && <span className="ml-2 text-[9px] text-sky-400">(deg)</span>}
-                      </div>
-                      {isCaptain(player) && <span className="text-[13px]">🪖</span>}
-                    </div>
-                    <div className="text-[10px] text-[#4a6080]">
-                      #{getNum(player)} · {meta?.label || player.role}
-                    </div>
-                  </div>
-                  <div className="text-[9px] text-amber-400 font-semibold">Innbytter</div>
-                  {isCoach && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleCaptain(player.id); }}
-                      className={`ml-2 px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px]
-                        ${isCaptain(player) 
-                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
-                          : 'bg-[#1e3050] text-[#4a6080] hover:text-slate-300 border border-transparent'}`}
-                    >
-                      🪖 {isCaptain(player) ? 'Kaptein' : 'Gjør til kaptein'}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+      <div className="mb-4">
+        <div className="flex items-center gap-2 my-3">
+          <div className="h-px flex-1 bg-[#1e3050]"/>
+          <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest px-2">
+            🪑 Innbyttere ({substitutes.length})
+          </span>
+          <div className="h-px flex-1 bg-[#1e3050]"/>
         </div>
-      )}
+        {substitutes.length === 0 ? (
+          <p className="text-[12px] text-[#3a5070] italic px-2">
+            Ingen innbyttere — trener markerer spillere som innbyttere i spillereditor.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {substitutes.sort((a: any, b: any) => getNum(a) - getNum(b)).map((p: any) => (
+              <PlayerRow key={p.id} player={p} isBench />
+            ))}
+          </div>
+        )}
+      </div>
 
       <PlaytimeBar players={home} />
+    </div>
+  );
+};
+
+const PlayerRow: React.FC<{ player: any; isBench?: boolean }> = ({ player, isBench }) => {
+  const meta = getMeta(player.role);
+  const num  = getNum(player);
+  return (
+    <div className={`flex items-center gap-2.5 p-3 rounded-xl border
+      ${isBench ? 'bg-[#0f1a2a] border-amber-500/20' : 'bg-[#0f1a2a] border-[#1e3050]'}`}>
+      <div className="w-10 h-10 rounded-full flex items-center justify-center
+        text-[13px] font-black text-white flex-shrink-0 relative"
+        style={{ background: meta?.color ?? '#555', opacity: player.injured ? 0.5 : 1 }}>
+        {num}
+        {player.injured && <span className="absolute -top-1 -right-1 text-[10px]">🩹</span>}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[12.5px] font-bold text-slate-200 truncate">
+          {player.name || `#${num}`}
+        </div>
+        <div className="text-[10px] text-[#4a6080]">{meta?.label ?? player.role}</div>
+        {isBench && <div className="text-[9.5px] text-amber-400 font-semibold">Innbytter</div>}
+      </div>
     </div>
   );
 };
@@ -419,7 +288,7 @@ const PlaytimeBar: React.FC<{ players: any[] }> = ({ players }) => {
   const withTime = players.filter((p: any) => (p.minutesPlayed ?? 0) > 0);
   if (!withTime.length) return null;
   return (
-    <div className="mt-6">
+    <div className="mt-4">
       <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">
         ⏱ Spilletid
       </div>
@@ -447,6 +316,70 @@ const PlaytimeBar: React.FC<{ players: any[] }> = ({ players }) => {
               </div>
             );
           })}
+      </div>
+    </div>
+  );
+};
+
+// ═══ CHAT VIEW ═══════════════════════════════════════════════
+
+const ChatView: React.FC<{
+  messages: any[];
+  currentUser: any;
+  input: string;
+  setInput: (v: string) => void;
+  onSend: () => void;
+}> = ({ messages, currentUser, input, setInput, onSend }) => {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.length === 0
+          ? <EmptyState icon="🗨️" text="Ingen meldinger i chatten ennå." />
+          : messages.map((msg: any) => {
+            const isMe = msg.fromName === currentUser?.name;
+            return (
+              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5
+                  ${isMe
+                    ? 'bg-sky-500/20 border border-sky-500/30 text-sky-100'
+                    : msg.fromRole === 'coach'
+                      ? 'bg-amber-500/10 border border-amber-500/20 text-amber-100'
+                      : 'bg-[#0f1a2a] border border-[#1e3050] text-slate-200'}`}>
+                  {!isMe && (
+                    <div className="text-[9px] font-bold text-[#4a6080] mb-1 uppercase tracking-wider">
+                      {msg.fromRole === 'coach' ? '🏋️ ' : '👤 '}{msg.fromName}
+                    </div>
+                  )}
+                  <p className="text-[13px] leading-relaxed">{msg.content}</p>
+                  <div className="text-[9px] text-[#3a5070] mt-1 text-right">
+                    {new Date(msg.createdAt).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        <div ref={bottomRef}/>
+      </div>
+
+      <div className="flex-shrink-0 p-3 bg-[#0c1525] border-t border-[#1e3050] flex gap-2">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && onSend()}
+          placeholder="Skriv melding..."
+          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5
+            text-[13px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[44px]"
+        />
+        <button onClick={onSend}
+          className="px-4 rounded-xl bg-sky-500/15 border border-sky-500/30
+            text-sky-400 font-bold text-[13px] hover:bg-sky-500/25 min-h-[44px]">
+          Send
+        </button>
       </div>
     </div>
   );
@@ -507,7 +440,7 @@ const MessageCard: React.FC<{
   </div>
 );
 
-// ═══ ACCOUNT MANAGER (uendret) ════════════════════════════════
+// ═══ ACCOUNT MANAGER ═════════════════════════════════════════
 
 const AccountManager: React.FC = () => {
   const { playerAccounts, addPlayerAccount, removePlayerAccount, phases, activePhaseIdx } = useAppStore();
@@ -621,6 +554,8 @@ const AccountManager: React.FC = () => {
     </div>
   );
 };
+
+// ═══ Fjernet PlayerCalendarView (bruker CalendarView isteden) ═══
 
 // ═══ HELPERS ═════════════════════════════════════════════════
 

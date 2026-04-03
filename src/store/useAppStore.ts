@@ -23,6 +23,7 @@ interface ChatMessage {
   content: string;
   createdAt: string;
   toPlayerId?: string;
+  fromCaptain?: boolean;
 }
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -254,6 +255,7 @@ export async function loadFromSupabase(): Promise<Partial<{
         id: r.id, fromRole: r.from_role, fromName: r.from_name,
         content: r.content, createdAt: r.created_at,
         toPlayerId: r.to_player_id ?? undefined,
+        fromCaptain: r.from_captain ?? false,
       }));
     }
 
@@ -306,7 +308,7 @@ interface AppStore {
   setAwayTeamName: (name: string) => void;
 
   chatMessages: ChatMessage[];
-  sendChat: (fromRole: 'coach'|'player', fromName: string, content: string, toPlayerId?: string) => void;
+  sendChat: (fromRole: 'coach'|'player', fromName: string, content: string, toPlayerId?: string, fromCaptain?: boolean) => void;
 
   sport: Sport;
   ageGroup: 'youth' | 'adult';
@@ -365,7 +367,7 @@ interface AppStore {
   updatePlayerAccount: (id: string, fields: Partial<PlayerAccount>) => void;
 
   coachMessages: CoachMessage[];
-  sendCoachMessage: (playerId: string, content: string, eventId?: string) => void;
+  sendCoachMessage: (playerId: string, content: string, eventId?: string, fromCaptain?: boolean) => void;
   replyToMessage: (messageId: string, playerId: string, content: string) => void;
   deleteCoachMessage: (messageId: string) => void;
 
@@ -652,6 +654,7 @@ const useAppStore = create<AppStore>()(
       events: [],
       addEvent: (ev) => {
         const newEv = { id: uid(), ...ev };
+        console.log('🔵 addEvent - Legger til event:', newEv.title, newEv.date, newEv.id);
         set(s => ({ events: [...s.events, newEv] }));
         pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
       },
@@ -729,10 +732,10 @@ const useAppStore = create<AppStore>()(
       },
 
       coachMessages: [],
-      sendCoachMessage: (playerId, content, eventId) => {
+      sendCoachMessage: (playerId, content, eventId, fromCaptain = false) => {
         const msg: CoachMessage = {
           id: uid(), fromCoach: true, playerId, content, eventId,
-          createdAt: new Date().toISOString(), replies: [],
+          createdAt: new Date().toISOString(), replies: [], fromCaptain,
         };
         set(s => ({ coachMessages: [...s.coachMessages, msg] }));
         pushCoachMessages(get().coachMessages);
@@ -750,9 +753,9 @@ const useAppStore = create<AppStore>()(
       },
 
       chatMessages: [],
-      sendChat: async (fromRole, fromName, content, toPlayerId) => {
+      sendChat: async (fromRole, fromName, content, toPlayerId, fromCaptain = false) => {
         const msg: ChatMessage = {
-          id: uid(), fromRole, fromName, content, toPlayerId,
+          id: uid(), fromRole, fromName, content, toPlayerId, fromCaptain,
           createdAt: new Date().toISOString(),
         };
         set(s => ({ chatMessages: [...s.chatMessages, msg] }));
@@ -760,15 +763,33 @@ const useAppStore = create<AppStore>()(
           await supabase.from('chat_messages').insert({
             id: msg.id, from_role: fromRole, from_name: fromName,
             content, to_player_id: toPlayerId ?? null,
+            from_captain: fromCaptain,
             created_at: msg.createdAt,
           });
         } catch (e) { console.warn('sendChat error', e); }
       },
 
+      // 🔧 FIX: Oppdatert syncFromSupabase – overskriver IKKE events
       syncFromSupabase: async () => {
         const data = await loadFromSupabase();
         if (Object.keys(data).length > 0) {
-          set(data as any);
+          set(state => ({
+            ...state,
+            ...(data.sport !== undefined && { sport: data.sport }),
+            ...(data.ageGroup !== undefined && { ageGroup: data.ageGroup }),
+            ...(data.homeTeamName !== undefined && { homeTeamName: data.homeTeamName }),
+            ...(data.awayTeamName !== undefined && { awayTeamName: data.awayTeamName }),
+            ...(data.awayTeamColor !== undefined && { awayTeamColor: data.awayTeamColor }),
+            ...(data.coachEmail !== undefined && { coachEmail: data.coachEmail }),
+            ...(data.coachPassword !== undefined && { coachPassword: data.coachPassword }),
+            ...(data.refereePin !== undefined && { refereePin: data.refereePin }),
+            // 🔧 VIKTIG: Bare oppdater events hvis data.events finnes OG har lengde
+            ...(data.events && data.events.length > 0 && { events: data.events }),
+            ...(data.phases && data.phases.length > 0 && { phases: data.phases }),
+            ...(data.playerAccounts && { playerAccounts: data.playerAccounts }),
+            ...(data.coachMessages && { coachMessages: data.coachMessages }),
+            ...(data.chatMessages && { chatMessages: data.chatMessages }),
+          }));
         }
       },
     }),

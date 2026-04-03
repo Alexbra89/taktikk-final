@@ -16,7 +16,7 @@ import { StatsView } from '@/components/ui/StatsView';
 import { PlayerManager } from '@/components/ui/PlayerManager';
 import { TrainingView } from '@/components/ui/TrainingView';
 import { FullscreenBoard } from '@/components/ui/FullscreenBoard';
-import { ChatPanel } from '@/components/ui/ChatPanel';
+import ChatPanel from '@/components/ui/ChatPanel';
 
 // ─── Innstillinger-modal ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -174,19 +174,30 @@ export default function Home() {
   } = useAppStore();
 
   // ALLE useEffect hooks HER (før conditional returns)
-  // ── Supabase: last inn ved oppstart + abonner på endringer ──
+  // ── Supabase: last inn ved oppstart, men IKKE re-sync på hver endring ──
   useEffect(() => {
     setIsMounted(true);
 
-    // Initial sync
-    setSyncing(true);
-    useAppStore.getState().syncFromSupabase().finally(() => setSyncing(false));
+    // Bare last inn data ved oppstart (én gang)
+    const loadInitialData = async () => {
+      setSyncing(true);
+      await useAppStore.getState().syncFromSupabase();
+      setSyncing(false);
+    };
+    loadInitialData();
 
-    // Realtime: reload når noe endres på en annen enhet
-    const unsub = subscribeToSupabase(() => {
-      useAppStore.getState().syncFromSupabase();
-    });
-    return () => { unsub(); };
+    // 🔧 FIX: IKKE re-sync på hver database-endring!
+    // Dette forårsaket at events ble overskrevet.
+    // Hvis du MÅ ha realtime, bruk en debounce eller sjekk hvilken tabell som endres.
+    
+    // Kommenter ut subscription for å unngå at events overskrives:
+    // const unsub = subscribeToSupabase(() => {
+    //   useAppStore.getState().syncFromSupabase();
+    // });
+    // return () => { unsub(); };
+    
+    // Tom cleanup – ingen subscription
+    return () => {};
   }, []);
 
   // Vi må deklarere isCoach for useEffect, men den brukes senere også

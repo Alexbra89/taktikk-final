@@ -2,14 +2,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
+import { FullscreenBoard } from '@/components/ui/FullscreenBoard';
+import { TrainingView } from '@/components/ui/TrainingView';
+import { CalendarView } from '@/components/calendar/CalendarView'; // 🔧 FIKSE 2: Bruk full CalendarView
 import { VW, VH } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
 import { HandballPitch } from '@/components/board/pitches/HandballPitch';
-import { PlayerProfile } from './PlayerProfile';
 
 // ═══════════════════════════════════════════════════════════════
 //  SPILLERHJEM – Det spilleren ser etter innlogging
-//  Faner: Meldinger · Laguttak · Taktikk (SVG read-only) · Chat · Profil
+//  Faner: Meldinger · Laguttak · Taktikk (SVG read-only) · Chat
 // ═══════════════════════════════════════════════════════════════
 
 const SPECIAL_LABELS: Record<string, string> = {
@@ -23,107 +25,6 @@ const SPECIAL_LABELS: Record<string, string> = {
 
 const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
 const getNum  = (p: any): number => p.number ?? p.num ?? 0;
-
-// ═══════════════════════════════════════════════════════════════
-//  SIMPLE CALENDAR VIEW FOR PLAYER
-// ═══════════════════════════════════════════════════════════════
-const SimplePlayerCalendar: React.FC<{ events: any[]; sport: string }> = ({ events, sport }) => {
-  const today = new Date().toISOString().slice(0, 10);
-  const upcoming = events
-    .filter(e => e.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 15);
-
-  const past = events
-    .filter(e => e.date < today)
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5);
-
-  if (events.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-3xl mb-2">📅</div>
-        <p className="text-[#4a6080] text-sm">Ingen arrangementer planlagt ennå.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 className="text-base font-bold text-slate-100 mb-4">📅 Kommende</h3>
-      <div className="space-y-2 mb-6">
-        {upcoming.map(ev => (
-          <SimpleEventCard key={ev.id} event={ev} />
-        ))}
-        {upcoming.length === 0 && (
-          <p className="text-[#4a6080] text-sm italic">Ingen kommende arrangementer.</p>
-        )}
-      </div>
-
-      {past.length > 0 && (
-        <>
-          <h3 className="text-[11px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">
-            Tidligere
-          </h3>
-          <div className="space-y-2 opacity-60">
-            {past.map(ev => (
-              <SimpleEventCard key={ev.id} event={ev} />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-const SimpleEventCard: React.FC<{ event: any }> = ({ event }) => {
-  const [open, setOpen] = useState(false);
-  const isMatch = event.type === 'match';
-  const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-
-  return (
-    <div className="bg-[#0f1a2a] border border-[#1e3050] rounded-xl overflow-hidden">
-      <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setOpen(!open)}>
-        <div className={`w-2 h-10 rounded-full flex-shrink-0 ${isMatch ? 'bg-red-400' : 'bg-emerald-400'}`} />
-        <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] font-bold text-slate-200">{event.title}</div>
-          <div className="text-[10.5px] text-[#4a6080]">
-            {isMatch ? '⚽ Kamp' : '🏃 Trening'} · {dateStr}
-            {event.time && ` · ${event.time}`}
-            {event.location && ` · 📍 ${event.location}`}
-          </div>
-        </div>
-        <span className="text-[#4a6080] text-[11px]">{open ? '▲' : '▼'}</span>
-      </div>
-      {open && (
-        <div className="px-4 pb-4 border-t border-[#1e3050] pt-3 space-y-2">
-          {event.teamNote ? (
-            <p className="text-[12px] text-slate-300 leading-relaxed whitespace-pre-wrap">{event.teamNote}</p>
-          ) : (
-            <p className="text-[11px] text-[#3a5070] italic">Ingen notat fra trener.</p>
-          )}
-          {(event.trainingNotes ?? []).map((tn: any) => (
-            <div key={tn.id} className="bg-[#0c1525] rounded-lg p-3 border border-[#1e3050]">
-              <div className="text-[11px] font-bold text-emerald-400 mb-1">📋 {tn.title}</div>
-              <p className="text-[11px] text-slate-300 leading-relaxed">{tn.content}</p>
-              {tn.focus?.length > 0 && (
-                <div className="flex gap-1 mt-2 flex-wrap">
-                  {tn.focus.map((f: string, i: number) => (
-                    <span key={i} className="text-[9.5px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">{f}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ═══════════════════════════════════════════════════════════════
 //  SVG READ-ONLY TACTIC BOARD — brukes av både spiller og trener
@@ -433,11 +334,8 @@ export const PlayerHome: React.FC = () => {
     chatMessages, sendChat,
   } = useAppStore();
 
-  const [tab, setTab] = useState<'messages' | 'lineup' | 'board' | 'chat' | 'roles' | 'calendar' | 'profile'>('board');
+  const [tab, setTab] = useState<'messages' | 'lineup' | 'board' | 'chat' | 'roles' | 'calendar' | 'training'>('board');
   const [fullscreenBoard, setFullscreenBoard] = useState(false);
-  
-  // Chat varsel
-  const [lastReadTimestamp, setLastReadTimestamp] = useState<string>(new Date().toISOString());
 
   const playerId  = currentUser?.playerId;
   const myAccount = (playerAccounts as any[]).find((a: any) => a.playerId === playerId);
@@ -445,42 +343,47 @@ export const PlayerHome: React.FC = () => {
   const myPlayer  = phase?.players?.find((p: any) => p.id === playerId) ?? null;
 
   const myMessages = (coachMessages as any[]).filter((m: any) => m.playerId === playerId);
-  
+
   const myChats = (chatMessages as any[]).filter(
     (m: any) => !m.toPlayerId || m.toPlayerId === playerId ||
     (m.fromRole === 'player' && m.toPlayerId === playerId)
   );
-
-  // Beregn uleste chat-meldinger (fra trener eller andre spillere)
-  const unreadChatCount = myChats.filter((m: any) => {
-    if (m.fromRole === 'player') return false;
-    return new Date(m.createdAt) > new Date(lastReadTimestamp);
-  }).length;
 
   const today  = new Date().toISOString().slice(0, 10);
   const nextEv = [...(events as any[])]
     .filter((e: any) => e.date >= today)
     .sort((a: any, b: any) => a.date.localeCompare(b.date))[0] ?? null;
 
-  const homeStarters = phase?.players?.filter(
-    (p: any) => p.team === 'home' && p.isStarter !== false
-  ) ?? [];
-  const homeSubs = phase?.players?.filter(
-    (p: any) => p.team === 'home' && p.isStarter === false
-  ) ?? [];
-
-  const markChatAsRead = () => {
-    setLastReadTimestamp(new Date().toISOString());
+  // 🔧 FIKSE 1: Forbedret navne-resolving for Laguttak
+  const resolvePlayerName = (p: any) => {
+    // Prøv å finne konto via playerAccountId (hvis lagret)
+    let acc = (playerAccounts as any[]).find((a: any) => a.id === p.playerAccountId);
+    // Hvis ikke, prøv via playerId
+    if (!acc) acc = (playerAccounts as any[]).find((a: any) => a.playerId === p.id);
+    // Hvis fortsatt ikke, prøv via name (fallback)
+    if (!acc && p.name) acc = (playerAccounts as any[]).find((a: any) => a.name === p.name);
+    
+    return acc?.name || p.name || `#${p.num}`;
   };
+  
+  const homeStarters = (phase?.players?.filter(
+    (p: any) => p.team === 'home' && p.isStarter !== false
+  ) ?? []).map((p: any) => ({ ...p, name: resolvePlayerName(p) }));
+  
+  const homeSubs = (phase?.players?.filter(
+    (p: any) => p.team === 'home' && p.isStarter === false
+  ) ?? []).map((p: any) => ({ ...p, name: resolvePlayerName(p) }));
+
+  const unreadChat = myChats.filter((m: any) => m.fromRole !== 'player').length;
 
   const tabs = [
     { id: 'board',    label: '📋 Taktikk',   badge: 0 },
     { id: 'lineup',   label: '👥 Laguttak',  badge: 0 },
+    { id: 'training', label: '🏃 Trening',   badge: 0 },
     { id: 'calendar', label: '📅 Kalender',  badge: 0 },
     { id: 'roles',    label: '📚 Roller',    badge: 0 },
-    { id: 'profile',  label: '👤 Profil',    badge: 0 },
     { id: 'messages', label: '📩 Meldinger', badge: myMessages.length },
-    { id: 'chat',     label: '💬 Chat',      badge: unreadChatCount },
+    { id: 'chat',     label: '💬 Chat',       badge: unreadChat },
   ];
 
   return (
@@ -518,13 +421,10 @@ export const PlayerHome: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#1e3050] bg-[#0c1525] flex-shrink-0 overflow-x-auto">
+      <div className="flex border-b border-[#1e3050] bg-[#0c1525] flex-shrink-0">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => {
-            setTab(t.id as typeof tab);
-            if (t.id === 'chat') markChatAsRead();
-          }}
-            className={`flex-1 py-3 text-[11px] font-semibold transition-all relative min-h-[44px] whitespace-nowrap px-2
+          <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
+            className={`flex-1 py-3 text-[11px] font-semibold transition-all relative min-h-[44px]
               ${tab === t.id
                 ? 'text-sky-400 border-b-2 border-sky-400'
                 : 'text-[#3a5070] hover:text-slate-400'}`}>
@@ -532,7 +432,7 @@ export const PlayerHome: React.FC = () => {
             {t.badge > 0 && (
               <span className="absolute top-1.5 right-0.5 w-4 h-4 rounded-full bg-sky-500
                 text-white text-[8px] font-black flex items-center justify-center">
-                {t.badge > 9 ? '9+' : t.badge}
+                {t.badge}
               </span>
             )}
           </button>
@@ -563,7 +463,7 @@ export const PlayerHome: React.FC = () => {
                 </div>
                 <div>
                   <div className="text-[16px] font-black text-slate-100">
-                    {myPlayer.name || `#${getNum(myPlayer)}`}
+                    {resolvePlayerName(myPlayer)}
                     <span className="text-[11px] text-sky-400 ml-2 font-normal">(deg)</span>
                   </div>
                   <div className="text-[12px] text-sky-400">
@@ -646,10 +546,15 @@ export const PlayerHome: React.FC = () => {
           </div>
         )}
 
-        {/* KALENDER */}
+        {/* TRENING */}
+        {tab === 'training' && (
+          <div className="flex-1 min-h-0 overflow-hidden"><TrainingView /></div>
+        )}
+
+        {/* KALENDER — 🔧 FIKSE 2: Bruk full CalendarView i stedet for PlayerCalendarView */}
         {tab === 'calendar' && (
-          <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
-            <SimplePlayerCalendar events={events as any[]} sport={sport} />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <CalendarView />
           </div>
         )}
 
@@ -657,13 +562,6 @@ export const PlayerHome: React.FC = () => {
         {tab === 'roles' && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
             <RoleDescriptionsView sport={sport} myRole={myPlayer?.role} />
-          </div>
-        )}
-
-        {/* PROFIL */}
-        {tab === 'profile' && (
-          <div className="flex-1 overflow-y-auto">
-            <PlayerProfile />
           </div>
         )}
 
@@ -694,16 +592,14 @@ export const PlayerHome: React.FC = () => {
 
         {/* CHAT */}
         {tab === 'chat' && (
-          <div onFocus={markChatAsRead}>
-            <ChatPanel
-              currentUser={currentUser}
-              chatMessages={myChats}
-              onSend={(text) => {
-                if (!text.trim()) return;
-                sendChat('player', currentUser?.name ?? 'Spiller', text.trim());
-              }}
-            />
-          </div>
+          <ChatPanel
+            currentUser={currentUser}
+            chatMessages={myChats}
+            onSend={(text) => {
+              if (!text.trim()) return;
+              sendChat('player', currentUser?.name ?? 'Spiller', text.trim());
+            }}
+          />
         )}
       </div>
     </div>
@@ -845,6 +741,7 @@ const RoleDescriptionsView: React.FC<{ sport: string; myRole?: string }> = ({ sp
     </div>
   );
 };
+
 
 // ═══ HELPERS ════════════════════════════════════════════════
 

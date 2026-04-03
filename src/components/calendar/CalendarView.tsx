@@ -340,6 +340,8 @@ const AutoGenForm: React.FC<{
     const drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
     const events: Omit<CalendarEvent, 'id'>[] = [];
 
+    console.log('🔍 AutoGenForm - Genererer', previewDates.length, 'events');
+
     previewDates.forEach((date, idx) => {
       const drill = drills[idx % drills.length];
       const focusLine = focusTags.length > 0 ? `\nFokus: ${focusTags.join(', ')}` : '';
@@ -347,9 +349,13 @@ const AutoGenForm: React.FC<{
         ? `\n\n📋 Øvelse: ${drill.name}\n${drill.description}`
         : '';
 
+      // Unik ID for hver event og hver note
+      const eventId = `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
+      const noteId = `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
+
       events.push({
         type: 'training',
-        title: `Trening${focusTags[0] ? ` – ${focusTags[0]}` : ''}`,
+        title: `Trening${focusTags[0] ? ` – ${focusTags[0]}` : ''} ${new Date(date + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}`,
         date,
         time,
         location,
@@ -357,7 +363,7 @@ const AutoGenForm: React.FC<{
         result: '',
         teamNote: `Autogenerert treningsøkt.${focusLine}${drillDesc}`,
         trainingNotes: drill ? [{
-          id: `tn-${Date.now()}-${idx}`,
+          id: noteId,
           createdAt: new Date().toISOString(),
           title: drill.name,
           content: drill.description,
@@ -367,6 +373,9 @@ const AutoGenForm: React.FC<{
         matchNotes: [],
       });
     });
+
+    console.log('🔍 AutoGenForm - Ferdig generert', events.length, 'events');
+    console.log('🔍 AutoGenForm - Event IDs:', events.map(e => e.trainingNotes[0]?.id));
 
     onGenerate(events);
   }
