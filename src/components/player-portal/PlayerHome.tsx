@@ -1,10 +1,11 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { useNotification } from '@/components/NotificationProvider';
 import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
 import { FullscreenBoard } from '@/components/ui/FullscreenBoard';
 import { TrainingView } from '@/components/ui/TrainingView';
-import { CalendarView } from '@/components/calendar/CalendarView'; // 🔧 FIKSE 2: Bruk full CalendarView
+import { CalendarView } from '@/components/calendar/CalendarView';
 import { VW, VH } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
 import { HandballPitch } from '@/components/board/pitches/HandballPitch';
@@ -40,6 +41,7 @@ export const ReadOnlyTacticBoard: React.FC = () => {
   const [playSpeed, setPlaySpeed]   = useState(1);
   const [interpFrom, setInterpFrom] = useState(0);
   const [interpT, setInterpT]       = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -112,16 +114,23 @@ export const ReadOnlyTacticBoard: React.FC = () => {
     p.team === 'home' && (p.isStarter === false || p.isOnField === false)
   );
 
-  return (
+  const TacticContent = () => (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-
       {/* Read-only banner */}
       <div className="flex-shrink-0 px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20
-        flex items-center gap-2">
-        <span className="text-amber-400 text-[11px]">🔒</span>
-        <span className="text-[10.5px] text-amber-400/80">
-          Read-only – du kan se men ikke endre taktikkbrettet
-        </span>
+        flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-amber-400 text-[11px]">🔒</span>
+          <span className="text-[10.5px] text-amber-400/80">
+            Read-only – du kan se men ikke endre taktikkbrettet
+          </span>
+        </div>
+        <button
+          onClick={() => setIsFullscreen(true)}
+          className="px-2 py-1 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[10px] font-semibold hover:bg-sky-500/25 transition"
+        >
+          ⛶ Fullskjerm
+        </button>
       </div>
 
       {/* Fase-velger + spillekontroller */}
@@ -177,7 +186,7 @@ export const ReadOnlyTacticBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* SVG-bane — tar all tilgjengelig høyde */}
+      {/* SVG-bane */}
       <div className="flex-1 min-h-0 flex items-center justify-center bg-[#050c18]" style={{ padding: '6px' }}>
         <svg
           viewBox={`0 0 ${VW} ${VH}`}
@@ -199,7 +208,6 @@ export const ReadOnlyTacticBoard: React.FC = () => {
           {(sport === 'football' || sport === 'football7') && <FootballPitch />}
           {sport === 'handball' && <HandballPitch />}
 
-          {/* Tegninger med pilhoder */}
           {(phase.drawings ?? []).map((d: any) => (
             d.pts && d.pts.length >= 2 && (
               <g key={d.id}>
@@ -223,7 +231,6 @@ export const ReadOnlyTacticBoard: React.FC = () => {
             )
           ))}
 
-          {/* Ball */}
           {displayBall && (
             <g filter="url(#ds2)">
               <circle cx={displayBall.x} cy={displayBall.y} r={11} fill="white" stroke="#ccc" strokeWidth={1}/>
@@ -233,13 +240,12 @@ export const ReadOnlyTacticBoard: React.FC = () => {
             </g>
           )}
 
-          {/* Hjemmelag-spillere — kun visning, ingen drag */}
           {homePlayers.map((player: any) => {
             const meta = getMeta(player.role);
             const fill = meta?.color ?? '#64748b';
             const { x, y } = player.position;
             const isBench  = player.isStarter === false || player.isOnField === false;
-            if (isBench) return null; // innbyttere vises nedenfor, ikke på banen
+            if (isBench) return null;
             return (
               <g key={player.id} filter="url(#ds2)" opacity={player.injured ? 0.5 : 1}>
                 {(player.minutesPlayed ?? 0) > 0 && (
@@ -249,7 +255,6 @@ export const ReadOnlyTacticBoard: React.FC = () => {
                 )}
                 <circle cx={x} cy={y} r={21} fill="rgba(255,255,255,0.9)"/>
                 <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
-                {/* Kaptein-stjerne */}
                 {(player.specialRoles ?? []).includes('captain') && (
                   <text x={x - 13} y={y - 13} fontSize={13} style={{ pointerEvents: 'none' }}>🪖</text>
                 )}
@@ -275,7 +280,6 @@ export const ReadOnlyTacticBoard: React.FC = () => {
             );
           })}
 
-          {/* Fremdriftsbar */}
           {isPlaying && (
             <rect x={32} y={VH - 14} rx={3} height={5}
               width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8}/>
@@ -322,6 +326,27 @@ export const ReadOnlyTacticBoard: React.FC = () => {
       )}
     </div>
   );
+
+  return (
+    <>
+      <TacticContent />
+      {isFullscreen && (
+        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
+          <div className="flex-shrink-0 flex justify-end p-2">
+            <button
+              onClick={() => setIsFullscreen(false)}
+              className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-semibold hover:bg-red-500/25 transition"
+            >
+              ✕ Lukk fullskjerm
+            </button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <TacticContent />
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -334,8 +359,12 @@ export const PlayerHome: React.FC = () => {
     chatMessages, sendChat,
   } = useAppStore();
 
+  const { markMessagesAsRead, unreadCount } = useNotification();
+
   const [tab, setTab] = useState<'messages' | 'lineup' | 'board' | 'chat' | 'roles' | 'calendar' | 'training'>('board');
   const [fullscreenBoard, setFullscreenBoard] = useState(false);
+  const [lastSeenMessageCount, setLastSeenMessageCount] = useState(0);
+  const [lastSeenChatCount, setLastSeenChatCount] = useState(0);
 
   const playerId  = currentUser?.playerId;
   const myAccount = (playerAccounts as any[]).find((a: any) => a.playerId === playerId);
@@ -343,26 +372,39 @@ export const PlayerHome: React.FC = () => {
   const myPlayer  = phase?.players?.find((p: any) => p.id === playerId) ?? null;
 
   const myMessages = (coachMessages as any[]).filter((m: any) => m.playerId === playerId);
-
   const myChats = (chatMessages as any[]).filter(
     (m: any) => !m.toPlayerId || m.toPlayerId === playerId ||
     (m.fromRole === 'player' && m.toPlayerId === playerId)
   );
+
+  // Beregn uleste meldinger
+  const unreadMessages = myMessages.length - lastSeenMessageCount;
+  const unreadChats = myChats.filter((m: any) => m.fromRole !== 'player').length - lastSeenChatCount;
 
   const today  = new Date().toISOString().slice(0, 10);
   const nextEv = [...(events as any[])]
     .filter((e: any) => e.date >= today)
     .sort((a: any, b: any) => a.date.localeCompare(b.date))[0] ?? null;
 
-  // 🔧 FIKSE 1: Forbedret navne-resolving for Laguttak
+  // 🔧 FIX: Marker meldinger som lest når fanen åpnes
+  useEffect(() => {
+    if (tab === 'messages' && myMessages.length > 0) {
+      setLastSeenMessageCount(myMessages.length);
+      markMessagesAsRead();
+    }
+  }, [tab, myMessages.length, markMessagesAsRead]);
+
+  useEffect(() => {
+    if (tab === 'chat' && myChats.length > 0) {
+      setLastSeenChatCount(myChats.filter((m: any) => m.fromRole !== 'player').length);
+      markMessagesAsRead();
+    }
+  }, [tab, myChats.length, markMessagesAsRead]);
+
   const resolvePlayerName = (p: any) => {
-    // Prøv å finne konto via playerAccountId (hvis lagret)
     let acc = (playerAccounts as any[]).find((a: any) => a.id === p.playerAccountId);
-    // Hvis ikke, prøv via playerId
     if (!acc) acc = (playerAccounts as any[]).find((a: any) => a.playerId === p.id);
-    // Hvis fortsatt ikke, prøv via name (fallback)
     if (!acc && p.name) acc = (playerAccounts as any[]).find((a: any) => a.name === p.name);
-    
     return acc?.name || p.name || `#${p.num}`;
   };
   
@@ -374,16 +416,14 @@ export const PlayerHome: React.FC = () => {
     (p: any) => p.team === 'home' && p.isStarter === false
   ) ?? []).map((p: any) => ({ ...p, name: resolvePlayerName(p) }));
 
-  const unreadChat = myChats.filter((m: any) => m.fromRole !== 'player').length;
-
   const tabs = [
     { id: 'board',    label: '📋 Taktikk',   badge: 0 },
     { id: 'lineup',   label: '👥 Laguttak',  badge: 0 },
     { id: 'training', label: '🏃 Trening',   badge: 0 },
     { id: 'calendar', label: '📅 Kalender',  badge: 0 },
     { id: 'roles',    label: '📚 Roller',    badge: 0 },
-    { id: 'messages', label: '📩 Meldinger', badge: myMessages.length },
-    { id: 'chat',     label: '💬 Chat',       badge: unreadChat },
+    { id: 'messages', label: '📩 Meldinger', badge: Math.max(0, unreadMessages) },
+    { id: 'chat',     label: '💬 Chat',      badge: Math.max(0, unreadChats) },
   ];
 
   return (
@@ -404,7 +444,6 @@ export const PlayerHome: React.FC = () => {
             ) : 'Spiller'}
           </div>
         </div>
-        {/* Spesialroller */}
         <div className="flex flex-wrap gap-1">
           {(myPlayer?.specialRoles ?? []).map((sr: string) => (
             <span key={sr}
@@ -439,17 +478,13 @@ export const PlayerHome: React.FC = () => {
         ))}
       </div>
 
-      {/* Innhold — VIKTIG: flex-1 min-h-0 for at taktikkbrettet skal fylle skjerm */}
+      {/* Innhold */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 
-        {/* TAKTIKK — SVG fullskjerm read-only */}
         {tab === 'board' && <ReadOnlyTacticBoard />}
 
-        {/* LAGUTTAK */}
         {tab === 'lineup' && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
-
-            {/* Min posisjon øverst */}
             {myPlayer && (
               <div className="bg-sky-500/10 border border-sky-500/30 rounded-2xl p-4
                 flex items-center gap-4 mb-5">
@@ -472,7 +507,6 @@ export const PlayerHome: React.FC = () => {
                       <span className="ml-2 text-amber-400">· Innbytter</span>
                     )}
                   </div>
-                  {/* Spesialroller */}
                   {(myPlayer.specialRoles ?? []).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {(myPlayer.specialRoles ?? []).map((sr: string) => (
@@ -487,7 +521,6 @@ export const PlayerHome: React.FC = () => {
               </div>
             )}
 
-            {/* Trenernotat til spilleren */}
             {myPlayer?.notes && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-4">
                 <div className="text-[9.5px] font-bold text-amber-400 uppercase tracking-wider mb-2">
@@ -499,7 +532,6 @@ export const PlayerHome: React.FC = () => {
               </div>
             )}
 
-            {/* Neste arrangement */}
             {nextEv && (
               <div className="bg-[#0c1525] border border-[#1e3050] rounded-xl p-4 mb-5">
                 <div className="text-[9.5px] font-bold text-sky-400 uppercase tracking-wider mb-2">
@@ -516,7 +548,6 @@ export const PlayerHome: React.FC = () => {
               </div>
             )}
 
-            {/* Startoppstilling */}
             <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-2">
               {homeTeamName || 'Hjemmelag'} – startoppstilling ({homeStarters.length})
             </div>
@@ -526,7 +557,6 @@ export const PlayerHome: React.FC = () => {
               ))}
             </div>
 
-            {/* Innbyttere */}
             {homeSubs.length > 0 && (
               <>
                 <div className="flex items-center gap-2 mb-3">
@@ -546,26 +576,22 @@ export const PlayerHome: React.FC = () => {
           </div>
         )}
 
-        {/* TRENING */}
         {tab === 'training' && (
           <div className="flex-1 min-h-0 overflow-hidden"><TrainingView /></div>
         )}
 
-        {/* KALENDER — 🔧 FIKSE 2: Bruk full CalendarView i stedet for PlayerCalendarView */}
         {tab === 'calendar' && (
           <div className="flex-1 min-h-0 overflow-hidden">
             <CalendarView />
           </div>
         )}
 
-        {/* ROLLER */}
         {tab === 'roles' && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
             <RoleDescriptionsView sport={sport} myRole={myPlayer?.role} />
           </div>
         )}
 
-        {/* MELDINGER */}
         {tab === 'messages' && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full space-y-4">
             {myAccount?.individualTrainingNote && (
@@ -590,7 +616,6 @@ export const PlayerHome: React.FC = () => {
           </div>
         )}
 
-        {/* CHAT */}
         {tab === 'chat' && (
           <ChatPanel
             currentUser={currentUser}
@@ -616,10 +641,18 @@ export const ChatPanel: React.FC<{
 }> = ({ currentUser, chatMessages, onSend, coachView = false }) => {
   const [text, setText] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { markMessagesAsRead } = useNotification();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages.length]);
+
+  // Marker chat som lest når komponenten vises
+  useEffect(() => {
+    if (chatMessages.length > 0 && !coachView) {
+      markMessagesAsRead();
+    }
+  }, [chatMessages.length, coachView, markMessagesAsRead]);
 
   const send = () => {
     if (!text.trim()) return;
@@ -741,7 +774,6 @@ const RoleDescriptionsView: React.FC<{ sport: string; myRole?: string }> = ({ sp
     </div>
   );
 };
-
 
 // ═══ HELPERS ════════════════════════════════════════════════
 

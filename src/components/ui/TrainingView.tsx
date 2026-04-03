@@ -984,8 +984,10 @@ const TrainingDetail: React.FC<{
               const fullDrill = findDrillByName(tn.title);
 
               return (
-                <div key={tn.id} className={`bg-[#0f1a2a] border rounded-xl p-4 mb-2 transition-all
+                <div key={tn.id} className={`bg-[#0f1a2a] border rounded-xl p-4 mb-3 transition-all
                   ${isCompleted ? 'border-emerald-500/30 opacity-70' : 'border-[#1e3050]'}`}>
+                  
+                  {/* Header med tittel og status */}
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -995,7 +997,7 @@ const TrainingDetail: React.FC<{
                               setSelectedDrillForModal(fullDrill);
                             }
                           }}
-                          className="text-[13px] font-bold text-slate-200 hover:text-sky-400 hover:underline transition text-left"
+                          className="text-[14px] font-bold text-slate-200 hover:text-sky-400 hover:underline transition text-left"
                         >
                           {tn.title}
                         </button>
@@ -1016,47 +1018,117 @@ const TrainingDetail: React.FC<{
                         className="text-red-400/50 hover:text-red-400 text-xs ml-2 flex-shrink-0">✕</button>
                     )}
                   </div>
-                  <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap mb-3">{tn.content}</p>
 
-                  {!isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
-                    <button 
-                      onClick={() => {
-                        console.log('Starting stopwatch for:', tn.id, 'Duration:', tn.duration || 5);
-                        setActiveStopwatch(tn.id);
-                      }}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
-                    >
-                      ⏱ Start øvelse ({tn.duration || 5} min)
-                    </button>
+                  {/* Beskrivelse */}
+                  <p className="text-[12px] text-[#7a9ab8] leading-relaxed mb-3">{tn.content}</p>
+
+                  {/* Mer informasjon fra full drill */}
+                  {fullDrill && (
+                    <div className="mt-3 pt-3 border-t border-[#1e3050] space-y-2">
+                      
+                      {/* Steg-for-steg (kort versjon) */}
+                      {fullDrill.steps && fullDrill.steps.length > 0 && (
+                        <div>
+                          <div className="text-[9px] font-bold text-sky-400 uppercase tracking-wider mb-1.5">📝 Steg</div>
+                          <div className="space-y-1">
+                            {fullDrill.steps.slice(0, 3).map((step, idx) => (
+                              <div key={step.id} className="flex gap-2 text-[10.5px] text-slate-300">
+                                <span className="text-sky-400 font-bold">{idx + 1}.</span>
+                                <span>{step.name}</span>
+                              </div>
+                            ))}
+                            {fullDrill.steps.length > 3 && (
+                              <button
+                                onClick={() => setSelectedDrillForModal(fullDrill)}
+                                className="text-[9px] text-sky-400 hover:underline mt-1"
+                              >
+                                + {fullDrill.steps.length - 3} flere steg...
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tips (kort versjon) */}
+                      {fullDrill.tips && fullDrill.tips.length > 0 && (
+                        <div>
+                          <div className="text-[9px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">💡 Tips</div>
+                          <div className="flex flex-wrap gap-1">
+                            {fullDrill.tips.slice(0, 2).map((tip, idx) => (
+                              <span key={idx} className="text-[10px] text-slate-300 bg-amber-500/5 px-2 py-0.5 rounded-full">
+                                {tip.length > 30 ? tip.slice(0, 30) + '…' : tip}
+                              </span>
+                            ))}
+                            {fullDrill.tips.length > 2 && (
+                              <button
+                                onClick={() => setSelectedDrillForModal(fullDrill)}
+                                className="text-[9px] text-amber-400 hover:underline"
+                              >
+                                +{fullDrill.tips.length - 2} til
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Utstyr */}
+                      {fullDrill.equipment && fullDrill.equipment.length > 0 && (
+                        <div>
+                          <div className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-1.5">🛠 Utstyr</div>
+                          <div className="flex flex-wrap gap-1">
+                            {fullDrill.equipment.slice(0, 3).map((item, idx) => (
+                              <span key={idx} className="text-[9px] text-slate-300 bg-emerald-500/5 px-2 py-0.5 rounded-full">
+                                {item}
+                              </span>
+                            ))}
+                            {fullDrill.equipment.length > 3 && (
+                              <button
+                                onClick={() => setSelectedDrillForModal(fullDrill)}
+                                className="text-[9px] text-emerald-400 hover:underline"
+                              >
+                                +{fullDrill.equipment.length - 3} til
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* "Se mer" knapp */}
+                      <button
+                        onClick={() => setSelectedDrillForModal(fullDrill)}
+                        className="w-full mt-2 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-semibold hover:bg-sky-500/20 transition flex items-center justify-center gap-1"
+                      >
+                        📖 Vis full detalj (steg, tips, utstyr)
+                      </button>
+                    </div>
                   )}
 
-                  {isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
-                    <button 
-                      onClick={() => {
-                        console.log('Coach starting stopwatch for:', tn.id, 'Duration:', tn.duration || 5);
-                        setActiveStopwatch(tn.id);
-                      }}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
-                    >
-                      ⏱ Start øvelse ({tn.duration || 5} min)
-                    </button>
-                  )}
+                  {/* Stoppeklokke knapper */}
+                  <div className="mt-3 flex gap-2">
+                    {isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
+                      <button 
+                        onClick={() => {
+                          console.log('Coach starting stopwatch for:', tn.id, 'Duration:', tn.duration || 5);
+                          setActiveStopwatch(tn.id);
+                        }}
+                        className="flex-1 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center justify-center gap-1"
+                      >
+                        ⏱ Start øvelse ({tn.duration || 5} min)
+                      </button>
+                    )}
 
-                  {isCoach && !isCompleted && !hasTimer && (
-                    <button 
-                      onClick={() => handleCompleteDrill(tn.id)}
-                      className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center gap-1"
-                    >
-                      ✅ Marker som fullført
-                    </button>
-                  )}
+                    {isCoach && !isCompleted && !hasTimer && (
+                      <button 
+                        onClick={() => handleCompleteDrill(tn.id)}
+                        className="flex-1 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center justify-center gap-1"
+                      >
+                        ✅ Marker som fullført
+                      </button>
+                    )}
+                  </div>
 
-                  {!isCoach && activeStopwatch === tn.id && (
+                  {activeStopwatch === tn.id && (
                     <div className="mt-2 text-[10px] text-amber-400">⏱ Øvelse pågår...</div>
-                  )}
-
-                  {isCoach && activeStopwatch === tn.id && (
-                    <div className="mt-2 text-[10px] text-amber-400">⏱ Øvelse pågår (trener)...</div>
                   )}
                 </div>
               );

@@ -55,39 +55,37 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // 🔧 FIX: Oppdater spillerposisjoner OG roller basert på valgt formasjon - med sortering
+  // Oppdater spillerposisjoner OG roller basert på valgt formasjon - med sortering
   const updateFormation = useCallback((formationName: string) => {
-    if (!phase) return;
+  if (!phase) return;
+  
+  if (formationDebounceRef.current) {
+    clearTimeout(formationDebounceRef.current);
+  }
+  
+  formationDebounceRef.current = setTimeout(() => {
+    const formation = availableFormations.find(f => f.name === formationName);
+    if (!formation) return;
     
-    if (formationDebounceRef.current) {
-      clearTimeout(formationDebounceRef.current);
-    }
+    // 🔧 FIX: Bruk rekkefølgen i formasjonen, ikke sorter etter nummer
+    const homePlayers = [...phase.players.filter(p => p.team === 'home')];
+    const newFormationPlayers = formation.homePlayers;
     
-    formationDebounceRef.current = setTimeout(() => {
-      const formation = availableFormations.find(f => f.name === formationName);
-      if (!formation) return;
-      
-      // 🔧 FIX: Sorter homePlayers etter nummer for å matche rekkefølgen i formasjonen
-      const homePlayers = [...phase.players.filter(p => p.team === 'home')]
-        .sort((a, b) => (a.num || 0) - (b.num || 0));
-      const newFormationPlayers = formation.homePlayers;
-      
-      requestAnimationFrame(() => {
-        homePlayers.forEach((player, index) => {
-          if (newFormationPlayers[index]) {
-            // Oppdater posisjon
-            updatePlayerPosition(activePhaseIdx, player.id, newFormationPlayers[index].position);
-            // Oppdater rolle hvis den er forskjellig
-            if (player.role !== newFormationPlayers[index].role) {
-              updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role as PlayerRole });
-            }
+    requestAnimationFrame(() => {
+      // Oppdater posisjoner basert på formasjonens rekkefølge
+      homePlayers.forEach((player, index) => {
+        if (newFormationPlayers[index]) {
+          updatePlayerPosition(activePhaseIdx, player.id, newFormationPlayers[index].position);
+          if (player.role !== newFormationPlayers[index].role) {
+            updatePlayerField(activePhaseIdx, player.id, { role: newFormationPlayers[index].role as PlayerRole });
           }
-        });
+        }
       });
-      
-      setSelectedFormation(formationName);
-    }, 300);
-  }, [phase, activePhaseIdx, availableFormations, updatePlayerPosition, updatePlayerField]);
+    });
+    
+    setSelectedFormation(formationName);
+  }, 300);
+}, [phase, activePhaseIdx, availableFormations, updatePlayerPosition, updatePlayerField]);
 
   // Cleanup
   useEffect(() => {
@@ -204,7 +202,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     setLiveDrawPts([]);
   }
 
-  // 🔧 DRAG AND DROP: Håndter når en spiller slippes på en annen spiller eller tom posisjon
+  // DRAG AND DROP: Håndter når en spiller slippes på en annen spiller eller tom posisjon
   const handleDrop = (e: React.DragEvent, targetPlayerId?: string) => {
     e.preventDefault();
     setDragOverPlayerId(null);
@@ -245,9 +243,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     setDragOverPlayerId(null);
   };
 
-  // Filtrer kun startere for visning på banen
+  // 🔧 FIX: Vis ALLE hjemmespillere på banen (ikke bare startere)
   const allDisplayPlayers = getDisplayPlayers();
-  const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home' && player.isStarter === true);
+  const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home');
   const displayBall = getDisplayBall();
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
 
@@ -410,7 +408,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
               onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
           )}
 
-          {/* Kun startere på banen – med drag-and-drop */}
+          {/* 🔧 FIX: Vis ALLE hjemmespillere på banen – med drag-and-drop */}
           {homeDisplayPlayers.map(player => {
             const account = playerAccounts.find((a: any) => a.playerId === player.id);
             const displayName = account?.name || player.name || `#${player.num}`;

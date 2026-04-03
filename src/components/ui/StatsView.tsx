@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { PlayerProfile } from '@/components/player-portal/PlayerProfile';
+import { ROLE_META } from '@/data/roleInfo';
 
 // ═══════════════════════════════════════════════════════════════
 //  TYPER FOR STATISTIKK
@@ -50,7 +51,7 @@ export const StatsView: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showStatForm, setShowStatForm] = useState(false);
   const [matchStats, setMatchStats] = useState<MatchStats[]>([]);
-  const [showPlayerProfile, setShowPlayerProfile] = useState(false);  // 🔧 NY STATE
+  const [showPlayerProfile, setShowPlayerProfile] = useState(false);
 
   // Last statistikk fra localStorage
   useEffect(() => {
@@ -212,7 +213,7 @@ export const StatsView: React.FC = () => {
   const topAssists = playerStats.filter(s => s.assists > 0).sort((a, b) => b.assists - a.assists).slice(0, 5);
   const selectedPlayer = selectedPlayerId ? playerStats.find(s => s.playerId === selectedPlayerId) : null;
 
-  // 🔧 HENT UT VALGT SPILLER FOR PROFIL
+  // Hent ut valgt spiller for profil
   const selectedPlayerForProfile = selectedPlayerId ? allClubPlayers.find(p => p.id === selectedPlayerId) : null;
 
   return (
@@ -249,6 +250,7 @@ export const StatsView: React.FC = () => {
             onClick={() => {
               setTab(id as 'overview' | 'attendance' | 'playtime' | 'goals' | 'player');
               setShowPlayerProfile(false);
+              if (id !== 'player') setSelectedPlayerId(null);
             }}
             className={`px-3 py-3 text-[11px] font-semibold transition-all min-h-[44px] whitespace-nowrap
               ${tab === id ? 'text-sky-400 border-b-2 border-sky-400' : 'text-[#3a5070]'}`}
@@ -506,59 +508,73 @@ export const StatsView: React.FC = () => {
           </div>
         )}
 
-        {/* ── SPILLERDETALJ (trener) ── Viser statistikk ELLER profil */}
-        {tab === 'player' && selectedPlayer && isCoach && (
+        {/* ── SPILLERPROFILER (trener) ── */}
+        {tab === 'player' && isCoach && (
           <div className="max-w-2xl mx-auto">
-            {/* Velg visning: Statistikk eller Profil */}
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setShowPlayerProfile(false)}
-                className={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all
-                  ${!showPlayerProfile ? 'bg-sky-500/20 border border-sky-500/30 text-sky-400' : 'bg-[#0f1a2a] border border-[#1e3050] text-[#4a6080]'}`}
-              >
-                📊 Statistikk
-              </button>
-              <button
-                onClick={() => setShowPlayerProfile(true)}
-                className={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-all
-                  ${showPlayerProfile ? 'bg-sky-500/20 border border-sky-500/30 text-sky-400' : 'bg-[#0f1a2a] border border-[#1e3050] text-[#4a6080]'}`}
-              >
-                👤 Spillerprofil
-              </button>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-slate-100">👤 Spillere i laget</h3>
+              <span className="text-[10px] text-[#4a6080]">{allClubPlayers.length} spillere</span>
             </div>
-
-            {showPlayerProfile && selectedPlayerForProfile ? (
-              <PlayerProfile />
-            ) : (
+            
+            {selectedPlayerId && selectedPlayerForProfile ? (
               <>
-                <button onClick={() => setSelectedPlayerId(null)} className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-4 flex items-center gap-1">
+                <button 
+                  onClick={() => setSelectedPlayerId(null)}
+                  className="text-[11px] text-[#4a6080] hover:text-sky-400 mb-4 flex items-center gap-1"
+                >
                   ‹ Tilbake til oversikt
                 </button>
-                <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 text-center">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
-                    <span className="text-3xl font-black text-white">#{selectedPlayer.playerNumber}</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-100 mb-1">{selectedPlayer.playerName}</h3>
-                  <div className="grid grid-cols-4 gap-2 mt-4">
-                    <div className="bg-[#0f1a2a] rounded-xl p-2">
-                      <div className="text-2xl font-black text-emerald-400">{selectedPlayer.goals}</div>
-                      <div className="text-[9px] text-[#4a6080]">Mål</div>
-                    </div>
-                    <div className="bg-[#0f1a2a] rounded-xl p-2">
-                      <div className="text-2xl font-black text-sky-400">{selectedPlayer.assists}</div>
-                      <div className="text-[9px] text-[#4a6080]">Assists</div>
-                    </div>
-                    <div className="bg-[#0f1a2a] rounded-xl p-2">
-                      <div className="text-2xl font-black text-amber-400">{selectedPlayer.matchesPlayed}</div>
-                      <div className="text-[9px] text-[#4a6080]">Kamper</div>
-                    </div>
-                    <div className="bg-[#0f1a2a] rounded-xl p-2">
-                      <div className="text-2xl font-black text-indigo-400">{Math.floor(selectedPlayer.minutesPlayed / 90)}</div>
-                      <div className="text-[9px] text-[#4a6080]">Hele kamper</div>
-                    </div>
-                  </div>
-                </div>
+                <PlayerProfile onClose={() => setSelectedPlayerId(null)} />
               </>
+            ) : (
+              <div className="space-y-2">
+                {allClubPlayers.map(player => {
+                  const playerStatsData = playerStats.find(s => s.playerId === player.id);
+                  const account = playerAccounts.find((a: any) => a.playerId === player.id);
+                  
+                  return (
+                    <div 
+                      key={player.id}
+                      onClick={() => setSelectedPlayerId(player.id)}
+                      className="flex items-center gap-3 p-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] cursor-pointer hover:border-sky-500/50 transition-all"
+                    >
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0 bg-gradient-to-br from-sky-500 to-emerald-500">
+                        {player.num || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-bold text-slate-200 truncate">{player.name}</div>
+                        <div className="text-[10px] text-[#4a6080] flex flex-wrap gap-2 mt-0.5">
+                          <span>{ROLE_META[player.role as keyof typeof ROLE_META]?.label || player.role}</span>
+                          {account?.height && <span>📏 {account.height} cm</span>}
+                          {account?.weight && <span>⚖️ {account.weight} kg</span>}
+                          {account?.preferredFoot && (
+                            <span>
+                              {account.preferredFoot === 'left' && '👈 Venstre'}
+                              {account.preferredFoot === 'right' && '👉 Høyre'}
+                              {account.preferredFoot === 'both' && '🤝 Begge'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {playerStatsData && (
+                          <div className="text-right">
+                            <div className="text-[11px] font-bold text-emerald-400">{playerStatsData.goals} mål</div>
+                            <div className="text-[9px] text-[#4a6080]">{playerStatsData.assists} assists</div>
+                          </div>
+                        )}
+                        <span className="text-[#4a6080] text-[14px]">›</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {allClubPlayers.length === 0 && (
+                  <p className="text-[12px] text-[#4a6080] italic text-center py-8">
+                    Ingen spillere registrert ennå.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}

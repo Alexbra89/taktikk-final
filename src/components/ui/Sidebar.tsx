@@ -14,6 +14,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const [showSubConfirm, setShowSubConfirm] = useState<{ outId: string; inId: string } | null>(null);
   const [selectedOutPlayer, setSelectedOutPlayer] = useState<any | null>(null);
   const [eligibleSubs, setEligibleSubs] = useState<any[]>([]);
+  const [showEmptySlotPicker, setShowEmptySlotPicker] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const {
     sport, phases, activePhaseIdx,
@@ -27,35 +29,97 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   
   const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : 7;
   
-  // Bruk isStarter for å avgjøre hvem som starter
   const starters = homePlayers.filter(p => p.isStarter === true);
   const subs = homePlayers.filter(p => p.isStarter !== true);
   
-  // Fyll opp banen til teamSize med null for tomme plasser
   const fieldSlots: (any | null)[] = [...starters];
   while (fieldSlots.length < teamSize) {
     fieldSlots.push(null);
   }
   const fieldDisplay = fieldSlots.slice(0, teamSize);
   
-  // Bytte funksjon – bytter isStarter status
+  // 🔧 DRAG AND DROP for å bytte plass i startoppstillingen
+  const handleDragStart = (e: React.DragEvent, playerId: string, fromIndex: number) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ playerId, fromIndex }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, toIndex: number) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      const { playerId, fromIndex } = data;
+      
+      if (fromIndex === toIndex) return;
+      
+      const draggedPlayer = homePlayers.find(p => p.id === playerId);
+      if (!draggedPlayer) return;
+      
+      // Finn spilleren på toIndex (kan være null for tom plass)
+      const targetPlayer = fieldDisplay[toIndex];
+      
+      if (targetPlayer) {
+        // Bytt plass mellom to spillere
+        updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: targetPlayer.position });
+        updatePlayerField(activePhaseIdx, targetPlayer.id, { position: draggedPlayer.position });
+      } else {
+        // Flytt til tom plass (bare oppdater posisjon)
+        // Posisjonen må hentes fra formasjonen basert på toIndex
+        const newPosition = getPositionForIndex(toIndex);
+        if (newPosition) {
+          updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: newPosition });
+        }
+      }
+    } catch (err) {
+      console.error('Drag drop error:', err);
+    }
+  };
+
+  const getPositionForIndex = (index: number) => {
+    // Returnerer posisjon basert på index i formasjonen
+    // Dette må tilpasses din formsajon
+    const positions = [
+      { x: 440, y: 515 }, // Keeper
+      { x: 260, y: 450 }, // Høyreback
+      { x: 620, y: 450 }, // Venstreback
+      { x: 370, y: 450 }, // Midtstopper
+      { x: 510, y: 450 }, // Midtstopper
+      { x: 260, y: 380 }, // Høyre midtbane
+      { x: 440, y: 380 }, // Sentral midtbane
+      { x: 620, y: 380 }, // Venstre midtbane
+      { x: 280, y: 230 }, // Høyre spiss
+      { x: 440, y: 210 }, // Sentral spiss
+      { x: 600, y: 230 }, // Venstre spiss
+    ];
+    return positions[index] || { x: 440, y: 280 };
+  };
+
   const swapPlayers = (playerOutId: string, playerInId: string) => {
     const playerOut = homePlayers.find(p => p.id === playerOutId);
     const playerIn = homePlayers.find(p => p.id === playerInId);
     
     if (!playerOut || !playerIn) return;
     
-    // Bytt isStarter status
     updatePlayerField(activePhaseIdx, playerOutId, { isStarter: false });
     updatePlayerField(activePhaseIdx, playerInId, { isStarter: true });
     
-    // Bytt også posisjoner
     if (playerOut.position && playerIn.position) {
       updatePlayerField(activePhaseIdx, playerOutId, { position: playerIn.position });
       updatePlayerField(activePhaseIdx, playerInId, { position: playerOut.position });
     }
     
-    // Force en liten forsinkelse for å sikre at state oppdateres
     setTimeout(() => {
       setShowSubConfirm(null);
       setSelectedOutPlayer(null);
@@ -63,9 +127,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     }, 50);
   };
   
-  // Alle innbyggere er tilgjengelige for bytte
   const getAvailableSubs = (outPlayer: any) => {
     return subs.filter(p => p.id !== outPlayer.id);
+  };
+
+  const assignToEmptySlot = (playerId: string, slotIndex: number) => {
+    const player = homePlayers.find(p => p.id === playerId);
+    if (!player) return;
+    
+    if (player.isStarter !== true) {
+      updatePlayerField(activePhaseIdx, playerId, { isStarter: true });
+    }
+    
+    setShowEmptySlotPicker(null);
   };
 
   const sportEmoji = sport === 'handball' ? '🤾' : '⚽';
@@ -76,7 +150,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       const positions7 = ['Keeper', 'Back', 'Back', 'Midtbane', 'Midtbane', 'Spiss', 'Spiss'];
       return positions7[index] || `Posisjon ${index + 1}`;
     }
-    // Standard 11er formasjon (4-4-2)
     const positions11 = [
       'Keeper', 'Høyreback', 'Venstreback', 'Midtstopper', 'Midtstopper',
       'Høyre midtbane', 'Sentral midtbane', 'Venstre midtbane',
@@ -123,7 +196,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
-        {/* SPILLERLISTE */}
         {tab === 'players' && phase && (
           <>
             <div className="flex items-center justify-between mb-1">
@@ -135,12 +207,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
               )}
             </div>
             
-            {/* Vis ALLTID teamSize plasser på banen */}
             {fieldDisplay.map((player, index) => {
+              const isDragOver = dragOverIndex === index;
+              
               if (!player) {
                 const posName = getPositionNameForIndex(index);
                 return (
-                  <div key={`empty-${index}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5 border border-dashed border-[#1e3050] opacity-70">
+                  <div 
+                    key={`empty-${index}`} 
+                    draggable={false}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, index)}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5 border border-dashed border-[#1e3050] transition-all
+                      ${isDragOver ? 'bg-sky-500/20 border-sky-500' : ''}`}
+                  >
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 bg-[#1e3050]">
                       {index + 1}
                     </div>
@@ -148,32 +229,80 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                       <div className="text-[11px] font-semibold text-slate-400 italic">Ledig plass</div>
                       <div className="text-[9px] text-sky-400/70">{posName}</div>
                     </div>
+                    <button
+                      onClick={() => setShowEmptySlotPicker(index)}
+                      className="px-2 py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] flex-shrink-0 bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/25"
+                    >
+                      ➕ Sett inn
+                    </button>
                   </div>
                 );
               }
               return (
-                <PlayerRow 
-                  key={player.id} 
-                  player={player} 
-                  selected={selectedPlayerId === player.id} 
-                  onSelect={onSelectPlayer} 
-                  playerAccounts={playerAccounts as any[]}
-                  isStarter={true}
-                  onSubstituteOut={() => {
-                    const eligible = getAvailableSubs(player);
-                    if (eligible.length > 0) {
-                      setSelectedOutPlayer(player);
-                      setEligibleSubs(eligible);
-                      setShowSubConfirm({ outId: player.id, inId: eligible[0].id });
-                    } else {
-                      alert(`Ingen innbyggere tilgjengelig.`);
-                    }
-                  }}
-                />
+                <div
+                  key={player.id}
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(e, player.id, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className={`transition-all ${isDragOver ? 'ring-2 ring-sky-400 rounded-lg' : ''}`}
+                >
+                  <PlayerRow 
+                    player={player} 
+                    selected={selectedPlayerId === player.id} 
+                    onSelect={onSelectPlayer} 
+                    playerAccounts={playerAccounts as any[]}
+                    isStarter={true}
+                    onSubstituteOut={() => {
+                      const eligible = getAvailableSubs(player);
+                      if (eligible.length > 0) {
+                        setSelectedOutPlayer(player);
+                        setEligibleSubs(eligible);
+                        setShowSubConfirm({ outId: player.id, inId: eligible[0].id });
+                      } else {
+                        alert(`Ingen innbyttere tilgjengelig.`);
+                      }
+                    }}
+                  />
+                </div>
               );
             })}
 
-            {/* Innbyttere – alle som ikke er startere */}
+            {/* Modal for å velge spiller til tom plass */}
+            {showEmptySlotPicker !== null && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                <div className="bg-[#0c1525] rounded-2xl border border-[#1e3050] max-w-sm w-full p-4">
+                  <h3 className="text-sm font-bold text-slate-200 mb-3">➕ Sett inn spiller</h3>
+                  <div className="text-[11px] text-[#4a6080] mb-3">
+                    Posisjon: {getPositionNameForIndex(showEmptySlotPicker)}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {homePlayers.filter(p => p.isStarter !== true).map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => assignToEmptySlot(p.id, showEmptySlotPicker)}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#111c30] border border-[#1e3050] mb-1"
+                      >
+                        <div className="text-[12px] font-bold text-slate-200">{getPlayerDisplayName(p)}</div>
+                        <div className="text-[9px] text-[#4a6080]">{ROLE_META[p.role as keyof typeof ROLE_META]?.label || p.role}</div>
+                      </button>
+                    ))}
+                    {homePlayers.filter(p => p.isStarter !== true).length === 0 && (
+                      <p className="text-[11px] text-[#4a6080] italic">Ingen innbyttere tilgjengelig</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowEmptySlotPicker(null)}
+                    className="mt-3 w-full py-2 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[12px] hover:text-slate-300"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Innbyttere – draggable */}
             {subs.length > 0 && (
               <>
                 <div className="flex items-center gap-2 my-2 px-1">
@@ -182,33 +311,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                   <div className="h-px flex-1 bg-[#1e3050]" />
                 </div>
                 {subs.map(p => (
-                  <PlayerRow 
-                    key={p.id} 
-                    player={p} 
-                    selected={selectedPlayerId === p.id} 
-                    onSelect={onSelectPlayer} 
-                    playerAccounts={playerAccounts as any[]}
-                    isStarter={false}
-                    onSubstituteIn={() => {
-                      if (starters.length > 0) {
-                        const anyStarter = starters[0];
-                        setSelectedOutPlayer(anyStarter);
-                        setEligibleSubs([p]);
-                        setShowSubConfirm({ outId: anyStarter.id, inId: p.id });
-                      } else if (starters.length < teamSize) {
-                        updatePlayerField(activePhaseIdx, p.id, { isStarter: true });
-                      } else {
-                        alert(`Ingen startere tilgjengelig for bytte.`);
-                      }
+                  <div
+                    key={p.id}
+                    draggable={true}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', JSON.stringify({ playerId: p.id, fromIndex: -1 }));
+                      e.dataTransfer.effectAllowed = 'move';
                     }}
-                  />
+                    className="cursor-grab active:cursor-grabbing"
+                  >
+                    <PlayerRow 
+                      player={p} 
+                      selected={selectedPlayerId === p.id} 
+                      onSelect={onSelectPlayer} 
+                      playerAccounts={playerAccounts as any[]}
+                      isStarter={false}
+                      onSubstituteIn={() => {
+                        if (starters.length > 0) {
+                          const anyStarter = starters[0];
+                          setSelectedOutPlayer(anyStarter);
+                          setEligibleSubs([p]);
+                          setShowSubConfirm({ outId: anyStarter.id, inId: p.id });
+                        } else if (starters.length < teamSize) {
+                          updatePlayerField(activePhaseIdx, p.id, { isStarter: true });
+                        } else {
+                          alert(`Ingen startere tilgjengelig for bytte.`);
+                        }
+                      }}
+                    />
+                  </div>
                 ))}
               </>
             )}
           </>
         )}
 
-        {/* TILDEL */}
         {tab === 'assign' && phase && (
           <AssignTab 
             players={players} 
@@ -219,7 +356,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           />
         )}
 
-        {/* ROLLER */}
         {tab === 'roles' && (
           <div className="space-y-1">
             <p className="text-[10px] text-[#4a6080] px-1 mb-2">Trykk for rollebeskrivelse</p>
@@ -258,7 +394,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             </p>
             {eligibleSubs.length > 1 && (
               <div className="mb-4">
-                <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">Andre innbyggere:</div>
+                <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">Andre innbyttere:</div>
                 <div className="flex flex-wrap gap-1">
                   {eligibleSubs.slice(1).map(sub => (
                     <button key={sub.id} onClick={() => setShowSubConfirm({ outId: showSubConfirm.outId, inId: sub.id })}
