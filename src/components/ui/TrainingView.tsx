@@ -833,7 +833,9 @@ const TrainingDetail: React.FC<{
 
   // Hjelpefunksjon for å finne full drill fra tittel
   const findDrillByName = (title: string) => {
-    return drills.find(d => d.name === title);
+    // Fjern ekstra mellomrom og gjør case-insensitive
+    const searchTitle = title.trim().toLowerCase();
+    return drills.find(d => d.name.trim().toLowerCase() === searchTitle);
   };
 
   return (

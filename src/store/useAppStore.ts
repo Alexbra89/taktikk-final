@@ -16,6 +16,19 @@ function debouncedPushPhases(phases: TacticPhase[]) {
   positionPushTimer = setTimeout(() => pushPhases(phases), 1200);
 }
 
+// 🔧 FIX: Debounced push for events – forhindrer at events blir slettet under generering
+let eventsPushTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingEvents: CalendarEvent[] = [];
+
+function debouncedPushEvents(events: CalendarEvent[]) {
+  pendingEvents = events;
+  if (eventsPushTimer) clearTimeout(eventsPushTimer);
+  eventsPushTimer = setTimeout(() => {
+    pushEvents(pendingEvents);
+    pendingEvents = [];
+  }, 500);
+}
+
 interface ChatMessage {
   id: string;
   fromRole: 'coach' | 'player';
@@ -107,6 +120,8 @@ async function pushEvents(events: CalendarEvent[]) {
       updated_at: new Date().toISOString(),
     }));
     if (rows.length) await supabase.from('events').upsert(rows, { onConflict: 'id' });
+    
+    // Slett events som ikke lenger finnes i listen (men kun etter debounce)
     const { data: existing } = await supabase.from('events').select('id');
     const currentIds = events.map(e => e.id);
     const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
@@ -656,51 +671,51 @@ const useAppStore = create<AppStore>()(
         const newEv = { id: uid(), ...ev };
         console.log('🔵 addEvent - Legger til event:', newEv.title, newEv.date, newEv.id);
         set(s => ({ events: [...s.events, newEv] }));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       updateEvent: (id, fields) => {
         set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...fields } : e) }));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       deleteEvent: (id) => {
         set(s => ({ events: s.events.filter(e => e.id !== id) }));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       addTrainingNote: (eventId, note) => {
         const n: TrainingNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e
           : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       updateTrainingNote: (eventId, noteId, fields) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, trainingNotes: e.trainingNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
         })}));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       deleteTrainingNote: (eventId, noteId) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
         })}));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       addMatchNote: (eventId, note) => {
         const n: MatchNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e
           : { ...e, matchNotes: [...e.matchNotes, n] }) }));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       updateMatchNote: (eventId, noteId, fields) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, matchNotes: e.matchNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
         })}));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
       deleteMatchNote: (eventId, noteId) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
         })}));
-        pushEvents(get().events).catch(e => console.warn('pushEvents error', e));
+        debouncedPushEvents(get().events);
       },
 
       playerAccounts: [],
@@ -769,7 +784,6 @@ const useAppStore = create<AppStore>()(
         } catch (e) { console.warn('sendChat error', e); }
       },
 
-      // 🔧 FIX: Oppdatert syncFromSupabase – overskriver IKKE events
       syncFromSupabase: async () => {
         const data = await loadFromSupabase();
         if (Object.keys(data).length > 0) {
@@ -783,7 +797,6 @@ const useAppStore = create<AppStore>()(
             ...(data.coachEmail !== undefined && { coachEmail: data.coachEmail }),
             ...(data.coachPassword !== undefined && { coachPassword: data.coachPassword }),
             ...(data.refereePin !== undefined && { refereePin: data.refereePin }),
-            // 🔧 VIKTIG: Bare oppdater events hvis data.events finnes OG har lengde
             ...(data.events && data.events.length > 0 && { events: data.events }),
             ...(data.phases && data.phases.length > 0 && { phases: data.phases }),
             ...(data.playerAccounts && { playerAccounts: data.playerAccounts }),
