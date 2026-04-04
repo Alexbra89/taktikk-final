@@ -50,7 +50,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // 🔧 ENDELIG FIX: Stabil sortering + rotasjon for horisontal bane
+  // 🔧 ENDELIG FIX: Bruker posisjoner direkte fra formations.ts (INGEN ROTASJON)
   const updateFormation = useCallback((formationName: string) => {
     if (!phase) return;
 
@@ -62,31 +62,22 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
       const formation = availableFormations.find(f => f.name === formationName);
       if (!formation) return;
 
-      // ✅ 1. Stabil sortering etter nummer (VELDIG VIKTIG)
+      // Stabil sortering etter nummer
       const homePlayers = [...phase.players]
         .filter(p => p.team === 'home')
         .sort((a, b) => (a.num || 0) - (b.num || 0));
 
-      console.log('🔍 Spillere sortert:', homePlayers.map(p => ({ num: p.num, role: p.role })));
-
-      // ✅ 2. Roter koordinater for horisontal bane (mål venstre/høyre)
-      const rotate = (pos: { x: number; y: number }) => ({
-        x: pos.y,
-        y: VW - pos.x,
-      });
-
       requestAnimationFrame(() => {
-        // ✅ 3. Map eksakt 1:1
         formation.homePlayers.forEach((fp, index) => {
           const player = homePlayers[index];
           if (!player) return;
 
-          const newPos = rotate(fp.position);
-
-          console.log(`📍 Spiller #${player.num} (${player.role}) → posisjon (${newPos.x}, ${newPos.y})`);
-
+          // ✅ BRUK POSISJON DIREKTE (INGEN ROTATE)
           updatePlayerField(activePhaseIdx, player.id, {
-            position: newPos,
+            position: {
+              x: fp.position.x,
+              y: fp.position.y,
+            },
             role: fp.role as PlayerRole,
           });
         });
