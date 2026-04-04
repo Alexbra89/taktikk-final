@@ -5,13 +5,17 @@ import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
 
 interface PlayerProfileProps {
   onClose?: () => void;
+  playerId?: string;  // 🔧 LEGG TIL: for å vise en spesifikk spillers profil
 }
 
-export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose }) => {
+export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose, playerId }) => {
   const { currentUser, playerAccounts, updatePlayerAccount, sport } = useAppStore();
 
+  const isCoach = currentUser?.role === 'coach';
+  
+  // 🔧 FIX: Hent riktig konto – enten den innloggede spilleren, eller en spesifikk spiller (trener)
   const myAccount = (playerAccounts as any[]).find(
-    (a: any) => a.playerId === currentUser?.playerId
+    (a: any) => a.playerId === (playerId || currentUser?.playerId)
   );
 
   const [isEditing, setIsEditing] = useState(false);
@@ -109,30 +113,36 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose }) => {
     return (
       <div className="p-4 text-center text-[#4a6080]">
         <div className="text-3xl mb-2">👤</div>
-        <p className="text-sm">Ingen profildata tilgjengelig.</p>
+        <p className="text-sm">Ingen profildata tilgjengelig for denne spilleren.</p>
       </div>
     );
   }
+
+  // 🔧 Trener kan ikke endre passord for spillere
+  const canEditPassword = !isCoach && !playerId;
+  const canEditProfile = !isCoach || (isCoach && playerId); // Trener kan redigere andres profiler
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
         <h2 className="text-sm font-black text-slate-100 flex items-center gap-2">
-          <span>👤</span> Min profil
+          <span>👤</span> {playerId ? myAccount.name : 'Min profil'}
           {onClose && (
             <button onClick={onClose} className="text-[#4a6080] hover:text-white ml-2">✕</button>
           )}
         </h2>
         <div className="flex gap-2">
-          {!isEditing && !isChangingPassword && (
+          {!isEditing && !isChangingPassword && canEditProfile && (
             <>
-              <button
-                onClick={() => setIsChangingPassword(true)}
-                className="text-[11px] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 transition"
-              >
-                🔒 Endre passord
-              </button>
+              {canEditPassword && (
+                <button
+                  onClick={() => setIsChangingPassword(true)}
+                  className="text-[11px] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 transition"
+                >
+                  🔒 Endre passord
+                </button>
+              )}
               <button
                 onClick={() => setIsEditing(true)}
                 className="text-[11px] px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/25 transition"

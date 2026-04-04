@@ -247,17 +247,115 @@ export const FORMATIONS_7ER: Formation[] = [
   },
 ];
 
+// ═══ 9er fotball posisjoner ══════════════════════════════════════════
+
+const POS_9ER = {
+  // Keeper (eget mål, venstre)
+  GK:  { x: 92,  y: 280 },
+
+  // Forsvar (3 eller 4 backer)
+  LB:  { x: 180, y: 120 },
+  LCB: { x: 180, y: 200 },
+  CB:  { x: 180, y: 280 },
+  RCB: { x: 180, y: 360 },
+  RB:  { x: 180, y: 440 },
+
+  // Midtbane
+  LM:  { x: 380, y: 120 },
+  LCM: { x: 350, y: 200 },
+  CM:  { x: 380, y: 280 },
+  RCM: { x: 350, y: 360 },
+  RM:  { x: 380, y: 440 },
+
+  // Offensiv midtbane
+  CAM: { x: 520, y: 280 },
+
+  // Angrep
+  LW:  { x: 650, y: 140 },
+  ST:  { x: 720, y: 280 },
+  RW:  { x: 650, y: 420 },
+  LS:  { x: 700, y: 200 },
+  RS:  { x: 700, y: 360 },
+};
+
+// ═══ 9er formasjoner ════════════════════════════════════════════════
+
+export const FORMATIONS_9ER: Formation[] = [
+  {
+    name: '3-4-1',
+    description: '3 backer, 4 midtbanespillere, 1 spiss. Balansert formasjon for 9er fotball.',
+    homePlayers: [
+      { role: 'keeper',     position: POS_9ER.GK },
+      { role: 'defender',   position: POS_9ER.LCB },
+      { role: 'defender',   position: POS_9ER.CB },
+      { role: 'defender',   position: POS_9ER.RCB },
+      { role: 'midfielder', position: POS_9ER.LM },
+      { role: 'midfielder', position: POS_9ER.LCM },
+      { role: 'midfielder', position: POS_9ER.RCM },
+      { role: 'midfielder', position: POS_9ER.RM },
+      { role: 'forward',    position: POS_9ER.ST },
+    ],
+  },
+  {
+    name: '3-3-2',
+    description: '3 backer, 3 midtbane, 2 spisser. Offensivt og balansert.',
+    homePlayers: [
+      { role: 'keeper',     position: POS_9ER.GK },
+      { role: 'defender',   position: POS_9ER.LCB },
+      { role: 'defender',   position: POS_9ER.CB },
+      { role: 'defender',   position: POS_9ER.RCB },
+      { role: 'midfielder', position: POS_9ER.LCM },
+      { role: 'midfielder', position: POS_9ER.CM },
+      { role: 'midfielder', position: POS_9ER.RCM },
+      { role: 'forward',    position: POS_9ER.LS },
+      { role: 'forward',    position: POS_9ER.RS },
+    ],
+  },
+  {
+    name: '4-3-1',
+    description: '4 backer, 3 midtbane, 1 spiss. Defensivt solid.',
+    homePlayers: [
+      { role: 'keeper',     position: POS_9ER.GK },
+      { role: 'defender',   position: POS_9ER.LB },
+      { role: 'defender',   position: POS_9ER.LCB },
+      { role: 'defender',   position: POS_9ER.RCB },
+      { role: 'defender',   position: POS_9ER.RB },
+      { role: 'midfielder', position: POS_9ER.LCM },
+      { role: 'midfielder', position: POS_9ER.CM },
+      { role: 'midfielder', position: POS_9ER.RCM },
+      { role: 'forward',    position: POS_9ER.ST },
+    ],
+  },
+  {
+    name: '4-2-2',
+    description: '4 backer, 2 midtbane, 2 spisser. Bra for kontringer.',
+    homePlayers: [
+      { role: 'keeper',     position: POS_9ER.GK },
+      { role: 'defender',   position: POS_9ER.LB },
+      { role: 'defender',   position: POS_9ER.LCB },
+      { role: 'defender',   position: POS_9ER.RCB },
+      { role: 'defender',   position: POS_9ER.RB },
+      { role: 'midfielder', position: POS_9ER.CM },
+      { role: 'midfielder', position: POS_9ER.CAM },
+      { role: 'forward',    position: POS_9ER.LS },
+      { role: 'forward',    position: POS_9ER.RS },
+    ],
+  },
+];
+
 // ═══ Hjelpefunksjoner ═════════════════════════════════════════
 
 export const getFormations = (sport: string): Formation[] => {
   if (sport === 'football7') return FORMATIONS_7ER;
+  if (sport === 'football9') return FORMATIONS_9ER;
   return FORMATIONS_11ER;
 };
 
 export const DEFAULT_FORMATION: Record<string, string> = {
-  football:  '4-3-3',
-  football7: '2-3-1',
-  handball:  '6-0',
+  football:   '4-3-3',
+  football7:  '2-3-1',
+  football9:  '3-4-1',
+  handball:   '6-0',
 };
 
 export const getFormationDescription = (formationName: string, sport: string): string => {
@@ -274,8 +372,8 @@ export const makePhase = (
   existingPlayers?: Player[],
   existingBall?: Position
 ): TacticPhase => {
-  const formations = getFormations(sport === 'football7' ? 'football7' : sport);
-  const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport] ?? formations[0]?.name;
+  const formations = getFormations(sport === 'football7' ? 'football7' : sport === 'football9' ? 'football9' : sport);
+  const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport === 'football9' ? 'football9' : sport] ?? formations[0]?.name;
   const formation = formations.find(f => f.name === defaultFormation) ?? formations[0];
 
   const players = existingPlayers ?? formation.homePlayers.map((p, idx) => ({

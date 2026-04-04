@@ -27,7 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const players = phase?.players ?? [];
   const homePlayers = players.filter(p => p.team === 'home');
   
-  const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : 7;
+  const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 7;
   
   const starters = homePlayers.filter(p => p.isStarter === true);
   const subs = homePlayers.filter(p => p.isStarter !== true);
@@ -67,16 +67,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       const draggedPlayer = homePlayers.find(p => p.id === playerId);
       if (!draggedPlayer) return;
       
-      // Finn spilleren på toIndex (kan være null for tom plass)
       const targetPlayer = fieldDisplay[toIndex];
       
       if (targetPlayer) {
-        // Bytt plass mellom to spillere
         updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: targetPlayer.position });
         updatePlayerField(activePhaseIdx, targetPlayer.id, { position: draggedPlayer.position });
       } else {
-        // Flytt til tom plass (bare oppdater posisjon)
-        // Posisjonen må hentes fra formasjonen basert på toIndex
         const newPosition = getPositionForIndex(toIndex);
         if (newPosition) {
           updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: newPosition });
@@ -88,20 +84,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   };
 
   const getPositionForIndex = (index: number) => {
-    // Returnerer posisjon basert på index i formasjonen
-    // Dette må tilpasses din formsajon
     const positions = [
-      { x: 440, y: 515 }, // Keeper
-      { x: 260, y: 450 }, // Høyreback
-      { x: 620, y: 450 }, // Venstreback
-      { x: 370, y: 450 }, // Midtstopper
-      { x: 510, y: 450 }, // Midtstopper
-      { x: 260, y: 380 }, // Høyre midtbane
-      { x: 440, y: 380 }, // Sentral midtbane
-      { x: 620, y: 380 }, // Venstre midtbane
-      { x: 280, y: 230 }, // Høyre spiss
-      { x: 440, y: 210 }, // Sentral spiss
-      { x: 600, y: 230 }, // Venstre spiss
+      { x: 440, y: 515 }, { x: 260, y: 450 }, { x: 620, y: 450 },
+      { x: 370, y: 450 }, { x: 510, y: 450 }, { x: 260, y: 380 },
+      { x: 440, y: 380 }, { x: 620, y: 380 }, { x: 280, y: 230 },
+      { x: 440, y: 210 }, { x: 600, y: 230 }
     ];
     return positions[index] || { x: 440, y: 280 };
   };
@@ -158,9 +145,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     return positions11[index] || `Posisjon ${index + 1}`;
   };
 
+  // 🔧 VISER NAVN MED POSISJON I PARENTES
   const getPlayerDisplayName = (player: any) => {
     const account = playerAccounts.find((a: any) => a.playerId === player.id);
-    return account?.name || player.name || `#${player.num}`;
+    const roleMeta = ROLE_META[player.role as keyof typeof ROLE_META];
+    const roleLabel = roleMeta?.label || player.role;
+    const name = account?.name || player.name || `#${player.num}`;
+    return `${name} (${roleLabel})`;
+  };
+
+  // 🔧 SPESIALROLLER-IKONER
+  const getSpecialRolesIcons = (player: any): string => {
+    const roles = player.specialRoles || [];
+    const icons = [];
+    if (roles.includes('captain')) icons.push('🪖');
+    if (roles.includes('freekick')) icons.push('🎯');
+    if (roles.includes('penalty')) icons.push('⚽');
+    if (roles.includes('corner')) icons.push('🚩');
+    if (roles.includes('throwin')) icons.push('🤾');
+    if (roles.includes('goalkeeper_kicks')) icons.push('🧤');
+    return icons.join(' ');
   };
 
   return (
@@ -278,16 +282,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                     Posisjon: {getPositionNameForIndex(showEmptySlotPicker)}
                   </div>
                   <div className="max-h-48 overflow-y-auto space-y-1">
-                    {homePlayers.filter(p => p.isStarter !== true).map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => assignToEmptySlot(p.id, showEmptySlotPicker)}
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#111c30] border border-[#1e3050] mb-1"
-                      >
-                        <div className="text-[12px] font-bold text-slate-200">{getPlayerDisplayName(p)}</div>
-                        <div className="text-[9px] text-[#4a6080]">{ROLE_META[p.role as keyof typeof ROLE_META]?.label || p.role}</div>
-                      </button>
-                    ))}
+                    {homePlayers.filter(p => p.isStarter !== true).map(p => {
+                      const roleMeta = ROLE_META[p.role as keyof typeof ROLE_META];
+                      const roleLabel = roleMeta?.label || p.role;
+                      const account = playerAccounts.find((a: any) => a.playerId === p.id);
+                      const name = account?.name || p.name || `#${p.num}`;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => assignToEmptySlot(p.id, showEmptySlotPicker)}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#111c30] border border-[#1e3050] mb-1"
+                        >
+                          <div className="text-[12px] font-bold text-slate-200">{name} ({roleLabel})</div>
+                          <div className="text-[9px] text-[#4a6080]">#{p.num}</div>
+                        </button>
+                      );
+                    })}
                     {homePlayers.filter(p => p.isStarter !== true).length === 0 && (
                       <p className="text-[11px] text-[#4a6080] italic">Ingen innbyttere tilgjengelig</p>
                     )}
@@ -385,12 +395,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             <h3 className="text-sm font-bold text-slate-200 mb-3">🔄 Bekreft bytte</h3>
             <p className="text-[12px] text-slate-300 mb-2">
               <span className="text-amber-400 font-bold">{getPlayerDisplayName(selectedOutPlayer)}</span>
-              <span className="text-[#4a6080]"> ({ROLE_META[selectedOutPlayer.role as keyof typeof ROLE_META]?.label || selectedOutPlayer.role})</span>
             </p>
             <p className="text-[12px] text-slate-300 mb-2 text-center">⬇️ byttes med ⬇️</p>
             <p className="text-[12px] text-slate-300 mb-4">
               <span className="text-emerald-400 font-bold">{getPlayerDisplayName(eligibleSubs[0])}</span>
-              <span className="text-[#4a6080]"> ({ROLE_META[eligibleSubs[0]?.role as keyof typeof ROLE_META]?.label || eligibleSubs[0]?.role})</span>
             </p>
             {eligibleSubs.length > 1 && (
               <div className="mb-4">
@@ -432,7 +440,22 @@ const PlayerRow: React.FC<{
 }> = ({ player, selected, onSelect, playerAccounts = [], isStarter, onSubstituteOut, onSubstituteIn }) => {
   const m = ROLE_META[player.role as keyof typeof ROLE_META] ?? ROLE_META['midfielder'];
   const account = playerAccounts.find((acc: any) => acc.playerId === player.id);
+  const roleMeta = ROLE_META[player.role as keyof typeof ROLE_META];
+  const roleLabel = roleMeta?.label || player.role;
   const displayName = account?.name || player.name || `#${player.num}`;
+  
+  // Spesialroller ikoner
+  const getSpecialRolesIcons = () => {
+    const roles = player.specialRoles || [];
+    const icons = [];
+    if (roles.includes('captain')) icons.push('🪖');
+    if (roles.includes('freekick')) icons.push('🎯');
+    if (roles.includes('penalty')) icons.push('⚽');
+    if (roles.includes('corner')) icons.push('🚩');
+    if (roles.includes('throwin')) icons.push('🤾');
+    if (roles.includes('goalkeeper_kicks')) icons.push('🧤');
+    return icons.join(' ');
+  };
   
   return (
     <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5 border transition-all
@@ -446,8 +469,11 @@ const PlayerRow: React.FC<{
           {(player.specialRoles ?? []).includes('captain') && <span className="absolute -bottom-1 -right-1 text-[7px]">🪖</span>}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] font-semibold truncate text-slate-200">{displayName}</div>
-          <div className="text-[9px] text-[#3a5070]">{m.label}{!isStarter && <span className="text-amber-400 ml-1">· innbytter</span>}</div>
+          <div className="text-[11px] font-semibold truncate text-slate-200">
+            {displayName}
+            {getSpecialRolesIcons() && <span className="ml-1 text-[9px]">{getSpecialRolesIcons()}</span>}
+          </div>
+          <div className="text-[9px] text-[#3a5070]">{roleLabel}{!isStarter && <span className="text-amber-400 ml-1">· innbytter</span>}</div>
         </div>
       </div>
       {isStarter && onSubstituteOut && (

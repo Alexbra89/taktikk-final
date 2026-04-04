@@ -57,6 +57,7 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             {([
               { v: 'football',  e: '⚽', l: 'Fotball 11er' },
               { v: 'football7', e: '⚽', l: 'Fotball 7er' },
+              { v: 'football9', e: '⚽', l: 'Fotball 9er' },
               { v: 'handball',  e: '🤾', l: 'Håndball' },
             ] as const).map(({ v, e, l }) => (
               <button key={v} onClick={() => setSport(v as any)}

@@ -41,7 +41,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   } = useAppStore();
 
   const phase = phases[activePhaseIdx];
-  const availableFormations = getFormations(sport === 'football7' ? 'football7' : sport);
+  const availableFormations = getFormations(sport === 'football7' ? 'football7' : sport === 'football9' ? 'football9' : sport);
   const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport];
 
   useEffect(() => {

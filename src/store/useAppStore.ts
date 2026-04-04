@@ -833,4 +833,4 @@ export { useAppStore };
 export default useAppStore;
 
 export const toBaseSport = (s: Sport): Sport =>
-  s === 'football7' ? 'football' : s;
+  s === 'football7' ? 'football' : s === 'football9' ? 'football' : s;

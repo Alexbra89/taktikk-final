@@ -524,7 +524,7 @@ export const StatsView: React.FC = () => {
                 >
                   ‹ Tilbake til oversikt
                 </button>
-                <PlayerProfile onClose={() => setSelectedPlayerId(null)} />
+                <PlayerProfile playerId={selectedPlayerId} onClose={() => setSelectedPlayerId(null)} />
               </>
             ) : (
               <div className="space-y-2">
