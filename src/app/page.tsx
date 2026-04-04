@@ -23,7 +23,7 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const {
     coachEmail, coachPassword, homeTeamName, awayTeamName,
     setCoachEmail, setCoachPassword, setHomeTeamName, setAwayTeamName,
-    sport, setSport,
+    sport, setSport, ageGroup, setAgeGroup,
   } = useAppStore();
 
   const [email, setEmail] = useState(coachEmail);
@@ -67,6 +67,27 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mb-5">
+          <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-widest mb-1.5">
+            Aldersgruppe (påvirker øvelser)
+          </div>
+          <div className="flex gap-2">
+            {([
+              { v: 'youth', l: '🧒 Barneøvelser (lettere)' },
+              { v: 'adult', l: '🧑 Voksenøvelser (mer krevende)' },
+            ] as const).map(({ v, l }) => (
+              <button key={v} onClick={() => setAgeGroup(v)}
+                className={`flex-1 py-3 rounded-xl text-[10px] font-bold border transition-all min-h-[48px]
+                  ${ageGroup === v ? 'bg-sky-500/20 border-sky-500 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <p className="text-[9px] text-[#4a6080] mt-1.5">
+            Velg aldersgruppe – påvirker hvilke øvelser som vises i treningsbiblioteket
+          </p>
         </div>
 
         <div className="mb-4">
@@ -172,7 +193,7 @@ export default function Home() {
   // Hent fra store (etter useState, før useEffect)
   const {
     currentView, setView, currentUser, activePhaseIdx,
-    chatMessages, sendChat, homeTeamName,
+    chatMessages, sendChat, homeTeamName, ageGroup, setAgeGroup,
   } = useAppStore();
 
   // ALLE useEffect hooks HER (før conditional returns)

@@ -155,15 +155,17 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         </button>
       </div>
 
-      {/* ── SVG bane — med scrolling ── */}
+      {/* ── SVG bane — bedre skalering (mindre scrolling) ── */}
       <div className="flex-1 min-h-0 overflow-auto" style={{ padding: '4px' }}>
-        <div className="min-w-[880px] min-h-[560px] flex items-center justify-center">
+        <div className="w-full h-full flex items-center justify-center">
           <svg
             viewBox={`0 0 ${VW} ${VH}`}
             preserveAspectRatio="xMidYMid meet"
             style={{
-              width: '100%',
-              height: '100%',
+              width: 'auto',
+              height: 'auto',
+              maxWidth: '95%',
+              maxHeight: '95%',
               display: 'block',
               touchAction: 'none',
               userSelect: 'none',
