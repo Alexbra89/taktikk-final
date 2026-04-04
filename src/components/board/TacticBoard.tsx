@@ -50,7 +50,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // 🔧 ENDELIG FIX: Bruker posisjoner direkte fra formations.ts (INGEN ROTASJON)
+  // Clamp funksjon for å holde posisjoner innenfor banen
+  const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
+
+  // Oppdater formasjon med clampede posisjoner
   const updateFormation = useCallback((formationName: string) => {
     if (!phase) return;
 
@@ -72,11 +75,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           const player = homePlayers[index];
           if (!player) return;
 
-          // ✅ BRUK POSISJON DIREKTE (INGEN ROTATE)
+          // Bruk posisjoner direkte med clamping
           updatePlayerField(activePhaseIdx, player.id, {
             position: {
-              x: fp.position.x,
-              y: fp.position.y,
+              x: clamp(fp.position.x, 40, VW - 40),
+              y: clamp(fp.position.y, 40, VH - 40),
             },
             role: fp.role as PlayerRole,
           });
@@ -361,16 +364,21 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex items-center justify-center bg-[#050c18]" style={{padding:'4px'}}>
+      {/* 🔧 FIX: Riktig SVG container med aspectRatio og stretch */}
+      <div className="flex-1 min-h-0 flex items-stretch justify-stretch" style={{ padding: '4px' }}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VW} ${VH}`}
           preserveAspectRatio="xMidYMid meet"
           style={{
-            width: '100%', height: '100%', maxWidth: '100%', maxHeight: '100%',
-            display: 'block', boxShadow: '0 0 60px rgba(0,0,0,0.9)',
+            width: '100%',
+            height: '100%',
+            aspectRatio: `${VW} / ${VH}`,
+            display: 'block',
+            boxShadow: '0 0 60px rgba(0,0,0,0.9)',
             cursor: drawMode ? 'crosshair' : 'default',
-            touchAction: 'none', userSelect: 'none',
+            touchAction: 'none',
+            userSelect: 'none',
             WebkitTapHighlightColor: 'transparent',
           }}
           onPointerDown={onSvgPointerDown}
