@@ -7,6 +7,7 @@ interface NotificationContextType {
   requestPermission: () => void;
   sendNotification: (title: string, options?: NotificationOptions) => void;
   markMessagesAsRead: () => void;
+  markMessageAsRead: (messageId: string) => void;
   unreadCount: number;
   hasUnreadMessages: boolean;
 }
@@ -48,31 +49,52 @@ export default function NotificationProvider({ children }: { children: React.Rea
   const lastChatCountRef = useRef<number>(0);
   const lastCoachCountRef = useRef<number>(0);
 
+  // Referanse for initialisert tilstand (unngår dobbelt-lasting)
+  const isInitializedRef = useRef(false);
+
   const { chatMessages, coachMessages, currentUser, events } = useAppStore();
   const isCoach = currentUser?.role === 'coach';
   const myPlayerId = currentUser?.playerId;
+  const myAccountId = currentUser?.accountId;
 
-  // 🔧 FIKSE: Last inn uleste meldinger fra localStorage ved oppstart
+  // 🔧 FIKSET: Nøkkel for localStorage basert på bruker-ID for isolert lagring per bruker
+  const getStorageKey = () => {
+    if (myPlayerId) return `taktikkboard_unread_${myPlayerId}`;
+    if (myAccountId) return `taktikkboard_unread_${myAccountId}`;
+    return 'taktikkboard_unread_messages';
+  };
+
+  // Last inn uleste meldinger fra localStorage ved oppstart – per bruker
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedUnread = localStorage.getItem('taktikkboard_unread_messages');
-      if (savedUnread) {
-        try {
+    if (typeof window !== 'undefined' && !isInitializedRef.current) {
+      isInitializedRef.current = true;
+      const key = getStorageKey();
+      try {
+        const savedUnread = localStorage.getItem(key);
+        if (savedUnread) {
           const ids = JSON.parse(savedUnread);
           setUnreadMessageIds(new Set(ids));
-        } catch (e) {
-          console.log('Kunne ikke laste uleste meldinger', e);
+          console.log(`✅ Lastet ${ids.length} uleste meldinger fra localStorage (nøkkel: ${key})`);
         }
+      } catch (e) {
+        console.log('Kunne ikke laste uleste meldinger', e);
       }
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myPlayerId, myAccountId]);
 
-  // 🔧 FIKSE: Lagre uleste meldinger til localStorage når de endres
+  // Lagre uleste meldinger til localStorage når de endres – per bruker
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && isInitializedRef.current) {
+      const key = getStorageKey();
       const idsArray = Array.from(unreadMessageIds);
-      localStorage.setItem('taktikkboard_unread_messages', JSON.stringify(idsArray));
+      try {
+        localStorage.setItem(key, JSON.stringify(idsArray));
+      } catch (e) {
+        console.log('Kunne ikke lagre uleste meldinger', e);
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unreadMessageIds]);
 
   // Be om tillatelse ved første interaksjon
@@ -116,18 +138,23 @@ export default function NotificationProvider({ children }: { children: React.Rea
     };
   };
 
-  // 🔧 FIKSE: Marker alle meldinger som lest - også oppdater localStorage
+  // Marker alle meldinger som lest – oppdater localStorage med tom liste
   const markMessagesAsRead = () => {
     if (unreadMessageIds.size > 0) {
       setUnreadMessageIds(new Set());
       if (typeof window !== 'undefined') {
-        localStorage.setItem('taktikkboard_unread_messages', JSON.stringify([]));
+        const key = getStorageKey();
+        try {
+          localStorage.setItem(key, JSON.stringify([]));
+          console.log('✅ Alle meldinger markert som lest og lagret til localStorage');
+        } catch (e) {
+          console.log('Kunne ikke lagre til localStorage', e);
+        }
       }
-      console.log('✅ Alle meldinger markert som lest');
     }
   };
 
-  // 🔧 FIKSE: Marker en spesifikk melding som lest
+  // Marker en spesifikk melding som lest
   const markMessageAsRead = (messageId: string) => {
     if (unreadMessageIds.has(messageId)) {
       setUnreadMessageIds(prev => {
@@ -255,6 +282,7 @@ export default function NotificationProvider({ children }: { children: React.Rea
       requestPermission, 
       sendNotification,
       markMessagesAsRead,
+      markMessageAsRead,
       unreadCount: unreadMessageIds.size,
       hasUnreadMessages,
     }}>

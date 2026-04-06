@@ -5,23 +5,204 @@ import { Player, PlayerRole } from '../../types';
 import { VW, VH, getFormations, DEFAULT_FORMATION } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { HandballPitch } from './pitches/HandballPitch';
-import { DraggablePlayer, Ball, DrawingCanvas } from './BoardElements';
+import { Ball, DrawingCanvas } from './BoardElements';
+import { ROLE_META } from '../../data/roleInfo';
+
+// ══════════════════════════════════════════════════════════════
+//  FM-STYLE TACTIC BOARD  v4
+//  Layout  : [Formasjonsnavn + SVG-bane] [Innbytter-panel]
+//  Brikker : Trøye-SVG · Rolle-badge · Navn · Kondisjon
+//  Nytt v4: playSpeed kontroll i toolbar + secondaryRoles visning
+// ══════════════════════════════════════════════════════════════
 
 interface TacticBoardProps {
   selectedPlayerId: string | null;
   onSelectPlayer: (id: string | null) => void;
 }
 
+// ── Rollefortkortelser (norske) ────────────────────────────
+const ROLE_SHORT: Record<string, string> = {
+  keeper:       'KV',
+  defender:     'FS',
+  wingback:     'VB',
+  sweeper:      'SV',
+  midfielder:   'MB',
+  box2box:      'BBM',
+  playmaker:    'PM',
+  winger:       'KANT',
+  forward:      'ANG',
+  false9:       'F9',
+  trequartista: 'TQ',
+  targetman:    'TM',
+  pressforward: 'PF',
+  libero:       'LIB',
+  hb_keeper:    'KV',
+  hb_pivot:     'PVT',
+  hb_backcourt: 'BP',
+  hb_wing:      'FL',
+  hb_center:    'MB',
+  hb_playmaker: 'PM',
+};
+
+// ── Fargekoding per rolle (FM-inspirert) ──────────────────
+const getDutyColors = (role: string): { bg: string; text: string } => {
+  if (['keeper', 'hb_keeper'].includes(role))
+    return { bg: '#1a3a5c', text: '#7dd3fc' };
+  if (['defender', 'sweeper', 'libero'].includes(role))
+    return { bg: '#1a3a5c', text: '#93c5fd' };
+  if (['wingback'].includes(role))
+    return { bg: '#163a2a', text: '#6ee7b7' };
+  if (['midfielder', 'playmaker', 'box2box', 'hb_center', 'hb_playmaker', 'hb_backcourt'].includes(role))
+    return { bg: '#1e2a1a', text: '#86efac' };
+  if (['forward', 'targetman', 'pressforward', 'false9', 'trequartista'].includes(role))
+    return { bg: '#2a1a1a', text: '#fca5a5' };
+  if (['winger', 'hb_wing'].includes(role))
+    return { bg: '#2a1520', text: '#f9a8d4' };
+  if (['hb_pivot'].includes(role))
+    return { bg: '#2a1a3a', text: '#c4b5fd' };
+  return { bg: '#1e2a1a', text: '#86efac' };
+};
+
+// ══════════════════════════════════════════════════════════
+//  SUB-KOMPONENTER
+// ══════════════════════════════════════════════════════════
+
+// ── SVG Trøye-silhuett ────────────────────────────────────
+const JerseyIcon: React.FC<{
+  x: number; y: number; num: number; color: string;
+  selected?: boolean; injured?: boolean; specialRoles?: string[];
+}> = ({ x, y, num, color, selected, injured, specialRoles = [] }) => {
+  const w = 38, h = 34, sh = 9, nw = 10, nh = 5;
+  const tx = x - w / 2, ty = y - h / 2;
+
+  return (
+    <g>
+      {selected && (
+        <circle cx={x} cy={y} r={28} fill="none"
+          stroke="#38bdf8" strokeWidth={2.5} strokeDasharray="5,3" opacity={0.95} />
+      )}
+      <path
+        d={`M ${tx+nw},${ty} L ${tx},${ty+sh} L ${tx+6},${ty+sh+4} L ${tx+6},${ty+h}
+            L ${tx+w-6},${ty+h} L ${tx+w-6},${ty+sh+4} L ${tx+w},${ty+sh}
+            L ${tx+w-nw},${ty} Q ${x},${ty-nh} ${tx+nw},${ty} Z`}
+        fill={injured ? '#475569' : color}
+        stroke={selected ? '#38bdf8' : 'rgba(255,255,255,0.2)'}
+        strokeWidth={selected ? 1.5 : 0.8}
+        filter="url(#jerseyDrop)"
+      />
+      <text x={x} y={y + 4} textAnchor="middle" dominantBaseline="middle"
+        fill="white" fontSize={13} fontWeight="900"
+        fontFamily="system-ui, sans-serif"
+        paintOrder="stroke" stroke="rgba(0,0,0,0.5)" strokeWidth={2.5}
+        style={{ pointerEvents: 'none' }}>
+        {num}
+      </text>
+      {/* Spesialroller som ikoner */}
+      {injured && (
+        <text x={x+15} y={y-13} fontSize={11} style={{ pointerEvents: 'none' }}>🩹</text>
+      )}
+      {specialRoles.includes('captain') && (
+        <text x={x-19} y={y-13} fontSize={11} style={{ pointerEvents: 'none' }}>🪖</text>
+      )}
+      {specialRoles.includes('freekick') && !specialRoles.includes('penalty') && (
+        <text x={x+15} y={y-13} fontSize={10} style={{ pointerEvents: 'none' }}>⚡</text>
+      )}
+      {specialRoles.includes('penalty') && (
+        <text x={x+15} y={y-13} fontSize={10} style={{ pointerEvents: 'none' }}>🎯</text>
+      )}
+      {specialRoles.includes('corner') && (
+        <text x={x+15} y={y-1} fontSize={9} style={{ pointerEvents: 'none' }}>📍</text>
+      )}
+    </g>
+  );
+};
+
+// ── Rolle-badge (under trøya) ─────────────────────────────
+const RoleBadge: React.FC<{ x: number; y: number; role: string }> = ({ x, y, role }) => {
+  const short = ROLE_SHORT[role] ?? role.slice(0, 5).toUpperCase();
+  const { bg, text } = getDutyColors(role);
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <rect x={x - 34} y={y} width={68} height={15} rx={4}
+        fill={bg} stroke={text} strokeWidth={0.5} opacity={0.95} />
+      <text x={x} y={y + 8.5} textAnchor="middle" dominantBaseline="middle"
+        fill={text} fontSize={8} fontWeight="700"
+        fontFamily="system-ui, sans-serif" letterSpacing="0.06em">
+        {short}
+      </text>
+    </g>
+  );
+};
+
+// ── Navn-label ────────────────────────────────────────────
+const NameLabel: React.FC<{ x: number; y: number; name: string }> = ({ x, y, name }) => (
+  <text x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+    fill="white" fontSize={9} fontWeight="600"
+    fontFamily="system-ui, sans-serif"
+    paintOrder="stroke" stroke="rgba(0,0,0,0.9)" strokeWidth={3}
+    style={{ pointerEvents: 'none' }}>
+    {name.length > 12 ? name.slice(0, 12) + '…' : name}
+  </text>
+);
+
+// ── Kondisjonsprikk (liten farget sirkel øverst høyre) ────
+const ConditionDot: React.FC<{ x: number; y: number; condition: number }> = ({ x, y, condition }) => {
+  const color = condition > 80 ? '#22c55e' : condition > 60 ? '#f59e0b' : '#ef4444';
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <circle cx={x + 21} cy={y - 17} r={4.5} fill="#0c1525" stroke={color} strokeWidth={1} />
+      <circle cx={x + 21} cy={y - 17} r={3} fill={color} />
+    </g>
+  );
+};
+
+// ── Låne-spiller-badge ────────────────────────────────────
+const LoanBadge: React.FC<{ x: number; y: number }> = ({ x, y }) => (
+  <g style={{ pointerEvents: 'none' }}>
+    <rect x={x - 14} y={y} width={28} height={11} rx={3}
+      fill="#78350f" stroke="#fbbf24" strokeWidth={0.6} opacity={0.9} />
+    <text x={x} y={y + 6} textAnchor="middle" dominantBaseline="middle"
+      fill="#fbbf24" fontSize={7} fontWeight="800"
+      fontFamily="system-ui, sans-serif" letterSpacing="0.04em">
+      LÅN
+    </text>
+  </g>
+);
+
+// ── Bytte-overlegg (vises når man drar over en spiller) ───
+const SwapOverlay: React.FC<{ x: number; y: number }> = ({ x, y }) => (
+  <g style={{ pointerEvents: 'none' }}>
+    <circle cx={x} cy={y} r={36}
+      fill="rgba(251,191,36,0.08)" stroke="#fbbf24"
+      strokeWidth={2.5} strokeDasharray="7,4" opacity={0.95} />
+    {/* Bytte-pil-sirkel */}
+    <circle cx={x} cy={y} r={14} fill="rgba(251,191,36,0.2)" />
+    <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
+      fontSize={14} fill="#fbbf24" style={{ pointerEvents: 'none' }}>
+      ⇄
+    </text>
+    <text x={x} y={y - 44} textAnchor="middle"
+      fontSize={9} fill="#fbbf24" fontWeight="700"
+      paintOrder="stroke" stroke="rgba(0,0,0,0.8)" strokeWidth={2}
+      style={{ pointerEvents: 'none' }}>
+      BYTT
+    </text>
+  </g>
+);
+
+// ══════════════════════════════════════════════════════════
+//  HOVED-KOMPONENT
+// ══════════════════════════════════════════════════════════
 export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSelectPlayer }) => {
   const svgRef    = useRef<SVGSVGElement>(null);
   const drawPts   = useRef<{x:number;y:number}[]>([]);
   const isDrawing = useRef(false);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const playRef   = useRef({ from: 0, t: 0 });
-  const stickyDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stickyDebounceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const formationDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [localStickyNote, setLocalStickyNote] = useState('');
 
+  const [localStickyNote, setLocalStickyNote] = useState('');
   const [drawMode, setDrawMode]       = useState(false);
   const [drawColor, setDrawColor]     = useState('#f87171');
   const [isPlaying, setIsPlaying]     = useState(false);
@@ -30,8 +211,13 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   const [interpT, setInterpT]         = useState(0);
   const [liveDrawPts, setLiveDrawPts] = useState<{x:number;y:number}[]>([]);
   const [showSticky, setShowSticky]   = useState(false);
-  const [dragOverPlayerId, setDragOverPlayerId] = useState<string | null>(null);
   const [selectedFormation, setSelectedFormation] = useState<string>('');
+
+  // Drag-tilstand
+  const [dragOverPlayerId, setDragOverPlayerId] = useState<string | null>(null);
+  const [dragOverSubId, setDragOverSubId]       = useState<string | null>(null);
+  // Hvem som for øyeblikket dras (for å vise "bytt"-indikasjon)
+  const [draggingFromSub, setDraggingFromSub]   = useState(false);
 
   const {
     sport, phases, activePhaseIdx,
@@ -41,42 +227,32 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
   } = useAppStore();
 
   const phase = phases[activePhaseIdx];
-  const availableFormations = getFormations(sport === 'football7' ? 'football7' : sport === 'football9' ? 'football9' : sport);
+  const availableFormations = getFormations(
+    sport === 'football7' ? 'football7' : sport === 'football9' ? 'football9' : sport
+  );
   const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport];
 
   useEffect(() => {
-    if (availableFormations.length > 0 && !selectedFormation) {
+    if (availableFormations.length > 0 && !selectedFormation)
       setSelectedFormation(defaultFormation);
-    }
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // Clamp funksjon for å holde posisjoner innenfor banen
-  const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-  // Oppdater formasjon med clampede posisjoner
-  const updateFormation = useCallback((formationName: string) => {
+  // ── Oppdater formasjon ──────────────────────────────────
+  const updateFormation = useCallback((name: string) => {
     if (!phase) return;
-
-    if (formationDebounceRef.current) {
-      clearTimeout(formationDebounceRef.current);
-    }
-
+    if (formationDebounceRef.current) clearTimeout(formationDebounceRef.current);
     formationDebounceRef.current = setTimeout(() => {
-      const formation = availableFormations.find(f => f.name === formationName);
-      if (!formation) return;
-
-      // Stabil sortering etter nummer
-      const homePlayers = [...phase.players]
+      const f = availableFormations.find(f => f.name === name);
+      if (!f) return;
+      const home = [...phase.players]
         .filter(p => p.team === 'home')
         .sort((a, b) => (a.num || 0) - (b.num || 0));
-
       requestAnimationFrame(() => {
-        formation.homePlayers.forEach((fp, index) => {
-          const player = homePlayers[index];
-          if (!player) return;
-
-          // Bruk posisjoner direkte med clamping
-          updatePlayerField(activePhaseIdx, player.id, {
+        f.homePlayers.forEach((fp, i) => {
+          const p = home[i]; if (!p) return;
+          updatePlayerField(activePhaseIdx, p.id, {
             position: {
               x: clamp(fp.position.x, 40, VW - 40),
               y: clamp(fp.position.y, 40, VH - 40),
@@ -85,32 +261,26 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           });
         });
       });
-
-      setSelectedFormation(formationName);
-
+      setSelectedFormation(name);
     }, 50);
-
   }, [phase, activePhaseIdx, availableFormations, updatePlayerField]);
 
-  useEffect(() => {
-    return () => {
-      if (formationDebounceRef.current) clearTimeout(formationDebounceRef.current);
-      if (stickyDebounceRef.current) clearTimeout(stickyDebounceRef.current);
-    };
+  useEffect(() => () => {
+    if (formationDebounceRef.current) clearTimeout(formationDebounceRef.current);
+    if (stickyDebounceRef.current)    clearTimeout(stickyDebounceRef.current);
   }, []);
 
   useEffect(() => {
     setLocalStickyNote(phase?.stickyNote ?? '');
   }, [phase?.stickyNote, activePhaseIdx]);
 
-  const handleStickyChange = useCallback((value: string) => {
-    setLocalStickyNote(value);
+  const handleStickyChange = useCallback((v: string) => {
+    setLocalStickyNote(v);
     if (stickyDebounceRef.current) clearTimeout(stickyDebounceRef.current);
-    stickyDebounceRef.current = setTimeout(() => {
-      updateStickyNote(activePhaseIdx, value);
-    }, 500);
+    stickyDebounceRef.current = setTimeout(() => updateStickyNote(activePhaseIdx, v), 500);
   }, [activePhaseIdx, updateStickyNote]);
 
+  // ── Avspilling ──────────────────────────────────────────
   function startPlayback() {
     if (phases.length < 2) return;
     stopPlayback();
@@ -122,8 +292,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
         const next = playRef.current.from + 1;
         if (next >= phases.length - 1) {
           clearInterval(timerRef.current!); timerRef.current = null;
-          setIsPlaying(false); setActivePhaseIdx(phases.length - 1); setInterpT(0);
-          return;
+          setIsPlaying(false); setActivePhaseIdx(phases.length - 1); setInterpT(0); return;
         }
         playRef.current.from = next; playRef.current.t = 0;
         setInterpFrom(next); setInterpT(0); setActivePhaseIdx(next);
@@ -140,6 +309,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
+  // ── Interpolert posisjon ────────────────────────────────
   function getDisplayPlayers(): Player[] {
     if (!phase) return [];
     if (!isPlaying || interpT === 0) return phase.players;
@@ -168,24 +338,24 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     };
   }
 
-  function toSVGCoords(clientX: number, clientY: number) {
+  // ── SVG-koordinater ─────────────────────────────────────
+  function toSVGCoords(cx: number, cy: number) {
     const svg = svgRef.current; if (!svg) return { x: 0, y: 0 };
-    const rect = svg.getBoundingClientRect();
+    const r = svg.getBoundingClientRect();
     return {
-      x: Math.max(20, Math.min(VW - 20, ((clientX - rect.left) / rect.width) * VW)),
-      y: Math.max(20, Math.min(VH - 20, ((clientY - rect.top)  / rect.height) * VH)),
+      x: clamp(((cx - r.left) / r.width)  * VW, 20, VW - 20),
+      y: clamp(((cy - r.top)  / r.height) * VH, 20, VH - 20),
     };
   }
 
+  // ── Tegne-hendelser ─────────────────────────────────────
   function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (isPlaying || !drawMode) return;
-    const target = e.target as SVGElement;
-    if (target.closest('[data-player]')) return;
+    if ((e.target as SVGElement).closest('[data-player]')) return;
     e.preventDefault();
     isDrawing.current = true;
     const pt = toSVGCoords(e.clientX, e.clientY);
-    drawPts.current = [pt];
-    setLiveDrawPts([pt]);
+    drawPts.current = [pt]; setLiveDrawPts([pt]);
     svgRef.current?.setPointerCapture(e.pointerId);
   }
 
@@ -193,66 +363,69 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     if (!drawMode || !isDrawing.current) return;
     e.preventDefault();
     const pt = toSVGCoords(e.clientX, e.clientY);
-    drawPts.current.push(pt);
-    setLiveDrawPts([...drawPts.current]);
+    drawPts.current.push(pt); setLiveDrawPts([...drawPts.current]);
   }
 
   function onSvgPointerUp() {
     if (drawMode && isDrawing.current && drawPts.current.length > 2)
       addDrawing(activePhaseIdx, { pts: [...drawPts.current], color: drawColor });
-    isDrawing.current = false;
-    drawPts.current = [];
-    setLiveDrawPts([]);
+    isDrawing.current = false; drawPts.current = []; setLiveDrawPts([]);
   }
 
+  // ── Drag-and-drop ──────────────────────────────────────
   const handleDrop = (e: React.DragEvent, targetPlayerId?: string) => {
     e.preventDefault();
     setDragOverPlayerId(null);
+    setDragOverSubId(null);
+    setDraggingFromSub(false);
 
-    const draggedPlayerId = e.dataTransfer.getData('text/plain');
-    if (!draggedPlayerId || !phase) return;
+    let raw = e.dataTransfer.getData('text/plain');
+    let draggedId = raw;
+    let isFromSub = false;
 
-    const dragged = phase.players.find(p => p.id === draggedPlayerId);
-    const target = targetPlayerId
-      ? phase.players.find(p => p.id === targetPlayerId)
-      : null;
+    // JSON fra innbytter-panel eller sidebar
+    if (raw.startsWith('{')) {
+      try {
+        const d = JSON.parse(raw);
+        draggedId  = d.playerId;
+        isFromSub  = d.isSubSlot === true;
+      } catch { /* ignorer */ }
+    }
 
+    if (!draggedId || !phase) return;
+
+    const dragged = phase.players.find(p => p.id === draggedId);
+    const target  = targetPlayerId ? phase.players.find(p => p.id === targetPlayerId) : null;
     if (!dragged) return;
 
-    if (target && dragged.id !== target.id) {
-      updatePlayerField(activePhaseIdx, dragged.id, {
-        position: target.position,
-      });
-      updatePlayerField(activePhaseIdx, target.id, {
-        position: dragged.position,
-      });
-
-      updatePlayerField(activePhaseIdx, dragged.id, {
-        role: target.role,
-      });
-      updatePlayerField(activePhaseIdx, target.id, {
-        role: dragged.role,
-      });
-
-      updatePlayerField(activePhaseIdx, dragged.id, {
-        isStarter: target.isStarter,
-        isOnField: target.isOnField,
-      });
-      updatePlayerField(activePhaseIdx, target.id, {
-        isStarter: dragged.isStarter,
-        isOnField: dragged.isOnField,
-      });
-
+    // ── Innbytter → startspiller: BYTTE ───────────────────
+    if ((isFromSub || dragged.isStarter === false) && target && target.isStarter !== false) {
+      updatePlayerField(activePhaseIdx, dragged.id, { isStarter: true,  isOnField: true,  position: target.position });
+      updatePlayerField(activePhaseIdx, target.id,  { isStarter: false, isOnField: false });
       return;
     }
 
+    // ── Startspiller → innbytter (fra banen til benk-rad): BYTTE ─
+    if (target && target.isStarter === false && dragged.isStarter !== false) {
+      updatePlayerField(activePhaseIdx, dragged.id, { isStarter: false, isOnField: false });
+      updatePlayerField(activePhaseIdx, target.id,  { isStarter: true,  isOnField: true,  position: dragged.position });
+      return;
+    }
+
+    // ── Bytte mellom to startspillere ─────────────────────
+    if (target && dragged.id !== target.id && dragged.isStarter !== false && target.isStarter !== false) {
+      updatePlayerField(activePhaseIdx, dragged.id, { position: target.position, role: target.role });
+      updatePlayerField(activePhaseIdx, target.id,  { position: dragged.position, role: dragged.role });
+      return;
+    }
+
+    // ── Fritt drag til ny posisjon på banen ───────────────
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
-
-    const x = ((e.clientX - rect.left) / rect.width) * VW;
-    const y = ((e.clientY - rect.top) / rect.height) * VH;
-
-    updatePlayerPosition(activePhaseIdx, dragged.id, { x, y });
+    updatePlayerPosition(activePhaseIdx, dragged.id, {
+      x: ((e.clientX - rect.left) / rect.width)  * VW,
+      y: ((e.clientY - rect.top)  / rect.height) * VH,
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -260,19 +433,39 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDragEnter = (playerId: string) => setDragOverPlayerId(playerId);
-  const handleDragLeave = () => setDragOverPlayerId(null);
+  // Hjelpefunksjon: visningsnavn
+  const getDisplayName = useCallback((player: any) => {
+    const acc = (playerAccounts as any[]).find((a: any) => a.playerId === player.id);
+    return acc?.name || player.name || `#${player.num}`;
+  }, [playerAccounts]);
 
-  const allDisplayPlayers = getDisplayPlayers();
-  const homeDisplayPlayers = allDisplayPlayers.filter(player => player.team === 'home');
-  const displayBall = getDisplayBall();
-  const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
+  // ── Beregn visningsverdier ─────────────────────────────
+  const allDisplay    = getDisplayPlayers();
+  const onField       = allDisplay.filter(p => p.team === 'home' && p.isStarter !== false);
+  const benchPlayers  = (phase?.players ?? []).filter(p => p.team === 'home' && p.isStarter === false);
+  const displayBall   = getDisplayBall();
+  const progressFrac  = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
+
+  const maxSubs  = sport === 'football' ? 9 : 7;
+  const subSlots = [...benchPlayers, ...Array(Math.max(0, maxSubs - benchPlayers.length)).fill(null)] as (any | null)[];
+
   const DRAW_COLORS = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
+
+  // Hastighetsvalg for avspilling
+  const speedOptions = [
+    { label: '0.5x', value: 0.5 },
+    { label: '1x', value: 1 },
+    { label: '1.5x', value: 1.5 },
+    { label: '2x', value: 2 },
+  ];
 
   return (
     <div className="flex flex-col h-full overflow-hidden" onDragOver={handleDragOver} onDrop={handleDrop}>
 
+      {/* ═══ TOPPTOOLBAR ════════════════════════════════════ */}
       <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] overflow-x-auto overscroll-x-contain">
+
+        {/* Fase-knapper */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {phases.map((ph, idx) => (
             <button key={ph.id}
@@ -292,15 +485,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           )}
         </div>
 
+        {/* Formasjonsvelger */}
         {availableFormations.length > 0 && (
           <div className="flex items-center gap-1 ml-2 flex-shrink-0">
             <span className="text-[9px] text-[#4a6080] hidden sm:inline">📐</span>
-            <select
-              value={selectedFormation}
-              onChange={(e) => updateFormation(e.target.value)}
+            <select value={selectedFormation}
+              onChange={e => updateFormation(e.target.value)}
               disabled={isPlaying}
-              className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[40px]"
-            >
+              className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[40px]">
               {availableFormations.map(f => (
                 <option key={f.name} value={f.name}>{f.name}</option>
               ))}
@@ -310,12 +502,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
 
         <div className="flex-1 min-w-[8px]" />
 
+        {/* Sticky-notat */}
         <button onClick={() => setShowSticky(!showSticky)}
           className={`px-2 py-1 rounded text-[13px] border min-h-[40px] transition-all flex-shrink-0
             ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
           📌
         </button>
 
+        {/* Tegnemodus */}
         <button onClick={() => setDrawMode(!drawMode)}
           className={`px-2 py-1 rounded text-[11px] font-bold border min-h-[40px] transition-all whitespace-nowrap flex-shrink-0
             ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
@@ -334,6 +528,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
             className="px-2 py-1 rounded text-[13px] border border-[#1e3050] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
         )}
 
+        {/* Avspillingskontroller */}
         <div className="flex items-center gap-1 bg-[#111c30] rounded px-1.5 py-1 border border-[#1e3050] flex-shrink-0">
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.max(0, activePhaseIdx-1))}
             disabled={isPlaying || activePhaseIdx === 0}
@@ -349,111 +544,300 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({ selectedPlayerId, onSe
           <button onClick={() => !isPlaying && setActivePhaseIdx(Math.min(phases.length-1, activePhaseIdx+1))}
             disabled={isPlaying || activePhaseIdx === phases.length-1}
             className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏭</button>
+
+          {/* playSpeed velger - NYTT */}
+          <div className="ml-1 pl-1 border-l border-[#1e3050]">
+            <select
+              value={playSpeed}
+              onChange={(e) => setPlaySpeed(parseFloat(e.target.value))}
+              disabled={isPlaying}
+              className="bg-[#0a1420] border border-[#1e3050] rounded px-1.5 py-1 text-[10px] text-slate-300
+                focus:outline-none focus:border-sky-500 min-h-[40px] cursor-pointer"
+            >
+              {speedOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
+      {/* Sticky-notat */}
       {showSticky && phase && (
         <div className="flex-shrink-0 px-3 py-2 bg-amber-500/8 border-b border-amber-500/20 flex items-center gap-2">
           <span className="text-amber-400 text-[13px]">📌</span>
-          <input
-            value={localStickyNote}
+          <input value={localStickyNote}
             onChange={e => handleStickyChange(e.target.value)}
             placeholder={`Notat for ${phase.name}…`}
-            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/40 focus:outline-none min-h-[40px]"
-          />
+            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/40 focus:outline-none min-h-[40px]" />
         </div>
       )}
 
-      {/* 🔧 FIX: Riktig SVG container med aspectRatio og stretch */}
-      <div className="flex-1 min-h-0 flex items-stretch justify-stretch" style={{ padding: '4px' }}>
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${VW} ${VH}`}
-          preserveAspectRatio="xMidYMid meet"
-          style={{
-            width: '100%',
-            height: '100%',
-            aspectRatio: `${VW} / ${VH}`,
-            display: 'block',
-            boxShadow: '0 0 60px rgba(0,0,0,0.9)',
-            cursor: drawMode ? 'crosshair' : 'default',
-            touchAction: 'none',
-            userSelect: 'none',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-          onPointerDown={onSvgPointerDown}
-          onPointerMove={onSvgPointerMove}
-          onPointerUp={onSvgPointerUp}
-          onPointerLeave={onSvgPointerUp}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
-          <defs>
-            <filter id="dropShadow">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
-            </filter>
-            <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
-              <rect width="50" height="50" fill="#1b5e2a"/>
-              <rect width="50" height="25" fill="#1d6430"/>
-            </pattern>
-          </defs>
-          <rect width={VW} height={VH} fill="url(#grass)"/>
+      {/* ═══ HOVED-LAYOUT ═══════════════════════════════════ */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-          {(sport === 'football' || sport === 'football7') && <FootballPitch />}
-          {sport === 'handball' && <HandballPitch />}
+        {/* ── SVG-BANE ────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch" style={{ padding: '4px' }}>
 
-          {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
-
-          {liveDrawPts.length > 1 && (
-            <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
-              stroke={drawColor} strokeWidth={4} fill="none"
-              strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
+          {/* Formasjonsnavn over banen (FM-stil) */}
+          {selectedFormation && (
+            <div className="flex-shrink-0 flex items-center justify-center py-1">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#0f1a2a]/80 border border-[#1e3050]">
+                <span className="text-[8px] font-bold text-[#4a6080] uppercase tracking-widest">Formasjon</span>
+                <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">
+                  {selectedFormation}
+                </span>
+              </div>
+            </div>
           )}
 
-          {phase && (
-            <Ball position={displayBall} isDraggable={!isPlaying && !drawMode}
-              onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
-          )}
+          <svg ref={svgRef}
+            viewBox={`0 0 ${VW} ${VH}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{
+              flex: 1, width: '100%', height: '100%', display: 'block',
+              boxShadow: '0 0 60px rgba(0,0,0,0.9)',
+              cursor: drawMode ? 'crosshair' : 'default',
+              touchAction: 'none', userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            onPointerDown={onSvgPointerDown}
+            onPointerMove={onSvgPointerMove}
+            onPointerUp={onSvgPointerUp}
+            onPointerLeave={onSvgPointerUp}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <defs>
+              <filter id="dropShadow">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
+              </filter>
+              <filter id="jerseyDrop">
+                <feDropShadow dx="0" dy="3" stdDeviation="5" floodOpacity="0.75"/>
+              </filter>
+              <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
+                <rect width="50" height="50" fill="#1b5e2a"/>
+                <rect width="50" height="25" fill="#1d6430"/>
+              </pattern>
+            </defs>
 
-          {homeDisplayPlayers.map(player => {
-            const account = (playerAccounts as any[]).find((a: any) => a.playerId === player.id);
-            const displayName = account?.name || player.name || `#${player.num}`;
-            const isDragOver = dragOverPlayerId === player.id;
-            return (
-              <g
-                key={player.id}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData('text/plain', player.id);
-                  e.dataTransfer.effectAllowed = 'move';
-                }}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, player.id)}
-                onDragEnter={() => handleDragEnter(player.id)}
-                onDragLeave={handleDragLeave}
-              >
-                {isDragOver && (
-                  <circle cx={player.position.x} cy={player.position.y} r={28}
-                    fill="none" stroke="#38bdf8" strokeWidth={3}
-                    strokeDasharray="6,4" opacity={0.8} />
-                )}
-                <DraggablePlayer
-                  player={player}
-                  displayName={displayName}
-                  isActive={!isPlaying && !drawMode}
-                  isSelected={selectedPlayerId === player.id}
-                  onPositionChange={pos => updatePlayerPosition(activePhaseIdx, player.id, pos)}
-                  onSelect={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
-                  showName
-                />
-              </g>
-            );
-          })}
+            <rect width={VW} height={VH} fill="url(#grass)"/>
 
-          {isPlaying && (
-            <rect x={32} y={VH - 14} rx={3} height={5}
-              width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8} />
-          )}
-        </svg>
+            {(sport === 'football' || sport === 'football7' || sport === 'football9') && <FootballPitch />}
+            {sport === 'handball' && <HandballPitch />}
+
+            {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
+
+            {liveDrawPts.length > 1 && (
+              <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
+                stroke={drawColor} strokeWidth={4} fill="none"
+                strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
+            )}
+
+            {phase && (
+              <Ball position={displayBall} isDraggable={!isPlaying && !drawMode}
+                onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
+            )}
+
+            {/* ── FM-STIL SPILLERBRIKKER ─────────────────── */}
+            {onField.map(player => {
+              const meta        = ROLE_META[player.role as keyof typeof ROLE_META] ?? { color: '#64748b', label: player.role };
+              const displayName = getDisplayName(player);
+              const isDragOver  = dragOverPlayerId === player.id;
+              const isOnLoan    = (player as any).onLoan === true;
+              const condition   = (player as any).condition ?? 90;
+              const { x, y }    = player.position;
+
+              return (
+                <g
+                  key={player.id}
+                  data-player="true"
+                  onDragStart={e => {
+                    if (!isPlaying && !drawMode) {
+                      e.dataTransfer.setData('text/plain', player.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      setDraggingFromSub(false);
+                    }
+                  }}
+                  onDragOver={handleDragOver}
+                  onDrop={e => handleDrop(e, player.id)}
+                  onDragEnter={() => setDragOverPlayerId(player.id)}
+                  onDragLeave={() => setDragOverPlayerId(null)}
+                  style={{ cursor: !isPlaying && !drawMode ? 'grab' : 'default' }}
+                  onClick={() => !drawMode && onSelectPlayer(
+                    selectedPlayerId === player.id ? null : player.id
+                  )}
+                >
+                  {/* Bytte-overlegg (kun når man drar en innbytter over) */}
+                  {isDragOver && draggingFromSub && (
+                    <SwapOverlay x={x} y={y} />
+                  )}
+
+                  {/* Vanlig drag-hover ring (starter → starter) */}
+                  {isDragOver && !draggingFromSub && (
+                    <circle cx={x} cy={y} r={32} fill="none"
+                      stroke="#38bdf8" strokeWidth={2.5}
+                      strokeDasharray="6,4" opacity={0.8} />
+                  )}
+
+                  <JerseyIcon
+                    x={x} y={y}
+                    num={player.num}
+                    color={meta.color}
+                    selected={selectedPlayerId === player.id}
+                    injured={player.injured}
+                    specialRoles={player.specialRoles ?? []}
+                  />
+
+                  <RoleBadge x={x} y={y + 22} role={player.role} />
+
+                  <NameLabel x={x} y={y + 46} name={displayName} />
+
+                  {/* Lån-badge under navn */}
+                  {isOnLoan && <LoanBadge x={x} y={y + 56} />}
+
+                  {/* Kondisjonsprikk */}
+                  <ConditionDot x={x} y={y} condition={condition} />
+
+                  {/* Spilletid-ring */}
+                  {(player.minutesPlayed ?? 0) > 0 && (
+                    <circle cx={x} cy={y} r={29} fill="none"
+                      stroke={(player.minutesPlayed ?? 0) > 60 ? '#ef4444'
+                        : (player.minutesPlayed ?? 0) > 30 ? '#f59e0b' : '#22c55e'}
+                      strokeWidth={1.5} opacity={0.35} strokeDasharray="3 2" />
+                  )}
+                </g>
+              );
+            })}
+
+            {/* Fremdriftslinje */}
+            {isPlaying && (
+              <rect x={32} y={VH - 14} rx={3} height={5}
+                width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8} />
+            )}
+          </svg>
+        </div>
+
+        {/* ═══ INNBYTTER-PANEL (FM-stil, høyre side) ═══════ */}
+        <div className="flex-shrink-0 flex flex-col bg-[#0c1525] border-l border-[#1e3050] overflow-hidden"
+          style={{ width: 172 }}>
+
+          {/* Panel-header */}
+          <div className="flex-shrink-0 flex items-center justify-between px-3 py-2
+            border-b border-[#1e3050] bg-[#0a1420]">
+            <div>
+              <div className="text-[9px] font-black text-[#4a6080] uppercase tracking-widest">Innbyttere</div>
+              <div className="text-[8px] text-[#2a4060] mt-0.5">Dra hit for å bytte ut</div>
+            </div>
+            <span className="text-[12px] font-bold text-amber-400">
+              {benchPlayers.length}
+              <span className="text-[#3a5070] font-normal text-[10px]">/{maxSubs}</span>
+            </span>
+          </div>
+
+          {/* Innbytter-rader */}
+          <div className="flex-1 overflow-y-auto py-0.5">
+            {subSlots.map((player, idx) => {
+              if (!player) {
+                return (
+                  <div key={`empty-${idx}`}
+                    className="flex items-center gap-2 px-2.5 py-2 border-b border-[#0d1a2a] min-h-[46px]
+                      hover:bg-[#0f1a2a]/50 transition-colors">
+                    <div className="w-7 h-7 rounded-md flex items-center justify-center
+                      text-[9px] text-[#1e3050] bg-[#0f1a2a] border border-[#1a2d45] flex-shrink-0">–</div>
+                    <div className="text-[9.5px] text-[#1e3050] italic">Ledig plass</div>
+                  </div>
+                );
+              }
+
+              const meta        = ROLE_META[player.role as keyof typeof ROLE_META] ?? { color: '#555', label: player.role };
+              const roleColors  = getDutyColors(player.role);
+              const name        = getDisplayName(player);
+              // Vis etternavn (siste ord) for å spare plass – FM-stil
+              const lastName    = name.includes(' ') ? name.split(' ').slice(-1)[0] : name;
+              const isOver      = dragOverSubId === player.id;
+              const isOnLoan    = (player as any).onLoan === true;
+              
+              // Sekundære roller (secondaryRoles) - NYTT
+              const secondaryRoles = (player as any).secondaryRoles as string[] | undefined;
+              const hasSecondary = secondaryRoles && secondaryRoles.length > 0;
+
+              return (
+                <div
+                  key={player.id}
+                  draggable={!isPlaying ? "true" : "false"}
+                  onDragStart={e => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                      playerId: player.id, fromIndex: -1, isSubSlot: true,
+                    }));
+                    e.dataTransfer.effectAllowed = 'move';
+                    setDraggingFromSub(true);
+                  }}
+                  onDragEnd={() => setDraggingFromSub(false)}
+                  onDragOver={handleDragOver}
+                  onDrop={e => handleDrop(e, player.id)}
+                  onDragEnter={() => setDragOverSubId(player.id)}
+                  onDragLeave={() => setDragOverSubId(null)}
+                  onClick={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
+                  className={`flex items-center gap-2 px-2.5 py-2 border-b border-[#0d1a2a]
+                    cursor-pointer min-h-[46px] transition-all group relative
+                    ${selectedPlayerId === player.id ? 'bg-sky-500/10' : 'hover:bg-[#0f1a2a]'}
+                    ${isOver ? 'bg-amber-500/15' : ''}`}
+                >
+                  {/* Seleksjons-/drag-streck venstre */}
+                  {selectedPlayerId === player.id && (
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-sky-400 rounded-r" />
+                  )}
+                  {isOver && (
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-400 rounded-r" />
+                  )}
+
+                  {/* Trøye-farget nummerboks */}
+                  <div className="w-7 h-7 rounded-md flex items-center justify-center
+                    text-[11px] font-black text-white flex-shrink-0 relative"
+                    style={{ background: meta.color }}>
+                    {player.num}
+                    {(player.specialRoles ?? []).includes('captain') && (
+                      <span className="absolute -top-1 -right-1 text-[8px] leading-none">🪖</span>
+                    )}
+                    {player.injured && (
+                      <span className="absolute -top-1 -right-1 text-[8px] leading-none">🩹</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-slate-200 truncate leading-tight">
+                        {lastName.length > 10 ? lastName.slice(0, 10) + '…' : lastName}
+                      </span>
+                      {/* Lån-markering inline */}
+                      {isOnLoan && (
+                        <span className="text-[7px] font-black text-amber-400 bg-amber-900/50
+                          border border-amber-700/50 px-1 rounded flex-shrink-0">LÅN</span>
+                      )}
+                    </div>
+                    {/* Rolle i FM-farge */}
+                    <div className="text-[9px] font-semibold leading-tight mt-0.5 truncate"
+                      style={{ color: roleColors.text }}>
+                      {meta.label ?? player.role}
+                    </div>
+                    {/* Sekundære roller - NYTT */}
+                    {hasSecondary && (
+                      <div className="text-[7px] text-[#4a6080] leading-tight mt-0.5 truncate">
+                        [{secondaryRoles.map(r => ROLE_SHORT[r] ?? r.slice(0, 3).toUpperCase()).join(', ')}]
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bytte-indikator ved drag-over */}
+                  {isOver && (
+                    <span className="text-[14px] text-amber-400 flex-shrink-0 font-bold">⇄</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

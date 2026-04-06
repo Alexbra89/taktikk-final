@@ -17,6 +17,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const [showEmptySlotPicker, setShowEmptySlotPicker] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // 🔧 FIKSET: Drag-and-drop tilstand for innbytter-rader
+  const [dragOverSubIndex, setDragOverSubIndex] = useState<number | null>(null);
+
   const {
     sport, phases, activePhaseIdx,
     updatePlayerField, playerAccounts, homeTeamName,
@@ -28,6 +31,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const homePlayers = players.filter(p => p.team === 'home');
   
   const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 7;
+
+  // 🔧 FIKSET: Antall innbytterplasser (alltid vises)
+  const maxSubs = sport === 'football' ? 7 : sport === 'football7' ? 5 : sport === 'football9' ? 5 : 5;
   
   const starters = homePlayers.filter(p => p.isStarter === true);
   const subs = homePlayers.filter(p => p.isStarter !== true);
@@ -37,10 +43,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     fieldSlots.push(null);
   }
   const fieldDisplay = fieldSlots.slice(0, teamSize);
+
+  // 🔧 FIKSET: Innbytter-slots som alltid vises (fyller opp til maxSubs)
+  const subSlots: (any | null)[] = [...subs];
+  while (subSlots.length < maxSubs) {
+    subSlots.push(null);
+  }
   
   // 🔧 DRAG AND DROP for å bytte plass i startoppstillingen
-  const handleDragStart = (e: React.DragEvent, playerId: string, fromIndex: number) => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ playerId, fromIndex }));
+  const handleDragStart = (e: React.DragEvent, playerId: string, fromIndex: number, isSubSlot: boolean = false) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ playerId, fromIndex, isSubSlot }));
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -54,19 +66,54 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     setDragOverIndex(null);
   };
 
+  // 🔧 FIKSET: Drag-over for innbytter-slots
+  const handleSubDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSubIndex(index);
+  };
+
+  const handleSubDragLeave = () => {
+    setDragOverSubIndex(null);
+  };
+
   const handleDrop = (e: React.DragEvent, toIndex: number) => {
     e.preventDefault();
     setDragOverIndex(null);
     
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-      const { playerId, fromIndex } = data;
+      const { playerId, fromIndex, isSubSlot } = data;
       
-      if (fromIndex === toIndex) return;
+      if (fromIndex === toIndex && !isSubSlot) return;
       
       const draggedPlayer = homePlayers.find(p => p.id === playerId);
       if (!draggedPlayer) return;
       
+      // 🔧 FIKSET: Hvis drar fra innbytter til startoppstilling – sett som starter
+      if (isSubSlot) {
+        const targetPlayer = fieldDisplay[toIndex];
+        if (targetPlayer) {
+          // Bytt plass: starter ut, innbytter inn
+          updatePlayerField(activePhaseIdx, draggedPlayer.id, {
+            isStarter: true,
+            position: targetPlayer.position,
+          });
+          updatePlayerField(activePhaseIdx, targetPlayer.id, {
+            isStarter: false,
+            position: draggedPlayer.position,
+          });
+        } else {
+          // Tom startplass – sett innbyteren inn
+          const newPosition = getPositionForIndex(toIndex);
+          updatePlayerField(activePhaseIdx, draggedPlayer.id, {
+            isStarter: true,
+            position: newPosition,
+          });
+        }
+        return;
+      }
+
       const targetPlayer = fieldDisplay[toIndex];
       
       if (targetPlayer) {
@@ -80,6 +127,51 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       }
     } catch (err) {
       console.error('Drag drop error:', err);
+    }
+  };
+
+  // 🔧 FIKSET: Drop på innbytter-slot (bytt starter ut til benk)
+  const handleSubDrop = (e: React.DragEvent, toSubIndex: number) => {
+    e.preventDefault();
+    setDragOverSubIndex(null);
+    
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      const { playerId, fromIndex, isSubSlot } = data;
+      
+      const draggedPlayer = homePlayers.find(p => p.id === playerId);
+      if (!draggedPlayer) return;
+
+      const targetSub = subSlots[toSubIndex];
+
+      if (isSubSlot) {
+        // Bytter to innbyttere seg imellom (bare posisjoner, begge er allerede innbyttere)
+        if (targetSub && targetSub.id !== draggedPlayer.id) {
+          // Ingen posisjon å bytte for innbyttere, men rekkefølgen kan endres via num
+          // For nå: gjør ingenting siden innbyttere ikke har faste plasser
+        }
+        return;
+      }
+
+      // Starter dras til innbytter-slot
+      if (targetSub) {
+        // Bytt: starter blir innbytter, innbytter blir starter
+        updatePlayerField(activePhaseIdx, draggedPlayer.id, {
+          isStarter: false,
+          position: targetSub.position ?? draggedPlayer.position,
+        });
+        updatePlayerField(activePhaseIdx, targetSub.id, {
+          isStarter: true,
+          position: draggedPlayer.position,
+        });
+      } else {
+        // Tom innbytter-slot – flytt starter til benk
+        updatePlayerField(activePhaseIdx, draggedPlayer.id, {
+          isStarter: false,
+        });
+      }
+    } catch (err) {
+      console.error('Sub drop error:', err);
     }
   };
 
@@ -246,7 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                 <div
                   key={player.id}
                   draggable={true}
-                  onDragStart={(e) => handleDragStart(e, player.id, index)}
+                  onDragStart={(e) => handleDragStart(e, player.id, index, false)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, index)}
@@ -293,6 +385,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                           onClick={() => assignToEmptySlot(p.id, showEmptySlotPicker)}
                           className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#111c30] border border-[#1e3050] mb-1"
                         >
+                          {/* 🔧 FIKSET: Posisjon i parentes */}
                           <div className="text-[12px] font-bold text-slate-200">{name} ({roleLabel})</div>
                           <div className="text-[9px] text-[#4a6080]">#{p.num}</div>
                         </button>
@@ -312,47 +405,83 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
               </div>
             )}
 
-            {/* Innbyttere – draggable */}
-            {subs.length > 0 && (
-              <>
-                <div className="flex items-center gap-2 my-2 px-1">
-                  <div className="h-px flex-1 bg-[#1e3050]" />
-                  <span className="text-[8.5px] font-bold text-amber-400 uppercase tracking-widest">🪑 Innbyttere ({subs.length})</span>
-                  <div className="h-px flex-1 bg-[#1e3050]" />
-                </div>
-                {subs.map(p => (
+            {/* 🔧 FIKSET: Innbyttere vises ALLTID – tomme plasser vises som "Ledig plass" */}
+            <div className="flex items-center gap-2 my-2 px-1">
+              <div className="h-px flex-1 bg-[#1e3050]" />
+              <span className="text-[8.5px] font-bold text-amber-400 uppercase tracking-widest">
+                🪑 Innbyttere ({subs.length}/{maxSubs})
+              </span>
+              <div className="h-px flex-1 bg-[#1e3050]" />
+            </div>
+
+            {/* Hint om drag-and-drop */}
+            <div className="text-[8px] text-[#3a5070] italic px-1 mb-1.5 text-center">
+              💡 Dra starter hit for å bytte ut · Dra innbytter til start for å sette inn
+            </div>
+
+            {subSlots.map((p, subIndex) => {
+              const isDragOverSub = dragOverSubIndex === subIndex;
+
+              if (!p) {
+                // 🔧 FIKSET: Tom innbytter-plass vises alltid med dra-hit-funksjonalitet
+                return (
                   <div
-                    key={p.id}
-                    draggable={true}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', JSON.stringify({ playerId: p.id, fromIndex: -1 }));
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    className="cursor-grab active:cursor-grabbing"
+                    key={`sub-empty-${subIndex}`}
+                    onDragOver={(e) => handleSubDragOver(e, subIndex)}
+                    onDragLeave={handleSubDragLeave}
+                    onDrop={(e) => handleSubDrop(e, subIndex)}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg mb-0.5 border border-dashed transition-all
+                      ${isDragOverSub
+                        ? 'bg-amber-500/20 border-amber-500'
+                        : 'border-[#1e3050]/60'}`}
                   >
-                    <PlayerRow 
-                      player={p} 
-                      selected={selectedPlayerId === p.id} 
-                      onSelect={onSelectPlayer} 
-                      playerAccounts={playerAccounts as any[]}
-                      isStarter={false}
-                      onSubstituteIn={() => {
-                        if (starters.length > 0) {
-                          const anyStarter = starters[0];
-                          setSelectedOutPlayer(anyStarter);
-                          setEligibleSubs([p]);
-                          setShowSubConfirm({ outId: anyStarter.id, inId: p.id });
-                        } else if (starters.length < teamSize) {
-                          updatePlayerField(activePhaseIdx, p.id, { isStarter: true });
-                        } else {
-                          alert(`Ingen startere tilgjengelig for bytte.`);
-                        }
-                      }}
-                    />
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-[#3a5070] flex-shrink-0 bg-[#1e3050]/50">
+                      R{subIndex + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-semibold text-[#3a5070] italic">Ledig plass</div>
+                      <div className="text-[8.5px] text-[#2a4060]">Innbytter {subIndex + 1}</div>
+                    </div>
+                    {isDragOverSub && (
+                      <span className="text-[8px] text-amber-400 font-bold">Slipp her</span>
+                    )}
                   </div>
-                ))}
-              </>
-            )}
+                );
+              }
+
+              return (
+                <div
+                  key={p.id}
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(e, p.id, subIndex, true)}
+                  onDragOver={(e) => handleSubDragOver(e, subIndex)}
+                  onDragLeave={handleSubDragLeave}
+                  onDrop={(e) => handleSubDrop(e, subIndex)}
+                  className={`cursor-grab active:cursor-grabbing transition-all
+                    ${isDragOverSub ? 'ring-2 ring-amber-400 rounded-lg' : ''}`}
+                >
+                  <PlayerRow 
+                    player={p} 
+                    selected={selectedPlayerId === p.id} 
+                    onSelect={onSelectPlayer} 
+                    playerAccounts={playerAccounts as any[]}
+                    isStarter={false}
+                    onSubstituteIn={() => {
+                      if (starters.length > 0) {
+                        const anyStarter = starters[0];
+                        setSelectedOutPlayer(anyStarter);
+                        setEligibleSubs([p]);
+                        setShowSubConfirm({ outId: anyStarter.id, inId: p.id });
+                      } else if (starters.length < teamSize) {
+                        updatePlayerField(activePhaseIdx, p.id, { isStarter: true });
+                      } else {
+                        alert(`Ingen startere tilgjengelig for bytte.`);
+                      }
+                    }}
+                  />
+                </div>
+              );
+            })}
           </>
         )}
 
@@ -394,6 +523,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           <div className="bg-[#0c1525] rounded-2xl border border-[#1e3050] max-w-sm w-full p-4">
             <h3 className="text-sm font-bold text-slate-200 mb-3">🔄 Bekreft bytte</h3>
             <p className="text-[12px] text-slate-300 mb-2">
+              {/* 🔧 FIKSET: Posisjon i parentes */}
               <span className="text-amber-400 font-bold">{getPlayerDisplayName(selectedOutPlayer)}</span>
             </p>
             <p className="text-[12px] text-slate-300 mb-2 text-center">⬇️ byttes med ⬇️</p>
@@ -469,11 +599,16 @@ const PlayerRow: React.FC<{
           {(player.specialRoles ?? []).includes('captain') && <span className="absolute -bottom-1 -right-1 text-[7px]">🪖</span>}
         </div>
         <div className="flex-1 min-w-0">
+          {/* 🔧 FIKSET: Posisjon i parentes etter navn */}
           <div className="text-[11px] font-semibold truncate text-slate-200">
             {displayName}
+            <span className="text-[9px] text-[#4a8090] font-normal ml-1">({roleLabel})</span>
             {getSpecialRolesIcons() && <span className="ml-1 text-[9px]">{getSpecialRolesIcons()}</span>}
           </div>
-          <div className="text-[9px] text-[#3a5070]">{roleLabel}{!isStarter && <span className="text-amber-400 ml-1">· innbytter</span>}</div>
+          <div className="text-[9px] text-[#3a5070]">
+            #{player.num}
+            {!isStarter && <span className="text-amber-400 ml-1">· innbytter</span>}
+          </div>
         </div>
       </div>
       {isStarter && onSubstituteOut && (

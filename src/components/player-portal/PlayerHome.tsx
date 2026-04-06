@@ -24,6 +24,16 @@ const SPECIAL_LABELS: Record<string, string> = {
   goalkeeper_kicks: '🧤 Keeperutspark',
 };
 
+// 🔧 FIKSET: Tooltip-beskrivelser for spesialroller
+const SPECIAL_ROLE_TOOLTIPS: Record<string, string> = {
+  captain:          'Kaptein – leder laget på banen',
+  freekick:         'Frispark-taker – utfører frispark',
+  penalty:          'Straffesparktaker – utfører straffespark',
+  corner:           'Cornertaker – utfører cornere',
+  throwin:          'Innkasttaker – utfører innkast',
+  goalkeeper_kicks: 'Keeperutspark – slår ut ballen fra mål',
+};
+
 const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
 const getNum  = (p: any): number => p.number ?? p.num ?? 0;
 
@@ -386,20 +396,43 @@ export const PlayerHome: React.FC = () => {
     .filter((e: any) => e.date >= today)
     .sort((a: any, b: any) => a.date.localeCompare(b.date))[0] ?? null;
 
-  // 🔧 FIX: Marker meldinger som lest når fanen åpnes
+  // 🔧 FIKSET: Last inn lagret lest-status fra localStorage ved oppstart
+  useEffect(() => {
+    if (typeof window !== 'undefined' && playerId) {
+      const savedCount = localStorage.getItem(`taktikkboard_seen_messages_${playerId}`);
+      if (savedCount) {
+        setLastSeenMessageCount(parseInt(savedCount, 10));
+      }
+      const savedChatCount = localStorage.getItem(`taktikkboard_seen_chats_${playerId}`);
+      if (savedChatCount) {
+        setLastSeenChatCount(parseInt(savedChatCount, 10));
+      }
+    }
+  }, [playerId]);
+
+  // 🔧 FIKSET: Marker meldinger som lest når fanen åpnes – lagre til localStorage
   useEffect(() => {
     if (tab === 'messages' && myMessages.length > 0) {
       setLastSeenMessageCount(myMessages.length);
       markMessagesAsRead();
+      // Lagre til localStorage slik at det huskes etter refresh
+      if (typeof window !== 'undefined' && playerId) {
+        localStorage.setItem(`taktikkboard_seen_messages_${playerId}`, String(myMessages.length));
+      }
     }
-  }, [tab, myMessages.length, markMessagesAsRead]);
+  }, [tab, myMessages.length, markMessagesAsRead, playerId]);
 
   useEffect(() => {
     if (tab === 'chat' && myChats.length > 0) {
-      setLastSeenChatCount(myChats.filter((m: any) => m.fromRole !== 'player').length);
+      const coachChatCount = myChats.filter((m: any) => m.fromRole !== 'player').length;
+      setLastSeenChatCount(coachChatCount);
       markMessagesAsRead();
+      // Lagre til localStorage slik at det huskes etter refresh
+      if (typeof window !== 'undefined' && playerId) {
+        localStorage.setItem(`taktikkboard_seen_chats_${playerId}`, String(coachChatCount));
+      }
     }
-  }, [tab, myChats.length, markMessagesAsRead]);
+  }, [tab, myChats.length, markMessagesAsRead, playerId]);
 
   const resolvePlayerName = (p: any) => {
     let acc = (playerAccounts as any[]).find((a: any) => a.id === p.playerAccountId);
@@ -444,15 +477,31 @@ export const PlayerHome: React.FC = () => {
             ) : 'Spiller'}
           </div>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {(myPlayer?.specialRoles ?? []).map((sr: string) => (
-            <span key={sr}
-              className="text-[9px] font-bold px-2 py-0.5 rounded-full
-                bg-amber-500/15 border border-amber-500/30 text-amber-400">
-              {SPECIAL_LABELS[sr] ?? sr}
-            </span>
-          ))}
-        </div>
+
+        {/* 🔧 FIKSET: Spesialroller vises med tooltip-beskrivelse i header */}
+        {(myPlayer?.specialRoles ?? []).length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {(myPlayer?.specialRoles ?? []).map((sr: string) => (
+              <div key={sr} className="relative group">
+                <span
+                  className="text-[9px] font-bold px-2 py-0.5 rounded-full cursor-help
+                    bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1">
+                  {SPECIAL_LABELS[sr] ?? sr}
+                </span>
+                {/* Tooltip som vises ved hover */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50
+                  bg-[#0c1525] border border-amber-500/40 rounded-lg px-2 py-1.5
+                  text-[9.5px] text-amber-300 whitespace-nowrap shadow-xl
+                  opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  {SPECIAL_ROLE_TOOLTIPS[sr] ?? sr}
+                  {/* Liten pil nedover */}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-amber-500/40" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <button onClick={logout}
           className="text-[11px] text-[#4a6080] hover:text-red-400 transition min-h-[44px] px-2 flex-shrink-0">
           Ut
@@ -507,13 +556,22 @@ export const PlayerHome: React.FC = () => {
                       <span className="ml-2 text-amber-400">· Innbytter</span>
                     )}
                   </div>
+                  {/* 🔧 FIKSET: Spesialroller med tooltip i laguttak-fanen */}
                   {(myPlayer.specialRoles ?? []).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {(myPlayer.specialRoles ?? []).map((sr: string) => (
-                        <span key={sr} className="text-[9px] font-bold px-2 py-0.5 rounded-full
-                          bg-amber-500/15 border border-amber-500/30 text-amber-400">
-                          {SPECIAL_LABELS[sr] ?? sr}
-                        </span>
+                        <div key={sr} className="relative group">
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full cursor-help
+                            bg-amber-500/15 border border-amber-500/30 text-amber-400">
+                            {SPECIAL_LABELS[sr] ?? sr}
+                          </span>
+                          <div className="absolute bottom-full left-0 mb-1 z-50
+                            bg-[#0c1525] border border-amber-500/40 rounded-lg px-2 py-1.5
+                            text-[9.5px] text-amber-300 whitespace-nowrap shadow-xl
+                            opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            {SPECIAL_ROLE_TOOLTIPS[sr] ?? sr}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
