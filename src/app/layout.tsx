@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     default: 'Taktikkboard',
     template: '%s | Taktikkboard',
   },
-  description: 'Profesjonell lagstrategi for fotball og håndball',
+  description: 'Profesjonell lagstrategi for fotball og håndball – Football Manager-stil',
   manifest: '/manifest.json',
   applicationName: 'Taktikkboard',
   appleWebApp: {
@@ -19,6 +19,8 @@ export const metadata: Metadata = {
     icon: '/icon-192.png',
     apple: '/icon-192.png',
   },
+  // NYTT: themeColor i metadata for bedre PWA-støtte
+  themeColor: '#060c18',
 };
 
 export const viewport: Viewport = {
@@ -49,6 +51,12 @@ export default function RootLayout({
 
         {/* Theme */}
         <meta name="theme-color" content="#060c18" />
+        
+        {/* NYTT: Touch icon for iOS home screen */}
+        <meta name="apple-touch-icon" content="/icon-192.png" />
+        
+        {/* NYTT: Fullskjerm-modus på iOS når lagt til på hjem-skjerm */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
 
       <body

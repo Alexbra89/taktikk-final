@@ -103,6 +103,11 @@ button:active,
   height: 6px;
 }
 
+::-webkit-scrollbar-track {
+  background: #0a1420;
+  border-radius: 10px;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #1e3050;
   border-radius: 10px;
@@ -111,6 +116,25 @@ button:active,
 ::-webkit-scrollbar-thumb:hover {
   background: #2a4060;
 }
+
+/* Premium scrollbar (FM-inspirert) - valgfri oppgradering */
+/* 
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0a1420;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #1e3a5c, #2a4060);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2a4a70, #38bdf8);
+}
+*/
 
 /* ============================================================
    UI HELPERS
@@ -140,6 +164,109 @@ button:active,
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ============================================================
+   FM-STYLE ANIMATIONS (LEGG TIL HER)
+   ============================================================ */
+
+/* Puls for bytte-indikator (gul ring) */
+@keyframes pulse-gold {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+    opacity: 0.7;
+  }
+  50% { 
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+    opacity: 1;
+  }
+}
+
+.pulse-gold {
+  animation: pulse-gold 1.2s ease-out infinite;
+}
+
+/* Glow for selected spiller (FM-stil) */
+@keyframes glow-sky {
+  0% { 
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4);
+    filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.5));
+  }
+  70% { 
+    box-shadow: 0 0 0 12px rgba(56, 189, 248, 0);
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
+  }
+  100% { 
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+    filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.5));
+  }
+}
+
+.glow-selected {
+  animation: glow-sky 1.5s ease-out infinite;
+}
+
+/* "Bounce" når spiller bytter plass */
+@keyframes swap-bounce {
+  0% { 
+    transform: scale(1); 
+  }
+  50% { 
+    transform: scale(1.12); 
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.5));
+  }
+  100% { 
+    transform: scale(1); 
+  }
+}
+
+.swap-bounce {
+  animation: swap-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Glass-morphism (FM 2024 stil) */
+.glass-fm {
+  background: rgba(13, 22, 38, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 20px;
+}
+
+/* Skeleton loading (FM-stil) */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #111c30 0%,
+    #1a2a45 50%,
+    #111c30 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================================
+   CUSTOM CURSORS (FM-stil)
+   ============================================================ */
+
+.drag-mode {
+  cursor: crosshair;
+}
+
+.player-dragging {
+  cursor: grabbing !important;
+}
+
+.player-grab {
+  cursor: grab;
+}
+
+.player-grab:active {
+  cursor: grabbing;
 }
 
 /* ============================================================

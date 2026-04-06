@@ -178,7 +178,7 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'training' | 'referee' | 'player-home';
+export type AppView = 'dashboard' | 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'training' | 'referee' | 'player-home';
 
 export interface AppState {
   sport: Sport;
