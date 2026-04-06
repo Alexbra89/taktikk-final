@@ -2,78 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   BASE
+   ============================================================ */
+
 :root {
   color-scheme: dark;
 }
 
+/* Reset + bedre rendering */
 * {
-  -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html,
+body {
   height: 100%;
-  min-height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: none;
   background: #060c18;
   color: #e2e8f0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* Remove fixed positioning on body - hindrer scrolling */
-body {
-  width: 100%;
-  position: relative;
+  overscroll-behavior: none;
 }
 
 /* ============================================================
-   MOBILOPTIMALISERING - Touch & respons
+   LAYOUT HELPERS
    ============================================================ */
 
-/* Apple anbefaler minimum 44px for touch-targets */
-button, 
-select, 
-input, 
-a,
-[role="button"],
-.clickable {
-  touch-action: manipulation;
-  min-height: 44px;
+.min-h-screen-safe {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
 }
 
-/* Forhindrer zoom på input-felt på iOS */
-input, 
-select, 
+/* Safe area (notch iPhone etc) */
+.safe-top {
+  padding-top: max(env(safe-area-inset-top), 8px);
+}
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 8px);
+}
+.safe-left {
+  padding-left: max(env(safe-area-inset-left), 8px);
+}
+.safe-right {
+  padding-right: max(env(safe-area-inset-right), 8px);
+}
+
+/* ============================================================
+   INPUTS & TOUCH
+   ============================================================ */
+
+/* Apple anbefaler min 44px touch */
+button,
+input,
+select,
+textarea,
+a,
+[role="button"] {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+/* Hindrer zoom på iOS */
+input,
+select,
 textarea {
   font-size: 16px;
 }
 
-/* Active state for bedre feedback */
+/* Klikk feedback */
 button:active,
 .clickable:active {
   transform: scale(0.97);
-  transition: transform 0.05s ease;
 }
 
-/* Forbedret scrolling på mobil */
-.overflow-y-auto,
-.overflow-x-auto {
-  -webkit-overflow-scrolling: touch;
+/* Disable tekstvalg der ønskelig */
+.touch-none {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ============================================================
+   SCROLL
+   ============================================================ */
+
+.scroll-smooth {
   scroll-behavior: smooth;
 }
 
-/* Scrollbar styling - tynnere på mobil */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar (minimal dark UI) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -86,78 +113,28 @@ button:active,
 }
 
 /* ============================================================
-   TOUCH-OPTIMERING
+   UI HELPERS
    ============================================================ */
 
-/* Forhindrer tekstseleksjon på dobbelt-tap */
-.touch-manipulation {
-  -webkit-user-select: none;
-  user-select: none;
-  touch-action: manipulation;
+/* Lesbar tekst på mørk bakgrunn */
+.text-readable {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
-
-/* Forhindrer "callout" på langt trykk */
-.no-callout {
-  -webkit-touch-callout: none;
-}
-
-/* Forhindrer default drag på bilder */
-img {
-  -webkit-user-drag: none;
-  user-drag: none;
-}
-
-/* ============================================================
-   SAFE AREA FOR NOTCHED PHONES
-   ============================================================ */
-
-.safe-top {
-  padding-top: max(env(safe-area-inset-top), 8px);
-}
-
-.safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), 8px);
-}
-
-.safe-left {
-  padding-left: max(env(safe-area-inset-left), 8px);
-}
-
-.safe-right {
-  padding-right: max(env(safe-area-inset-right), 8px);
-}
-
-/* ============================================================
-   RESPONSIVE JUSTERINGER
-   ============================================================ */
-
-/* Mobil: mindre padding */
-@media (max-width: 640px) {
-  .container-padded {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-  
-  /* Mindre tekst på mobil for å spare plass */
-  .text-responsive {
-    font-size: 13px;
-  }
-}
-
-/* ============================================================
-   ANIMATIONER
-   ============================================================ */
 
 /* Smooth transitions */
 .transition-smooth {
   transition: all 0.2s ease-in-out;
 }
 
-/* Fade in animasjon */
+/* Fade-in */
+.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -165,29 +142,29 @@ img {
   }
 }
 
-.fade-in {
-  animation: fadeIn 0.2s ease-out;
-}
-
 /* ============================================================
-   SKJERMSPESIFIKKE STILER
+   COMPONENT STYLES (brukes flere steder)
    ============================================================ */
 
-/* Forhindrer at innhold blir kuttet på små skjermer */
-.min-h-screen-safe {
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
+.input-base {
+  width: 100%;
+  background: #111c30;
+  border: 1px solid #1e3050;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #e2e8f0;
+  font-size: 14px;
 }
 
-/* Bedre lesbarhet på mørk bakgrunn */
-.text-readable {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+.input-base:focus {
+  outline: none;
+  border-color: #38bdf8;
 }
 
-/* Loading spinner */
+/* Spinner */
 .spinner {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border: 2px solid #1e3050;
   border-top-color: #38bdf8;
   border-radius: 50%;
@@ -197,5 +174,20 @@ img {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 640px) {
+  .container-padded {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .text-responsive {
+    font-size: 13px;
   }
 }
