@@ -321,6 +321,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   isTrainingMatch = false,
   maxSubstitutions = 5,
 }) => {
+  // --- Prevent hydration mismatch / minified error #310 ---
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
+
   const svgRef        = useRef<SVGSVGElement>(null);
   const drawPts       = useRef<SvgPos[]>([]);
   const isDrawingRef  = useRef(false);
@@ -433,7 +437,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     return () => window.removeEventListener('keydown', h);
   }, [doUndo, doRedo]);
 
-  // ── Formasjonsbytte (rekkefølgebasert, ingen match) ─────────
   const updateFormation = useCallback((name: string) => {
     if (!phase) return;
     const formation = availableFormations.find(f => f.name === name);
@@ -445,7 +448,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       formation.homePlayers.forEach((slot, i) => {
         const player = homePlayersSorted[i];
         if (!player) return;
-        // Push undo for player before changing position/role
         pushUndo({
           playerId: player.id,
           prevPos: { ...player.position },
@@ -459,12 +461,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           isOnField: true,
         });
       });
-      // Also ensure any remaining home players that are not assigned get moved to bench? Not needed for simple reorder.
     });
     setSelectedFormation(name);
   }, [phase, activePhaseIdx, availableFormations, updatePlayerField, clamp, pushUndo]);
 
-  // ── Avspilling ───────────────────────────────────────────────
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
@@ -741,6 +741,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     '--glass-hover':  GLASS.hover,
   } as React.CSSProperties;
 
+  // --- Wait for client mount to avoid hydration mismatch ---
+  if (!isMounted) {
+    return <div className="flex h-full w-full items-center justify-center text-slate-500">Laster taktikktavle...</div>;
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden select-none" style={glassStyle}>
       <div style={{
@@ -1001,10 +1006,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               const name       = getDisplayName(player);
               const isTarget   = dragOverId===player.id;
               const isSrc      = draggingPlayerId===player.id;
-              const isOnLoan   = (player as unknown as Record<string, unknown>).onLoan === true;
-              const condition  = typeof (player as unknown as Record<string, unknown>).condition === 'number' 
-                   ? (player as unknown as Record<string, number>).condition 
-                   : 90;
+              // --- Fix: use (player as any) to avoid build errors ---
+              const isOnLoan   = (player as any).onLoan === true;
+              const condition  = typeof (player as any).condition === 'number' ? (player as any).condition : 90;
               const isBouncing = bounceId===player.id;
               const outOfPos   = isOutOfPos(player);
               const {x,y}      = player.position;
