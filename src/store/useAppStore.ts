@@ -10,26 +10,19 @@ import {
 import { makePhase } from '../data/formations';
 import { supabase } from '../lib/supabase';
 import { FormationSlot } from '../types';
+import {
+  initSyncQueue,
+  markPhasesDirty,
+  markEventsDirty,
+  markPlayerAccountsDirty,
+  markCoachMessagesDirty,
+  markChatMessagesDirty,
+  registerSyncCallbacks,
+  forceSync
+} from './syncQueue';
+import { signUp as authSignUp, signIn as authSignIn, signOut as authSignOut, getCurrentUser } from '../lib/auth';
 
-// ─── Debounced push for drag events – ØKT TID FOR BEDRE YTELSE ───
-let positionPushTimer: ReturnType<typeof setTimeout> | null = null;
-function debouncedPushPhases(phases: TacticPhase[]) {
-  if (positionPushTimer) clearTimeout(positionPushTimer);
-  positionPushTimer = setTimeout(() => pushPhases(phases), 1200);
-}
-
-let eventsPushTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingEvents: CalendarEvent[] = [];
-
-function debouncedPushEvents(events: CalendarEvent[]) {
-  pendingEvents = events;
-  if (eventsPushTimer) clearTimeout(eventsPushTimer);
-  eventsPushTimer = setTimeout(() => {
-    pushEvents(pendingEvents);
-    pendingEvents = [];
-  }, 500);
-}
-
+// ─── Types for ChatMessage (beholdes) ────────────────────────
 interface ChatMessage {
   id: string;
   fromRole: 'coach' | 'player';
@@ -42,7 +35,7 @@ interface ChatMessage {
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-// ─── Rapport-tekst-generator ──────────────────────────────────
+// ─── Rapport-tekst-generator (uendret) ───────────────────────
 const TAG_LABELS: Record<ReportTag, string> = {
   god_gjennomforing:     'God gjennomføring av taktisk plan',
   manglet_konsentrasjon: 'Manglet konsentrasjon i perioder',
@@ -83,7 +76,7 @@ function suggestSubstitutions(
   }));
 }
 
-// ─── Supabase helpers ─────────────────────────────────────────
+// ─── Supabase push-funksjoner (brukes av syncQueue) ──────────
 async function pushPhases(phases: TacticPhase[]) {
   try {
     const rows = phases.map((ph, i) => ({
@@ -182,7 +175,7 @@ async function pushChatMessages(msgs: ChatMessage[]) {
   } catch (e) { console.warn('pushChatMessages error', e); }
 }
 
-// ─── Load from Supabase ───────────────────────────────────────
+// ─── Load from Supabase (uendret) ─────────────────────────────
 export async function loadFromSupabase(): Promise<Partial<{
   phases: TacticPhase[];
   events: CalendarEvent[];
@@ -290,7 +283,7 @@ export async function loadFromSupabase(): Promise<Partial<{
   }
 }
 
-// ─── Realtime subscription ────────────────────────────────────
+// ─── Realtime subscription (uendret) ──────────────────────────
 export function subscribeToSupabase(onUpdate: () => void) {
   const channel = supabase
     .channel('taktikkboard-realtime')
@@ -313,7 +306,14 @@ interface AppStore {
   currentView: AppView;
   setView: (v: AppView) => void;
 
-  currentUser: { role: 'coach' | 'player' | 'referee'; playerId?: string; name: string; accountId?: string } | null;
+  currentUser: { role: 'coach' | 'player' | 'referee'; playerId?: string; name: string; accountId?: string; email?: string } | null;
+  
+  // Auth actions (nye)
+  signUp: (email: string, password: string) => Promise<boolean>;
+  signIn: (email: string, password: string, role: 'coach' | 'player') => Promise<boolean>;
+  signOut: () => Promise<void>;
+
+  // Beholdes for bakoverkompatibilitet? Fjernes fra UI, men beholdes internt en stund
   loginCoach: (email: string, password: string) => boolean;
   loginPlayer: (emailOrId: string, passwordOrPin: string) => boolean;
   loginReferee: (pin: string) => boolean;
@@ -396,7 +396,6 @@ interface AppStore {
 
   syncFromSupabase: () => Promise<void>;
 
-  // 🎯 NYE FUNKSJONER
   moments: TacticMoment[];
   saveMoment: (phaseIdx: number, name: string) => void;
   deleteMoment: (id: string) => void;
@@ -405,460 +404,527 @@ interface AppStore {
 
 export const useAppStore = create<AppStore>()(
   persist(
-    (set, get) => ({
-      loading: false,
-      currentView: 'board',
-      setView: (v) => set({ currentView: v }),
+    (set, get) => {
+      // ─── Registrer syncQueue callbacks ───────────────────────
+      registerSyncCallbacks({
+        pushPhases,
+        pushEvents,
+        pushPlayerAccounts,
+        pushCoachMessages,
+        pushChatMessages,
+      });
 
-      currentUser: null,
-      coachEmail: 'trener@lag.no',
-      coachPassword: 'trener123',
-      refereePin: '0000',
-      homeTeamName: 'Hjemmelag',
-      awayTeamName: 'Bortelag',
+      return {
+        loading: false,
+        currentView: 'board',
+        setView: (v) => set({ currentView: v }),
 
-      setCoachEmail: (email) => { set({ coachEmail: email }); pushSettings({ coach_email: email }); },
-      setCoachPassword: (pw) => { set({ coachPassword: pw }); pushSettings({ coach_password: pw }); },
-      setRefereePin: (pin) => { set({ refereePin: pin }); pushSettings({ referee_pin: pin }); },
-      setHomeTeamName: (name) => { set({ homeTeamName: name }); pushSettings({ home_team_name: name }); },
-      setAwayTeamName: (name) => { set({ awayTeamName: name }); pushSettings({ away_team_name: name }); },
+        currentUser: null,
+        coachEmail: 'trener@lag.no',
+        coachPassword: 'trener123',
+        refereePin: '0000',
+        homeTeamName: 'Hjemmelag',
+        awayTeamName: 'Bortelag',
 
-      loginCoach: (email, password) => {
-        const state = get();
-        if (email.toLowerCase().trim() === state.coachEmail.toLowerCase().trim() && password === state.coachPassword) {
-          set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
-          return true;
-        }
-        return false;
-      },
-
-      loginPlayer: (emailOrId, passwordOrPin) => {
-        const state = get();
-        const acc = state.playerAccounts.find(a =>
-          (a.id === emailOrId || a.email?.toLowerCase() === emailOrId.toLowerCase()) &&
-          (a.password === passwordOrPin || a.pin === passwordOrPin)
-        );
-        if (acc) {
-          set({
-            currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id },
-            currentView: 'player-home',
-          });
-          return true;
-        }
-        return false;
-      },
-
-      loginReferee: (pin) => {
-        if (pin === get().refereePin) {
-          set({ currentUser: { role: 'referee', name: 'Dommer' }, currentView: 'referee' });
-          return true;
-        }
-        return false;
-      },
-
-      logout: () => set({ currentUser: null, currentView: 'board' }),
-
-      chatMessages: [],
-      sendChat: (fromRole, fromName, content, toPlayerId, fromCaptain) => {
-        const msg: ChatMessage = {
-          id: uid(), fromRole, fromName, content,
-          createdAt: new Date().toISOString(), toPlayerId, fromCaptain
-        };
-        set(s => ({ chatMessages: [...s.chatMessages, msg] }));
-        pushChatMessages(get().chatMessages);
-      },
-
-      sport: 'football',
-      ageGroup: 'adult',
-      phases: [makePhase('Fase 1', 'football')],
-      activePhaseIdx: 0,
-      moments: [],
-
-      setSport: (s) => { set({ sport: s }); pushSettings({ sport: s }); },
-      setAgeGroup: (age) => { set({ ageGroup: age }); pushSettings({ age_group: age }); },
-      setActivePhaseIdx: (i) => set({ activePhaseIdx: i }),
-
-      addPhase: () => {
-        const { phases, activePhaseIdx, sport } = get();
-        const cur = phases[activePhaseIdx];
-        const pitchSport = (sport === 'football7' ? 'football' : sport) as Sport;
-        const np = makePhase(`Fase ${phases.length + 1}`, pitchSport, cur.players, cur.ball);
-        const newPhases = [...phases, np];
-        set({ phases: newPhases, activePhaseIdx: phases.length });
-        pushPhases(newPhases);
-      },
-
-      removePhase: (idx) => {
-        const { phases, activePhaseIdx } = get();
-        if (phases.length <= 1) return;
-        const newP = phases.filter((_, i) => i !== idx);
-        set({ phases: newP, activePhaseIdx: Math.min(activePhaseIdx, newP.length - 1) });
-        pushPhases(newP);
-      },
-
-      // 🎯 Formasjonslogikk med pushPhases
-      applyFormation: (phaseIdx, newSlots) => {
-        const { phases } = get();
-        const phase = phases[phaseIdx];
-        if (!phase) return;
-
-        const onField = phase.players.filter(p => p.isOnField);
-        const bench = phase.players.filter(p => !p.isOnField);
-
-        const updatedOnField = onField.map((player, index) => {
-          let bestSlot = newSlots.find(s => 
-            s.role === player.role && !onField.slice(0, index).some(p => p.currentSlotId === s.id)
-          );
-          if (!bestSlot) {
-            bestSlot = newSlots.find(s => !onField.slice(0, index).some(p => p.currentSlotId === s.id));
+        // ─── Nye auth actions ──────────────────────────────────
+        signUp: async (email, password) => {
+          try {
+            const user = await authSignUp(email, password);
+            if (!user) return false;
+            // Opprett standard coach-innstillinger
+            set({
+              coachEmail: email,
+              coachPassword: password,
+              currentUser: { role: 'coach', name: email.split('@')[0], email },
+              currentView: 'board',
+            });
+            pushSettings({ coach_email: email, coach_password: password });
+            return true;
+          } catch (error) {
+            console.warn('SignUp failed', error);
+            return false;
           }
-          return {
-            ...player,
-            currentSlotId: bestSlot?.id,
-            position: bestSlot ? { x: bestSlot.x, y: bestSlot.y } : player.position
-          };
-        });
+        },
 
-        const newPhases = [...phases];
-        newPhases[phaseIdx] = {
-          ...phase,
-          players: [...updatedOnField, ...bench]
-        };
+        signIn: async (email, password, role) => {
+          try {
+            const user = await authSignIn(email, password);
+            if (!user) return false;
+            // Finn spiller-konto hvis player
+            let playerAccount: PlayerAccount | undefined;
+            if (role === 'player') {
+              playerAccount = get().playerAccounts.find(a => a.email?.toLowerCase() === email.toLowerCase());
+            }
+            set({
+              currentUser: {
+                role,
+                name: playerAccount?.name || email.split('@')[0],
+                playerId: playerAccount?.playerId,
+                accountId: playerAccount?.id,
+                email: user.email,
+              },
+              currentView: role === 'coach' ? 'board' : 'player-home',
+            });
+            return true;
+          } catch (error) {
+            console.warn('SignIn failed', error);
+            return false;
+          }
+        },
 
-        set({ phases: newPhases });
-        pushPhases(newPhases); // ✅ FIX 2: Lagrer til database
-      },
+        signOut: async () => {
+          try {
+            await authSignOut();
+            set({ currentUser: null, currentView: 'board' });
+          } catch (error) {
+            console.warn('SignOut failed', error);
+          }
+        },
 
-      saveMoment: (phaseIdx, name) => {
-        const { phases, moments } = get();
-        const phaseToSave = phases[phaseIdx];
-        if (!phaseToSave) return;
-        const newMoment: TacticMoment = {
-          id: uid(),
-          name,
-          timestamp: new Date().toISOString(),
-          snapshot: JSON.parse(JSON.stringify(phaseToSave))
-        };
-        set({ moments: [newMoment, ...moments] });
-      },
-
-      deleteMoment: (id) => set(s => ({ moments: s.moments.filter(m => m.id !== id) })),
-
-      updatePlayerPosition: (phaseIdx, playerId, pos, slotId) => {
-        set((state) => {
-          const newPhases = [...state.phases];
-          newPhases[phaseIdx] = {
-            ...newPhases[phaseIdx],
-            players: newPhases[phaseIdx].players.map(p => 
-              p.id === playerId ? { ...p, position: pos, currentSlotId: slotId ?? p.currentSlotId } : p
-            )
-          };
-          debouncedPushPhases(newPhases);
-          return { phases: newPhases };
-        });
-      },
-
-      updateBallPosition: (phaseIdx, pos) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, ball: pos });
-        set({ phases: newPhases });
-        debouncedPushPhases(newPhases);
-      },
-
-      updatePlayerField: (phaseIdx, playerId, fields) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, ...fields } : p),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      addDrawing: (phaseIdx, drawing) => {
-        const d = { id: uid(), ...drawing };
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, drawings: [...ph.drawings, d],
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      clearDrawings: (phaseIdx) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, drawings: [] });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      updatePhaseName: (phaseIdx, name) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, name });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      updateStickyNote: (phaseIdx, note) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, stickyNote: note });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      setSpecialRole: (phaseIdx, playerId, role, active) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => {
-            if (p.id !== playerId) return p;
-            const current = p.specialRoles ?? [];
-            const updated = active
-              ? current.includes(role) ? current : [...current, role]
-              : current.filter(r => r !== role);
-            return { ...p, specialRoles: updated };
-          }),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      setSecondaryRoles: (phaseIdx, playerId, roles) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => 
-            p.id === playerId ? { ...p, secondaryRoles: roles } : p
-          ),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      addSecondaryRole: (phaseIdx, playerId, role) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => {
-            if (p.id !== playerId) return p;
-            const current = p.secondaryRoles ?? [];
-            if (current.includes(role)) return p;
-            return { ...p, secondaryRoles: [...current, role] };
-          }),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      removeSecondaryRole: (phaseIdx, playerId, role) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => {
-            if (p.id !== playerId) return p;
-            const current = p.secondaryRoles ?? [];
-            return { ...p, secondaryRoles: current.filter(r => r !== role) };
-          }),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      setPlayerStarter: (phaseIdx, playerId, isStarter) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, isStarter } : p),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      awayTeamColor: '#ef4444',
-      setAwayTeamColor: (color) => { set({ awayTeamColor: color }); pushSettings({ away_team_color: color }); },
-
-      setPlayerInjury: (phaseIdx, playerId, injured, returnDate) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId
-            ? { ...p, injured, injuryReturnDate: returnDate } : p),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      checkAndHealInjuries: (phaseIdx) => {
-        const today = new Date().toISOString().slice(0, 10);
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => {
-            if (p.injured && p.injuryReturnDate && p.injuryReturnDate <= today)
-              return { ...p, injured: false, injuryReturnDate: undefined };
-            return p;
-          }),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      matchTimer: { running: false, startedAt: null, elapsed: 0 },
-      startTimer: () => {
-        const { matchTimer } = get();
-        if (matchTimer.running) return;
-        set({ matchTimer: { ...matchTimer, running: true, startedAt: Date.now() } });
-      },
-      stopTimer: () => {
-        const { matchTimer } = get();
-        if (!matchTimer.running || !matchTimer.startedAt) return;
-        const extra = Math.floor((Date.now() - matchTimer.startedAt) / 1000);
-        set({ matchTimer: { running: false, startedAt: null, elapsed: matchTimer.elapsed + extra } });
-      },
-      resetTimer: () => set({ matchTimer: { running: false, startedAt: null, elapsed: 0 } }),
-      tickTimer: () => {},
-
-      addMinutesPlayed: (phaseIdx, playerId, minutes) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId
-            ? { ...p, minutesPlayed: (p.minutesPlayed ?? 0) + minutes } : p),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      togglePlayerOnField: (phaseIdx, playerId) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId
-            ? { ...p, isOnField: !p.isOnField } : p),
-        });
-        set({ phases: newPhases });
-        pushPhases(newPhases);
-      },
-
-      getSubstitutionSuggestions: (phaseIdx, intervalMinutes = 10) => {
-        const { phases, sport, matchTimer } = get();
-        const ph = phases[phaseIdx];
-        if (!ph) return [];
-        const elapsed = matchTimer.elapsed + (
-          matchTimer.running && matchTimer.startedAt
-            ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
-        );
-        const teamSizes: Record<string, number> = { football: 11, football7: 7, handball: 7 };
-        return suggestSubstitutions(
-          ph.players, ph.players.length,
-          teamSizes[sport] ?? 11,
-          Math.floor(elapsed / 60),
-          intervalMinutes
-        );
-      },
-
-      matchReports: [],
-      createReport: (tags, freeText, matchTitle, eventId) => {
-        const report: MatchReport = {
-          id: uid(), eventId, matchTitle,
-          createdAt: new Date().toISOString(),
-          tags, freeText,
-          generatedText: generateReportText(tags, freeText, matchTitle),
-        };
-        set(s => ({ matchReports: [...s.matchReports, report] }));
-        return report;
-      },
-      deleteReport: (id) => set(s => ({ matchReports: s.matchReports.filter(r => r.id !== id) })),
-
-      events: [],
-      addEvent: (ev) => {
-        const newEv = { id: uid(), ...ev };
-        set(s => ({ events: [...s.events, newEv] }));
-        debouncedPushEvents(get().events);
-      },
-      updateEvent: (id, fields) => {
-        set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...fields } : e) }));
-        debouncedPushEvents(get().events);
-      },
-      deleteEvent: (id) => {
-        set(s => ({ events: s.events.filter(e => e.id !== id) }));
-        debouncedPushEvents(get().events);
-      },
-      addTrainingNote: (eventId, note) => {
-        const n: TrainingNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e
-          : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
-        debouncedPushEvents(get().events);
-      },
-      updateTrainingNote: (eventId, noteId, fields) => {
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-          ...e, trainingNotes: e.trainingNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
-        })}));
-        debouncedPushEvents(get().events);
-      },
-      deleteTrainingNote: (eventId, noteId) => {
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-          ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
-        })}));
-        debouncedPushEvents(get().events);
-      },
-      addMatchNote: (eventId, note) => {
-        const n: MatchNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e
-          : { ...e, matchNotes: [...e.matchNotes, n] }) }));
-        debouncedPushEvents(get().events);
-      },
-      updateMatchNote: (eventId, noteId, fields) => {
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-          ...e, matchNotes: e.matchNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
-        })}));
-        debouncedPushEvents(get().events);
-      },
-      deleteMatchNote: (eventId, noteId) => {
-        set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
-          ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
-        })}));
-        debouncedPushEvents(get().events);
-      },
-
-      playerAccounts: [],
-      addPlayerAccount: (acc) => {
-        const existingEmail = get().playerAccounts.find(a =>
-          acc.email && a.email?.toLowerCase() === acc.email.toLowerCase()
-        );
-        if (existingEmail) {
-          console.warn('E-post allerede i bruk');
+        // ─── Behold gamle login-metoder (kan fases ut senere) ──
+        loginCoach: (email, password) => {
+          const state = get();
+          if (email.toLowerCase().trim() === state.coachEmail.toLowerCase().trim() && password === state.coachPassword) {
+            set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
+            return true;
+          }
           return false;
-        }
-        const newAcc = {
-          id: uid(),
-          ...acc,
-          password: acc.password || acc.pin,
-        };
-        set(s => ({ playerAccounts: [...s.playerAccounts, newAcc] }));
-        pushPlayerAccounts(get().playerAccounts);
-        return true;
-      },
-      removePlayerAccount: (id) => {
-        set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) }));
-        pushPlayerAccounts(get().playerAccounts);
-      },
-      updatePlayerAccount: (id, fields) => {
-        set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) }));
-        pushPlayerAccounts(get().playerAccounts);
-      },
+        },
 
-      coachMessages: [],
-      sendCoachMessage: (playerId, content, eventId, fromCaptain = false) => {
-        const msg: CoachMessage = {
-          id: uid(), fromCoach: true, playerId, content, eventId,
-          createdAt: new Date().toISOString(), replies: [], fromCaptain,
-        };
-        set(s => ({ coachMessages: [...s.coachMessages, msg] }));
-        pushCoachMessages(get().coachMessages);
-      },
-      replyToMessage: (messageId, playerId, content) => {
-        const reply: PlayerReply = { id: uid(), playerId, content, createdAt: new Date().toISOString() };
-        set(s => ({ coachMessages: s.coachMessages.map(m => m.id !== messageId ? m : {
-          ...m, replies: [...m.replies, reply],
-        })}));
-        pushCoachMessages(get().coachMessages);
-      },
-      deleteCoachMessage: (messageId) => {
-        set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== messageId) }));
-        pushCoachMessages(get().coachMessages);
-      },
+        loginPlayer: (emailOrId, passwordOrPin) => {
+          const state = get();
+          const acc = state.playerAccounts.find(a =>
+            (a.id === emailOrId || a.email?.toLowerCase() === emailOrId.toLowerCase()) &&
+            (a.password === passwordOrPin || a.pin === passwordOrPin)
+          );
+          if (acc) {
+            set({
+              currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id },
+              currentView: 'player-home',
+            });
+            return true;
+          }
+          return false;
+        },
 
-      // ✅ FIX 1: syncFromSupabase med try-catch og loading reset
-      syncFromSupabase: async () => {
-        set({ loading: true });
-        try {
-          const data = await loadFromSupabase();
-          set(state => ({ ...state, ...data, loading: false }));
-        } catch (error) {
-          console.error('Sync failed:', error);
-          set({ loading: false });
+        loginReferee: (pin) => {
+          if (pin === get().refereePin) {
+            set({ currentUser: { role: 'referee', name: 'Dommer' }, currentView: 'referee' });
+            return true;
+          }
+          return false;
+        },
+
+        logout: () => set({ currentUser: null, currentView: 'board' }),
+
+        setCoachEmail: (email) => { set({ coachEmail: email }); pushSettings({ coach_email: email }); },
+        setCoachPassword: (pw) => { set({ coachPassword: pw }); pushSettings({ coach_password: pw }); },
+        setRefereePin: (pin) => { set({ refereePin: pin }); pushSettings({ referee_pin: pin }); },
+        setHomeTeamName: (name) => { set({ homeTeamName: name }); pushSettings({ home_team_name: name }); },
+        setAwayTeamName: (name) => { set({ awayTeamName: name }); pushSettings({ away_team_name: name }); },
+
+        chatMessages: [],
+        sendChat: (fromRole, fromName, content, toPlayerId, fromCaptain) => {
+          const msg: ChatMessage = {
+            id: uid(), fromRole, fromName, content,
+            createdAt: new Date().toISOString(), toPlayerId, fromCaptain
+          };
+          set(s => ({ chatMessages: [...s.chatMessages, msg] }));
+          markChatMessagesDirty();
+        },
+
+        sport: 'football',
+        ageGroup: 'adult',
+        phases: [makePhase('Fase 1', 'football')],
+        activePhaseIdx: 0,
+        moments: [],
+
+        setSport: (s) => { set({ sport: s }); pushSettings({ sport: s }); },
+        setAgeGroup: (age) => { set({ ageGroup: age }); pushSettings({ age_group: age }); },
+        setActivePhaseIdx: (i) => set({ activePhaseIdx: i }),
+
+        addPhase: () => {
+          const { phases, activePhaseIdx, sport } = get();
+          const cur = phases[activePhaseIdx];
+          const pitchSport = (sport === 'football7' ? 'football' : sport) as Sport;
+          const np = makePhase(`Fase ${phases.length + 1}`, pitchSport, cur.players, cur.ball);
+          const newPhases = [...phases, np];
+          set({ phases: newPhases, activePhaseIdx: phases.length });
+          markPhasesDirty();
+        },
+
+        removePhase: (idx) => {
+          const { phases, activePhaseIdx } = get();
+          if (phases.length <= 1) return;
+          const newP = phases.filter((_, i) => i !== idx);
+          set({ phases: newP, activePhaseIdx: Math.min(activePhaseIdx, newP.length - 1) });
+          markPhasesDirty();
+        },
+
+        applyFormation: (phaseIdx, newSlots) => {
+          const { phases } = get();
+          const phase = phases[phaseIdx];
+          if (!phase) return;
+
+          const onField = phase.players.filter(p => p.isOnField);
+          const bench = phase.players.filter(p => !p.isOnField);
+
+          const updatedOnField = onField.map((player, index) => {
+            let bestSlot = newSlots.find(s => 
+              s.role === player.role && !onField.slice(0, index).some(p => p.currentSlotId === s.id)
+            );
+            if (!bestSlot) {
+              bestSlot = newSlots.find(s => !onField.slice(0, index).some(p => p.currentSlotId === s.id));
+            }
+            return {
+              ...player,
+              currentSlotId: bestSlot?.id,
+              position: bestSlot ? { x: bestSlot.x, y: bestSlot.y } : player.position
+            };
+          });
+
+          const newPhases = [...phases];
+          newPhases[phaseIdx] = {
+            ...phase,
+            players: [...updatedOnField, ...bench]
+          };
+
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        saveMoment: (phaseIdx, name) => {
+          const { phases, moments } = get();
+          const phaseToSave = phases[phaseIdx];
+          if (!phaseToSave) return;
+          const newMoment: TacticMoment = {
+            id: uid(),
+            name,
+            timestamp: new Date().toISOString(),
+            snapshot: JSON.parse(JSON.stringify(phaseToSave))
+          };
+          set({ moments: [newMoment, ...moments] });
+        },
+
+        deleteMoment: (id) => set(s => ({ moments: s.moments.filter(m => m.id !== id) })),
+
+        updatePlayerPosition: (phaseIdx, playerId, pos, slotId) => {
+          set((state) => {
+            const newPhases = [...state.phases];
+            newPhases[phaseIdx] = {
+              ...newPhases[phaseIdx],
+              players: newPhases[phaseIdx].players.map(p => 
+                p.id === playerId ? { ...p, position: pos, currentSlotId: slotId ?? p.currentSlotId } : p
+              )
+            };
+            // Bruk markPhasesDirty uten debounce; syncQueue tar seg av batching
+            markPhasesDirty();
+            return { phases: newPhases };
+          });
+        },
+
+        updateBallPosition: (phaseIdx, pos) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, ball: pos });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        updatePlayerField: (phaseIdx, playerId, fields) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, ...fields } : p),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        addDrawing: (phaseIdx, drawing) => {
+          const d = { id: uid(), ...drawing };
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, drawings: [...ph.drawings, d],
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        clearDrawings: (phaseIdx) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, drawings: [] });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        updatePhaseName: (phaseIdx, name) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, name });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        updateStickyNote: (phaseIdx, note) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, stickyNote: note });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        setSpecialRole: (phaseIdx, playerId, role, active) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => {
+              if (p.id !== playerId) return p;
+              const current = p.specialRoles ?? [];
+              const updated = active
+                ? current.includes(role) ? current : [...current, role]
+                : current.filter(r => r !== role);
+              return { ...p, specialRoles: updated };
+            }),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        setSecondaryRoles: (phaseIdx, playerId, roles) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => 
+              p.id === playerId ? { ...p, secondaryRoles: roles } : p
+            ),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        addSecondaryRole: (phaseIdx, playerId, role) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => {
+              if (p.id !== playerId) return p;
+              const current = p.secondaryRoles ?? [];
+              if (current.includes(role)) return p;
+              return { ...p, secondaryRoles: [...current, role] };
+            }),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        removeSecondaryRole: (phaseIdx, playerId, role) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => {
+              if (p.id !== playerId) return p;
+              const current = p.secondaryRoles ?? [];
+              return { ...p, secondaryRoles: current.filter(r => r !== role) };
+            }),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        setPlayerStarter: (phaseIdx, playerId, isStarter) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, isStarter } : p),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        awayTeamColor: '#ef4444',
+        setAwayTeamColor: (color) => { set({ awayTeamColor: color }); pushSettings({ away_team_color: color }); },
+
+        setPlayerInjury: (phaseIdx, playerId, injured, returnDate) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => p.id === playerId
+              ? { ...p, injured, injuryReturnDate: returnDate } : p),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        checkAndHealInjuries: (phaseIdx) => {
+          const today = new Date().toISOString().slice(0, 10);
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => {
+              if (p.injured && p.injuryReturnDate && p.injuryReturnDate <= today)
+                return { ...p, injured: false, injuryReturnDate: undefined };
+              return p;
+            }),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        matchTimer: { running: false, startedAt: null, elapsed: 0 },
+        startTimer: () => {
+          const { matchTimer } = get();
+          if (matchTimer.running) return;
+          set({ matchTimer: { ...matchTimer, running: true, startedAt: Date.now() } });
+        },
+        stopTimer: () => {
+          const { matchTimer } = get();
+          if (!matchTimer.running || !matchTimer.startedAt) return;
+          const extra = Math.floor((Date.now() - matchTimer.startedAt) / 1000);
+          set({ matchTimer: { running: false, startedAt: null, elapsed: matchTimer.elapsed + extra } });
+        },
+        resetTimer: () => set({ matchTimer: { running: false, startedAt: null, elapsed: 0 } }),
+        tickTimer: () => {},
+
+        addMinutesPlayed: (phaseIdx, playerId, minutes) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => p.id === playerId
+              ? { ...p, minutesPlayed: (p.minutesPlayed ?? 0) + minutes } : p),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        togglePlayerOnField: (phaseIdx, playerId) => {
+          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+            ...ph, players: ph.players.map(p => p.id === playerId
+              ? { ...p, isOnField: !p.isOnField } : p),
+          });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        getSubstitutionSuggestions: (phaseIdx, intervalMinutes = 10) => {
+          const { phases, sport, matchTimer } = get();
+          const ph = phases[phaseIdx];
+          if (!ph) return [];
+          const elapsed = matchTimer.elapsed + (
+            matchTimer.running && matchTimer.startedAt
+              ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
+          );
+          const teamSizes: Record<string, number> = { football: 11, football7: 7, handball: 7 };
+          return suggestSubstitutions(
+            ph.players, ph.players.length,
+            teamSizes[sport] ?? 11,
+            Math.floor(elapsed / 60),
+            intervalMinutes
+          );
+        },
+
+        matchReports: [],
+        createReport: (tags, freeText, matchTitle, eventId) => {
+          const report: MatchReport = {
+            id: uid(), eventId, matchTitle,
+            createdAt: new Date().toISOString(),
+            tags, freeText,
+            generatedText: generateReportText(tags, freeText, matchTitle),
+          };
+          set(s => ({ matchReports: [...s.matchReports, report] }));
+          return report;
+        },
+        deleteReport: (id) => set(s => ({ matchReports: s.matchReports.filter(r => r.id !== id) })),
+
+        events: [],
+        addEvent: (ev) => {
+          const newEv = { id: uid(), ...ev };
+          set(s => ({ events: [...s.events, newEv] }));
+          markEventsDirty();
+        },
+        updateEvent: (id, fields) => {
+          set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...fields } : e) }));
+          markEventsDirty();
+        },
+        deleteEvent: (id) => {
+          set(s => ({ events: s.events.filter(e => e.id !== id) }));
+          markEventsDirty();
+        },
+        addTrainingNote: (eventId, note) => {
+          const n: TrainingNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
+          set(s => ({ events: s.events.map(e => e.id !== eventId ? e
+            : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
+          markEventsDirty();
+        },
+        updateTrainingNote: (eventId, noteId, fields) => {
+          set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+            ...e, trainingNotes: e.trainingNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
+          })}));
+          markEventsDirty();
+        },
+        deleteTrainingNote: (eventId, noteId) => {
+          set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+            ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
+          })}));
+          markEventsDirty();
+        },
+        addMatchNote: (eventId, note) => {
+          const n: MatchNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
+          set(s => ({ events: s.events.map(e => e.id !== eventId ? e
+            : { ...e, matchNotes: [...e.matchNotes, n] }) }));
+          markEventsDirty();
+        },
+        updateMatchNote: (eventId, noteId, fields) => {
+          set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+            ...e, matchNotes: e.matchNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
+          })}));
+          markEventsDirty();
+        },
+        deleteMatchNote: (eventId, noteId) => {
+          set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
+            ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
+          })}));
+          markEventsDirty();
+        },
+
+        playerAccounts: [],
+        addPlayerAccount: (acc) => {
+          const existingEmail = get().playerAccounts.find(a =>
+            acc.email && a.email?.toLowerCase() === acc.email.toLowerCase()
+          );
+          if (existingEmail) {
+            console.warn('E-post allerede i bruk');
+            return false;
+          }
+          const newAcc = {
+            id: uid(),
+            ...acc,
+            password: acc.password || acc.pin,
+          };
+          set(s => ({ playerAccounts: [...s.playerAccounts, newAcc] }));
+          markPlayerAccountsDirty();
+          return true;
+        },
+        removePlayerAccount: (id) => {
+          set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) }));
+          markPlayerAccountsDirty();
+        },
+        updatePlayerAccount: (id, fields) => {
+          set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) }));
+          markPlayerAccountsDirty();
+        },
+
+        coachMessages: [],
+        sendCoachMessage: (playerId, content, eventId, fromCaptain = false) => {
+          const msg: CoachMessage = {
+            id: uid(), fromCoach: true, playerId, content, eventId,
+            createdAt: new Date().toISOString(), replies: [], fromCaptain,
+          };
+          set(s => ({ coachMessages: [...s.coachMessages, msg] }));
+          markCoachMessagesDirty();
+        },
+        replyToMessage: (messageId, playerId, content) => {
+          const reply: PlayerReply = { id: uid(), playerId, content, createdAt: new Date().toISOString() };
+          set(s => ({ coachMessages: s.coachMessages.map(m => m.id !== messageId ? m : {
+            ...m, replies: [...m.replies, reply],
+          })}));
+          markCoachMessagesDirty();
+        },
+        deleteCoachMessage: (messageId) => {
+          set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== messageId) }));
+          markCoachMessagesDirty();
+        },
+
+        syncFromSupabase: async () => {
+          set({ loading: true });
+          try {
+            const data = await loadFromSupabase();
+            set(state => ({ ...state, ...data, loading: false }));
+            // Initialiser syncQueue med getState-funksjon
+            initSyncQueue(() => get());
+          } catch (error) {
+            console.error('Sync failed:', error);
+            set({ loading: false });
+          }
         }
-      }
-    }),
+      };
+    },
     {
       name: 'taktikkboard-storage',
-      // ✅ FIX 3: moments lagres lokalt (valgfritt)
       partialize: (state) => ({
         moments: state.moments,
         currentView: state.currentView,

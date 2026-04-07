@@ -329,7 +329,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     onSelectPlayerRef.current(id);
   }, []);
 
-  // --- Hydration readiness uten betinget hook-kall ---
+  // --- Hydration readiness ---
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -379,7 +379,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     updatePlayerField, playerAccounts,
   } = useAppStore();
 
-  const phase = phases[activePhaseIdx];
+  // ═══════════════════════════════════════════════════════════
+  //  KRITISK FIX: phase = undefined → null for stabil struktur
+  // ═══════════════════════════════════════════════════════════
+  const phase = phases[activePhaseIdx] ?? null;
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -409,7 +412,13 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (timerRef.current)      clearInterval(timerRef.current);
   }, []);
 
-  useEffect(() => { setLocalStickyNote(phase?.stickyNote ?? ''); }, [phase?.stickyNote, activePhaseIdx]);
+  // ═══════════════════════════════════════════════════════════
+  //  STABIL STICKY NOTE EFFECT (unngår undefined → string hopp)
+  // ═══════════════════════════════════════════════════════════
+  const stickyNote = phase?.stickyNote ?? '';
+  useEffect(() => {
+    setLocalStickyNote(stickyNote);
+  }, [stickyNote, activePhaseIdx]);
 
   const handleStickyChange = useCallback((v:string) => {
     setLocalStickyNote(v);
@@ -749,403 +758,370 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     '--glass-hover':  GLASS.hover,
   } as React.CSSProperties;
 
+  // ═══════════════════════════════════════════════════════════
+  //  TIDLIG RETURN – STOPPER RENDER FØR PHASE ER KLAR
+  // ═══════════════════════════════════════════════════════════
+  if (!phase || !isMounted) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-slate-500">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-6 h-6 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
+          <span className="text-xs">Laster taktikktavle...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden select-none" style={glassStyle}>
-      {/* Skjul innhold med opacity inntil klienten er klar – unngår hydration mismatch */}
-      <div style={{ opacity: isMounted ? 1 : 0, transition: 'opacity 0.1s', display: 'contents' }}>
-        <div style={{
-          background: 'rgba(5,10,25,0.82)',
-          backdropFilter: 'blur(16px) saturate(1.4)',
-          WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
-          borderBottom: '1px solid rgba(56,189,248,0.1)',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.04)',
-        }} className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto overscroll-x-contain">
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {phases.map((ph,idx)=>(
-              <button key={ph.id} onClick={()=>!isPlaying&&setActivePhaseIdx(idx)}
-                style={{
-                  background: activePhaseIdx===idx ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
-                  border: activePhaseIdx===idx ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.07)',
-                  backdropFilter: 'blur(8px)',
-                  transition: 'all 0.15s ease',
-                }}
-                className={`px-2 py-1 rounded-lg text-[10px] font-semibold min-h-[44px] whitespace-nowrap
-                  ${activePhaseIdx===idx?'text-sky-400':'text-slate-500 hover:text-slate-300'}
-                  ${isPlaying?'opacity-50':''}`}>
-                {ph.name}{ph.stickyNote&&<span className="ml-1 text-amber-400">·</span>}
-              </button>
-            ))}
-            <button onClick={()=>!isPlaying&&addPhase()} disabled={isPlaying}
-              style={{ background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-400 text-base disabled:opacity-40">＋</button>
-            {phases.length>1&&<button onClick={()=>!isPlaying&&removePhase(activePhaseIdx)} disabled={isPlaying}
-              style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.15)', backdropFilter:'blur(8px)' }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 text-base disabled:opacity-40">🗑️</button>}
-          </div>
-
-          {availableFormations.length>0&&(
-            <select value={selectedFormation} onChange={e=>updateFormation(e.target.value)} disabled={isPlaying}
-              style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', backdropFilter:'blur(8px)' }}
-              className="ml-2 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px] flex-shrink-0">
-              {availableFormations.map(f=><option key={f.name} value={f.name} style={{background:'#0c1525'}}>{f.name}</option>)}
-            </select>
-          )}
-
-          <div className="flex-1 min-w-[8px]"/>
-
-          {[{fn:doUndo,icon:'↩',title:'Angre (Ctrl+Z)'},{fn:doRedo,icon:'↪',title:'Gjør om (Ctrl+Y)'}].map(({fn,icon,title})=>(
-            <button key={icon} onClick={fn} title={title}
-              style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', backdropFilter:'blur(8px)' }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 text-sm hover:text-slate-300 flex-shrink-0">
-              {icon}
-            </button>
-          ))}
-
-          {!isTrainingMatch&&(
-            <span style={{
-              background: subLimitReached?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
-              border: subLimitReached?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
-              backdropFilter:'blur(8px)',
-            }} className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0
-              ${subLimitReached?'text-red-400':'text-slate-400'}`}>
-              🔄 {substitutions}/{maxSubstitutions}
-            </span>
-          )}
-          {isTrainingMatch&&(
-            <span style={{ background:'rgba(52,211,153,0.08)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
-              className="text-[9px] font-bold text-emerald-400 px-2 py-0.5 rounded-full flex-shrink-0">🏃 Trening</span>
-          )}
-
-          <button onClick={()=>setShowMoments(!showMoments)}
-            style={{
-              background: showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)',
-              border: showMoments?'1px solid rgba(167,139,250,0.35)':'1px solid rgba(255,255,255,0.07)',
-              backdropFilter:'blur(8px)',
-            }}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold border min-h-[40px] flex-shrink-0 whitespace-nowrap
-              ${showMoments?'text-violet-400':'text-slate-500 hover:text-slate-300'}`}>
-            📸 Øyeblikk
-          </button>
-
-          <button onClick={()=>setShowSticky(!showSticky)}
-            style={{
-              background: showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)',
-              border: showSticky?'1px solid rgba(251,191,36,0.3)':'1px solid rgba(255,255,255,0.07)',
-              backdropFilter:'blur(8px)',
-            }}
-            className={`px-2 py-1 rounded-lg text-[13px] min-h-[40px] flex-shrink-0
-              ${showSticky?'text-amber-400':'text-slate-500 hover:text-slate-300'}`}>📌</button>
-
-          <button onClick={()=>setDrawMode(!drawMode)}
-            style={{
-              background: drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
-              border: drawMode?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
-              backdropFilter:'blur(8px)',
-            }}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] whitespace-nowrap flex-shrink-0
-              ${drawMode?'text-red-400':'text-slate-500 hover:text-slate-300'}`}>
-            {drawMode?'✏️ Stopp':'✏️ Tegn'}
-          </button>
-
-          {drawMode&&DRAW_COLORS.map(c=>(
-            <button key={c} onClick={()=>setDrawColor(c)}
-              className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
-                ${drawColor===c?'border-white scale-110':'border-transparent opacity-55'}`}
-              style={{background:c}}/>
-          ))}
-
-          {(phase?.drawings?.length??0)>0&&(
-            <button onClick={()=>clearDrawings(activePhaseIdx)}
-              style={{ background:'rgba(248,113,113,0.06)', border:'1px solid rgba(248,113,113,0.12)' }}
-              className="px-2 py-1 rounded-lg text-[13px] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
-          )}
-
-          <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', backdropFilter:'blur(8px)' }}
-            className="flex items-center gap-1 rounded-lg px-1.5 py-1 flex-shrink-0">
-            <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}
-              disabled={isPlaying||activePhaseIdx===0}
-              className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏮</button>
-            <button onClick={()=>isPlaying?stopPlayback():startPlayback()} disabled={phases.length<2}
+      <div style={{
+        background: 'rgba(5,10,25,0.82)',
+        backdropFilter: 'blur(16px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
+        borderBottom: '1px solid rgba(56,189,248,0.1)',
+        boxShadow: '0 1px 0 rgba(255,255,255,0.04)',
+      }} className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto overscroll-x-contain">
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {phases.map((ph,idx)=>(
+            <button key={ph.id} onClick={()=>!isPlaying&&setActivePhaseIdx(idx)}
               style={{
-                background: phases.length<2?'transparent':isPlaying?'rgba(248,113,113,0.12)':'rgba(56,189,248,0.12)',
-                border: phases.length<2?'1px solid rgba(255,255,255,0.07)':isPlaying?'1px solid rgba(248,113,113,0.4)':'1px solid rgba(56,189,248,0.4)',
+                background: activePhaseIdx===idx ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
+                border: activePhaseIdx===idx ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                backdropFilter: 'blur(8px)',
+                transition: 'all 0.15s ease',
               }}
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm
-                ${phases.length<2?'text-slate-600 cursor-not-allowed':isPlaying?'text-red-400':'text-sky-400'}`}>
-              {isPlaying?'⏸':'▶'}
+              className={`px-2 py-1 rounded-lg text-[10px] font-semibold min-h-[44px] whitespace-nowrap
+                ${activePhaseIdx===idx?'text-sky-400':'text-slate-500 hover:text-slate-300'}
+                ${isPlaying?'opacity-50':''}`}>
+              {ph.name}{ph.stickyNote&&<span className="ml-1 text-amber-400">·</span>}
             </button>
-            <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.min(phases.length-1,activePhaseIdx+1))}
-              disabled={isPlaying||activePhaseIdx===phases.length-1}
-              className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏭</button>
-            <div className="ml-1 pl-1" style={{borderLeft:'1px solid rgba(255,255,255,0.07)'}}>
-              <select value={playSpeed} onChange={e=>setPlaySpeed(parseFloat(e.target.value))} disabled={isPlaying}
-                style={{ background:'transparent', border:'none' }}
-                className="text-[10px] text-slate-400 focus:outline-none min-h-[40px] cursor-pointer">
-                {[0.5,1,1.5,2].map(v=><option key={v} value={v} style={{background:'#0c1525'}}>{v}×</option>)}
-              </select>
-            </div>
-          </div>
-
-          {isMobile&&(
-            <button onClick={()=>setShowBottomSheet(true)}
-              style={{ background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', backdropFilter:'blur(8px)' }}
-              className="px-2 py-1 rounded-lg text-[10px] font-bold text-amber-400 min-h-[40px] flex-shrink-0">
-              🪑 {benchPlayers.length}
-            </button>
-          )}
+          ))}
+          <button onClick={()=>!isPlaying&&addPhase()} disabled={isPlaying}
+            style={{ background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-400 text-base disabled:opacity-40">＋</button>
+          {phases.length>1&&<button onClick={()=>!isPlaying&&removePhase(activePhaseIdx)} disabled={isPlaying}
+            style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.15)', backdropFilter:'blur(8px)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 text-base disabled:opacity-40">🗑️</button>}
         </div>
 
-        {showSticky&&phase&&(
-          <div style={{
-            background:'rgba(251,191,36,0.05)',
-            backdropFilter:'blur(12px)',
-            borderBottom:'1px solid rgba(251,191,36,0.15)',
-          }} className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
-            <span className="text-amber-400 text-[13px]">📌</span>
-            <input value={localStickyNote} onChange={e=>handleStickyChange(e.target.value)}
-              placeholder={`Notat for ${phase.name}…`}
-              className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/35 focus:outline-none min-h-[40px]"/>
-          </div>
+        {availableFormations.length>0&&(
+          <select value={selectedFormation} onChange={e=>updateFormation(e.target.value)} disabled={isPlaying}
+            style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', backdropFilter:'blur(8px)' }}
+            className="ml-2 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px] flex-shrink-0">
+            {availableFormations.map(f=><option key={f.name} value={f.name} style={{background:'#0c1525'}}>{f.name}</option>)}
+          </select>
         )}
 
-        {showMoments&&(
-          <div style={{
-            background:'rgba(5,8,22,0.88)',
-            backdropFilter:'blur(16px)',
-            borderBottom:'1px solid rgba(167,139,250,0.15)',
-          }} className="flex-shrink-0 px-3 py-2">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">📸 Taktiske Øyeblikk</span>
-            </div>
-            <div className="flex gap-2 mb-2">
-              <input value={momentLabel} onChange={e=>setMomentLabel(e.target.value)}
-                onKeyDown={e=>e.key==='Enter'&&momentLabel.trim()&&(()=>{
-                  if (!phase) return;
-                  setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
-                  setMomentLabel('');
-                })()}
-                placeholder="Navn på øyeblikk…"
-                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(167,139,250,0.2)' }}
-                className="flex-1 rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none min-h-[36px]"/>
-              <button onClick={()=>{
-                if (!momentLabel.trim()||!phase) return;
+        <div className="flex-1 min-w-[8px]"/>
+
+        {[{fn:doUndo,icon:'↩',title:'Angre (Ctrl+Z)'},{fn:doRedo,icon:'↪',title:'Gjør om (Ctrl+Y)'}].map(({fn,icon,title})=>(
+          <button key={icon} onClick={fn} title={title}
+            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', backdropFilter:'blur(8px)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 text-sm hover:text-slate-300 flex-shrink-0">
+            {icon}
+          </button>
+        ))}
+
+        {!isTrainingMatch&&(
+          <span style={{
+            background: subLimitReached?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
+            border: subLimitReached?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }} className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0
+            ${subLimitReached?'text-red-400':'text-slate-400'}`}>
+            🔄 {substitutions}/{maxSubstitutions}
+          </span>
+        )}
+        {isTrainingMatch&&(
+          <span style={{ background:'rgba(52,211,153,0.08)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
+            className="text-[9px] font-bold text-emerald-400 px-2 py-0.5 rounded-full flex-shrink-0">🏃 Trening</span>
+        )}
+
+        <button onClick={()=>setShowMoments(!showMoments)}
+          style={{
+            background: showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)',
+            border: showMoments?'1px solid rgba(167,139,250,0.35)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }}
+          className={`px-2 py-1 rounded-lg text-[10px] font-bold border min-h-[40px] flex-shrink-0 whitespace-nowrap
+            ${showMoments?'text-violet-400':'text-slate-500 hover:text-slate-300'}`}>
+          📸 Øyeblikk
+        </button>
+
+        <button onClick={()=>setShowSticky(!showSticky)}
+          style={{
+            background: showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)',
+            border: showSticky?'1px solid rgba(251,191,36,0.3)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }}
+          className={`px-2 py-1 rounded-lg text-[13px] min-h-[40px] flex-shrink-0
+            ${showSticky?'text-amber-400':'text-slate-500 hover:text-slate-300'}`}>📌</button>
+
+        <button onClick={()=>setDrawMode(!drawMode)}
+          style={{
+            background: drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
+            border: drawMode?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }}
+          className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] whitespace-nowrap flex-shrink-0
+            ${drawMode?'text-red-400':'text-slate-500 hover:text-slate-300'}`}>
+          {drawMode?'✏️ Stopp':'✏️ Tegn'}
+        </button>
+
+        {drawMode&&DRAW_COLORS.map(c=>(
+          <button key={c} onClick={()=>setDrawColor(c)}
+            className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
+              ${drawColor===c?'border-white scale-110':'border-transparent opacity-55'}`}
+            style={{background:c}}/>
+        ))}
+
+        {(phase?.drawings?.length??0)>0&&(
+          <button onClick={()=>clearDrawings(activePhaseIdx)}
+            style={{ background:'rgba(248,113,113,0.06)', border:'1px solid rgba(248,113,113,0.12)' }}
+            className="px-2 py-1 rounded-lg text-[13px] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
+        )}
+
+        <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', backdropFilter:'blur(8px)' }}
+          className="flex items-center gap-1 rounded-lg px-1.5 py-1 flex-shrink-0">
+          <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}
+            disabled={isPlaying||activePhaseIdx===0}
+            className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏮</button>
+          <button onClick={()=>isPlaying?stopPlayback():startPlayback()} disabled={phases.length<2}
+            style={{
+              background: phases.length<2?'transparent':isPlaying?'rgba(248,113,113,0.12)':'rgba(56,189,248,0.12)',
+              border: phases.length<2?'1px solid rgba(255,255,255,0.07)':isPlaying?'1px solid rgba(248,113,113,0.4)':'1px solid rgba(56,189,248,0.4)',
+            }}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm
+              ${phases.length<2?'text-slate-600 cursor-not-allowed':isPlaying?'text-red-400':'text-sky-400'}`}>
+            {isPlaying?'⏸':'▶'}
+          </button>
+          <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.min(phases.length-1,activePhaseIdx+1))}
+            disabled={isPlaying||activePhaseIdx===phases.length-1}
+            className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏭</button>
+          <div className="ml-1 pl-1" style={{borderLeft:'1px solid rgba(255,255,255,0.07)'}}>
+            <select value={playSpeed} onChange={e=>setPlaySpeed(parseFloat(e.target.value))} disabled={isPlaying}
+              style={{ background:'transparent', border:'none' }}
+              className="text-[10px] text-slate-400 focus:outline-none min-h-[40px] cursor-pointer">
+              {[0.5,1,1.5,2].map(v=><option key={v} value={v} style={{background:'#0c1525'}}>{v}×</option>)}
+            </select>
+          </div>
+        </div>
+
+        {isMobile&&(
+          <button onClick={()=>setShowBottomSheet(true)}
+            style={{ background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', backdropFilter:'blur(8px)' }}
+            className="px-2 py-1 rounded-lg text-[10px] font-bold text-amber-400 min-h-[40px] flex-shrink-0">
+            🪑 {benchPlayers.length}
+          </button>
+        )}
+      </div>
+
+      {showSticky&&phase&&(
+        <div style={{
+          background:'rgba(251,191,36,0.05)',
+          backdropFilter:'blur(12px)',
+          borderBottom:'1px solid rgba(251,191,36,0.15)',
+        }} className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
+          <span className="text-amber-400 text-[13px]">📌</span>
+          <input value={localStickyNote} onChange={e=>handleStickyChange(e.target.value)}
+            placeholder={`Notat for ${phase.name}…`}
+            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/35 focus:outline-none min-h-[40px]"/>
+        </div>
+      )}
+
+      {showMoments&&(
+        <div style={{
+          background:'rgba(5,8,22,0.88)',
+          backdropFilter:'blur(16px)',
+          borderBottom:'1px solid rgba(167,139,250,0.15)',
+        }} className="flex-shrink-0 px-3 py-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">📸 Taktiske Øyeblikk</span>
+          </div>
+          <div className="flex gap-2 mb-2">
+            <input value={momentLabel} onChange={e=>setMomentLabel(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&momentLabel.trim()&&(()=>{
+                if (!phase) return;
                 setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
                 setMomentLabel('');
-              }} disabled={!momentLabel.trim()}
-                style={{ background:'rgba(167,139,250,0.12)', border:'1px solid rgba(167,139,250,0.3)' }}
-                className="px-3 py-1.5 rounded-lg text-violet-400 text-[11px] font-bold disabled:opacity-40">Lagre</button>
-            </div>
-            {moments.length>0&&(
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {moments.map(m=>(
-                  <div key={m.id}
-                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(167,139,250,0.15)', backdropFilter:'blur(8px)' }}
-                    className="flex-shrink-0 rounded-xl px-3 py-2 min-w-[120px]">
-                    <div className="text-[10px] font-bold text-violet-300">{m.label}</div>
-                    <div className="text-[8px] text-slate-500 mt-0.5">
-                      {new Date(m.at).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}
-                    </div>
-                    <button onClick={()=>setMoments(ms=>ms.filter(x=>x.id!==m.id))}
-                      className="text-[8px] text-red-400 mt-1 hover:text-red-300">Slett</button>
-                  </div>
-                ))}
-              </div>
-            )}
+              })()}
+              placeholder="Navn på øyeblikk…"
+              style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(167,139,250,0.2)' }}
+              className="flex-1 rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none min-h-[36px]"/>
+            <button onClick={()=>{
+              if (!momentLabel.trim()||!phase) return;
+              setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
+              setMomentLabel('');
+            }} disabled={!momentLabel.trim()}
+              style={{ background:'rgba(167,139,250,0.12)', border:'1px solid rgba(167,139,250,0.3)' }}
+              className="px-3 py-1.5 rounded-lg text-violet-400 text-[11px] font-bold disabled:opacity-40">Lagre</button>
           </div>
-        )}
-
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch" style={{padding:'4px'}}>
-            {selectedFormation&&(
-              <div className="flex-shrink-0 flex items-center justify-center py-1">
-                <div style={{
-                  background:'rgba(5,10,28,0.7)',
-                  backdropFilter:'blur(12px)',
-                  border:'1px solid rgba(56,189,248,0.12)',
-                  boxShadow:'0 0 20px rgba(56,189,248,0.05)',
-                }} className="flex items-center gap-2 px-4 py-1.5 rounded-xl">
-                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
-                  <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{selectedFormation}</span>
-                </div>
-              </div>
-            )}
-
-            <svg
-              ref={svgRef}
-              viewBox={`0 0 ${VW} ${VH}`}
-              preserveAspectRatio="xMidYMid meet"
-              style={{
-                flex:1, width:'100%', height:'100%', display:'block',
-                boxShadow:'0 0 80px rgba(0,0,0,0.95)',
-                cursor:drawMode?'crosshair':'default',
-                touchAction:'none',
-                userSelect:'none',
-                WebkitTapHighlightColor:'transparent',
-              }}
-              onPointerDown={onSvgPtrDown}
-              onPointerMove={onSvgPtrMove}
-              onPointerUp={onSvgPtrUp}
-              onPointerLeave={onSvgPtrUp}
-            >
-              <SvgDefs/>
-              <rect width={VW} height={VH} fill="url(#grass)"/>
-              <rect width={VW} height={VH} fill="url(#vignette)"/>
-
-              {(sport==='football'||sport==='football7'||sport==='football9')&&<FootballPitch/>}
-              {sport==='handball'&&<HandballPitch/>}
-              {phase?.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
-              {liveDrawPts.length>1&&(
-                <polyline points={liveDrawPts.map(p=>`${p.x},${p.y}`).join(' ')}
-                  stroke={drawColor} strokeWidth={4} fill="none"
-                  strokeLinecap="round" strokeLinejoin="round" opacity={0.85}/>
-              )}
-              {phase&&(
-                <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
-                  onPositionChange={pos=>updateBallPosition(activePhaseIdx,pos)}/>
-              )}
-
-              {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
-
-              {onField.map(player => {
-                const meta       = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#64748b',label:player.role};
-                const name       = getDisplayName(player);
-                const isTarget   = dragOverId===player.id;
-                const isSrc      = draggingPlayerId===player.id;
-                const isOnLoan   = (player as any).onLoan === true;
-                const condition  = typeof (player as any).condition === 'number' ? (player as any).condition : 90;
-                const isBouncing = bounceId===player.id;
-                const outOfPos   = isOutOfPos(player);
-                const {x,y}      = player.position;
-                const showSwap   = isTarget&&dragFromSub;
-                const showHover  = isTarget&&!showSwap;
-
-                return (
-                  <g key={player.id} data-player="true"
-                    onPointerDown={e=>startDrag(e, player.id, false)}
-                    onPointerMove={moveDrag}
-                    onPointerUp={endDrag}
-                    onPointerCancel={endDrag}
-                    style={{
-                      cursor:!isPlaying&&!drawMode?'grab':'default',
-                      touchAction:'none',
-                      transform: isBouncing?`translate(${x}px,${y}px) scale(1.1)`:`translate(0,0)`,
-                      transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
-                    }}
-                  >
-                    {showSwap&&<SwapOverlay x={x} y={y}/>}
-                    {showHover&&(
-                      <circle cx={x} cy={y} r={32} fill="none"
-                        stroke="rgba(56,189,248,0.6)" strokeWidth={2}
-                        strokeDasharray="6,4"/>
-                    )}
-                    <JerseyIcon x={x} y={y} num={player.num} color={(meta as {color:string}).color}
-                      selected={selectedPlayerId===player.id} injured={!!player.injured}
-                      specialRoles={player.specialRoles??[]} isDragging={!!isSrc}
-                      isTarget={isTarget} isOutOfPos={outOfPos}/>
-                    <RoleBadge x={x} y={y+23} role={player.role}/>
-                    <NameLabel x={x} y={y+47} name={name}/>
-                    {isOnLoan&&<LoanBadge x={x} y={y+58}/>}
-                    <ConditionDot x={x} y={y} condition={condition}/>
-                    {(player.minutesPlayed??0)>0&&(
-                      <circle cx={x} cy={y} r={29} fill="none"
-                        stroke={(player.minutesPlayed??0)>60?'#ef4444':(player.minutesPlayed??0)>30?'#f59e0b':'#22c55e'}
-                        strokeWidth={1.5} opacity={0.3} strokeDasharray="3 2"/>
-                    )}
-                  </g>
-                );
-              })}
-
-              {ghostPos&&ghostPlayer&&ghostMeta&&(
-                <DragGhost x={ghostPos.x} y={ghostPos.y}
-                  color={(ghostMeta as {color:string}).color??'#555'}
-                  num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
-                  role={ghostPlayer.role} scaleIn={ghostPos.scaleIn}/>
-              )}
-
-              {isPlaying&&(
-                <rect x={32} y={VH-14} rx={3} height={5}
-                  width={progressFrac*(VW-64)} fill="#38bdf8" opacity={0.8}/>
-              )}
-            </svg>
-          </div>
-
-          {!isMobile&&(
-            <div style={{
-              width: subPanelOpen?176:38,
-              background:'rgba(5,10,25,0.78)',
-              backdropFilter:'blur(20px) saturate(1.3)',
-              WebkitBackdropFilter:'blur(20px) saturate(1.3)',
-              borderLeft:'1px solid rgba(56,189,248,0.08)',
-              transition:'width 0.2s ease',
-            }} className="flex-shrink-0 flex flex-col overflow-hidden">
-              <div style={{
-                background:'rgba(255,255,255,0.03)',
-                borderBottom:'1px solid rgba(56,189,248,0.08)',
-              }} className="flex-shrink-0 flex items-center justify-between px-2 py-2 min-h-[48px]">
-                {subPanelOpen&&(
-                  <div>
-                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                      {isTrainingMatch?'Spillere':'Innbyttere'}
-                    </div>
-                    <div className={`text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
-                      {benchPlayers.length}<span className="text-slate-600 font-normal">/{maxSubs}</span>
-                    </div>
+          {moments.length>0&&(
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {moments.map(m=>(
+                <div key={m.id}
+                  style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(167,139,250,0.15)', backdropFilter:'blur(8px)' }}
+                  className="flex-shrink-0 rounded-xl px-3 py-2 min-w-[120px]">
+                  <div className="text-[10px] font-bold text-violet-300">{m.label}</div>
+                  <div className="text-[8px] text-slate-500 mt-0.5">
+                    {new Date(m.at).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}
                   </div>
-                )}
-                <button onClick={()=>setSubPanelOpen(!subPanelOpen)}
-                  style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.07)' }}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 text-sm flex-shrink-0">
-                  {subPanelOpen?'›':'‹'}
-                </button>
-              </div>
-
-              {subPanelOpen&&(
-                <div className="flex-1 overflow-y-auto py-0.5">
-                  {subSlots.map((player,idx)=>(
-                    <SubRow key={player?.id??`empty-${idx}`}
-                      player={player} idx={idx}
-                      isSelected={!!player&&selectedPlayerId===player.id}
-                      isDragOver={!!player&&dragOverId===player.id}
-                      displayName={player?getDisplayName(player):''}
-                      isLimited={subLimitReached}
-                      onSelect={()=>player&&stableOnSelectPlayer(selectedPlayerId===player.id?null:player.id)}
-                      onPointerDown={e=>player&&startDrag(e, player.id, true)}
-                      onPointerMove={moveDrag}
-                      onPointerUp={endDrag}
-                      onPointerCancel={endDrag}
-                      isDraggable={!!player&&!isPlaying}/>
-                  ))}
+                  <button onClick={()=>setMoments(ms=>ms.filter(x=>x.id!==m.id))}
+                    className="text-[8px] text-red-400 mt-1 hover:text-red-300">Slett</button>
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>
+      )}
 
-        {isMobile&&showBottomSheet&&(
-          <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={()=>setShowBottomSheet(false)}>
-            <div className="absolute inset-0" style={{background:'rgba(0,0,0,0.65)',backdropFilter:'blur(4px)'}}/>
-            <div style={{
-              background:'rgba(5,10,28,0.92)',
-              backdropFilter:'blur(24px) saturate(1.4)',
-              borderTop:'1px solid rgba(56,189,248,0.12)',
-              borderRadius:'20px 20px 0 0',
-              maxHeight:'65vh',
-            }} className="relative flex flex-col" onClick={e=>e.stopPropagation()}>
-              <div className="flex-shrink-0 flex flex-col items-center pt-2 pb-1">
-                <div className="w-10 h-1 rounded-full mb-2" style={{background:'rgba(255,255,255,0.15)'}}/>
-                <div className="flex items-center justify-between w-full px-4">
-                  <div>
-                    <span className="text-[11px] font-black text-slate-200">{isTrainingMatch?'Spillere':'Innbyttere'}</span>
-                    <span className={`ml-2 text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
-                      {benchPlayers.length}/{maxSubs}
-                    </span>
-                  </div>
-                  <button onClick={()=>setShowBottomSheet(false)}
-                    style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.1)' }}
-                    className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 text-sm">✕</button>
-                </div>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch" style={{padding:'4px'}}>
+          {selectedFormation&&(
+            <div className="flex-shrink-0 flex items-center justify-center py-1">
+              <div style={{
+                background:'rgba(5,10,28,0.7)',
+                backdropFilter:'blur(12px)',
+                border:'1px solid rgba(56,189,248,0.12)',
+                boxShadow:'0 0 20px rgba(56,189,248,0.05)',
+              }} className="flex items-center gap-2 px-4 py-1.5 rounded-xl">
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
+                <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{selectedFormation}</span>
               </div>
-              <div className="flex-1 overflow-y-auto">
+            </div>
+          )}
+
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${VW} ${VH}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{
+              flex:1, width:'100%', height:'100%', display:'block',
+              boxShadow:'0 0 80px rgba(0,0,0,0.95)',
+              cursor:drawMode?'crosshair':'default',
+              touchAction:'none',
+              userSelect:'none',
+              WebkitTapHighlightColor:'transparent',
+            }}
+            onPointerDown={onSvgPtrDown}
+            onPointerMove={onSvgPtrMove}
+            onPointerUp={onSvgPtrUp}
+            onPointerLeave={onSvgPtrUp}
+          >
+            <SvgDefs/>
+            <rect width={VW} height={VH} fill="url(#grass)"/>
+            <rect width={VW} height={VH} fill="url(#vignette)"/>
+
+            {(sport==='football'||sport==='football7'||sport==='football9')&&<FootballPitch/>}
+            {sport==='handball'&&<HandballPitch/>}
+            {phase.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
+            {liveDrawPts.length>1&&(
+              <polyline points={liveDrawPts.map(p=>`${p.x},${p.y}`).join(' ')}
+                stroke={drawColor} strokeWidth={4} fill="none"
+                strokeLinecap="round" strokeLinejoin="round" opacity={0.85}/>
+            )}
+            {phase&&(
+              <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
+                onPositionChange={pos=>updateBallPosition(activePhaseIdx,pos)}/>
+            )}
+
+            {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
+
+            {onField.map(player => {
+              const meta       = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#64748b',label:player.role};
+              const name       = getDisplayName(player);
+              const isTarget   = dragOverId===player.id;
+              const isSrc      = draggingPlayerId===player.id;
+              const isOnLoan   = (player as any).onLoan === true;
+              const condition  = typeof (player as any).condition === 'number' ? (player as any).condition : 90;
+              const isBouncing = bounceId===player.id;
+              const outOfPos   = isOutOfPos(player);
+              const {x,y}      = player.position;
+              const showSwap   = isTarget&&dragFromSub;
+              const showHover  = isTarget&&!showSwap;
+
+              return (
+                <g key={player.id} data-player="true"
+                  onPointerDown={e=>startDrag(e, player.id, false)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  style={{
+                    cursor:!isPlaying&&!drawMode?'grab':'default',
+                    touchAction:'none',
+                    transform: isBouncing?`translate(${x}px,${y}px) scale(1.1)`:`translate(0,0)`,
+                    transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
+                  }}
+                >
+                  {showSwap&&<SwapOverlay x={x} y={y}/>}
+                  {showHover&&(
+                    <circle cx={x} cy={y} r={32} fill="none"
+                      stroke="rgba(56,189,248,0.6)" strokeWidth={2}
+                      strokeDasharray="6,4"/>
+                  )}
+                  <JerseyIcon x={x} y={y} num={player.num} color={(meta as {color:string}).color}
+                    selected={selectedPlayerId===player.id} injured={!!player.injured}
+                    specialRoles={player.specialRoles??[]} isDragging={!!isSrc}
+                    isTarget={isTarget} isOutOfPos={outOfPos}/>
+                  <RoleBadge x={x} y={y+23} role={player.role}/>
+                  <NameLabel x={x} y={y+47} name={name}/>
+                  {isOnLoan&&<LoanBadge x={x} y={y+58}/>}
+                  <ConditionDot x={x} y={y} condition={condition}/>
+                  {(player.minutesPlayed??0)>0&&(
+                    <circle cx={x} cy={y} r={29} fill="none"
+                      stroke={(player.minutesPlayed??0)>60?'#ef4444':(player.minutesPlayed??0)>30?'#f59e0b':'#22c55e'}
+                      strokeWidth={1.5} opacity={0.3} strokeDasharray="3 2"/>
+                  )}
+                </g>
+              );
+            })}
+
+            {ghostPos&&ghostPlayer&&ghostMeta&&(
+              <DragGhost x={ghostPos.x} y={ghostPos.y}
+                color={(ghostMeta as {color:string}).color??'#555'}
+                num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
+                role={ghostPlayer.role} scaleIn={ghostPos.scaleIn}/>
+            )}
+
+            {isPlaying&&(
+              <rect x={32} y={VH-14} rx={3} height={5}
+                width={progressFrac*(VW-64)} fill="#38bdf8" opacity={0.8}/>
+            )}
+          </svg>
+        </div>
+
+        {!isMobile&&(
+          <div style={{
+            width: subPanelOpen?176:38,
+            background:'rgba(5,10,25,0.78)',
+            backdropFilter:'blur(20px) saturate(1.3)',
+            WebkitBackdropFilter:'blur(20px) saturate(1.3)',
+            borderLeft:'1px solid rgba(56,189,248,0.08)',
+            transition:'width 0.2s ease',
+          }} className="flex-shrink-0 flex flex-col overflow-hidden">
+            <div style={{
+              background:'rgba(255,255,255,0.03)',
+              borderBottom:'1px solid rgba(56,189,248,0.08)',
+            }} className="flex-shrink-0 flex items-center justify-between px-2 py-2 min-h-[48px]">
+              {subPanelOpen&&(
+                <div>
+                  <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                    {isTrainingMatch?'Spillere':'Innbyttere'}
+                  </div>
+                  <div className={`text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
+                    {benchPlayers.length}<span className="text-slate-600 font-normal">/{maxSubs}</span>
+                  </div>
+                </div>
+              )}
+              <button onClick={()=>setSubPanelOpen(!subPanelOpen)}
+                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.07)' }}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 text-sm flex-shrink-0">
+                {subPanelOpen?'›':'‹'}
+              </button>
+            </div>
+
+            {subPanelOpen&&(
+              <div className="flex-1 overflow-y-auto py-0.5">
                 {subSlots.map((player,idx)=>(
                   <SubRow key={player?.id??`empty-${idx}`}
                     player={player} idx={idx}
@@ -1161,10 +1137,54 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                     isDraggable={!!player&&!isPlaying}/>
                 ))}
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
+
+      {isMobile&&showBottomSheet&&(
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={()=>setShowBottomSheet(false)}>
+          <div className="absolute inset-0" style={{background:'rgba(0,0,0,0.65)',backdropFilter:'blur(4px)'}}/>
+          <div style={{
+            background:'rgba(5,10,28,0.92)',
+            backdropFilter:'blur(24px) saturate(1.4)',
+            borderTop:'1px solid rgba(56,189,248,0.12)',
+            borderRadius:'20px 20px 0 0',
+            maxHeight:'65vh',
+          }} className="relative flex flex-col" onClick={e=>e.stopPropagation()}>
+            <div className="flex-shrink-0 flex flex-col items-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full mb-2" style={{background:'rgba(255,255,255,0.15)'}}/>
+              <div className="flex items-center justify-between w-full px-4">
+                <div>
+                  <span className="text-[11px] font-black text-slate-200">{isTrainingMatch?'Spillere':'Innbyttere'}</span>
+                  <span className={`ml-2 text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
+                    {benchPlayers.length}/{maxSubs}
+                  </span>
+                </div>
+                <button onClick={()=>setShowBottomSheet(false)}
+                  style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.1)' }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 text-sm">✕</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {subSlots.map((player,idx)=>(
+                <SubRow key={player?.id??`empty-${idx}`}
+                  player={player} idx={idx}
+                  isSelected={!!player&&selectedPlayerId===player.id}
+                  isDragOver={!!player&&dragOverId===player.id}
+                  displayName={player?getDisplayName(player):''}
+                  isLimited={subLimitReached}
+                  onSelect={()=>player&&stableOnSelectPlayer(selectedPlayerId===player.id?null:player.id)}
+                  onPointerDown={e=>player&&startDrag(e, player.id, true)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  isDraggable={!!player&&!isPlaying}/>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
