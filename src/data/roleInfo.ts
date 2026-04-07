@@ -343,3 +343,29 @@ export function getRolesForSport(sport: Sport): PlayerRole[] {
 export function getRolesForYouth(): PlayerRole[] {
   return ['keeper', 'defender', 'midfielder', 'forward'];
 }
+
+// ─── ROLE FAMILY (brukes for out-of-position detection i TacticBoard) ───
+export const ROLE_FAMILY: Record<string, string> = {
+  keeper: 'gk',
+  sweeper: 'gk',
+  libero: 'gk',
+  defender: 'def',
+  wingback: 'def',
+  sweeper_keeper: 'def',
+  midfielder: 'mid',
+  box2box: 'mid',
+  playmaker: 'mid',
+  defensive_mid: 'mid',
+  winger: 'att',
+  forward: 'att',
+  false9: 'att',
+  trequartista: 'att',
+  targetman: 'att',
+  pressforward: 'att',
+  hb_keeper: 'gk',
+  hb_pivot: 'att',
+  hb_backcourt: 'mid',
+  hb_wing: 'att',
+  hb_center: 'mid',
+  hb_playmaker: 'mid',
+};

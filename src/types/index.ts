@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  TAKTIKKBOARD – Type-definisjoner (v6)
+//  TAKTIKKBOARD – Type-definisjoner (v6) – FM PRO EDITION
 // ═══════════════════════════════════════════════════════════════
 
 export type Sport = 'football' | 'football7' | 'football9' | 'handball';
@@ -39,6 +39,7 @@ export interface Player {
   isStarter?: boolean;
   specialRoles?: SpecialRole[];
   individualTraining?: string;
+  currentSlotId?: string;  // ← LEGG TIL DENNE
 }
 
 export interface Drawing {
@@ -125,6 +126,16 @@ export interface CoachMessage {
   fromCaptain?: boolean;
 }
 
+export interface ChatMessage {
+  id: string;
+  fromRole: 'coach' | 'player';
+  fromName: string;      // ← riktig navn (matcher storen)
+  content: string;
+  createdAt: string;
+  toPlayerId?: string;
+  fromCaptain?: boolean; // valgfritt, men finnes i storen
+}
+
 export interface PlayerReply {
   id: string;
   playerId: string;
@@ -190,4 +201,22 @@ export interface AppState {
   coachMessages: CoachMessage[];
   currentView: AppView;
   currentUser: { role: UserRole; playerId?: string; name: string; accountId?: string } | null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FM PRO TILLEGG – FORMASJONSSLOT & TAKTISKE MOMENTER
+// ═══════════════════════════════════════════════════════════════
+
+export interface FormationSlot {
+  id: string;
+  x: number;
+  y: number;
+  role: PlayerRole;
+}
+
+export interface TacticMoment {
+  id: string;
+  name: string;
+  timestamp: string;
+  snapshot: TacticPhase;
 }

@@ -8,7 +8,7 @@ import { VW, VH, getFormations, DEFAULT_FORMATION } from '../../data/formations'
 import { FootballPitch } from './pitches/FootballPitch';
 import { HandballPitch } from './pitches/HandballPitch';
 import { Ball, DrawingCanvas } from './BoardElements';
-import { ROLE_META } from '../../data/roleInfo';
+import { ROLE_META, ROLE_FAMILY } from '../../data/roleInfo';
 
 // ══════════════════════════════════════════════════════════════
 //  FM-STYLE TACTIC BOARD  v6 PRO MAX
@@ -76,17 +76,6 @@ const ROLE_PRIORITY: Record<string, number> = {
   playmaker: 7, hb_center: 7, hb_backcourt: 7, hb_playmaker: 7,
   winger: 8, hb_wing: 8, false9: 9, trequartista: 9,
   targetman: 9, pressforward: 9, forward: 10, hb_pivot: 10,
-};
-
-// Roller som "henger naturlig sammen" for out-of-position check
-const ROLE_FAMILY: Record<string, string> = {
-  keeper: 'gk', sweeper: 'gk',
-  defender: 'def', wingback: 'def', libero: 'def', sweeper_keeper: 'def',
-  midfielder: 'mid', box2box: 'mid', playmaker: 'mid', defensive_mid: 'mid',
-  winger: 'att', forward: 'att', false9: 'att', trequartista: 'att',
-  targetman: 'att', pressforward: 'att',
-  hb_keeper: 'gk', hb_pivot: 'att',
-  hb_backcourt: 'mid', hb_wing: 'att', hb_center: 'mid', hb_playmaker: 'mid',
 };
 
 const MIN_DIST_BASE = 48;

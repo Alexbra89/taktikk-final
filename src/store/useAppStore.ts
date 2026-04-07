@@ -5,9 +5,11 @@ import {
   CoachMessage, PlayerReply, AppView, Player, Drawing,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
   SubstitutionSuggestion, SpecialRole, PlayerRole,
+  TacticMoment
 } from '../types';
 import { makePhase } from '../data/formations';
 import { supabase } from '../lib/supabase';
+import { FormationSlot } from '../types';
 
 // ─── Debounced push for drag events – ØKT TID FOR BEDRE YTELSE ───
 let positionPushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -16,7 +18,6 @@ function debouncedPushPhases(phases: TacticPhase[]) {
   positionPushTimer = setTimeout(() => pushPhases(phases), 1200);
 }
 
-// 🔧 FIX: Debounced push for events – forhindrer at events blir slettet under generering
 let eventsPushTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingEvents: CalendarEvent[] = [];
 
@@ -83,7 +84,6 @@ function suggestSubstitutions(
 }
 
 // ─── Supabase helpers ─────────────────────────────────────────
-
 async function pushPhases(phases: TacticPhase[]) {
   try {
     const rows = phases.map((ph, i) => ({
@@ -120,8 +120,6 @@ async function pushEvents(events: CalendarEvent[]) {
       updated_at: new Date().toISOString(),
     }));
     if (rows.length) await supabase.from('events').upsert(rows, { onConflict: 'id' });
-    
-    // Slett events som ikke lenger finnes i listen (men kun etter debounce)
     const { data: existing } = await supabase.from('events').select('id');
     const currentIds = events.map(e => e.id);
     const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
@@ -172,8 +170,19 @@ async function pushCoachMessages(msgs: CoachMessage[]) {
   } catch (e) { console.warn('pushCoachMessages error', e); }
 }
 
-// ─── Load from Supabase ───────────────────────────────────────
+async function pushChatMessages(msgs: ChatMessage[]) {
+  try {
+    const rows = msgs.map(m => ({
+      id: m.id, from_role: m.fromRole, from_name: m.fromName,
+      content: m.content, to_player_id: m.toPlayerId ?? null,
+      from_captain: m.fromCaptain ?? false,
+      created_at: m.createdAt, updated_at: new Date().toISOString(),
+    }));
+    if (rows.length) await supabase.from('chat_messages').upsert(rows, { onConflict: 'id' });
+  } catch (e) { console.warn('pushChatMessages error', e); }
+}
 
+// ─── Load from Supabase ───────────────────────────────────────
 export async function loadFromSupabase(): Promise<Partial<{
   phases: TacticPhase[];
   events: CalendarEvent[];
@@ -282,7 +291,6 @@ export async function loadFromSupabase(): Promise<Partial<{
 }
 
 // ─── Realtime subscription ────────────────────────────────────
-
 export function subscribeToSupabase(onUpdate: () => void) {
   const channel = supabase
     .channel('taktikkboard-realtime')
@@ -335,7 +343,7 @@ interface AppStore {
   setActivePhaseIdx: (i: number) => void;
   addPhase: () => void;
   removePhase: (idx: number) => void;
-  updatePlayerPosition: (phaseIdx: number, playerId: string, pos: { x: number; y: number }) => void;
+  updatePlayerPosition: (phaseIdx: number, playerId: string, pos: { x: number; y: number }, slotId?: string) => void;
   updateBallPosition: (phaseIdx: number, pos: { x: number; y: number }) => void;
   updatePlayerField: (phaseIdx: number, playerId: string, fields: Partial<Player>) => void;
   addDrawing: (phaseIdx: number, drawing: Omit<Drawing, 'id'>) => void;
@@ -387,9 +395,15 @@ interface AppStore {
   deleteCoachMessage: (messageId: string) => void;
 
   syncFromSupabase: () => Promise<void>;
+
+  // 🎯 NYE FUNKSJONER
+  moments: TacticMoment[];
+  saveMoment: (phaseIdx: number, name: string) => void;
+  deleteMoment: (id: string) => void;
+  applyFormation: (phaseIdx: number, newSlots: FormationSlot[]) => void;
 }
 
-const useAppStore = create<AppStore>()(
+export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
       loading: false,
@@ -444,10 +458,21 @@ const useAppStore = create<AppStore>()(
 
       logout: () => set({ currentUser: null, currentView: 'board' }),
 
+      chatMessages: [],
+      sendChat: (fromRole, fromName, content, toPlayerId, fromCaptain) => {
+        const msg: ChatMessage = {
+          id: uid(), fromRole, fromName, content,
+          createdAt: new Date().toISOString(), toPlayerId, fromCaptain
+        };
+        set(s => ({ chatMessages: [...s.chatMessages, msg] }));
+        pushChatMessages(get().chatMessages);
+      },
+
       sport: 'football',
       ageGroup: 'adult',
       phases: [makePhase('Fase 1', 'football')],
       activePhaseIdx: 0,
+      moments: [],
 
       setSport: (s) => { set({ sport: s }); pushSettings({ sport: s }); },
       setAgeGroup: (age) => { set({ ageGroup: age }); pushSettings({ age_group: age }); },
@@ -471,12 +496,66 @@ const useAppStore = create<AppStore>()(
         pushPhases(newP);
       },
 
-      updatePlayerPosition: (phaseIdx, playerId, pos) => {
-        const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-          ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, position: pos } : p),
+      // 🎯 Formasjonslogikk med pushPhases
+      applyFormation: (phaseIdx, newSlots) => {
+        const { phases } = get();
+        const phase = phases[phaseIdx];
+        if (!phase) return;
+
+        const onField = phase.players.filter(p => p.isOnField);
+        const bench = phase.players.filter(p => !p.isOnField);
+
+        const updatedOnField = onField.map((player, index) => {
+          let bestSlot = newSlots.find(s => 
+            s.role === player.role && !onField.slice(0, index).some(p => p.currentSlotId === s.id)
+          );
+          if (!bestSlot) {
+            bestSlot = newSlots.find(s => !onField.slice(0, index).some(p => p.currentSlotId === s.id));
+          }
+          return {
+            ...player,
+            currentSlotId: bestSlot?.id,
+            position: bestSlot ? { x: bestSlot.x, y: bestSlot.y } : player.position
+          };
         });
+
+        const newPhases = [...phases];
+        newPhases[phaseIdx] = {
+          ...phase,
+          players: [...updatedOnField, ...bench]
+        };
+
         set({ phases: newPhases });
-        debouncedPushPhases(newPhases);
+        pushPhases(newPhases); // ✅ FIX 2: Lagrer til database
+      },
+
+      saveMoment: (phaseIdx, name) => {
+        const { phases, moments } = get();
+        const phaseToSave = phases[phaseIdx];
+        if (!phaseToSave) return;
+        const newMoment: TacticMoment = {
+          id: uid(),
+          name,
+          timestamp: new Date().toISOString(),
+          snapshot: JSON.parse(JSON.stringify(phaseToSave))
+        };
+        set({ moments: [newMoment, ...moments] });
+      },
+
+      deleteMoment: (id) => set(s => ({ moments: s.moments.filter(m => m.id !== id) })),
+
+      updatePlayerPosition: (phaseIdx, playerId, pos, slotId) => {
+        set((state) => {
+          const newPhases = [...state.phases];
+          newPhases[phaseIdx] = {
+            ...newPhases[phaseIdx],
+            players: newPhases[phaseIdx].players.map(p => 
+              p.id === playerId ? { ...p, position: pos, currentSlotId: slotId ?? p.currentSlotId } : p
+            )
+          };
+          debouncedPushPhases(newPhases);
+          return { phases: newPhases };
+        });
       },
 
       updateBallPosition: (phaseIdx, pos) => {
@@ -669,7 +748,6 @@ const useAppStore = create<AppStore>()(
       events: [],
       addEvent: (ev) => {
         const newEv = { id: uid(), ...ev };
-        console.log('🔵 addEvent - Legger til event:', newEv.title, newEv.date, newEv.id);
         set(s => ({ events: [...s.events, newEv] }));
         debouncedPushEvents(get().events);
       },
@@ -727,7 +805,6 @@ const useAppStore = create<AppStore>()(
           console.warn('E-post allerede i bruk');
           return false;
         }
-
         const newAcc = {
           id: uid(),
           ...acc,
@@ -762,75 +839,38 @@ const useAppStore = create<AppStore>()(
         })}));
         pushCoachMessages(get().coachMessages);
       },
-      deleteCoachMessage: (id) => {
-        set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== id) }));
+      deleteCoachMessage: (messageId) => {
+        set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== messageId) }));
         pushCoachMessages(get().coachMessages);
       },
 
-      chatMessages: [],
-      sendChat: async (fromRole, fromName, content, toPlayerId, fromCaptain = false) => {
-        const msg: ChatMessage = {
-          id: uid(), fromRole, fromName, content, toPlayerId, fromCaptain,
-          createdAt: new Date().toISOString(),
-        };
-        set(s => ({ chatMessages: [...s.chatMessages, msg] }));
-        try {
-          await supabase.from('chat_messages').insert({
-            id: msg.id, from_role: fromRole, from_name: fromName,
-            content, to_player_id: toPlayerId ?? null,
-            from_captain: fromCaptain,
-            created_at: msg.createdAt,
-          });
-        } catch (e) { console.warn('sendChat error', e); }
-      },
-
+      // ✅ FIX 1: syncFromSupabase med try-catch og loading reset
       syncFromSupabase: async () => {
-        const data = await loadFromSupabase();
-        if (Object.keys(data).length > 0) {
-          set(state => ({
-            ...state,
-            ...(data.sport !== undefined && { sport: data.sport }),
-            ...(data.ageGroup !== undefined && { ageGroup: data.ageGroup }),
-            ...(data.homeTeamName !== undefined && { homeTeamName: data.homeTeamName }),
-            ...(data.awayTeamName !== undefined && { awayTeamName: data.awayTeamName }),
-            ...(data.awayTeamColor !== undefined && { awayTeamColor: data.awayTeamColor }),
-            ...(data.coachEmail !== undefined && { coachEmail: data.coachEmail }),
-            ...(data.coachPassword !== undefined && { coachPassword: data.coachPassword }),
-            ...(data.refereePin !== undefined && { refereePin: data.refereePin }),
-            ...(data.events && data.events.length > 0 && { events: data.events }),
-            ...(data.phases && data.phases.length > 0 && { phases: data.phases }),
-            ...(data.playerAccounts && { playerAccounts: data.playerAccounts }),
-            ...(data.coachMessages && { coachMessages: data.coachMessages }),
-            ...(data.chatMessages && { chatMessages: data.chatMessages }),
-          }));
+        set({ loading: true });
+        try {
+          const data = await loadFromSupabase();
+          set(state => ({ ...state, ...data, loading: false }));
+        } catch (error) {
+          console.error('Sync failed:', error);
+          set({ loading: false });
         }
-      },
+      }
     }),
     {
-      name: 'taktikkboard-v7',
-      partialize: (s) => ({
-        sport: s.sport,
-        ageGroup: s.ageGroup,
-        phases: s.phases,
-        activePhaseIdx: s.activePhaseIdx,
-        events: s.events,
-        playerAccounts: s.playerAccounts,
-        coachMessages: s.coachMessages,
-        chatMessages: s.chatMessages,
-        coachEmail: s.coachEmail,
-        coachPassword: s.coachPassword,
-        refereePin: s.refereePin,
-        homeTeamName: s.homeTeamName,
-        awayTeamName: s.awayTeamName,
-        awayTeamColor: s.awayTeamColor,
-        matchReports: s.matchReports,
-      }),
+      name: 'taktikkboard-storage',
+      // ✅ FIX 3: moments lagres lokalt (valgfritt)
+      partialize: (state) => ({
+        moments: state.moments,
+        currentView: state.currentView,
+        sport: state.sport,
+        ageGroup: state.ageGroup,
+        homeTeamName: state.homeTeamName,
+        awayTeamName: state.awayTeamName,
+        awayTeamColor: state.awayTeamColor,
+        coachEmail: state.coachEmail,
+        coachPassword: state.coachPassword,
+        refereePin: state.refereePin,
+      })
     }
   )
 );
-
-export { useAppStore };
-export default useAppStore;
-
-export const toBaseSport = (s: Sport): Sport =>
-  s === 'football7' ? 'football' : s === 'football9' ? 'football' : s;
