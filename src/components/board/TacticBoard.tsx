@@ -4,119 +4,108 @@ import React, {
 } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Player, PlayerRole } from '../../types';
-import { VW, VH, getFormations, DEFAULT_FORMATION } from '../../data/formations';
+import {
+  VW, VH, getFormations, DEFAULT_FORMATION,
+} from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { HandballPitch } from './pitches/HandballPitch';
 import { Ball, DrawingCanvas } from './BoardElements';
 import { ROLE_META, ROLE_FAMILY } from '../../data/roleInfo';
 
 // ══════════════════════════════════════════════════════════════
-//  FM-STYLE TACTIC BOARD  v6 PRO MAX
-//  ─ 60fps RAF pointer drag (mobil + desktop unified)
-//  ─ Unified dragOverId state
-//  ─ Smart debounced auto-spacing (4 iter, kjøres kun ved fri drag)
-//  ─ Snap-to-formation-position
-//  ─ Substitutions PRO: bench / reserves / maks bytter
-//  ─ DragGhost med navn + rolle-badge + scale-in animasjon
-//  ─ Long-press (120ms) før drag på mobil
-//  ─ Undo/redo drag-history
-//  ─ Out-of-position highlight
-//  ─ TypeScript strict – ingen any i kjernekode
+//  TACTIC BOARD v8 – FM LOOK + GLASSMORPHISM
+//  ─ Unified drag system: pointer events (desktop + mobil)
+//  ─ INGEN HTML5 draggable – kun pointer capture for begge
+//  ─ FM-stil trøye-brikker, rolle-badges, glassmorphism UI
+//  ─ Slot-basert formasjonsbytte (rekkefølgebasert, ingen match)
+//  ─ Long-press 140ms på mobil, direkte drag på desktop
+//  ─ Collapsible innbytter-panel (desktop) / bottom sheet (mobil)
+//  ─ Tactic Moments
+//  ─ Undo/redo Ctrl+Z / Ctrl+Y
+//  ─ Auto-spacing, snap, glassmorphism effekter
 // ══════════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────────────────────
-//  TYPER
-// ─────────────────────────────────────────────────────────────
+// ─── TYPER ────────────────────────────────────────────────────
 interface TacticBoardProps {
   selectedPlayerId: string | null;
-  onSelectPlayer: (id: string | null) => void;
+  onSelectPlayer:   (id: string | null) => void;
   isTrainingMatch?: boolean;
-  maxSubstitutions?: number; // standard 5 i kamp
+  maxSubstitutions?: number;
 }
 
-interface DragState {
-  playerId: string;
-  fromSub: boolean;
-  startClientX: number;
-  startClientY: number;
-  isDragging: boolean;
+interface ActiveDrag {
+  playerId:      string;
+  fromSub:       boolean;
+  pointerId:     number;
+  startClientX:  number;
+  startClientY:  number;
+  started:       boolean;
   longPressReady: boolean;
+  isTouch:       boolean;
 }
 
-interface GhostState {
-  svgX: number;
-  svgY: number;
-  scaleIn: boolean;
-}
+interface GhostPos { x: number; y: number; scaleIn: boolean }
 
 interface UndoEntry {
-  playerId: string;
-  prevPosition: { x: number; y: number };
+  playerId:      string;
+  prevPos:       { x: number; y: number };
   prevIsStarter: boolean | undefined;
-  prevRole: string;
+  prevRole:      string;
 }
 
+interface TacticMoment { id: string; label: string; snapshot: string; at: string }
 interface SvgPos { x: number; y: number }
 
-// ─────────────────────────────────────────────────────────────
-//  KONSTANTER
-// ─────────────────────────────────────────────────────────────
+// ─── KONSTANTER ───────────────────────────────────────────────
 const ROLE_SHORT: Record<string, string> = {
-  keeper: 'KV', defender: 'FS', wingback: 'VB', sweeper: 'SV',
-  midfielder: 'MB', box2box: 'BBM', playmaker: 'PM', winger: 'KANT',
-  forward: 'ANG', false9: 'F9', trequartista: 'TQ', targetman: 'TM',
-  pressforward: 'PF', libero: 'LIB',
-  hb_keeper: 'KV', hb_pivot: 'PVT', hb_backcourt: 'BP',
-  hb_wing: 'FL', hb_center: 'MB', hb_playmaker: 'PM',
+  keeper:'KV', defender:'FS', wingback:'VB', sweeper:'SV',
+  midfielder:'MB', box2box:'BBM', playmaker:'PM', winger:'KANT',
+  forward:'ANG', false9:'F9', trequartista:'TQ', targetman:'TM',
+  pressforward:'PF', libero:'LIB',
+  hb_keeper:'KV', hb_pivot:'PVT', hb_backcourt:'BP',
+  hb_wing:'FL', hb_center:'MB', hb_playmaker:'PM',
 };
 
-const ROLE_PRIORITY: Record<string, number> = {
-  keeper: 0, hb_keeper: 0, sweeper: 1, libero: 1, defender: 2,
-  wingback: 3, defensive_mid: 4, box2box: 5, midfielder: 6,
-  playmaker: 7, hb_center: 7, hb_backcourt: 7, hb_playmaker: 7,
-  winger: 8, hb_wing: 8, false9: 9, trequartista: 9,
-  targetman: 9, pressforward: 9, forward: 10, hb_pivot: 10,
+const MIN_DIST    = 46;
+const SNAP_R      = 38;
+const LONG_PRESS  = 140;
+const DRAG_THRESH = 6;
+const MAX_UNDO    = 25;
+
+const GLASS = {
+  panel:  'rgba(8, 15, 35, 0.75)',
+  border: 'rgba(56, 189, 248, 0.12)',
+  hover:  'rgba(56, 189, 248, 0.07)',
+  active: 'rgba(56, 189, 248, 0.15)',
 };
 
-const MIN_DIST_BASE = 48;
-const SNAP_RADIUS   = 38;
-const LONG_PRESS_MS = 120;
-const MAX_UNDO      = 20;
-
-function getDutyColors(role: string): { bg: string; text: string } {
-  if (['keeper', 'hb_keeper'].includes(role))                              return { bg: '#1a3a5c', text: '#7dd3fc' };
-  if (['defender', 'sweeper', 'libero'].includes(role))                    return { bg: '#1a3a5c', text: '#93c5fd' };
-  if (['wingback'].includes(role))                                         return { bg: '#163a2a', text: '#6ee7b7' };
-  if (['midfielder','playmaker','box2box','hb_center','hb_playmaker','hb_backcourt'].includes(role)) return { bg: '#1e2a1a', text: '#86efac' };
-  if (['forward','targetman','pressforward','false9','trequartista'].includes(role))                 return { bg: '#2a1a1a', text: '#fca5a5' };
-  if (['winger','hb_wing'].includes(role))                                 return { bg: '#2a1520', text: '#f9a8d4' };
-  if (['hb_pivot'].includes(role))                                         return { bg: '#2a1a3a', text: '#c4b5fd' };
-  return { bg: '#1e2a1a', text: '#86efac' };
+function getDutyColors(role: string): { bg: string; text: string; glow: string } {
+  if (['keeper','hb_keeper'].includes(role)) return { bg:'rgba(26,58,92,0.85)', text:'#7dd3fc', glow:'rgba(125,211,252,0.3)' };
+  if (['defender','sweeper','libero'].includes(role)) return { bg:'rgba(26,58,92,0.85)', text:'#93c5fd', glow:'rgba(147,197,253,0.3)' };
+  if (['wingback'].includes(role)) return { bg:'rgba(22,58,42,0.85)', text:'#6ee7b7', glow:'rgba(110,231,183,0.3)' };
+  if (['midfielder','playmaker','box2box','hb_center','hb_playmaker','hb_backcourt'].includes(role)) return { bg:'rgba(30,42,26,0.85)', text:'#86efac', glow:'rgba(134,239,172,0.3)' };
+  if (['forward','targetman','pressforward','false9','trequartista'].includes(role)) return { bg:'rgba(42,26,26,0.85)', text:'#fca5a5', glow:'rgba(252,165,165,0.3)' };
+  if (['winger','hb_wing'].includes(role)) return { bg:'rgba(42,21,32,0.85)', text:'#f9a8d4', glow:'rgba(249,168,212,0.3)' };
+  if (['hb_pivot'].includes(role)) return { bg:'rgba(42,26,58,0.85)', text:'#c4b5fd', glow:'rgba(196,181,253,0.3)' };
+  return { bg:'rgba(30,42,26,0.85)', text:'#86efac', glow:'rgba(134,239,172,0.3)' };
 }
 
-// ─────────────────────────────────────────────────────────────
-//  AUTO-SPACING (4 iter, gentle push)
-// ─────────────────────────────────────────────────────────────
-function separatePlayers(
-  players: SvgPos[],
-  minDist: number = MIN_DIST_BASE,
-): SvgPos[] {
-  const r = players.map(p => ({ ...p }));
+// ─── AUTO-SPACING ─────────────────────────────────────────────
+function separatePlayers(pts: SvgPos[], minDist = MIN_DIST): SvgPos[] {
+  const r = pts.map(p => ({ ...p }));
   for (let it = 0; it < 4; it++) {
     for (let i = 0; i < r.length; i++) {
       for (let j = i + 1; j < r.length; j++) {
-        const dx = r[j].x - r[i].x;
-        const dy = r[j].y - r[i].y;
-        const d  = Math.hypot(dx, dy);
+        const dx = r[j].x - r[i].x, dy = r[j].y - r[i].y;
+        const d = Math.hypot(dx, dy);
         if (d < minDist && d > 0.01) {
-          const push = (minDist - d) * 0.4; // mykere push enn v5
-          const nx = dx / d, ny = dy / d;
-          r[i].x -= nx * push; r[i].y -= ny * push;
-          r[j].x += nx * push; r[j].y += ny * push;
-          r[i].x = Math.max(45, Math.min(VW - 45, r[i].x));
-          r[i].y = Math.max(45, Math.min(VH - 45, r[i].y));
-          r[j].x = Math.max(45, Math.min(VW - 45, r[j].x));
-          r[j].y = Math.max(45, Math.min(VH - 45, r[j].y));
+          const push = (minDist - d) * 0.38, nx = dx / d, ny = dy / d;
+          r[i].x -= nx*push; r[i].y -= ny*push;
+          r[j].x += nx*push; r[j].y += ny*push;
+          r[i].x = Math.max(44, Math.min(VW-44, r[i].x));
+          r[i].y = Math.max(44, Math.min(VH-44, r[i].y));
+          r[j].x = Math.max(44, Math.min(VW-44, r[j].x));
+          r[j].y = Math.max(44, Math.min(VH-44, r[j].y));
         }
       }
     }
@@ -124,263 +113,251 @@ function separatePlayers(
   return r;
 }
 
-// ─────────────────────────────────────────────────────────────
-//  SNAP-TO-FORMATION
-// ─────────────────────────────────────────────────────────────
-function getNearestFormationPosition(
+function nearestSlotPos(
   pos: SvgPos,
-  formationPositions: SvgPos[],
-  radius: number = SNAP_RADIUS,
+  slots: { position: { x: number; y: number } }[],
+  r = SNAP_R
 ): SvgPos | null {
-  let best: SvgPos | null = null;
-  let bestDist = radius;
-  for (const fp of formationPositions) {
-    const d = Math.hypot(fp.x - pos.x, fp.y - pos.y);
-    if (d < bestDist) { bestDist = d; best = fp; }
+  let best: SvgPos | null = null, bestD = r;
+  for (const s of slots) {
+    const d = Math.hypot(s.position.x - pos.x, s.position.y - pos.y);
+    if (d < bestD) { bestD = d; best = s.position; }
   }
   return best;
 }
 
 // ══════════════════════════════════════════════════════════════
-//  SVG SUB-KOMPONENTER
+//  SVG-KOMPONENTER
 // ══════════════════════════════════════════════════════════════
 
-// ── Trøye + spesialroller ─────────────────────────────────
-interface JerseyIconProps {
-  x: number; y: number; num: number; color: string;
-  selected: boolean; injured: boolean; specialRoles: string[];
-  isDragging: boolean; isOutOfPosition: boolean;
-  dragOverSelf: boolean;
-}
-const JerseyIcon = React.memo<JerseyIconProps>(({
-  x, y, num, color, selected, injured, specialRoles,
-  isDragging, isOutOfPosition, dragOverSelf,
-}) => {
-  const w = 38, h = 34, sh = 9, nw = 10, nh = 5;
-  const tx = x - w / 2, ty = y - h / 2;
+const JerseyIcon = React.memo<{
+  x:number; y:number; num:number; color:string;
+  selected:boolean; injured:boolean; specialRoles:string[];
+  isDragging:boolean; isTarget:boolean; isOutOfPos:boolean;
+}>(({ x,y,num,color,selected,injured,specialRoles,isDragging,isTarget,isOutOfPos }) => {
+  const w=38, h=34, sh=9, nw=10, nh=5, tx=x-w/2, ty=y-h/2;
   return (
-    <g opacity={isDragging ? 0.38 : 1} style={{ transition: 'opacity 0.12s ease' }}>
-      {/* Out-of-position subtle orange glow */}
-      {isOutOfPosition && !selected && (
-        <circle cx={x} cy={y} r={30} fill="#f97316" opacity={0.1} />
-      )}
-      {/* Selection glow */}
+    <g opacity={isDragging ? 0.32 : 1} style={{ transition:'opacity 0.1s' }}>
       {selected && (
         <>
-          <circle cx={x} cy={y} r={35} fill={color} opacity={0.13} />
-          <circle cx={x} cy={y} r={28} fill="none"
-            stroke="#38bdf8" strokeWidth={2.5} strokeDasharray="5,3" opacity={0.95} />
+          <circle cx={x} cy={y} r={38} fill={color} opacity={0.08}/>
+          <circle cx={x} cy={y} r={31} fill="none" stroke="#38bdf8"
+            strokeWidth={2} strokeDasharray="6,3" opacity={0.9}/>
+          <path d={`M ${x-20},${y-26} A 26,26 0 0,1 ${x+20},${y-26}`}
+            fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} strokeLinecap="round"/>
         </>
       )}
-      {/* Hover ring from external drag */}
-      {dragOverSelf && !selected && (
-        <circle cx={x} cy={y} r={30} fill="none"
-          stroke="#fbbf24" strokeWidth={2} opacity={0.7} />
+      {isTarget && !selected && (
+        <circle cx={x} cy={y} r={32} fill="rgba(251,191,36,0.08)"
+          stroke="#fbbf24" strokeWidth={1.8} opacity={0.85}/>
       )}
-      {/* Jersey body */}
-      <path
-        d={`M ${tx+nw},${ty} L ${tx},${ty+sh} L ${tx+6},${ty+sh+4}
-            L ${tx+6},${ty+h} L ${tx+w-6},${ty+h}
-            L ${tx+w-6},${ty+sh+4} L ${tx+w},${ty+sh}
-            L ${tx+w-nw},${ty} Q ${x},${ty-nh} ${tx+nw},${ty} Z`}
-        fill={injured ? '#475569' : color}
-        stroke={selected ? '#38bdf8' : isOutOfPosition ? '#f97316' : 'rgba(255,255,255,0.2)'}
-        strokeWidth={selected ? 1.8 : isOutOfPosition ? 1.2 : 0.8}
+      {isOutOfPos && !selected && (
+        <circle cx={x} cy={y} r={28} fill="#f97316" opacity={0.08}/>
+      )}
+      <path d={`M ${tx+nw},${ty} L ${tx},${ty+sh} L ${tx+6},${ty+sh+4}
+          L ${tx+6},${ty+h} L ${tx+w-6},${ty+h}
+          L ${tx+w-6},${ty+sh+4} L ${tx+w},${ty+sh}
+          L ${tx+w-nw},${ty} Q ${x},${ty-nh} ${tx+nw},${ty} Z`}
+        fill={injured ? '#334155' : color}
+        stroke={selected ? '#38bdf8' : isOutOfPos ? '#f97316' : 'rgba(255,255,255,0.18)'}
+        strokeWidth={selected ? 1.6 : 0.7}
         filter="url(#jerseyDrop)"
       />
-      {/* Number */}
-      <text x={x} y={y + 4} textAnchor="middle" dominantBaseline="middle"
-        fill="white" fontSize={13} fontWeight="900"
-        fontFamily="system-ui, sans-serif"
-        paintOrder="stroke" stroke="rgba(0,0,0,0.55)" strokeWidth={2.5}
-        style={{ pointerEvents: 'none' }}>
-        {num}
-      </text>
-      {/* Badge icons */}
-      {injured    && <text x={x+15} y={y-13} fontSize={11} style={{ pointerEvents: 'none' }}>🩹</text>}
-      {specialRoles.includes('captain')  && <text x={x-19} y={y-13} fontSize={11} style={{ pointerEvents: 'none' }}>🪖</text>}
-      {specialRoles.includes('freekick') && !specialRoles.includes('penalty') && <text x={x+15} y={y-13} fontSize={10} style={{ pointerEvents: 'none' }}>⚡</text>}
-      {specialRoles.includes('penalty')  && <text x={x+15} y={y-13} fontSize={10} style={{ pointerEvents: 'none' }}>🎯</text>}
-      {specialRoles.includes('corner')   && <text x={x+15} y={y-1}  fontSize={9}  style={{ pointerEvents: 'none' }}>📍</text>}
+      <path d={`M ${tx+nw+2},${ty+1} L ${tx+2},${ty+sh-1} L ${tx+7},${ty+sh+3} L ${tx+7},${ty+h*0.45} Q ${x},${ty-nh+4} ${tx+w-nw-2},${ty+1} Z`}
+        fill="rgba(255,255,255,0.07)" style={{pointerEvents:'none'}}/>
+      <text x={x} y={y+4} textAnchor="middle" dominantBaseline="middle"
+        fill="white" fontSize={13} fontWeight="900" fontFamily="system-ui,sans-serif"
+        paintOrder="stroke" stroke="rgba(0,0,0,0.6)" strokeWidth={2.5}
+        style={{pointerEvents:'none'}}>{num}</text>
+      {injured && <text x={x+16} y={y-13} fontSize={11} style={{pointerEvents:'none'}}>🩹</text>}
+      {specialRoles.includes('captain') && <text x={x-20} y={y-13} fontSize={11} style={{pointerEvents:'none'}}>🪖</text>}
+      {specialRoles.includes('penalty') && <text x={x+16} y={y-13} fontSize={10} style={{pointerEvents:'none'}}>🎯</text>}
+      {specialRoles.includes('freekick') && !specialRoles.includes('penalty') && <text x={x+16} y={y-13} fontSize={10} style={{pointerEvents:'none'}}>⚡</text>}
+      {specialRoles.includes('corner') && <text x={x+16} y={y-1} fontSize={9} style={{pointerEvents:'none'}}>📍</text>}
     </g>
   );
 });
 JerseyIcon.displayName = 'JerseyIcon';
 
-// ── Rolle-badge ────────────────────────────────────────────
-const RoleBadge = React.memo<{ x: number; y: number; role: string }>(({ x, y, role }) => {
-  const short = ROLE_SHORT[role] ?? role.slice(0, 5).toUpperCase();
-  const { bg, text } = getDutyColors(role);
+const RoleBadge = React.memo<{x:number;y:number;role:string}>(({ x,y,role }) => {
+  const short = ROLE_SHORT[role] ?? role.slice(0,5).toUpperCase();
+  const {bg, text, glow} = getDutyColors(role);
   return (
-    <g style={{ pointerEvents: 'none' }}>
+    <g style={{pointerEvents:'none'}}>
+      <rect x={x-34} y={y+1} width={68} height={14} rx={5}
+        fill={glow} opacity={0.5} style={{filter:'blur(3px)'}}/>
       <rect x={x-34} y={y} width={68} height={15} rx={4}
-        fill={bg} stroke={text} strokeWidth={0.5} opacity={0.95} />
+        fill={bg} stroke={text} strokeWidth={0.5} opacity={0.92}/>
+      <rect x={x-33} y={y+0.5} width={66} height={6} rx={3.5}
+        fill="rgba(255,255,255,0.06)" style={{pointerEvents:'none'}}/>
       <text x={x} y={y+8.5} textAnchor="middle" dominantBaseline="middle"
         fill={text} fontSize={8} fontWeight="700"
-        fontFamily="system-ui, sans-serif" letterSpacing="0.06em">
-        {short}
-      </text>
+        fontFamily="system-ui,sans-serif" letterSpacing="0.07em">{short}</text>
     </g>
   );
 });
 RoleBadge.displayName = 'RoleBadge';
 
-// ── Navn-label ────────────────────────────────────────────
-const NameLabel = React.memo<{ x: number; y: number; name: string }>(({ x, y, name }) => (
+const NameLabel = React.memo<{x:number;y:number;name:string}>(({ x,y,name }) => (
   <text x={x} y={y} textAnchor="middle" dominantBaseline="middle"
-    fill="white" fontSize={9} fontWeight="600"
-    fontFamily="system-ui, sans-serif"
-    paintOrder="stroke" stroke="rgba(0,0,0,0.9)" strokeWidth={3}
-    style={{ pointerEvents: 'none' }}>
-    {name.length > 12 ? name.slice(0, 12) + '…' : name}
+    fill="rgba(255,255,255,0.92)" fontSize={9} fontWeight="600"
+    fontFamily="system-ui,sans-serif"
+    paintOrder="stroke" stroke="rgba(0,0,0,0.85)" strokeWidth={3}
+    style={{pointerEvents:'none'}}>
+    {name.length>12 ? name.slice(0,12)+'…' : name}
   </text>
 ));
 NameLabel.displayName = 'NameLabel';
 
-// ── Kondisjonsprikk ───────────────────────────────────────
-const ConditionDot = React.memo<{ x: number; y: number; condition: number }>(({ x, y, condition }) => {
-  const color = condition > 80 ? '#22c55e' : condition > 60 ? '#f59e0b' : '#ef4444';
+const ConditionDot = React.memo<{x:number;y:number;condition:number}>(({ x,y,condition }) => {
+  const color = condition>80?'#22c55e':condition>60?'#f59e0b':'#ef4444';
   return (
-    <g style={{ pointerEvents: 'none' }}>
-      <circle cx={x+21} cy={y-17} r={5}   fill="#090e1a" />
-      <circle cx={x+21} cy={y-17} r={3.5} fill={color} />
+    <g style={{pointerEvents:'none'}}>
+      <circle cx={x+22} cy={y-18} r={6} fill={color} opacity={0.25} style={{filter:'blur(2px)'}}/>
+      <circle cx={x+22} cy={y-18} r={4.5} fill="#0a0f1e"/>
+      <circle cx={x+22} cy={y-18} r={3} fill={color}/>
+      <circle cx={x+21} cy={y-19} r={1} fill="rgba(255,255,255,0.5)"/>
     </g>
   );
 });
 ConditionDot.displayName = 'ConditionDot';
 
-// ── Lån-badge ─────────────────────────────────────────────
-const LoanBadge = React.memo<{ x: number; y: number }>(({ x, y }) => (
-  <g style={{ pointerEvents: 'none' }}>
-    <rect x={x-15} y={y} width={30} height={11} rx={3}
-      fill="#78350f" stroke="#fbbf24" strokeWidth={0.6} opacity={0.92} />
-    <text x={x} y={y+6} textAnchor="middle" dominantBaseline="middle"
-      fill="#fbbf24" fontSize={7} fontWeight="800"
-      fontFamily="system-ui, sans-serif" letterSpacing="0.05em">LÅN</text>
-  </g>
-));
-LoanBadge.displayName = 'LoanBadge';
-
-// ── Swap-overlegg ─────────────────────────────────────────
-const SwapOverlay = React.memo<{ x: number; y: number }>(({ x, y }) => (
-  <g style={{ pointerEvents: 'none' }}>
-    <circle cx={x} cy={y} r={39}
-      fill="rgba(251,191,36,0.1)" stroke="#fbbf24"
-      strokeWidth={2.5} strokeDasharray="7,4" opacity={0.95} />
-    <circle cx={x} cy={y} r={15} fill="rgba(251,191,36,0.22)" />
+const SwapOverlay = React.memo<{x:number;y:number}>(({ x,y }) => (
+  <g style={{pointerEvents:'none'}}>
+    <circle cx={x} cy={y} r={40}
+      fill="rgba(251,191,36,0.06)" stroke="#fbbf24"
+      strokeWidth={2} strokeDasharray="8,4" opacity={0.9}/>
+    <circle cx={x} cy={y} r={16} fill="rgba(251,191,36,0.18)"/>
+    <circle cx={x} cy={y} r={15} fill="none"
+      stroke="rgba(255,255,255,0.12)" strokeWidth={1}/>
     <text x={x} y={y+1.5} textAnchor="middle" dominantBaseline="middle"
-      fontSize={15} fill="#fbbf24" fontWeight="bold">⇄</text>
-    <text x={x} y={y-49} textAnchor="middle"
-      fontSize={9} fill="#fbbf24" fontWeight="800"
+      fontSize={16} fill="#fbbf24" fontWeight="bold">⇄</text>
+    <text x={x} y={y-52} textAnchor="middle" fontSize={9} fill="#fbbf24" fontWeight="800"
       paintOrder="stroke" stroke="rgba(0,0,0,0.9)" strokeWidth={2.5}>BYTT</text>
   </g>
 ));
 SwapOverlay.displayName = 'SwapOverlay';
 
-// ── Drag ghost (forbedret: navn + badge + scale-in) ────────
-interface DragGhostProps {
-  x: number; y: number; color: string;
-  num: number; name: string; role: string; scaleIn: boolean;
-}
-const DragGhost = React.memo<DragGhostProps>(({ x, y, color, num, name, role, scaleIn }) => {
-  const { text } = getDutyColors(role);
-  const short = ROLE_SHORT[role] ?? role.slice(0, 4).toUpperCase();
-  const scale = scaleIn ? 1.05 : 1;
+const DragGhost = React.memo<{x:number;y:number;color:string;num:number;name:string;role:string;scaleIn:boolean}>(
+({ x,y,color,num,name,role,scaleIn }) => {
+  const {text} = getDutyColors(role);
+  const short = ROLE_SHORT[role] ?? role.slice(0,4).toUpperCase();
   return (
-    <g style={{ pointerEvents: 'none' }} opacity={0.82}
-      transform={`translate(${x},${y}) scale(${scale})`}>
-      {/* Pulserende ytre ring */}
-      <circle r={32} fill="none" stroke="rgba(255,255,255,0.25)"
-        strokeWidth={1.5} strokeDasharray="4,3" />
-      {/* Trøye-sirkel */}
-      <circle r={22} fill={color} stroke="rgba(255,255,255,0.55)"
-        strokeWidth={2} filter="url(#jerseyDrop)" />
-      {/* Nummer */}
-      <text textAnchor="middle" dominantBaseline="middle"
-        fill="white" fontSize={13} fontWeight="900"
-        fontFamily="system-ui, sans-serif"
-        paintOrder="stroke" stroke="rgba(0,0,0,0.6)" strokeWidth={2.5}>
-        {num}
-      </text>
-      {/* Rolle-badge */}
-      <rect x={-22} y={25} width={44} height={13} rx={3}
-        fill="rgba(0,0,0,0.7)" stroke={text} strokeWidth={0.5} />
-      <text x={0} y={32} textAnchor="middle" dominantBaseline="middle"
+    <g style={{pointerEvents:'none'}} opacity={0.85}
+      transform={`translate(${x},${y}) scale(${scaleIn?1.08:1})`}>
+      <circle r={34} fill="none" stroke={color} strokeWidth={1} opacity={0.3} style={{filter:'blur(4px)'}}/>
+      <circle r={32} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} strokeDasharray="5,3"/>
+      <circle r={22} fill={color} stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} filter="url(#jerseyDrop)"/>
+      <path d="M -14,-16 A 18,18 0 0,1 14,-16" fill="none"
+        stroke="rgba(255,255,255,0.4)" strokeWidth={2} strokeLinecap="round"/>
+      <text textAnchor="middle" dominantBaseline="middle" fill="white" fontSize={13} fontWeight="900"
+        fontFamily="system-ui,sans-serif" paintOrder="stroke" stroke="rgba(0,0,0,0.6)" strokeWidth={2.5}>{num}</text>
+      <rect x={-23} y={25} width={46} height={14} rx={3}
+        fill="rgba(0,0,0,0.65)" stroke={text} strokeWidth={0.5}/>
+      <rect x={-22} y={25.5} width={44} height={6} rx={2.5}
+        fill="rgba(255,255,255,0.05)"/>
+      <text x={0} y={33} textAnchor="middle" dominantBaseline="middle"
         fill={text} fontSize={7.5} fontWeight="700"
-        fontFamily="system-ui, sans-serif" letterSpacing="0.04em">
-        {short}
-      </text>
-      {/* Navn */}
-      <text x={0} y={46} textAnchor="middle" dominantBaseline="middle"
-        fill="white" fontSize={8} fontWeight="600"
-        fontFamily="system-ui, sans-serif"
-        paintOrder="stroke" stroke="rgba(0,0,0,0.9)" strokeWidth={2.5}>
-        {name.length > 10 ? name.slice(0, 10) + '…' : name}
-      </text>
+        fontFamily="system-ui,sans-serif" letterSpacing="0.05em">{short}</text>
+      <text x={0} y={47} textAnchor="middle" dominantBaseline="middle"
+        fill="rgba(255,255,255,0.9)" fontSize={8} fontWeight="600"
+        fontFamily="system-ui,sans-serif" paintOrder="stroke"
+        stroke="rgba(0,0,0,0.85)" strokeWidth={2.5}>
+        {name.length>10?name.slice(0,10)+'…':name}</text>
     </g>
   );
 });
 DragGhost.displayName = 'DragGhost';
 
-// ── Snap-indicator (liten grønn ring der spilleren vil snappe) ─
-const SnapIndicator = React.memo<{ x: number; y: number }>(({ x, y }) => (
-  <g style={{ pointerEvents: 'none' }}>
-    <circle cx={x} cy={y} r={22} fill="rgba(34,197,94,0.1)"
-      stroke="#22c55e" strokeWidth={2} strokeDasharray="5,3" opacity={0.8} />
-    <circle cx={x} cy={y} r={4} fill="#22c55e" opacity={0.7} />
+const SnapIndicator = React.memo<{x:number;y:number}>(({ x,y }) => (
+  <g style={{pointerEvents:'none'}}>
+    <circle cx={x} cy={y} r={24} fill="rgba(34,197,94,0.08)"
+      stroke="#22c55e" strokeWidth={1.5} strokeDasharray="5,3" opacity={0.9}/>
+    <circle cx={x} cy={y} r={5} fill="#22c55e" opacity={0.6}/>
+    <circle cx={x} cy={y} r={3} fill="rgba(255,255,255,0.5)"/>
   </g>
 ));
 SnapIndicator.displayName = 'SnapIndicator';
+
+const LoanBadge = React.memo<{x:number;y:number}>(({ x,y }) => (
+  <g style={{pointerEvents:'none'}}>
+    <rect x={x-16} y={y} width={32} height={12} rx={3}
+      fill="rgba(120,53,15,0.9)" stroke="#fbbf24" strokeWidth={0.6}/>
+    <text x={x} y={y+6.5} textAnchor="middle" dominantBaseline="middle"
+      fill="#fbbf24" fontSize={7} fontWeight="800"
+      fontFamily="system-ui,sans-serif" letterSpacing="0.06em">LÅN</text>
+  </g>
+));
+LoanBadge.displayName = 'LoanBadge';
+
+const SvgDefs: React.FC = () => (
+  <defs>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.5"/>
+    </filter>
+    <filter id="jerseyDrop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" floodOpacity="0.7"/>
+    </filter>
+    <filter id="glowBlue">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
+      <rect width="50" height="50" fill="#1a5c28"/>
+      <rect width="50" height="25" fill="#1c6229"/>
+    </pattern>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="60%" stopColor="transparent"/>
+      <stop offset="100%" stopColor="rgba(0,0,0,0.35)"/>
+    </radialGradient>
+  </defs>
+);
 
 // ══════════════════════════════════════════════════════════════
 //  HOVED-KOMPONENT
 // ══════════════════════════════════════════════════════════════
 export const TacticBoard: React.FC<TacticBoardProps> = ({
-  selectedPlayerId,
-  onSelectPlayer,
+  selectedPlayerId, onSelectPlayer,
   isTrainingMatch = false,
   maxSubstitutions = 5,
 }) => {
-  const svgRef  = useRef<SVGSVGElement>(null);
-  const drawPts = useRef<SvgPos[]>([]);
-  const isDrawing = useRef(false);
-  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const playRef   = useRef({ from: 0, t: 0 });
-  const stickyDebRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const formationDebRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const spacingDebRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rafRef           = useRef<number | null>(null);
-  const longPressRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const svgRef        = useRef<SVGSVGElement>(null);
+  const drawPts       = useRef<SvgPos[]>([]);
+  const isDrawingRef  = useRef(false);
+  const timerRef      = useRef<ReturnType<typeof setInterval>|null>(null);
+  const playRef       = useRef({ from:0, t:0 });
+  const spacingDebRef = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const stickyDebRef  = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const longPressRef  = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const rafRef        = useRef<number|null>(null);
+  const undoStack     = useRef<UndoEntry[]>([]);
+  const redoStack     = useRef<UndoEntry[]>([]);
 
-  // ── Drag state (unified) ───────────────────────────────
-  const dragStateRef  = useRef<DragState | null>(null);
-  const [dragOverId, setDragOverId]   = useState<string | null>(null);
-  const [dragFromSub, setDragFromSub] = useState(false);
-  const [ghostState, setGhostState]   = useState<GhostState | null>(null);
-  const [snapTarget, setSnapTarget]   = useState<SvgPos | null>(null);
-  const [bounceId, setBounceId]       = useState<string | null>(null); // for drop bounce
+  const activeDragRef = useRef<ActiveDrag|null>(null);
 
-  // ── Undo/redo ─────────────────────────────────────────
-  const undoStack = useRef<UndoEntry[]>([]);
-  const redoStack = useRef<UndoEntry[]>([]);
-
-  // ── Substitution tracking ──────────────────────────────
-  const [substitutionsMade, setSubstitutionsMade] = useState(0);
-
-  // ── Other state ───────────────────────────────────────
-  const [localStickyNote, setLocalStickyNote] = useState('');
-  const [drawMode, setDrawMode]     = useState(false);
-  const [drawColor, setDrawColor]   = useState('#f87171');
-  const [isPlaying, setIsPlaying]   = useState(false);
-  const [playSpeed, setPlaySpeed]   = useState(1);
-  const [interpFrom, setInterpFrom] = useState(0);
-  const [interpT, setInterpT]       = useState(0);
-  const [liveDrawPts, setLiveDrawPts] = useState<SvgPos[]>([]);
-  const [showSticky, setShowSticky]   = useState(false);
-  const [selectedFormation, setSelectedFormation] = useState('');
-  // Desktop drag state (separate from touch)
-  const [desktopDragId, setDesktopDragId]   = useState<string | null>(null);
-  const [desktopFromSub, setDesktopFromSub] = useState(false);
+  const [ghostPos,          setGhostPos]          = useState<GhostPos|null>(null);
+  const [snapTarget,        setSnapTarget]         = useState<SvgPos|null>(null);
+  const [dragOverId,        setDragOverId]         = useState<string|null>(null);
+  const [draggingPlayerId,  setDraggingPlayerId]   = useState<string|null>(null);
+  const [dragFromSub,       setDragFromSub]        = useState(false);
+  const [bounceId,          setBounceId]           = useState<string|null>(null);
+  const [localStickyNote,   setLocalStickyNote]    = useState('');
+  const [drawMode,          setDrawMode]           = useState(false);
+  const [drawColor,         setDrawColor]          = useState('#f87171');
+  const [isPlaying,         setIsPlaying]          = useState(false);
+  const [playSpeed,         setPlaySpeed]          = useState(1);
+  const [interpFrom,        setInterpFrom]         = useState(0);
+  const [interpT,           setInterpT]            = useState(0);
+  const [liveDrawPts,       setLiveDrawPts]        = useState<SvgPos[]>([]);
+  const [showSticky,        setShowSticky]         = useState(false);
+  const [selectedFormation, setSelectedFormation]  = useState('');
+  const [subPanelOpen,      setSubPanelOpen]       = useState(true);
+  const [showBottomSheet,   setShowBottomSheet]    = useState(false);
+  const [isMobile,          setIsMobile]           = useState(false);
+  const [substitutions,     setSubstitutions]      = useState(0);
+  const [moments,           setMoments]            = useState<TacticMoment[]>([]);
+  const [showMoments,       setShowMoments]        = useState(false);
+  const [momentLabel,       setMomentLabel]        = useState('');
 
   const {
     sport, phases, activePhaseIdx,
@@ -392,694 +369,592 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const phase = phases[activePhaseIdx];
 
-  const availableFormations = useMemo(() =>
-    getFormations(sport === 'football7' ? 'football7' : sport === 'football9' ? 'football9' : sport),
-    [sport],
-  );
-  const defaultFormation = DEFAULT_FORMATION[sport === 'football7' ? 'football7' : sport];
-
   useEffect(() => {
-    if (availableFormations.length > 0 && !selectedFormation)
-      setSelectedFormation(defaultFormation);
-  }, [sport, availableFormations, defaultFormation, selectedFormation]);
-
-  const clamp = useCallback((v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v)), []);
-
-  // ── Formasjonsposisjoner for snap ─────────────────────
-  const currentFormationPositions = useMemo((): SvgPos[] => {
-    const f = availableFormations.find(f => f.name === selectedFormation);
-    return f ? f.homePlayers.map(p => ({ x: p.position.x, y: p.position.y })) : [];
-  }, [availableFormations, selectedFormation]);
-
-  // ── Undo/redo helpers ─────────────────────────────────
-  const pushUndo = useCallback((entry: UndoEntry) => {
-    undoStack.current = [...undoStack.current.slice(-MAX_UNDO + 1), entry];
-    redoStack.current = [];
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
-  const handleUndo = useCallback(() => {
-    const entry = undoStack.current.pop();
-    if (!entry || !phase) return;
-    const p = phase.players.find(pl => pl.id === entry.playerId);
-    if (!p) return;
-    redoStack.current.push({
-      playerId: entry.playerId,
-      prevPosition: { ...p.position },
-      prevIsStarter: p.isStarter,
-      prevRole: p.role,
-    });
-    updatePlayerField(activePhaseIdx, entry.playerId, {
-      position: entry.prevPosition,
-      isStarter: entry.prevIsStarter,
-      isOnField: entry.prevIsStarter,
-      role: entry.prevRole as PlayerRole,
-    });
-  }, [phase, activePhaseIdx, updatePlayerField]);
+  const availableFormations = useMemo(() =>
+    getFormations(sport==='football7'?'football7':sport==='football9'?'football9':sport), [sport]);
+  const defaultFormation = DEFAULT_FORMATION[sport==='football7'?'football7':sport==='football9'?'football9':sport];
 
-  const handleRedo = useCallback(() => {
-    const entry = redoStack.current.pop();
-    if (!entry || !phase) return;
-    const p = phase.players.find(pl => pl.id === entry.playerId);
-    if (!p) return;
-    undoStack.current.push({
-      playerId: entry.playerId,
-      prevPosition: { ...p.position },
-      prevIsStarter: p.isStarter,
-      prevRole: p.role,
-    });
-    updatePlayerField(activePhaseIdx, entry.playerId, {
-      position: entry.prevPosition,
-      isStarter: entry.prevIsStarter,
-      isOnField: entry.prevIsStarter,
-      role: entry.prevRole as PlayerRole,
-    });
-  }, [phase, activePhaseIdx, updatePlayerField]);
-
-  // ── Keyboard shortcuts ────────────────────────────────
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo(); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [handleUndo, handleRedo]);
+    if (availableFormations.length > 0 && !selectedFormation) setSelectedFormation(defaultFormation);
+  }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
-  // ── Update formation (role-priority matching) ─────────
-  const updateFormation = useCallback((name: string) => {
-    if (!phase) return;
-    if (formationDebRef.current) clearTimeout(formationDebRef.current);
-    formationDebRef.current = setTimeout(() => {
-      const f = availableFormations.find(f => f.name === name);
-      if (!f) return;
-      const home = [...phase.players]
-        .filter(p => p.team === 'home')
-        .sort((a, b) => (ROLE_PRIORITY[a.role] ?? 99) - (ROLE_PRIORITY[b.role] ?? 99));
-      requestAnimationFrame(() => {
-        f.homePlayers.forEach((fp, i) => {
-          const p = home[i]; if (!p) return;
-          updatePlayerField(activePhaseIdx, p.id, {
-            position: { x: clamp(fp.position.x, 45, VW - 45), y: clamp(fp.position.y, 45, VH - 45) },
-            role: fp.role as PlayerRole,
-          });
-        });
-      });
-      setSelectedFormation(name);
-    }, 50);
-  }, [phase, activePhaseIdx, availableFormations, updatePlayerField, clamp]);
+  const clamp = useCallback((v:number,lo:number,hi:number) => Math.max(lo,Math.min(hi,v)), []);
+
+  const currentHomePlayers = useMemo(() =>
+    availableFormations.find(f=>f.name===selectedFormation)?.homePlayers ?? [], [availableFormations, selectedFormation]);
 
   useEffect(() => () => {
-    if (formationDebRef.current)  clearTimeout(formationDebRef.current);
-    if (stickyDebRef.current)     clearTimeout(stickyDebRef.current);
-    if (spacingDebRef.current)    clearTimeout(spacingDebRef.current);
-    if (rafRef.current)           cancelAnimationFrame(rafRef.current);
-    if (longPressRef.current)     clearTimeout(longPressRef.current);
+    if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
+    if (stickyDebRef.current)  clearTimeout(stickyDebRef.current);
+    if (longPressRef.current)  clearTimeout(longPressRef.current);
+    if (rafRef.current)        cancelAnimationFrame(rafRef.current);
+    if (timerRef.current)      clearInterval(timerRef.current);
   }, []);
 
   useEffect(() => { setLocalStickyNote(phase?.stickyNote ?? ''); }, [phase?.stickyNote, activePhaseIdx]);
 
-  const handleStickyChange = useCallback((v: string) => {
+  const handleStickyChange = useCallback((v:string) => {
     setLocalStickyNote(v);
     if (stickyDebRef.current) clearTimeout(stickyDebRef.current);
-    stickyDebRef.current = setTimeout(() => updateStickyNote(activePhaseIdx, v), 500);
+    stickyDebRef.current = setTimeout(() => updateStickyNote(activePhaseIdx,v), 500);
   }, [activePhaseIdx, updateStickyNote]);
 
-  // ── Avspilling ────────────────────────────────────────
-  function startPlayback() {
+  const pushUndo = useCallback((e:UndoEntry) => {
+    undoStack.current = [...undoStack.current.slice(-MAX_UNDO+1), e];
+    redoStack.current = [];
+  }, []);
+
+  const doUndo = useCallback(() => {
+    const e = undoStack.current.pop(); if (!e||!phase) return;
+    const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
+    redoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
+    updatePlayerField(activePhaseIdx, e.playerId, { position:e.prevPos, isStarter:e.prevIsStarter, isOnField:e.prevIsStarter, role:e.prevRole as PlayerRole });
+  }, [phase, activePhaseIdx, updatePlayerField]);
+
+  const doRedo = useCallback(() => {
+    const e = redoStack.current.pop(); if (!e||!phase) return;
+    const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
+    undoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
+    updatePlayerField(activePhaseIdx, e.playerId, { position:e.prevPos, isStarter:e.prevIsStarter, isOnField:e.prevIsStarter, role:e.prevRole as PlayerRole });
+  }, [phase, activePhaseIdx, updatePlayerField]);
+
+  useEffect(() => {
+    const h = (e:KeyboardEvent) => {
+      if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey) { e.preventDefault(); doUndo(); }
+      if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))) { e.preventDefault(); doRedo(); }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [doUndo, doRedo]);
+
+  // ── Formasjonsbytte (rekkefølgebasert, ingen match) ─────────
+  const updateFormation = useCallback((name: string) => {
+    if (!phase) return;
+    const formation = availableFormations.find(f => f.name === name);
+    if (!formation) return;
+    const homePlayersSorted = [...phase.players]
+      .filter(p => p.team === 'home')
+      .sort((a, b) => (a.num || 0) - (b.num || 0));
+    requestAnimationFrame(() => {
+      formation.homePlayers.forEach((slot, i) => {
+        const player = homePlayersSorted[i];
+        if (!player) return;
+        // Push undo for player before changing position/role
+        pushUndo({
+          playerId: player.id,
+          prevPos: { ...player.position },
+          prevIsStarter: player.isStarter,
+          prevRole: player.role,
+        });
+        updatePlayerField(activePhaseIdx, player.id, {
+          position: { x: clamp(slot.position.x, 45, VW - 45), y: clamp(slot.position.y, 45, VH - 45) },
+          role: slot.role as PlayerRole,
+          isStarter: true,
+          isOnField: true,
+        });
+      });
+      // Also ensure any remaining home players that are not assigned get moved to bench? Not needed for simple reorder.
+    });
+    setSelectedFormation(name);
+  }, [phase, activePhaseIdx, availableFormations, updatePlayerField, clamp, pushUndo]);
+
+  // ── Avspilling ───────────────────────────────────────────────
+  const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
-    stopPlayback();
-    playRef.current = { from: 0, t: 0 };
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
+    playRef.current = { from:0, t:0 };
     setInterpFrom(0); setInterpT(0); setActivePhaseIdx(0); setIsPlaying(true);
     timerRef.current = setInterval(() => {
       playRef.current.t += 0.025 * playSpeed;
       if (playRef.current.t >= 1) {
         const next = playRef.current.from + 1;
         if (next >= phases.length - 1) {
-          clearInterval(timerRef.current!); timerRef.current = null;
-          setIsPlaying(false); setActivePhaseIdx(phases.length - 1); setInterpT(0); return;
+          clearInterval(timerRef.current!); timerRef.current=null;
+          setIsPlaying(false); setActivePhaseIdx(phases.length-1); setInterpT(0); return;
         }
-        playRef.current.from = next; playRef.current.t = 0;
+        playRef.current.from=next; playRef.current.t=0;
         setInterpFrom(next); setInterpT(0); setActivePhaseIdx(next);
       } else {
         setInterpT(playRef.current.t); setInterpFrom(playRef.current.from);
       }
     }, 30);
-  }
+  }, [phases, playSpeed, setActivePhaseIdx]);
 
-  function stopPlayback() {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  const stopPlayback = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
     setIsPlaying(false); setInterpT(0);
-  }
+  }, []);
 
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
-
-  // ── Display players (memoized) ─────────────────────────
   const getDisplayPlayers = useCallback((): Player[] => {
     if (!phase) return [];
-    if (!isPlaying || interpT === 0) return phase.players;
-    const from = phases[interpFrom];
-    const to   = phases[Math.min(interpFrom + 1, phases.length - 1)];
-    if (!from || !to) return phase.players;
+    if (!isPlaying || interpT===0) return phase.players;
+    const from = phases[interpFrom], to = phases[Math.min(interpFrom+1,phases.length-1)];
+    if (!from||!to) return phase.players;
     return from.players.map(fp => {
-      const tp = to.players.find(p => p.id === fp.id);
-      if (!tp) return fp;
-      return { ...fp, position: {
-        x: fp.position.x + (tp.position.x - fp.position.x) * interpT,
-        y: fp.position.y + (tp.position.y - fp.position.y) * interpT,
-      }};
+      const tp = to.players.find(p=>p.id===fp.id); if (!tp) return fp;
+      return { ...fp, position:{ x:fp.position.x+(tp.position.x-fp.position.x)*interpT, y:fp.position.y+(tp.position.y-fp.position.y)*interpT }};
     });
   }, [phase, phases, interpFrom, interpT, isPlaying]);
 
   const getDisplayBall = useCallback((): SvgPos => {
-    if (!phase) return { x: VW / 2, y: VH / 2 };
-    if (!isPlaying || interpT === 0) return phase.ball;
-    const from = phases[interpFrom];
-    const to   = phases[Math.min(interpFrom + 1, phases.length - 1)];
-    if (!from || !to) return phase.ball;
-    return {
-      x: from.ball.x + (to.ball.x - from.ball.x) * interpT,
-      y: from.ball.y + (to.ball.y - from.ball.y) * interpT,
-    };
+    if (!phase) return { x:VW/2, y:VH/2 };
+    if (!isPlaying||interpT===0) return phase.ball;
+    const from=phases[interpFrom], to=phases[Math.min(interpFrom+1,phases.length-1)];
+    if (!from||!to) return phase.ball;
+    return { x:from.ball.x+(to.ball.x-from.ball.x)*interpT, y:from.ball.y+(to.ball.y-from.ball.y)*interpT };
   }, [phase, phases, interpFrom, interpT, isPlaying]);
 
-  // ── SVG-koordinater ───────────────────────────────────
-  const toSVGCoords = useCallback((cx: number, cy: number): SvgPos => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
+  const toSVG = useCallback((cx:number, cy:number): SvgPos => {
+    const svg = svgRef.current; if (!svg) return {x:0,y:0};
     const r = svg.getBoundingClientRect();
     return {
-      x: clamp(((cx - r.left) / r.width)  * VW, 20, VW - 20),
-      y: clamp(((cy - r.top)  / r.height) * VH, 20, VH - 20),
+      x: clamp(((cx-r.left)/r.width)*VW,  20, VW-20),
+      y: clamp(((cy-r.top)/r.height)*VH,  20, VH-20),
     };
   }, [clamp]);
 
-  // ── Finn nærmeste spiller (hitbox 52px) ────────────────
-  const findPlayerAtCoords = useCallback((sx: number, sy: number, excludeId?: string): Player | null => {
-    let best: Player | null = null;
-    let bestDist = 52;
-    for (const p of (phase?.players ?? [])) {
-      if (p.id === excludeId || p.team !== 'home') continue;
-      const d = Math.hypot(p.position.x - sx, p.position.y - sy);
-      if (d < bestDist) { bestDist = d; best = p; }
+  const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
+    let best:Player|null=null, bestD=54;
+    for (const p of (phase?.players??[])) {
+      if (p.id===excludeId||p.team!=='home') continue;
+      const d = Math.hypot(p.position.x-sx, p.position.y-sy);
+      if (d<bestD) { bestD=d; best=p; }
     }
     return best;
   }, [phase]);
 
-  // ── Debounced auto-spacing (bare etter fri drag) ───────
-  const scheduleAutoSpacing = useCallback((movedId: string) => {
+  const scheduleSpacing = useCallback((movedId:string) => {
     if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
     spacingDebRef.current = setTimeout(() => {
       if (!phase) return;
-      const starters = phase.players.filter(p => p.team === 'home' && p.isStarter !== false && p.id !== movedId);
-      const moved    = phase.players.find(p => p.id === movedId);
-      if (!moved) return;
-      const pts = starters.map(p => ({ x: p.position.x, y: p.position.y }));
-      const separated = separatePlayers(pts);
-      separated.forEach((sp, i) => {
-        const orig = starters[i];
-        if (!orig) return;
-        if (Math.abs(sp.x - orig.position.x) > 1 || Math.abs(sp.y - orig.position.y) > 1) {
-          updatePlayerPosition(activePhaseIdx, orig.id, { x: sp.x, y: sp.y });
-        }
+      const others = phase.players.filter(p=>p.team==='home'&&p.isStarter!==false&&p.id!==movedId);
+      const pts    = others.map(p=>({x:p.position.x,y:p.position.y}));
+      const sep    = separatePlayers(pts);
+      sep.forEach((sp,i) => {
+        const o=others[i]; if (!o) return;
+        if (Math.abs(sp.x-o.position.x)>1||Math.abs(sp.y-o.position.y)>1)
+          updatePlayerPosition(activePhaseIdx, o.id, {x:sp.x,y:sp.y});
       });
     }, 80);
   }, [phase, activePhaseIdx, updatePlayerPosition]);
 
-  // ══════════════════════════════════════════════════════
-  //  SMART SWAP ENGINE
-  // ══════════════════════════════════════════════════════
-  const swapPlayers = useCallback((aId: string, bId: string) => {
+  const canSub = useCallback((fromBench:boolean) =>
+    isTrainingMatch||!fromBench||substitutions<maxSubstitutions, [isTrainingMatch, substitutions, maxSubstitutions]);
+
+  const swapPlayers = useCallback((aId:string, bId:string) => {
     if (!phase) return;
-    const a = phase.players.find(p => p.id === aId);
-    const b = phase.players.find(p => p.id === bId);
-    if (!a || !b) return;
-
-    // Push to undo before mutating
-    pushUndo({ playerId: aId, prevPosition: { ...a.position }, prevIsStarter: a.isStarter, prevRole: a.role });
-
-    const ap = { ...a.position }, bp = { ...b.position };
-    const ar = a.role,  br = b.role;
-    const as_ = a.isStarter, bs = b.isStarter;
-
-    updatePlayerField(activePhaseIdx, aId, { position: bp, role: br as PlayerRole, isStarter: bs, isOnField: bs });
-    updatePlayerField(activePhaseIdx, bId, { position: ap, role: ar as PlayerRole, isStarter: as_, isOnField: as_ });
-
-    // Track substitution if one was bench
-    if ((as_ === false) !== (bs === false)) {
-      setSubstitutionsMade(s => s + 1);
-    }
-
-    // Drop bounce animation
-    setBounceId(bId);
-    setTimeout(() => setBounceId(null), 350);
+    const a=phase.players.find(p=>p.id===aId), b=phase.players.find(p=>p.id===bId);
+    if (!a||!b) return;
+    pushUndo({ playerId:aId, prevPos:{...a.position}, prevIsStarter:a.isStarter, prevRole:a.role });
+    const [ap,bp,ar,br,as_,bs]=[{...a.position},{...b.position},a.role,b.role,a.isStarter,b.isStarter];
+    updatePlayerField(activePhaseIdx, aId, { position:bp, role:br as PlayerRole, isStarter:bs, isOnField:bs });
+    updatePlayerField(activePhaseIdx, bId, { position:ap, role:ar as PlayerRole, isStarter:as_, isOnField:as_ });
+    if ((as_===false)!==(bs===false)) setSubstitutions(s=>s+1);
+    setBounceId(bId); setTimeout(()=>setBounceId(null),400);
   }, [phase, activePhaseIdx, updatePlayerField, pushUndo]);
 
-  const moveToBench = useCallback((playerId: string) => {
+  const moveToBench = useCallback((id:string) => {
     if (!phase) return;
-    const p = phase.players.find(pl => pl.id === playerId);
-    if (!p) return;
-    pushUndo({ playerId, prevPosition: { ...p.position }, prevIsStarter: p.isStarter, prevRole: p.role });
-    updatePlayerField(activePhaseIdx, playerId, { isStarter: false, isOnField: false });
-    setSubstitutionsMade(s => s + 1);
+    const p=phase.players.find(pl=>pl.id===id); if (!p) return;
+    pushUndo({ playerId:id, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
+    updatePlayerField(activePhaseIdx, id, { isStarter:false, isOnField:false });
+    setSubstitutions(s=>s+1);
   }, [phase, activePhaseIdx, updatePlayerField, pushUndo]);
 
-  const moveToField = useCallback((playerId: string, targetPos: SvgPos) => {
+  const moveToField = useCallback((id:string, pos:SvgPos) => {
     if (!phase) return;
-    const p = phase.players.find(pl => pl.id === playerId);
-    if (!p) return;
-    pushUndo({ playerId, prevPosition: { ...p.position }, prevIsStarter: p.isStarter, prevRole: p.role });
-    updatePlayerField(activePhaseIdx, playerId, { isStarter: true, isOnField: true, position: targetPos });
-    setSubstitutionsMade(s => s + 1);
+    const p=phase.players.find(pl=>pl.id===id); if (!p) return;
+    pushUndo({ playerId:id, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
+    updatePlayerField(activePhaseIdx, id, { isStarter:true, isOnField:true, position:pos });
+    setSubstitutions(s=>s+1);
   }, [phase, activePhaseIdx, updatePlayerField, pushUndo]);
-
-  // ── Sjekk om bytte er tillatt i kamp ──────────────────
-  const canSubstitute = useCallback((fromBench: boolean): boolean => {
-    if (isTrainingMatch) return true;
-    if (!fromBench) return true; // starter → benk alltid OK
-    return substitutionsMade < maxSubstitutions;
-  }, [isTrainingMatch, substitutionsMade, maxSubstitutions]);
-
-  // ══════════════════════════════════════════════════════
-  //  TEGNE-HENDELSER
-  // ══════════════════════════════════════════════════════
-  function onSvgPointerDown(e: React.PointerEvent<SVGSVGElement>) {
-    if (isPlaying || !drawMode) return;
-    if ((e.target as SVGElement).closest('[data-player]')) return;
-    e.preventDefault();
-    isDrawing.current = true;
-    const pt = toSVGCoords(e.clientX, e.clientY);
-    drawPts.current = [pt]; setLiveDrawPts([pt]);
-    svgRef.current?.setPointerCapture(e.pointerId);
-  }
-  function onSvgPointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (!drawMode || !isDrawing.current) return;
-    e.preventDefault();
-    const pt = toSVGCoords(e.clientX, e.clientY);
-    drawPts.current.push(pt); setLiveDrawPts([...drawPts.current]);
-  }
-  function onSvgPointerUp() {
-    if (drawMode && isDrawing.current && drawPts.current.length > 2)
-      addDrawing(activePhaseIdx, { pts: [...drawPts.current], color: drawColor });
-    isDrawing.current = false; drawPts.current = []; setLiveDrawPts([]);
-  }
-
-  // ══════════════════════════════════════════════════════
-  //  DESKTOP HTML5 DRAG
-  // ══════════════════════════════════════════════════════
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
 
   const resolveDrop = useCallback((
-    draggedId: string,
-    isFromSub: boolean,
-    targetId: string | undefined,
-    dropClientX: number,
-    dropClientY: number,
+    draggedId:string, fromSub:boolean,
+    targetId:string|undefined,
+    svgX:number, svgY:number,
   ) => {
     if (!phase) return;
-    const dragged = phase.players.find(p => p.id === draggedId);
-    const target  = targetId ? phase.players.find(p => p.id === targetId) : null;
-    if (!dragged) return;
+    const dragged=phase.players.find(p=>p.id===draggedId); if (!dragged) return;
+    const target=targetId?phase.players.find(p=>p.id===targetId):null;
 
     if (target && target.id !== dragged.id) {
-      // Bytte (bench↔field or field↔field)
-      if (!canSubstitute(dragged.isStarter === false || isFromSub)) return;
-      swapPlayers(dragged.id, target.id);
-      return;
+      if (!canSub(dragged.isStarter===false||fromSub)) return;
+      swapPlayers(dragged.id, target.id); return;
     }
 
-    // Fritt drag – snap til formasjon?
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    let pos: SvgPos = {
-      x: clamp(((dropClientX - rect.left) / rect.width)  * VW, 45, VW - 45),
-      y: clamp(((dropClientY - rect.top)  / rect.height) * VH, 45, VH - 45),
-    };
-    const snap = getNearestFormationPosition(pos, currentFormationPositions);
+    let pos: SvgPos = { x:clamp(svgX,44,VW-44), y:clamp(svgY,44,VH-44) };
+    const snap = nearestSlotPos(pos, currentHomePlayers);
     if (snap) pos = snap;
 
-    if (dragged.isStarter === false || isFromSub) {
-      if (!canSubstitute(true)) return;
+    if (dragged.isStarter===false||fromSub) {
+      if (!canSub(true)) return;
       moveToField(dragged.id, pos);
     } else {
-      pushUndo({ playerId: dragged.id, prevPosition: { ...dragged.position }, prevIsStarter: dragged.isStarter, prevRole: dragged.role });
+      pushUndo({ playerId:dragged.id, prevPos:{...dragged.position}, prevIsStarter:dragged.isStarter, prevRole:dragged.role });
       updatePlayerPosition(activePhaseIdx, dragged.id, pos);
-      scheduleAutoSpacing(dragged.id);
+      scheduleSpacing(dragged.id);
     }
-    setBounceId(dragged.id);
-    setTimeout(() => setBounceId(null), 350);
-  }, [phase, canSubstitute, swapPlayers, currentFormationPositions, moveToField, pushUndo, updatePlayerPosition, activePhaseIdx, scheduleAutoSpacing, clamp]);
+    setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
+  }, [phase, canSub, swapPlayers, currentHomePlayers, moveToField, pushUndo, updatePlayerPosition, activePhaseIdx, scheduleSpacing, clamp]);
 
-  const handleSvgDrop = useCallback((e: React.DragEvent, targetId?: string) => {
-    e.preventDefault();
-    setDragOverId(null);
-    let raw = e.dataTransfer.getData('text/plain');
-    let dragId = raw; let isFromSub = false;
-    if (raw.startsWith('{')) {
-      try { const d = JSON.parse(raw); dragId = d.playerId; isFromSub = d.isSubSlot === true; } catch { /**/ }
-    }
-    if (!dragId) return;
-    resolveDrop(dragId, isFromSub, targetId, e.clientX, e.clientY);
-    setDesktopDragId(null); setDesktopFromSub(false);
-  }, [resolveDrop]);
-
-  const handleSubPanelDrop = useCallback((e: React.DragEvent<HTMLDivElement>, targetSubId?: string) => {
-    e.preventDefault();
-    setDragOverId(null);
-    let raw = e.dataTransfer.getData('text/plain');
-    let dragId = raw;
-    if (raw.startsWith('{')) {
-      try { const d = JSON.parse(raw); dragId = d.playerId; } catch { /**/ }
-    }
-    if (!dragId || !phase) return;
-    const dragged = phase.players.find(p => p.id === dragId);
-    if (!dragged) return;
-    if (targetSubId && targetSubId !== dragId) {
-      swapPlayers(dragId, targetSubId);
-    } else if (dragged.isStarter !== false) {
-      moveToBench(dragId);
-    }
-    setDesktopDragId(null); setDesktopFromSub(false);
-  }, [phase, swapPlayers, moveToBench]);
-
-  // ══════════════════════════════════════════════════════
-  //  MOBIL POINTER DRAG (60fps RAF + long-press)
-  // ══════════════════════════════════════════════════════
-  const startTouchDrag = useCallback((playerId: string, fromSub: boolean, clientX: number, clientY: number) => {
-    const svgPos = toSVGCoords(clientX, clientY);
-    dragStateRef.current = {
-      playerId, fromSub,
-      startClientX: clientX, startClientY: clientY,
-      isDragging: true, longPressReady: true,
-    };
-    setDragFromSub(fromSub);
-    setGhostState({ svgX: svgPos.x, svgY: svgPos.y, scaleIn: true });
-    setTimeout(() => setGhostState(s => s ? { ...s, scaleIn: false } : null), 150);
-  }, [toSVGCoords]);
-
-  const handlePlayerPointerDown = useCallback((
-    e: React.PointerEvent<SVGGElement>,
-    playerId: string,
-    fromSub = false,
+  const startDrag = useCallback((
+    e: React.PointerEvent, playerId:string, fromSub:boolean,
   ) => {
-    if (isPlaying || drawMode) return;
-    if (e.pointerType === 'mouse') return; // desktop uses HTML5 drag
+    if (isPlaying||drawMode) return;
+    e.preventDefault();
+    e.stopPropagation();
 
-    e.preventDefault(); e.stopPropagation();
-    (e.currentTarget as SVGGElement).setPointerCapture(e.pointerId);
-
-    dragStateRef.current = {
-      playerId, fromSub,
-      startClientX: e.clientX, startClientY: e.clientY,
-      isDragging: false, longPressReady: false,
+    const isTouch = e.pointerType !== 'mouse';
+    activeDragRef.current = {
+      playerId, fromSub, pointerId:e.pointerId,
+      startClientX:e.clientX, startClientY:e.clientY,
+      started:false, longPressReady:!isTouch,
+      isTouch,
     };
 
-    // Long press timer
-    if (longPressRef.current) clearTimeout(longPressRef.current);
-    longPressRef.current = setTimeout(() => {
-      if (dragStateRef.current?.playerId === playerId) {
-        dragStateRef.current.longPressReady = true;
-      }
-    }, LONG_PRESS_MS);
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+
+    if (isTouch) {
+      if (longPressRef.current) clearTimeout(longPressRef.current);
+      longPressRef.current = setTimeout(() => {
+        if (activeDragRef.current?.playerId===playerId)
+          activeDragRef.current.longPressReady = true;
+      }, LONG_PRESS);
+    }
   }, [isPlaying, drawMode]);
 
-  const handlePlayerPointerMove = useCallback((
-    e: React.PointerEvent<SVGGElement | HTMLDivElement>,
-    playerId: string,
-  ) => {
-    const ds = dragStateRef.current;
-    if (!ds || ds.playerId !== playerId || e.pointerType === 'mouse') return;
+  const moveDrag = useCallback((e: React.PointerEvent) => {
+    const ad = activeDragRef.current;
+    if (!ad) return;
     e.preventDefault();
 
-    const moved = Math.hypot(e.clientX - ds.startClientX, e.clientY - ds.startClientY);
+    const moved = Math.hypot(e.clientX-ad.startClientX, e.clientY-ad.startClientY);
 
-    if (!ds.isDragging) {
-      if (moved > 10 && ds.longPressReady) {
-        ds.isDragging = true;
-        startTouchDrag(playerId, ds.fromSub, e.clientX, e.clientY);
+    if (!ad.started) {
+      if (moved > DRAG_THRESH && ad.longPressReady) {
+        ad.started = true;
+        setDraggingPlayerId(ad.playerId);
+        setDragFromSub(ad.fromSub);
+        const sp = toSVG(e.clientX, e.clientY);
+        setGhostPos({ x:sp.x, y:sp.y, scaleIn:true });
+        setTimeout(()=>setGhostPos(s=>s?{...s,scaleIn:false}:null), 160);
       }
       return;
     }
 
-    // RAF update at 60fps
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    const cx = e.clientX, cy = e.clientY;
+    const cx=e.clientX, cy=e.clientY;
     rafRef.current = requestAnimationFrame(() => {
-      const svgPos = toSVGCoords(cx, cy);
-
-      // Snap preview
-      const snap = getNearestFormationPosition(svgPos, currentFormationPositions);
+      const sp = toSVG(cx, cy);
+      const snap = nearestSlotPos(sp, currentHomePlayers);
       setSnapTarget(snap);
-
-      // Ghost position
-      setGhostState(s => s ? { ...s, svgX: snap ? snap.x : svgPos.x, svgY: snap ? snap.y : svgPos.y } : null);
-
-      // Target detection
-      const near = findPlayerAtCoords(svgPos.x, svgPos.y, playerId);
-      setDragOverId(near?.id ?? null);
+      setGhostPos(s=>s?{...s, x:snap?snap.x:sp.x, y:snap?snap.y:sp.y}:null);
+      const near = findPlayerAt(sp.x, sp.y, ad.playerId);
+      setDragOverId(near?.id??null);
     });
-  }, [toSVGCoords, currentFormationPositions, findPlayerAtCoords, startTouchDrag]);
+  }, [toSVG, currentHomePlayers, findPlayerAt]);
 
-  const handlePlayerPointerUp = useCallback((
-    e: React.PointerEvent<SVGGElement | HTMLDivElement>,
-    playerId: string,
-  ) => {
-    const ds = dragStateRef.current;
-    if (!ds || ds.playerId !== playerId) return;
+  const endDrag = useCallback((e: React.PointerEvent) => {
+    const ad = activeDragRef.current;
+    if (!ad) return;
     e.preventDefault();
 
     if (longPressRef.current) clearTimeout(longPressRef.current);
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current=null; }
 
-    const wasDragging = ds.isDragging;
-    const gs = ghostState;
+    const wasDragging = ad.started;
+    const gp = ghostPos;
     const targetId = dragOverId;
 
-    // Rydd state FØR oppdatering
-    dragStateRef.current = null;
-    setGhostState(null);
-    setDragOverId(null);
-    setDragFromSub(false);
-    setSnapTarget(null);
+    activeDragRef.current = null;
+    setGhostPos(null); setDragOverId(null); setDraggingPlayerId(null); setDragFromSub(false); setSnapTarget(null);
 
     if (!wasDragging) {
-      // Kort trykk → select
-      onSelectPlayer(selectedPlayerId === playerId ? null : playerId);
+      onSelectPlayer(selectedPlayerId===ad.playerId ? null : ad.playerId);
       return;
     }
+    if (!phase||!gp) return;
+    resolveDrop(ad.playerId, ad.fromSub, targetId??undefined, gp.x, gp.y);
+  }, [ghostPos, dragOverId, phase, selectedPlayerId, resolveDrop, onSelectPlayer]);
 
-    if (!phase || !gs) return;
-    resolveDrop(playerId, ds.fromSub, targetId ?? undefined, 0, 0);
-    // Override position if we have ghost SVG coords
-    if (!targetId) {
-      const p = phase.players.find(pl => pl.id === playerId);
-      if (p) {
-        const snap = getNearestFormationPosition({ x: gs.svgX, y: gs.svgY }, currentFormationPositions);
-        const finalPos = snap ?? { x: gs.svgX, y: gs.svgY };
-        if (ds.fromSub || p.isStarter === false) {
-          if (canSubstitute(true)) {
-            pushUndo({ playerId, prevPosition: { ...p.position }, prevIsStarter: p.isStarter, prevRole: p.role });
-            updatePlayerField(activePhaseIdx, playerId, { isStarter: true, isOnField: true, position: finalPos });
-            setSubstitutionsMade(s => s + 1);
-          }
-        } else {
-          pushUndo({ playerId, prevPosition: { ...p.position }, prevIsStarter: p.isStarter, prevRole: p.role });
-          updatePlayerPosition(activePhaseIdx, playerId, finalPos);
-          scheduleAutoSpacing(playerId);
-        }
-      }
-    }
-    setBounceId(playerId);
-    setTimeout(() => setBounceId(null), 350);
-  }, [
-    ghostState, dragOverId, phase, selectedPlayerId,
-    resolveDrop, currentFormationPositions, canSubstitute,
-    pushUndo, updatePlayerField, updatePlayerPosition,
-    activePhaseIdx, scheduleAutoSpacing, onSelectPlayer,
-  ]);
+  const onSvgPtrDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (isPlaying||!drawMode) return;
+    if ((e.target as SVGElement).closest('[data-player]')) return;
+    e.preventDefault();
+    isDrawingRef.current=true;
+    const pt=toSVG(e.clientX,e.clientY);
+    drawPts.current=[pt]; setLiveDrawPts([pt]);
+    svgRef.current?.setPointerCapture(e.pointerId);
+  };
+  const onSvgPtrMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!drawMode||!isDrawingRef.current) return;
+    e.preventDefault();
+    const pt=toSVG(e.clientX,e.clientY);
+    drawPts.current.push(pt); setLiveDrawPts([...drawPts.current]);
+  };
+  const onSvgPtrUp = () => {
+    if (drawMode&&isDrawingRef.current&&drawPts.current.length>2)
+      addDrawing(activePhaseIdx,{pts:[...drawPts.current],color:drawColor});
+    isDrawingRef.current=false; drawPts.current=[]; setLiveDrawPts([]);
+  };
 
-  // ── Display data ──────────────────────────────────────
-  const allDisplay   = useMemo(() => getDisplayPlayers(), [getDisplayPlayers]);
-  const onField      = useMemo(() => allDisplay.filter(p => p.team === 'home' && p.isStarter !== false), [allDisplay]);
-  const benchPlayers = useMemo(() => (phase?.players ?? []).filter(p => p.team === 'home' && p.isStarter === false), [phase]);
-  const displayBall  = useMemo(() => getDisplayBall(), [getDisplayBall]);
-  const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
+  const allDisplay   = useMemo(()=>getDisplayPlayers(), [getDisplayPlayers]);
+  const onField      = useMemo(()=>allDisplay.filter(p=>p.team==='home'&&p.isStarter!==false), [allDisplay]);
+  const benchPlayers = useMemo(()=>(phase?.players??[]).filter(p=>p.team==='home'&&p.isStarter===false), [phase]);
+  const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
+  const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
-  const maxSubs  = isTrainingMatch ? 30 : (sport === 'football' ? 9 : 7);
-  const subSlots = useMemo(() =>
-    [...benchPlayers, ...Array(Math.max(0, maxSubs - benchPlayers.length)).fill(null)] as (Player | null)[],
-    [benchPlayers, maxSubs],
-  );
+  const maxSubs = isTrainingMatch?30:(sport==='football'?9:sport==='football7'?5:sport==='football9'?5:7);
+  const subSlots = useMemo(()=>
+    [...benchPlayers,...Array(Math.max(0,maxSubs-benchPlayers.length)).fill(null)] as (Player|null)[],
+    [benchPlayers, maxSubs]);
 
-  const getDisplayName = useCallback((player: Player): string => {
-    const acc = (playerAccounts as Array<{ playerId: string; name: string }>)
-      .find(a => a.playerId === player.id);
-    return acc?.name || player.name || `#${player.num}`;
+  const getDisplayName = useCallback((player:Player):string => {
+    const acc=(playerAccounts as Array<{playerId:string;name:string}>).find(a=>a.playerId===player.id);
+    return acc?.name||player.name||`#${player.num}`;
   }, [playerAccounts]);
 
-  // Out-of-position detection
-  const isOutOfPosition = useCallback((player: Player): boolean => {
-    const myFamily = ROLE_FAMILY[player.role];
-    if (!myFamily) return false;
-    const starters = onField.filter(p => p.id !== player.id);
-    // Check if the y-position is way off for the role family (simplified heuristic)
-    const yFrac = player.position.y / VH;
-    if (myFamily === 'gk'  && yFrac < 0.7) return true;
-    if (myFamily === 'att' && yFrac > 0.5) return true;
+  const isOutOfPos = useCallback((player:Player):boolean => {
+    const fam=ROLE_FAMILY[player.role]; if (!fam) return false;
+    const yFrac=player.position.y/VH;
+    if (fam==='gk'&&yFrac<0.7) return true;
+    if (fam==='att'&&yFrac>0.5) return true;
     return false;
-  }, [onField]);
+  }, []);
 
-  // Ghost player data
-  const ghostPlayerId = dragStateRef.current?.playerId ?? null;
-  const ghostPlayer   = ghostPlayerId ? phase?.players.find(p => p.id === ghostPlayerId) : null;
-  const ghostMeta     = ghostPlayer ? (ROLE_META[ghostPlayer.role as keyof typeof ROLE_META] ?? null) : null;
-  const ghostName     = ghostPlayer ? getDisplayName(ghostPlayer) : '';
+  const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
+  const ghostMeta   = ghostPlayer ? (ROLE_META[ghostPlayer.role as keyof typeof ROLE_META]??null) : null;
 
-  const DRAW_COLORS = ['#f87171', '#60a5fa', '#4ade80', '#fbbf24', '#ffffff'];
-  const speedOptions = [
-    { label: '0.5×', value: 0.5 }, { label: '1×', value: 1 },
-    { label: '1.5×', value: 1.5 }, { label: '2×', value: 2 },
-  ];
+  const subLimitReached = !isTrainingMatch&&substitutions>=maxSubstitutions;
+  const DRAW_COLORS = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
 
-  const subLimitReached = !isTrainingMatch && substitutionsMade >= maxSubstitutions;
+  const glassStyle = {
+    '--glass-bg':     GLASS.panel,
+    '--glass-border': GLASS.border,
+    '--glass-hover':  GLASS.hover,
+  } as React.CSSProperties;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden select-none"
-      onDragOver={handleDragOver}
-      onDrop={handleSvgDrop}
-    >
-      {/* ═══ TOPPTOOLBAR ══════════════════════════════════ */}
-      <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 bg-[#0d1626] border-b border-[#1e3050] overflow-x-auto overscroll-x-contain">
-
-        {/* Fase-knapper */}
+    <div className="flex flex-col h-full overflow-hidden select-none" style={glassStyle}>
+      <div style={{
+        background: 'rgba(5,10,25,0.82)',
+        backdropFilter: 'blur(16px) saturate(1.4)',
+        WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
+        borderBottom: '1px solid rgba(56,189,248,0.1)',
+        boxShadow: '0 1px 0 rgba(255,255,255,0.04)',
+      }} className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto overscroll-x-contain">
         <div className="flex items-center gap-1 flex-shrink-0">
-          {phases.map((ph, idx) => (
-            <button key={ph.id}
-              onClick={() => !isPlaying && setActivePhaseIdx(idx)}
-              className={`px-2 py-1 rounded text-[10px] font-semibold border transition-all min-h-[44px] whitespace-nowrap
-                ${activePhaseIdx === idx ? 'bg-sky-500/15 border-sky-500 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}
-                ${isPlaying ? 'opacity-50' : ''}`}>
-              {ph.name}{ph.stickyNote && <span className="ml-1 text-amber-400">·</span>}
+          {phases.map((ph,idx)=>(
+            <button key={ph.id} onClick={()=>!isPlaying&&setActivePhaseIdx(idx)}
+              style={{
+                background: activePhaseIdx===idx ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
+                border: activePhaseIdx===idx ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                backdropFilter: 'blur(8px)',
+                transition: 'all 0.15s ease',
+              }}
+              className={`px-2 py-1 rounded-lg text-[10px] font-semibold min-h-[44px] whitespace-nowrap
+                ${activePhaseIdx===idx?'text-sky-400':'text-slate-500 hover:text-slate-300'}
+                ${isPlaying?'opacity-50':''}`}>
+              {ph.name}{ph.stickyNote&&<span className="ml-1 text-amber-400">·</span>}
             </button>
           ))}
-          <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
-            className="w-8 h-8 flex items-center justify-center rounded text-emerald-400 border border-[#1e3050] text-base disabled:opacity-40">＋</button>
-          {phases.length > 1 && (
-            <button onClick={() => !isPlaying && removePhase(activePhaseIdx)} disabled={isPlaying}
-              className="w-8 h-8 flex items-center justify-center rounded text-red-400 border border-[#1e3050] text-base disabled:opacity-40">🗑️</button>
-          )}
+          <button onClick={()=>!isPlaying&&addPhase()} disabled={isPlaying}
+            style={{ background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-400 text-base disabled:opacity-40">＋</button>
+          {phases.length>1&&<button onClick={()=>!isPlaying&&removePhase(activePhaseIdx)} disabled={isPlaying}
+            style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.15)', backdropFilter:'blur(8px)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 text-base disabled:opacity-40">🗑️</button>}
         </div>
 
-        {/* Formasjon */}
-        {availableFormations.length > 0 && (
-          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-            <select value={selectedFormation}
-              onChange={e => updateFormation(e.target.value)}
-              disabled={isPlaying}
-              className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[40px]">
-              {availableFormations.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
-            </select>
-          </div>
+        {availableFormations.length>0&&(
+          <select value={selectedFormation} onChange={e=>updateFormation(e.target.value)} disabled={isPlaying}
+            style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', backdropFilter:'blur(8px)' }}
+            className="ml-2 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px] flex-shrink-0">
+            {availableFormations.map(f=><option key={f.name} value={f.name} style={{background:'#0c1525'}}>{f.name}</option>)}
+          </select>
         )}
 
-        <div className="flex-1 min-w-[8px]" />
+        <div className="flex-1 min-w-[8px]"/>
 
-        {/* Undo/Redo */}
-        <button onClick={handleUndo}
-          disabled={undoStack.current.length === 0}
-          className="w-8 h-8 flex items-center justify-center rounded border border-[#1e3050]
-            text-[#4a6080] text-sm disabled:opacity-30 hover:text-slate-300 flex-shrink-0"
-          title="Angre (Ctrl+Z)">↩</button>
-        <button onClick={handleRedo}
-          disabled={redoStack.current.length === 0}
-          className="w-8 h-8 flex items-center justify-center rounded border border-[#1e3050]
-            text-[#4a6080] text-sm disabled:opacity-30 hover:text-slate-300 flex-shrink-0"
-          title="Gjør om (Ctrl+Y)">↪</button>
+        {[{fn:doUndo,icon:'↩',title:'Angre (Ctrl+Z)'},{fn:doRedo,icon:'↪',title:'Gjør om (Ctrl+Y)'}].map(({fn,icon,title})=>(
+          <button key={icon} onClick={fn} title={title}
+            style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', backdropFilter:'blur(8px)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 text-sm hover:text-slate-300 flex-shrink-0">
+            {icon}
+          </button>
+        ))}
 
-        {/* Treningskamp / bytteteller */}
-        {isTrainingMatch ? (
-          <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10
-            border border-emerald-500/30 px-2 py-0.5 rounded-full flex-shrink-0">🏃 Trening</span>
-        ) : (
-          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0
-            ${subLimitReached
-              ? 'text-red-400 bg-red-500/10 border border-red-500/30'
-              : 'text-slate-400 bg-[#111c30] border border-[#1e3050]'}`}>
-            🔄 {substitutionsMade}/{maxSubstitutions}
+        {!isTrainingMatch&&(
+          <span style={{
+            background: subLimitReached?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
+            border: subLimitReached?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }} className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0
+            ${subLimitReached?'text-red-400':'text-slate-400'}`}>
+            🔄 {substitutions}/{maxSubstitutions}
           </span>
         )}
-
-        {/* Sticky */}
-        <button onClick={() => setShowSticky(!showSticky)}
-          className={`px-2 py-1 rounded text-[13px] border min-h-[40px] transition-all flex-shrink-0
-            ${showSticky ? 'bg-amber-500/15 border-amber-500 text-amber-400' : 'border-[#1e3050] text-[#4a6080]'}`}>📌</button>
-
-        {/* Tegn */}
-        <button onClick={() => setDrawMode(!drawMode)}
-          className={`px-2 py-1 rounded text-[11px] font-bold border min-h-[40px] transition-all whitespace-nowrap flex-shrink-0
-            ${drawMode ? 'bg-red-500/15 border-red-500 text-red-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
-          {drawMode ? '✏️ Stopp' : '✏️ Tegn'}
-        </button>
-        {drawMode && DRAW_COLORS.map(c => (
-          <button key={c} onClick={() => setDrawColor(c)}
-            className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
-              ${drawColor === c ? 'border-white scale-110' : 'border-transparent opacity-60'}`}
-            style={{ background: c }} />
-        ))}
-        {(phase?.drawings?.length ?? 0) > 0 && (
-          <button onClick={() => clearDrawings(activePhaseIdx)}
-            className="px-2 py-1 rounded text-[13px] border border-[#1e3050] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
+        {isTrainingMatch&&(
+          <span style={{ background:'rgba(52,211,153,0.08)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
+            className="text-[9px] font-bold text-emerald-400 px-2 py-0.5 rounded-full flex-shrink-0">🏃 Trening</span>
         )}
 
-        {/* Avspilling + hastighet */}
-        <div className="flex items-center gap-1 bg-[#111c30] rounded px-1.5 py-1 border border-[#1e3050] flex-shrink-0">
-          <button onClick={() => !isPlaying && setActivePhaseIdx(Math.max(0, activePhaseIdx - 1))}
-            disabled={isPlaying || activePhaseIdx === 0}
+        <button onClick={()=>setShowMoments(!showMoments)}
+          style={{
+            background: showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)',
+            border: showMoments?'1px solid rgba(167,139,250,0.35)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }}
+          className={`px-2 py-1 rounded-lg text-[10px] font-bold border min-h-[40px] flex-shrink-0 whitespace-nowrap
+            ${showMoments?'text-violet-400':'text-slate-500 hover:text-slate-300'}`}>
+          📸 Øyeblikk
+        </button>
+
+        <button onClick={()=>setShowSticky(!showSticky)}
+          style={{
+            background: showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)',
+            border: showSticky?'1px solid rgba(251,191,36,0.3)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }}
+          className={`px-2 py-1 rounded-lg text-[13px] min-h-[40px] flex-shrink-0
+            ${showSticky?'text-amber-400':'text-slate-500 hover:text-slate-300'}`}>📌</button>
+
+        <button onClick={()=>setDrawMode(!drawMode)}
+          style={{
+            background: drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
+            border: drawMode?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
+            backdropFilter:'blur(8px)',
+          }}
+          className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] whitespace-nowrap flex-shrink-0
+            ${drawMode?'text-red-400':'text-slate-500 hover:text-slate-300'}`}>
+          {drawMode?'✏️ Stopp':'✏️ Tegn'}
+        </button>
+
+        {drawMode&&DRAW_COLORS.map(c=>(
+          <button key={c} onClick={()=>setDrawColor(c)}
+            className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
+              ${drawColor===c?'border-white scale-110':'border-transparent opacity-55'}`}
+            style={{background:c}}/>
+        ))}
+
+        {(phase?.drawings?.length??0)>0&&(
+          <button onClick={()=>clearDrawings(activePhaseIdx)}
+            style={{ background:'rgba(248,113,113,0.06)', border:'1px solid rgba(248,113,113,0.12)' }}
+            className="px-2 py-1 rounded-lg text-[13px] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
+        )}
+
+        <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', backdropFilter:'blur(8px)' }}
+          className="flex items-center gap-1 rounded-lg px-1.5 py-1 flex-shrink-0">
+          <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}
+            disabled={isPlaying||activePhaseIdx===0}
             className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏮</button>
-          <button onClick={() => isPlaying ? stopPlayback() : startPlayback()}
-            disabled={phases.length < 2}
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm border transition-all
-              ${phases.length < 2 ? 'border-[#1e3050] text-[#334155] cursor-not-allowed'
-                : isPlaying ? 'border-red-500 bg-red-500/15 text-red-400'
-                : 'border-sky-500 bg-sky-500/15 text-sky-400'}`}>
-            {isPlaying ? '⏸' : '▶'}
+          <button onClick={()=>isPlaying?stopPlayback():startPlayback()} disabled={phases.length<2}
+            style={{
+              background: phases.length<2?'transparent':isPlaying?'rgba(248,113,113,0.12)':'rgba(56,189,248,0.12)',
+              border: phases.length<2?'1px solid rgba(255,255,255,0.07)':isPlaying?'1px solid rgba(248,113,113,0.4)':'1px solid rgba(56,189,248,0.4)',
+            }}
+            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm
+              ${phases.length<2?'text-slate-600 cursor-not-allowed':isPlaying?'text-red-400':'text-sky-400'}`}>
+            {isPlaying?'⏸':'▶'}
           </button>
-          <button onClick={() => !isPlaying && setActivePhaseIdx(Math.min(phases.length - 1, activePhaseIdx + 1))}
-            disabled={isPlaying || activePhaseIdx === phases.length - 1}
+          <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.min(phases.length-1,activePhaseIdx+1))}
+            disabled={isPlaying||activePhaseIdx===phases.length-1}
             className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏭</button>
-          <div className="ml-1 pl-1 border-l border-[#1e3050]">
-            <select value={playSpeed} onChange={e => setPlaySpeed(parseFloat(e.target.value))}
-              disabled={isPlaying}
-              className="bg-[#0a1420] border border-[#1e3050] rounded px-1 py-1
-                text-[10px] text-slate-300 focus:outline-none min-h-[40px] cursor-pointer">
-              {speedOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          <div className="ml-1 pl-1" style={{borderLeft:'1px solid rgba(255,255,255,0.07)'}}>
+            <select value={playSpeed} onChange={e=>setPlaySpeed(parseFloat(e.target.value))} disabled={isPlaying}
+              style={{ background:'transparent', border:'none' }}
+              className="text-[10px] text-slate-400 focus:outline-none min-h-[40px] cursor-pointer">
+              {[0.5,1,1.5,2].map(v=><option key={v} value={v} style={{background:'#0c1525'}}>{v}×</option>)}
             </select>
           </div>
         </div>
+
+        {isMobile&&(
+          <button onClick={()=>setShowBottomSheet(true)}
+            style={{ background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', backdropFilter:'blur(8px)' }}
+            className="px-2 py-1 rounded-lg text-[10px] font-bold text-amber-400 min-h-[40px] flex-shrink-0">
+            🪑 {benchPlayers.length}
+          </button>
+        )}
       </div>
 
-      {/* Sticky-notat */}
-      {showSticky && phase && (
-        <div className="flex-shrink-0 px-3 py-2 bg-amber-500/8 border-b border-amber-500/20 flex items-center gap-2">
+      {showSticky&&phase&&(
+        <div style={{
+          background:'rgba(251,191,36,0.05)',
+          backdropFilter:'blur(12px)',
+          borderBottom:'1px solid rgba(251,191,36,0.15)',
+        }} className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
           <span className="text-amber-400 text-[13px]">📌</span>
-          <input value={localStickyNote}
-            onChange={e => handleStickyChange(e.target.value)}
+          <input value={localStickyNote} onChange={e=>handleStickyChange(e.target.value)}
             placeholder={`Notat for ${phase.name}…`}
-            className="flex-1 bg-transparent border-none text-amber-100 text-[13px]
-              placeholder-amber-500/40 focus:outline-none min-h-[40px]" />
+            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/35 focus:outline-none min-h-[40px]"/>
         </div>
       )}
 
-      {/* ═══ HOVED-LAYOUT ════════════════════════════════ */}
+      {showMoments&&(
+        <div style={{
+          background:'rgba(5,8,22,0.88)',
+          backdropFilter:'blur(16px)',
+          borderBottom:'1px solid rgba(167,139,250,0.15)',
+        }} className="flex-shrink-0 px-3 py-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">📸 Taktiske Øyeblikk</span>
+          </div>
+          <div className="flex gap-2 mb-2">
+            <input value={momentLabel} onChange={e=>setMomentLabel(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&momentLabel.trim()&&(()=>{
+                if (!phase) return;
+                setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
+                setMomentLabel('');
+              })()}
+              placeholder="Navn på øyeblikk…"
+              style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(167,139,250,0.2)' }}
+              className="flex-1 rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none min-h-[36px]"/>
+            <button onClick={()=>{
+              if (!momentLabel.trim()||!phase) return;
+              setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
+              setMomentLabel('');
+            }} disabled={!momentLabel.trim()}
+              style={{ background:'rgba(167,139,250,0.12)', border:'1px solid rgba(167,139,250,0.3)' }}
+              className="px-3 py-1.5 rounded-lg text-violet-400 text-[11px] font-bold disabled:opacity-40">Lagre</button>
+          </div>
+          {moments.length>0&&(
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {moments.map(m=>(
+                <div key={m.id}
+                  style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(167,139,250,0.15)', backdropFilter:'blur(8px)' }}
+                  className="flex-shrink-0 rounded-xl px-3 py-2 min-w-[120px]">
+                  <div className="text-[10px] font-bold text-violet-300">{m.label}</div>
+                  <div className="text-[8px] text-slate-500 mt-0.5">
+                    {new Date(m.at).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}
+                  </div>
+                  <button onClick={()=>setMoments(ms=>ms.filter(x=>x.id!==m.id))}
+                    className="text-[8px] text-red-400 mt-1 hover:text-red-300">Slett</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-1 min-h-0 overflow-hidden">
-
-        {/* ── SVG-BANE ───────────────────────────────── */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch" style={{ padding: '4px' }}>
-
-          {/* Formasjonsnavn */}
-          {selectedFormation && (
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch" style={{padding:'4px'}}>
+          {selectedFormation&&(
             <div className="flex-shrink-0 flex items-center justify-center py-1">
-              <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#0f1a2a]/80 border border-[#1e3050]">
-                <span className="text-[8px] font-bold text-[#4a6080] uppercase tracking-widest">Formasjon</span>
+              <div style={{
+                background:'rgba(5,10,28,0.7)',
+                backdropFilter:'blur(12px)',
+                border:'1px solid rgba(56,189,248,0.12)',
+                boxShadow:'0 0 20px rgba(56,189,248,0.05)',
+              }} className="flex items-center gap-2 px-4 py-1.5 rounded-xl">
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
                 <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{selectedFormation}</span>
               </div>
             </div>
@@ -1090,286 +965,262 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             viewBox={`0 0 ${VW} ${VH}`}
             preserveAspectRatio="xMidYMid meet"
             style={{
-              flex: 1, width: '100%', height: '100%', display: 'block',
-              boxShadow: '0 0 60px rgba(0,0,0,0.9)',
-              cursor: drawMode ? 'crosshair' : 'default',
-              touchAction: ghostState ? 'none' : 'auto',
-              userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent',
+              flex:1, width:'100%', height:'100%', display:'block',
+              boxShadow:'0 0 80px rgba(0,0,0,0.95)',
+              cursor:drawMode?'crosshair':'default',
+              touchAction:'none',
+              userSelect:'none',
+              WebkitTapHighlightColor:'transparent',
             }}
-            onPointerDown={onSvgPointerDown}
-            onPointerMove={onSvgPointerMove}
-            onPointerUp={onSvgPointerUp}
-            onPointerLeave={onSvgPointerUp}
-            onDragOver={handleDragOver}
-            onDrop={handleSvgDrop}
+            onPointerDown={onSvgPtrDown}
+            onPointerMove={onSvgPtrMove}
+            onPointerUp={onSvgPtrUp}
+            onPointerLeave={onSvgPtrUp}
           >
-            <defs>
-              <filter id="dropShadow">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
-              </filter>
-              <filter id="jerseyDrop">
-                <feDropShadow dx="0" dy="3" stdDeviation="5" floodOpacity="0.75"/>
-              </filter>
-              <pattern id="grass" patternUnits="userSpaceOnUse" width="50" height="50">
-                <rect width="50" height="50" fill="#1b5e2a"/>
-                <rect width="50" height="25" fill="#1d6430"/>
-              </pattern>
-            </defs>
-
+            <SvgDefs/>
             <rect width={VW} height={VH} fill="url(#grass)"/>
-            {(sport === 'football' || sport === 'football7' || sport === 'football9') && <FootballPitch />}
-            {sport === 'handball' && <HandballPitch />}
-            {phase?.drawings?.map(d => <DrawingCanvas key={d.id} drawing={d} />)}
-            {liveDrawPts.length > 1 && (
-              <polyline points={liveDrawPts.map(p => `${p.x},${p.y}`).join(' ')}
+            <rect width={VW} height={VH} fill="url(#vignette)"/>
+
+            {(sport==='football'||sport==='football7'||sport==='football9')&&<FootballPitch/>}
+            {sport==='handball'&&<HandballPitch/>}
+            {phase?.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
+            {liveDrawPts.length>1&&(
+              <polyline points={liveDrawPts.map(p=>`${p.x},${p.y}`).join(' ')}
                 stroke={drawColor} strokeWidth={4} fill="none"
-                strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
+                strokeLinecap="round" strokeLinejoin="round" opacity={0.85}/>
             )}
-            {phase && (
-              <Ball position={displayBall} isDraggable={!isPlaying && !drawMode}
-                onPositionChange={pos => updateBallPosition(activePhaseIdx, pos)} />
-            )}
-
-            {/* Snap-indikator */}
-            {snapTarget && ghostState && (
-              <SnapIndicator x={snapTarget.x} y={snapTarget.y} />
+            {phase&&(
+              <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
+                onPositionChange={pos=>updateBallPosition(activePhaseIdx,pos)}/>
             )}
 
-            {/* ── SPILLERBRIKKER ──────────────────────── */}
+            {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
+
             {onField.map(player => {
-              const meta        = ROLE_META[player.role as keyof typeof ROLE_META] ?? { color: '#64748b', label: player.role };
-              const displayName = getDisplayName(player);
-              // Unified dragOverId – dekker både desktop og touch
-              const isTarget    = dragOverId === player.id;
-              const isSrcDrag   = desktopDragId === player.id || dragStateRef.current?.playerId === player.id;
-              const isOnLoan    = (player as unknown as Record<string, unknown>).onLoan === true;
-              const condition   = typeof (player as unknown as Record<string, unknown>).condition === 'number'
-                ? (player as unknown as Record<string, number>).condition : 90;
-              const isBouncing  = bounceId === player.id;
-              const outOfPos    = isOutOfPosition(player);
-              const { x, y }    = player.position;
-              const showSwap    = isTarget && (dragFromSub || desktopFromSub);
-              const showHover   = isTarget && !showSwap;
+              const meta       = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#64748b',label:player.role};
+              const name       = getDisplayName(player);
+              const isTarget   = dragOverId===player.id;
+              const isSrc      = draggingPlayerId===player.id;
+              const isOnLoan   = (player as unknown as Record<string, unknown>).onLoan === true;
+              const condition  = typeof (player as unknown as Record<string, unknown>).condition === 'number' 
+                   ? (player as unknown as Record<string, number>).condition 
+                   : 90;
+              const isBouncing = bounceId===player.id;
+              const outOfPos   = isOutOfPos(player);
+              const {x,y}      = player.position;
+              const showSwap   = isTarget&&dragFromSub;
+              const showHover  = isTarget&&!showSwap;
 
               return (
-                <g
-                  key={player.id}
-                  data-player="true"
-                  {...(!isPlaying && !drawMode ? { draggable: true } : {})}
-                  onDragStart={e => {
-                    if (!isPlaying && !drawMode) {
-                      e.dataTransfer.setData('text/plain', player.id);
-                      e.dataTransfer.effectAllowed = 'move';
-                      setDesktopDragId(player.id);
-                      setDesktopFromSub(false);
-                      setDragFromSub(false);
-                    }
-                  }}
-                  onDragEnd={() => { setDesktopDragId(null); setDesktopFromSub(false); setDragOverId(null); }}
-                  onDragOver={handleDragOver}
-                  onDrop={e => handleSvgDrop(e, player.id)}
-                  onDragEnter={() => setDragOverId(player.id)}
-                  onDragLeave={() => setDragOverId(null)}
-                  onPointerDown={e => handlePlayerPointerDown(e, player.id, false)}
-                  onPointerMove={e => handlePlayerPointerMove(e as React.PointerEvent<SVGGElement>, player.id)}
-                  onPointerUp={e => handlePlayerPointerUp(e as React.PointerEvent<SVGGElement>, player.id)}
+                <g key={player.id} data-player="true"
+                  onPointerDown={e=>startDrag(e, player.id, false)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
                   style={{
-                    cursor: !isPlaying && !drawMode ? 'grab' : 'default',
-                    touchAction: 'none',
-                    transform: isBouncing ? `translate(${x}px,${y}px) scale(1.08)` : `translate(0,0) scale(1)`,
-                    transition: isBouncing ? 'transform 0.18s cubic-bezier(.34,1.56,.64,1)' : 'none',
+                    cursor:!isPlaying&&!drawMode?'grab':'default',
+                    touchAction:'none',
+                    transform: isBouncing?`translate(${x}px,${y}px) scale(1.1)`:`translate(0,0)`,
+                    transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
                   }}
                 >
-                  {showSwap  && <SwapOverlay x={x} y={y} />}
-                  {showHover && (
+                  {showSwap&&<SwapOverlay x={x} y={y}/>}
+                  {showHover&&(
                     <circle cx={x} cy={y} r={32} fill="none"
-                      stroke="#38bdf8" strokeWidth={2.5} strokeDasharray="6,4" opacity={0.8} />
+                      stroke="rgba(56,189,248,0.6)" strokeWidth={2}
+                      strokeDasharray="6,4"/>
                   )}
-
-                  <JerseyIcon
-                    x={x} y={y} num={player.num} color={(meta as { color: string }).color}
-                    selected={selectedPlayerId === player.id}
-                    injured={!!player.injured}
-                    specialRoles={player.specialRoles ?? []}
-                    isDragging={!!isSrcDrag}
-                    isOutOfPosition={outOfPos}
-                    dragOverSelf={isTarget}
-                  />
-                  <RoleBadge x={x} y={y + 22} role={player.role} />
-                  <NameLabel x={x} y={y + 46} name={displayName} />
-                  {isOnLoan && <LoanBadge x={x} y={y + 57} />}
-                  <ConditionDot x={x} y={y} condition={condition} />
-
-                  {(player.minutesPlayed ?? 0) > 0 && (
+                  <JerseyIcon x={x} y={y} num={player.num} color={(meta as {color:string}).color}
+                    selected={selectedPlayerId===player.id} injured={!!player.injured}
+                    specialRoles={player.specialRoles??[]} isDragging={!!isSrc}
+                    isTarget={isTarget} isOutOfPos={outOfPos}/>
+                  <RoleBadge x={x} y={y+23} role={player.role}/>
+                  <NameLabel x={x} y={y+47} name={name}/>
+                  {isOnLoan&&<LoanBadge x={x} y={y+58}/>}
+                  <ConditionDot x={x} y={y} condition={condition}/>
+                  {(player.minutesPlayed??0)>0&&(
                     <circle cx={x} cy={y} r={29} fill="none"
-                      stroke={(player.minutesPlayed ?? 0) > 60 ? '#ef4444'
-                        : (player.minutesPlayed ?? 0) > 30 ? '#f59e0b' : '#22c55e'}
-                      strokeWidth={1.5} opacity={0.35} strokeDasharray="3 2" />
+                      stroke={(player.minutesPlayed??0)>60?'#ef4444':(player.minutesPlayed??0)>30?'#f59e0b':'#22c55e'}
+                      strokeWidth={1.5} opacity={0.3} strokeDasharray="3 2"/>
                   )}
                 </g>
               );
             })}
 
-            {/* Drag ghost (mobil) */}
-            {ghostState && ghostPlayer && ghostMeta && (
-              <DragGhost
-                x={ghostState.svgX} y={ghostState.svgY}
-                color={(ghostMeta as { color: string }).color ?? '#555'}
-                num={ghostPlayer.num}
-                name={ghostName}
-                role={ghostPlayer.role}
-                scaleIn={ghostState.scaleIn}
-              />
+            {ghostPos&&ghostPlayer&&ghostMeta&&(
+              <DragGhost x={ghostPos.x} y={ghostPos.y}
+                color={(ghostMeta as {color:string}).color??'#555'}
+                num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
+                role={ghostPlayer.role} scaleIn={ghostPos.scaleIn}/>
             )}
 
-            {/* Fremdriftslinje */}
-            {isPlaying && (
-              <rect x={32} y={VH - 14} rx={3} height={5}
-                width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8} />
+            {isPlaying&&(
+              <rect x={32} y={VH-14} rx={3} height={5}
+                width={progressFrac*(VW-64)} fill="#38bdf8" opacity={0.8}/>
             )}
           </svg>
         </div>
 
-        {/* ═══ INNBYTTER-PANEL ══════════════════════════ */}
-        <div
-          className="flex-shrink-0 flex flex-col bg-[#0c1525] border-l border-[#1e3050] overflow-hidden"
-          style={{ width: 172 }}
-          onDragOver={handleDragOver}
-          onDrop={e => handleSubPanelDrop(e)}
-        >
-          {/* Header */}
-          <div className="flex-shrink-0 flex items-center justify-between px-3 py-2
-            border-b border-[#1e3050] bg-[#0a1420]">
-            <div>
-              <div className="text-[9px] font-black text-[#4a6080] uppercase tracking-widest">
-                {isTrainingMatch ? 'Spillere' : 'Innbyttere'}
-              </div>
-              <div className="text-[8px] text-[#2a4060] mt-0.5">Dra hit for å bytte ut</div>
-            </div>
-            <div className="text-right">
-              <span className={`text-[12px] font-bold ${subLimitReached ? 'text-red-400' : 'text-amber-400'}`}>
-                {benchPlayers.length}
-                <span className="text-[#3a5070] font-normal text-[10px]">/{maxSubs}</span>
-              </span>
-              {subLimitReached && (
-                <div className="text-[7px] text-red-400 font-bold">Maks bytter</div>
-              )}
-            </div>
-          </div>
-
-          {/* Rader */}
-          <div className="flex-1 overflow-y-auto py-0.5">
-            {subSlots.map((player, idx) => {
-              if (!player) {
-                return (
-                  <div key={`empty-${idx}`}
-                    className="flex items-center gap-2 px-2.5 py-2 border-b border-[#0d1a2a]
-                      min-h-[46px] hover:bg-[#0f1a2a]/40 transition-colors">
-                    <div className="w-7 h-7 rounded-md flex items-center justify-center
-                      text-[9px] text-[#1e3050] bg-[#0f1a2a] border border-[#1a2d45] flex-shrink-0">–</div>
-                    <div className="text-[9.5px] text-[#1e3050] italic">Ledig plass</div>
+        {!isMobile&&(
+          <div style={{
+            width: subPanelOpen?176:38,
+            background:'rgba(5,10,25,0.78)',
+            backdropFilter:'blur(20px) saturate(1.3)',
+            WebkitBackdropFilter:'blur(20px) saturate(1.3)',
+            borderLeft:'1px solid rgba(56,189,248,0.08)',
+            transition:'width 0.2s ease',
+          }} className="flex-shrink-0 flex flex-col overflow-hidden">
+            <div style={{
+              background:'rgba(255,255,255,0.03)',
+              borderBottom:'1px solid rgba(56,189,248,0.08)',
+            }} className="flex-shrink-0 flex items-center justify-between px-2 py-2 min-h-[48px]">
+              {subPanelOpen&&(
+                <div>
+                  <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                    {isTrainingMatch?'Spillere':'Innbyttere'}
                   </div>
-                );
-              }
-
-              const meta       = ROLE_META[player.role as keyof typeof ROLE_META] ?? { color: '#555', label: player.role };
-              const roleColors = getDutyColors(player.role);
-              const name       = getDisplayName(player);
-              const lastName   = name.includes(' ') ? name.split(' ').slice(-1)[0] : name;
-              const isOver     = dragOverId === player.id;
-              const isOnLoan   = (player as unknown as Record<string, unknown>).onLoan === true;
-              const secondary  = (player as unknown as { secondaryRoles?: string[] }).secondaryRoles;
-
-              return (
-                <div
-                  key={player.id}
-                  {...(!isPlaying ? { draggable: true } : {})}
-                  onDragStart={e => {
-                    e.dataTransfer.setData('text/plain', JSON.stringify({ playerId: player.id, fromIndex: -1, isSubSlot: true }));
-                    e.dataTransfer.effectAllowed = 'move';
-                    setDesktopFromSub(true);
-                    setDesktopDragId(player.id);
-                    setDragFromSub(true);
-                  }}
-                  onDragEnd={() => { setDesktopDragId(null); setDesktopFromSub(false); setDragOverId(null); }}
-                  onDragOver={handleDragOver}
-                  onDrop={e => handleSubPanelDrop(e, player.id)}
-                  onDragEnter={() => setDragOverId(player.id)}
-                  onDragLeave={() => setDragOverId(null)}
-                  onPointerDown={e => {
-                    if (e.pointerType !== 'mouse') {
-                      e.preventDefault();
-                      (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-                      dragStateRef.current = {
-                        playerId: player.id, fromSub: true,
-                        startClientX: e.clientX, startClientY: e.clientY,
-                        isDragging: false, longPressReady: false,
-                      };
-                      if (longPressRef.current) clearTimeout(longPressRef.current);
-                      longPressRef.current = setTimeout(() => {
-                        if (dragStateRef.current?.playerId === player.id)
-                          dragStateRef.current.longPressReady = true;
-                      }, LONG_PRESS_MS);
-                      setDragFromSub(true);
-                    }
-                  }}
-                  onPointerMove={e => handlePlayerPointerMove(e as React.PointerEvent<HTMLDivElement>, player.id)}
-                  onPointerUp={e => handlePlayerPointerUp(e as React.PointerEvent<HTMLDivElement>, player.id)}
-                  onClick={() => onSelectPlayer(selectedPlayerId === player.id ? null : player.id)}
-                  className={`flex items-center gap-2 px-2.5 py-2 border-b border-[#0d1a2a]
-                    cursor-pointer min-h-[46px] transition-all relative
-                    ${selectedPlayerId === player.id ? 'bg-sky-500/10' : 'hover:bg-[#0f1a2a]'}
-                    ${isOver ? 'bg-amber-500/15' : ''}`}
-                  style={{ touchAction: 'none', userSelect: 'none' }}
-                >
-                  {selectedPlayerId === player.id && (
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-sky-400 rounded-r" />
-                  )}
-                  {isOver && (
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-400 rounded-r" />
-                  )}
-
-                  <div className="w-7 h-7 rounded-md flex items-center justify-center
-                    text-[11px] font-black text-white flex-shrink-0 relative"
-                    style={{ background: (meta as { color: string }).color ?? '#555' }}>
-                    {player.num}
-                    {(player.specialRoles ?? []).includes('captain') && (
-                      <span className="absolute -top-1 -right-1 text-[8px] leading-none">🪖</span>
-                    )}
-                    {player.injured && (
-                      <span className="absolute -top-1 -right-1 text-[8px] leading-none">🩹</span>
-                    )}
+                  <div className={`text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
+                    {benchPlayers.length}<span className="text-slate-600 font-normal">/{maxSubs}</span>
                   </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[11px] font-bold text-slate-200 truncate leading-tight">
-                        {lastName.length > 10 ? lastName.slice(0, 10) + '…' : lastName}
-                      </span>
-                      {isOnLoan && (
-                        <span className="text-[7px] font-black text-amber-400 bg-amber-900/50
-                          border border-amber-700/50 px-1 rounded flex-shrink-0">LÅN</span>
-                      )}
-                    </div>
-                    <div className="text-[9px] font-semibold leading-tight mt-0.5 truncate"
-                      style={{ color: roleColors.text }}>
-                      {(meta as { label?: string }).label ?? player.role}
-                    </div>
-                    {secondary && secondary.length > 0 && (
-                      <div className="text-[7px] text-[#4a6080] leading-tight mt-0.5 truncate">
-                        [{secondary.map(r => ROLE_SHORT[r] ?? r.slice(0, 3).toUpperCase()).join(', ')}]
-                      </div>
-                    )}
-                  </div>
-
-                  {isOver && <span className="text-[15px] text-amber-400 flex-shrink-0">⇄</span>}
                 </div>
-              );
-            })}
+              )}
+              <button onClick={()=>setSubPanelOpen(!subPanelOpen)}
+                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.07)' }}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 text-sm flex-shrink-0">
+                {subPanelOpen?'›':'‹'}
+              </button>
+            </div>
+
+            {subPanelOpen&&(
+              <div className="flex-1 overflow-y-auto py-0.5">
+                {subSlots.map((player,idx)=>(
+                  <SubRow key={player?.id??`empty-${idx}`}
+                    player={player} idx={idx}
+                    isSelected={!!player&&selectedPlayerId===player.id}
+                    isDragOver={!!player&&dragOverId===player.id}
+                    displayName={player?getDisplayName(player):''}
+                    isLimited={subLimitReached}
+                    onSelect={()=>player&&onSelectPlayer(selectedPlayerId===player.id?null:player.id)}
+                    onPointerDown={e=>player&&startDrag(e, player.id, true)}
+                    onPointerMove={moveDrag}
+                    onPointerUp={endDrag}
+                    onPointerCancel={endDrag}
+                    isDraggable={!!player&&!isPlaying}/>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {isMobile&&showBottomSheet&&(
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={()=>setShowBottomSheet(false)}>
+          <div className="absolute inset-0" style={{background:'rgba(0,0,0,0.65)',backdropFilter:'blur(4px)'}}/>
+          <div style={{
+            background:'rgba(5,10,28,0.92)',
+            backdropFilter:'blur(24px) saturate(1.4)',
+            borderTop:'1px solid rgba(56,189,248,0.12)',
+            borderRadius:'20px 20px 0 0',
+            maxHeight:'65vh',
+          }} className="relative flex flex-col" onClick={e=>e.stopPropagation()}>
+            <div className="flex-shrink-0 flex flex-col items-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full mb-2" style={{background:'rgba(255,255,255,0.15)'}}/>
+              <div className="flex items-center justify-between w-full px-4">
+                <div>
+                  <span className="text-[11px] font-black text-slate-200">{isTrainingMatch?'Spillere':'Innbyttere'}</span>
+                  <span className={`ml-2 text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
+                    {benchPlayers.length}/{maxSubs}
+                  </span>
+                </div>
+                <button onClick={()=>setShowBottomSheet(false)}
+                  style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.1)' }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 text-sm">✕</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {subSlots.map((player,idx)=>(
+                <SubRow key={player?.id??`empty-${idx}`}
+                  player={player} idx={idx}
+                  isSelected={!!player&&selectedPlayerId===player.id}
+                  isDragOver={!!player&&dragOverId===player.id}
+                  displayName={player?getDisplayName(player):''}
+                  isLimited={subLimitReached}
+                  onSelect={()=>player&&onSelectPlayer(selectedPlayerId===player.id?null:player.id)}
+                  onPointerDown={e=>player&&startDrag(e, player.id, true)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  isDraggable={!!player&&!isPlaying}/>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
+
+const SubRow: React.FC<{
+  player: Player|null; idx:number;
+  isSelected:boolean; isDragOver:boolean; displayName:string;
+  isLimited:boolean;
+  onSelect:()=>void;
+  onPointerDown:(e:React.PointerEvent<HTMLDivElement>)=>void;
+  onPointerMove:(e:React.PointerEvent<HTMLDivElement>)=>void;
+  onPointerUp:(e:React.PointerEvent<HTMLDivElement>)=>void;
+  onPointerCancel:(e:React.PointerEvent<HTMLDivElement>)=>void;
+  isDraggable:boolean;
+}> = React.memo(({ player,idx,isSelected,isDragOver,displayName,isLimited,onSelect,onPointerDown,onPointerMove,onPointerUp,onPointerCancel,isDraggable }) => {
+  if (!player) {
+    return (
+      <div style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}
+        className="flex items-center gap-2 px-2.5 py-2 min-h-[46px] hover:bg-white/[0.02] transition-colors">
+        <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}
+          className="w-7 h-7 rounded-md flex items-center justify-center text-[9px] text-slate-600 flex-shrink-0">–</div>
+        <div className="text-[9.5px] text-slate-600 italic">R{idx+1}</div>
+      </div>
+    );
+  }
+
+  const meta = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#555',label:player.role};
+  const rc   = getDutyColors(player.role);
+  const lastName = displayName.includes(' ') ? displayName.split(' ').slice(-1)[0] : displayName;
+
+  return (
+    <div
+      onPointerDown={isDraggable?onPointerDown:undefined}
+      onPointerMove={isDraggable?onPointerMove:undefined}
+      onPointerUp={isDraggable?onPointerUp:undefined}
+      onPointerCancel={isDraggable?onPointerCancel:undefined}
+      onClick={onSelect}
+      style={{
+        background: isDragOver?'rgba(251,191,36,0.08)':isSelected?'rgba(56,189,248,0.06)':'transparent',
+        borderBottom:'1px solid rgba(255,255,255,0.04)',
+        borderLeft: isDragOver?'2px solid #fbbf24':isSelected?'2px solid #38bdf8':'2px solid transparent',
+        touchAction:'none', userSelect:'none',
+        transition:'background 0.1s, border-color 0.1s',
+      }}
+      className="flex items-center gap-2 px-2.5 py-2 cursor-pointer min-h-[46px] relative hover:bg-white/[0.03]"
+    >
+      <div className="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-black text-white flex-shrink-0 relative"
+        style={{ background:(meta as {color:string}).color??'#555',
+          boxShadow:`0 0 8px ${(meta as {color:string}).color}33` }}>
+        {player.num}
+        {(player.specialRoles??[]).includes('captain')&&<span className="absolute -top-1 -right-1 text-[8px] leading-none">🪖</span>}
+        {player.injured&&<span className="absolute -top-1 -right-1 text-[8px] leading-none">🩹</span>}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] font-bold text-slate-200 truncate leading-tight">
+          {lastName.length>10?lastName.slice(0,10)+'…':lastName}
+        </div>
+        <div className="text-[9px] font-semibold leading-tight mt-0.5 truncate" style={{color:rc.text}}>
+          {(meta as {label?:string}).label??player.role}
+        </div>
+      </div>
+
+      {isDragOver&&<span className="text-[14px] text-amber-400 flex-shrink-0">⇄</span>}
+    </div>
+  );
+});
+SubRow.displayName = 'SubRow';
