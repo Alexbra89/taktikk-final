@@ -2,21 +2,27 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Sidebar } from '@/components/ui/Sidebar';
-import { TacticBoard } from '@/components/board/TacticBoard';
-import { PlayerEditor } from '@/components/ui/PlayerEditor';
-import { CalendarView } from '@/components/calendar/CalendarView';
-import { PlayerPortal } from '@/components/player-portal/PlayerPortal';
-import { PlayerHome } from '@/components/player-portal/PlayerHome';
 import { LoginGate } from '@/components/ui/LoginGate';
-import { SmartCoach } from '@/components/ui/SmartCoach';
-import { MatchReportModal } from '@/components/ui/MatchReport';
-import { StatsView } from '@/components/ui/StatsView';
-import { PlayerManager } from '@/components/ui/PlayerManager';
-import { TrainingView } from '@/components/ui/TrainingView';
-import { FullscreenBoard } from '@/components/ui/FullscreenBoard';
-import { ChatPanel } from '@/components/ui/ChatPanel';
 import type { CalendarEvent, AppView, ChatMessage } from '@/types';
+import dynamic from 'next/dynamic';
+
+// ─── ALLE DYNAMISKE IMPORTER (må stå før de brukes) ─────────
+const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(mod => mod.TacticBoard), { 
+  ssr: false,
+  loading: () => <div className="flex-1 bg-[#060c18]" />
+});
+const PlayerEditor = dynamic(() => import('@/components/ui/PlayerEditor').then(mod => mod.PlayerEditor), { ssr: false });
+const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
+const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
+const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
+const StatsView = dynamic(() => import('@/components/ui/StatsView').then(mod => mod.StatsView), { ssr: false });
+const TrainingView = dynamic(() => import('@/components/ui/TrainingView').then(mod => mod.TrainingView), { ssr: false });
+const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(mod => mod.CalendarView), { ssr: false });
+const Sidebar = dynamic(() => import('@/components/ui/Sidebar').then(mod => mod.Sidebar), { ssr: false });
+const ChatPanel = dynamic(() => import('@/components/ui/ChatPanel').then(mod => mod.ChatPanel), { ssr: false });
+const PlayerPortal = dynamic(() => import('@/components/player-portal/PlayerPortal').then(mod => mod.PlayerPortal), { ssr: false });
+const PlayerManager = dynamic(() => import('@/components/ui/PlayerManager').then(mod => mod.PlayerManager), { ssr: false });
+const PlayerHome = dynamic(() => import('@/components/player-portal/PlayerHome').then(mod => mod.PlayerHome), { ssr: false });
 
 // ─── TYPER ─────────────────────────────────────────────────────
 type CoachTab = 'dashboard' | 'board' | 'calendar' | 'players' | 'training' | 'admin' | 'stats' | 'chat';

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import NotificationProvider from '@/components/NotificationProvider';
 
+// 1. Metadata - themeColor er FJERNET herfra (flyttet til viewport)
 export const metadata: Metadata = {
   title: {
     default: 'Taktikkboard',
@@ -19,10 +20,9 @@ export const metadata: Metadata = {
     icon: '/icon-192.png',
     apple: '/icon-192.png',
   },
-  // NYTT: themeColor i metadata for bedre PWA-støtte
-  themeColor: '#060c18',
 };
 
+// 2. Viewport - themeColor er PLASSERT her (riktig for Next.js 14.2+)
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -40,23 +40,12 @@ export default function RootLayout({
   return (
     <html lang="no" suppressHydrationWarning>
       <head>
-        {/* PWA / Mobile optimalisering */}
+        {/* PWA / Mobile optimalisering - beholdes for eldre nettlesere */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
-
-        {/* Fiks viewport på iOS */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-
-        {/* Theme */}
-        <meta name="theme-color" content="#060c18" />
-        
-        {/* NYTT: Touch icon for iOS home screen */}
         <meta name="apple-touch-icon" content="/icon-192.png" />
-        
-        {/* NYTT: Fullskjerm-modus på iOS når lagt til på hjem-skjerm */}
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
 
       <body
