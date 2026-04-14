@@ -223,6 +223,7 @@ export async function loadFromSupabase(): Promise<Partial<{
         drawings: r.drawings ?? [],
         description: r.description ?? '',
         stickyNote: r.sticky_note ?? '',
+        sort_order: r.sort_order ?? 0,
       }));
     }
 
@@ -313,7 +314,7 @@ interface AppStore {
   signIn: (email: string, password: string, role: 'coach' | 'player') => Promise<boolean>;
   signOut: () => Promise<void>;
 
-  // Beholdes for bakoverkompatibilitet? Fjernes fra UI, men beholdes internt en stund
+  // Beholdes for bakoverkompatibilitet
   loginCoach: (email: string, password: string) => boolean;
   loginPlayer: (emailOrId: string, passwordOrPin: string) => boolean;
   loginReferee: (pin: string) => boolean;
@@ -346,6 +347,9 @@ interface AppStore {
   updatePlayerPosition: (phaseIdx: number, playerId: string, pos: { x: number; y: number }, slotId?: string) => void;
   updateBallPosition: (phaseIdx: number, pos: { x: number; y: number }) => void;
   updatePlayerField: (phaseIdx: number, playerId: string, fields: Partial<Player>) => void;
+  addPlayer: (phaseIdx: number, player: Player) => void; // <-- NY
+  updatePlayersInPhase: (phaseIdx: number, updates: Array<{ playerId: string; fields: Partial<Player> }>) => void;
+  reorderBenchPlayers: (phaseIdx: number, fromIndex: number, toIndex: number) => void;
   addDrawing: (phaseIdx: number, drawing: Omit<Drawing, 'id'>) => void;
   clearDrawings: (phaseIdx: number) => void;
   updatePhaseName: (phaseIdx: number, name: string) => void;
@@ -431,7 +435,6 @@ export const useAppStore = create<AppStore>()(
           try {
             const user = await authSignUp(email, password);
             if (!user) return false;
-            // Opprett standard coach-innstillinger
             set({
               coachEmail: email,
               coachPassword: password,
@@ -450,7 +453,6 @@ export const useAppStore = create<AppStore>()(
           try {
             const user = await authSignIn(email, password);
             if (!user) return false;
-            // Finn spiller-konto hvis player
             let playerAccount: PlayerAccount | undefined;
             if (role === 'player') {
               playerAccount = get().playerAccounts.find(a => a.email?.toLowerCase() === email.toLowerCase());
@@ -481,7 +483,7 @@ export const useAppStore = create<AppStore>()(
           }
         },
 
-        // ─── Behold gamle login-metoder (kan fases ut senere) ──
+        // ─── Behold gamle login-metoder ──
         loginCoach: (email, password) => {
           const state = get();
           if (email.toLowerCase().trim() === state.coachEmail.toLowerCase().trim() && password === state.coachPassword) {
@@ -617,7 +619,6 @@ export const useAppStore = create<AppStore>()(
                 p.id === playerId ? { ...p, position: pos, currentSlotId: slotId ?? p.currentSlotId } : p
               )
             };
-            // Bruk markPhasesDirty uten debounce; syncQueue tar seg av batching
             markPhasesDirty();
             return { phases: newPhases };
           });
@@ -630,10 +631,77 @@ export const useAppStore = create<AppStore>()(
         },
 
         updatePlayerField: (phaseIdx, playerId, fields) => {
-          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-            ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, ...fields } : p),
+          set(state => {
+            const newPhases = [...state.phases];
+            const phase = newPhases[phaseIdx];
+            if (!phase) return state;
+
+            const playerExists = phase.players.some(p => p.id === playerId);
+            if (!playerExists) {
+              console.warn(`updatePlayerField: Player ${playerId} not found in phase ${phaseIdx}`);
+              return state;
+            }
+
+            newPhases[phaseIdx] = {
+              ...phase,
+              players: phase.players.map(p => p.id === playerId ? { ...p, ...fields } : p),
+            };
+            return { phases: newPhases };
           });
-          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        // ═══════════════════════════════════════════════════════════════
+        //  NY: addPlayer – legger til en ny spiller i fasen
+        // ═══════════════════════════════════════════════════════════════
+        addPlayer: (phaseIdx, player) => {
+          set(state => {
+            const newPhases = [...state.phases];
+            const phase = newPhases[phaseIdx];
+            if (!phase) return state;
+
+            newPhases[phaseIdx] = {
+              ...phase,
+              players: [...phase.players, player],
+            };
+            return { phases: newPhases };
+          });
+          markPhasesDirty();
+        },
+
+        updatePlayersInPhase: (phaseIdx, updates) => {
+          set(state => {
+            const newPhases = [...state.phases];
+            const phase = newPhases[phaseIdx];
+            if (!phase) return state;
+            const updatedPlayers = phase.players.map(p => {
+              const update = updates.find(u => u.playerId === p.id);
+              return update ? { ...p, ...update.fields } : p;
+            });
+            newPhases[phaseIdx] = { ...phase, players: updatedPlayers };
+            return { phases: newPhases };
+          });
+          markPhasesDirty();
+        },
+
+        reorderBenchPlayers: (phaseIdx, fromIndex, toIndex) => {
+          set(state => {
+            const newPhases = [...state.phases];
+            const phase = newPhases[phaseIdx];
+            if (!phase) return state;
+            const benchPlayers = phase.players.filter(p => p.team === 'home' && p.isStarter !== true);
+            if (fromIndex < 0 || fromIndex >= benchPlayers.length || toIndex < 0 || toIndex >= benchPlayers.length) return state;
+            const fromPlayer = benchPlayers[fromIndex];
+            const toPlayer = benchPlayers[toIndex];
+            if (!fromPlayer || !toPlayer) return state;
+            const playersCopy = [...phase.players];
+            const fromGlobalIdx = playersCopy.findIndex(p => p.id === fromPlayer.id);
+            const toGlobalIdx = playersCopy.findIndex(p => p.id === toPlayer.id);
+            if (fromGlobalIdx === -1 || toGlobalIdx === -1) return state;
+            [playersCopy[fromGlobalIdx], playersCopy[toGlobalIdx]] = [playersCopy[toGlobalIdx], playersCopy[fromGlobalIdx]];
+            newPhases[phaseIdx] = { ...phase, players: playersCopy };
+            return { phases: newPhases };
+          });
           markPhasesDirty();
         },
 
@@ -914,7 +982,6 @@ export const useAppStore = create<AppStore>()(
           try {
             const data = await loadFromSupabase();
             set(state => ({ ...state, ...data, loading: false }));
-            // Initialiser syncQueue med getState-funksjon
             initSyncQueue(() => get());
           } catch (error) {
             console.error('Sync failed:', error);

@@ -82,6 +82,52 @@ export const StatsView: React.FC = () => {
     [events]
   );
 
+  // ═══════════════════════════════════════════════════════════════
+  //  SESONGSTATISTIKK – V-U-T, MÅLFORSKJELL, POENG, FORM
+  // ═══════════════════════════════════════════════════════════════
+  const seasonStats = useMemo(() => {
+    let wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0;
+    const formArray: ('V' | 'U' | 'T')[] = [];
+    
+    // Sorter kamper kronologisk (eldste først) for form-beregning
+    const chronologicalMatches = [...matches].sort((a, b) => a.date.localeCompare(b.date));
+    
+    chronologicalMatches.forEach(match => {
+      if (!match.result) return;
+      
+      // Parse resultat (f.eks. "3-1")
+      const parts = match.result.split('-').map(n => parseInt(n.trim(), 10));
+      if (parts.length !== 2) return;
+      
+      const [score1, score2] = parts;
+      
+      // Anta at hjemmelaget alltid er listet først i resultatet
+      // Treneren må manuelt sørge for at resultatet skrives som "Våre mål - Deres mål"
+      const ourGoals = score1;
+      const theirGoals = score2;
+      
+      goalsFor += ourGoals;
+      goalsAgainst += theirGoals;
+      
+      if (ourGoals > theirGoals) {
+        wins++;
+        formArray.push('V');
+      } else if (ourGoals < theirGoals) {
+        losses++;
+        formArray.push('T');
+      } else {
+        draws++;
+        formArray.push('U');
+      }
+    });
+    
+    const points = wins * 3 + draws;
+    const goalDifference = goalsFor - goalsAgainst;
+    const formString = formArray.slice(-5).join(' · ');
+    
+    return { wins, draws, losses, goalsFor, goalsAgainst, goalDifference, points, formArray, formString };
+  }, [matches]);
+
   const phase = phases[activePhaseIdx] ?? phases[0];
   const homePlayers = (phase?.players ?? []).filter((p: any) => p.team === 'home');
 
@@ -265,6 +311,73 @@ export const StatsView: React.FC = () => {
         {/* ── OVERSIKT ── */}
         {tab === 'overview' && (
           <div className="space-y-4 max-w-2xl mx-auto">
+            {/* V-U-T Statistikk */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+                <div className="text-2xl font-black text-emerald-400">{seasonStats.wins}</div>
+                <div className="text-[10px] text-[#4a6080] uppercase tracking-wider mt-1">Seire (V)</div>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center">
+                <div className="text-2xl font-black text-amber-400">{seasonStats.draws}</div>
+                <div className="text-[10px] text-[#4a6080] uppercase tracking-wider mt-1">Uavgjort (U)</div>
+              </div>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
+                <div className="text-2xl font-black text-red-400">{seasonStats.losses}</div>
+                <div className="text-[10px] text-[#4a6080] uppercase tracking-wider mt-1">Tap (T)</div>
+              </div>
+            </div>
+
+            {/* Målforskjell og Poeng */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4 text-center">
+                <div className="text-xl font-black text-sky-400">
+                  {seasonStats.goalsFor}-{seasonStats.goalsAgainst}
+                </div>
+                <div className="text-[10px] text-[#4a6080] uppercase tracking-wider mt-1">
+                  Målforskjell {seasonStats.goalDifference > 0 ? '+' : ''}{seasonStats.goalDifference}
+                </div>
+              </div>
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 text-center">
+                <div className="text-xl font-black text-purple-400">{seasonStats.points}</div>
+                <div className="text-[10px] text-[#4a6080] uppercase tracking-wider mt-1">Poeng</div>
+              </div>
+            </div>
+
+            {/* Form-graf */}
+            {seasonStats.formArray.length > 0 && (
+              <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-4">
+                <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">
+                  📈 Form (siste 5 kamper)
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  {seasonStats.formArray.slice(-5).map((result, idx) => {
+                    const colors = {
+                      'V': 'bg-emerald-500 text-white',
+                      'U': 'bg-amber-500 text-white',
+                      'T': 'bg-red-500 text-white',
+                    };
+                    return (
+                      <div
+                        key={idx}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${colors[result]}`}
+                      >
+                        {result}
+                      </div>
+                    );
+                  })}
+                  {seasonStats.formArray.length === 0 && (
+                    <span className="text-[11px] text-[#4a6080]">Ingen kamper spilt</span>
+                  )}
+                </div>
+                {seasonStats.formArray.length > 0 && (
+                  <div className="text-center text-[10px] text-[#4a6080] mt-3">
+                    {seasonStats.formString}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Kortstatistikk - Treninger/Kamper */}
             <div className="grid grid-cols-2 gap-3">
               {[
                 { label: 'Treninger totalt', value: trainings.length, color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/20' },
@@ -279,6 +392,7 @@ export const StatsView: React.FC = () => {
               ))}
             </div>
 
+            {/* Toppscorer og Assists */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
                 <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-2">⚽ Toppscorer</div>
@@ -322,10 +436,30 @@ export const StatsView: React.FC = () => {
               </div>
             </div>
 
+            {/* Siste kamper */}
             <div>
               <h3 className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">📅 Siste kamper</h3>
               {matches.slice(0, 5).map(match => {
                 const matchStat = matchStats.find(ms => ms.matchId === match.id);
+                
+                // Beregn resultattype (V/U/T) for visning
+                let resultType: 'V' | 'U' | 'T' | null = null;
+                if (match.result) {
+                  const parts = match.result.split('-').map(n => parseInt(n.trim(), 10));
+                  if (parts.length === 2) {
+                    const [our, their] = parts;
+                    if (our > their) resultType = 'V';
+                    else if (our < their) resultType = 'T';
+                    else resultType = 'U';
+                  }
+                }
+                
+                const resultColors = {
+                  'V': 'text-emerald-400',
+                  'U': 'text-amber-400',
+                  'T': 'text-red-400',
+                };
+                
                 return (
                   <div key={match.id} className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3 mb-2">
                     <div className="flex items-center justify-between">
@@ -341,11 +475,21 @@ export const StatsView: React.FC = () => {
                           </div>
                         )}
                       </div>
-                      <div className="text-[13px] font-bold text-red-400">{match.result || '0-0'}</div>
+                      <div className="flex items-center gap-2">
+                        {resultType && (
+                          <span className={`text-[11px] font-bold ${resultColors[resultType]}`}>
+                            ({resultType})
+                          </span>
+                        )}
+                        <div className="text-[13px] font-bold text-slate-200">{match.result || '-'}</div>
+                      </div>
                     </div>
                   </div>
                 );
               })}
+              {matches.length === 0 && (
+                <p className="text-[12px] text-[#4a6080] italic text-center py-4">Ingen kamper registrert</p>
+              )}
             </div>
           </div>
         )}

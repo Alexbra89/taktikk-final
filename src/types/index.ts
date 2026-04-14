@@ -40,6 +40,7 @@ export interface Player {
   specialRoles?: SpecialRole[];
   individualTraining?: string;
   currentSlotId?: string;  // ← LEGG TIL DENNE
+  playerAccountId?: string; // ✅ Knytter spilleren til en PlayerAccount
 }
 
 export interface Drawing {
@@ -57,6 +58,7 @@ export interface TacticPhase {
   drawings: Drawing[];
   description?: string;
   stickyNote?: string;
+  sort_order?: number;
 }
 
 export type EventType = 'training' | 'match';
@@ -189,7 +191,7 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'dashboard' | 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'training' | 'referee' | 'player-home';
+export type AppView = 'dashboard' | 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'training' | 'referee' | 'player-home' | 'messages';
 
 export interface AppState {
   sport: Sport;

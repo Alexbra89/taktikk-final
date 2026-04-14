@@ -1,7 +1,7 @@
 // src/components/player-portal/PlayerHome.tsx
 'use client';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useAppStore } from '@/store/useAppStore';
+import { useAppStore, subscribeToSupabase } from '@/store/useAppStore';
 import { useNotification } from '@/components/NotificationProvider';
 import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
 import { TrainingView } from '@/components/ui/TrainingView';
@@ -9,11 +9,9 @@ import { CalendarView } from '@/components/calendar/CalendarView';
 import { ChatPanel } from '@/components/ui/ChatPanel';
 import { PitchView } from '@/components/board/PitchView';
 import type { TacticPhase, CalendarEvent, CoachMessage, ChatMessage, Player } from '@/types';
+import { PlayerProfile } from './PlayerProfile';
 
-// ═══════════════════════════════════════════════════════════════
-//  KONSTANTER OG HJELPEFUNKSJONER
-// ═══════════════════════════════════════════════════════════════
-
+// ─── KONSTANTER OG HJELPEFUNKSJONER ──────────────────────────
 const SPECIAL_LABELS: Record<string, string> = {
   captain:          '🪖 Kaptein',
   freekick:         '🎯 Frispark',
@@ -36,11 +34,10 @@ const getMeta = (role: string) => ROLE_META[role as keyof typeof ROLE_META] ?? n
 const getNum = (p: { num?: number; number?: number }) => p.number ?? p.num ?? 0;
 
 // ═══════════════════════════════════════════════════════════════
-//  READ-ONLY TACTIC BOARD (bruker PitchView)
+//  READ-ONLY TACTIC BOARD (med kirurgisk fiks for fase-rekkefølge)
 // ═══════════════════════════════════════════════════════════════
-
 export const ReadOnlyTacticBoard: React.FC = () => {
-  const { phases, sport } = useAppStore();
+  const { phases: rawPhases, sport } = useAppStore();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playRef  = useRef({ from: 0, t: 0 });
 
@@ -50,6 +47,32 @@ export const ReadOnlyTacticBoard: React.FC = () => {
   const [interpFrom, setInterpFrom] = useState(0);
   const [interpT, setInterpT]       = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ═══════════════════════════════════════════════════════════════
+  //  KIRURGISK FIX: Sorter og dedupliser fasene basert på sort_order
+  //  Dette fjerner duplikater og sikrer korrekt rekkefølge for spilleren.
+  // ═══════════════════════════════════════════════════════════════
+  const phases = useMemo(() => {
+    // 1. Opprett en Map for å fjerne duplikater basert på id
+    const uniqueMap = new Map<string, TacticPhase>();
+    for (const ph of rawPhases) {
+      if (!uniqueMap.has(ph.id)) {
+        uniqueMap.set(ph.id, ph);
+      } else {
+        console.warn(`[PlayerHome] Duplikat fase oppdaget: ${ph.id} (${ph.name}). Bruker første forekomst.`);
+      }
+    }
+    // 2. Konverter til array og sorter på sort_order (hvis tilgjengelig), ellers fall tilbake på name
+    const uniquePhases = Array.from(uniqueMap.values());
+    return uniquePhases.sort((a, b) => {
+      // Hent sort_order fra det utvidede objektet (kan være lagret i databasen)
+      const orderA = (a as any).sort_order ?? 999;
+      const orderB = (b as any).sort_order ?? 999;
+      if (orderA !== orderB) return orderA - orderB;
+      // Fallback: sorter på navn eller id for stabilitet
+      return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+    });
+  }, [rawPhases]);
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
@@ -122,7 +145,7 @@ export const ReadOnlyTacticBoard: React.FC = () => {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#060c18]">
-      {/* Read-only banner med glassmorfisme */}
+      {/* Read-only banner */}
       <div className="flex-shrink-0 px-3 py-1.5 bg-amber-500/10 backdrop-blur-sm border-b border-amber-500/20 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-amber-400 text-[11px]">🔒</span>
@@ -163,7 +186,7 @@ export const ReadOnlyTacticBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* PitchView – felles komponent */}
+      {/* PitchView */}
       <PitchView
         phase={phase}
         sport={sport}
@@ -176,7 +199,7 @@ export const ReadOnlyTacticBoard: React.FC = () => {
         showFullscreenBtn={false}
       />
 
-      {/* Rollelegende med glassmorfisme */}
+      {/* Rollelegende */}
       <div className="flex-shrink-0 px-3 py-1.5 bg-[#0d1626]/80 backdrop-blur border-t border-[#1e3050]">
         <div className="flex flex-wrap gap-x-3 gap-y-0.5">
           {Object.entries(ROLE_META).slice(0, 8).map(([key, meta]) => (
@@ -188,7 +211,7 @@ export const ReadOnlyTacticBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* Innbyttere med glassmorfisme */}
+      {/* Innbyttere */}
       {bench.length > 0 && (
         <div className="flex-shrink-0 px-3 py-2 bg-[#0a1422]/80 backdrop-blur border-t border-[#1e3050]">
           <div className="text-[9.5px] font-bold text-amber-400 uppercase tracking-widest mb-1.5">🪑 Innbyttere</div>
@@ -206,14 +229,33 @@ export const ReadOnlyTacticBoard: React.FC = () => {
         </div>
       )}
 
-      {/* Fullskjerm modal */}
+      {/* Fullskjerm modal – med luft rundt og scrolling */}
       {isFullscreen && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
-          <div className="flex-shrink-0 flex justify-end p-2">
-            <button onClick={() => setIsFullscreen(false)} className="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-semibold hover:bg-red-500/25 transition">✕ Lukk fullskjerm</button>
-          </div>
-          <div className="flex-1 min-h-0 overflow-auto">
-            <PitchView phase={phase} sport={sport} isPlaying={isPlaying} progressFrac={progressFrac} displayBall={displayBall} homePlayers={homePlayers} drawings={phase.drawings} showFullscreenBtn={false} />
+        <div className="fixed inset-0 z-[100] bg-black/95 overflow-y-auto p-4 sm:p-6">
+          <div className="relative min-h-full flex items-center justify-center">
+            <div className="relative w-full max-w-[1200px] bg-[#060c18] rounded-2xl shadow-2xl border border-[#1e3050]">
+              {/* Lukk-knapp */}
+              <button
+                onClick={() => setIsFullscreen(false)}
+                className="absolute top-4 right-4 z-50 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-[11px] font-semibold hover:bg-red-500/25 transition"
+              >
+                ✕ Lukk fullskjerm
+              </button>
+
+              {/* PitchView */}
+              <div className="w-full aspect-[16/10]">
+                <PitchView
+                  phase={phase}
+                  sport={sport}
+                  isPlaying={isPlaying}
+                  progressFrac={progressFrac}
+                  displayBall={displayBall}
+                  homePlayers={homePlayers}
+                  drawings={phase.drawings}
+                  showFullscreenBtn={false}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -229,7 +271,7 @@ export const PlayerHome: React.FC = () => {
   const { currentUser, coachMessages, events, phases, sport, playerAccounts, homeTeamName, logout, chatMessages, sendChat } = useAppStore();
   const { markMessagesAsRead } = useNotification();
 
-  const [tab, setTab] = useState<'messages' | 'lineup' | 'board' | 'chat' | 'roles' | 'calendar' | 'training'>('board');
+  const [tab, setTab] = useState<'messages' | 'lineup' | 'board' | 'chat' | 'roles' | 'calendar' | 'training' | 'profile'>('board');
   const [lastSeenMessageCount, setLastSeenMessageCount] = useState(0);
   const [lastSeenChatCount, setLastSeenChatCount] = useState(0);
 
@@ -274,6 +316,19 @@ export const PlayerHome: React.FC = () => {
     }
   }, [tab, myChats.length, markMessagesAsRead, playerId]);
 
+  // ─── TVINGEN SYNKRONISERING VED OPPSTART (fikser gammel fasevisning) ─────────
+  useEffect(() => {
+    useAppStore.getState().syncFromSupabase();
+  }, []);
+
+  // ─── SANNTIDSABONNEMENT ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const unsubscribe = subscribeToSupabase(() => {
+      useAppStore.getState().syncFromSupabase();
+    });
+    return () => { unsubscribe(); };
+  }, []);
+
   const resolvePlayerName = useCallback((p: any) => {
     let acc = (playerAccounts as any[]).find(a => a.id === p.playerAccountId);
     if (!acc) acc = (playerAccounts as any[]).find(a => a.playerId === p.id);
@@ -290,6 +345,7 @@ export const PlayerHome: React.FC = () => {
     { id: 'training', label: '🏃 Trening',   badge: 0 },
     { id: 'calendar', label: '📅 Kalender',  badge: 0 },
     { id: 'roles',    label: '📚 Roller',    badge: 0 },
+    { id: 'profile',  label: '👤 Profil',    badge: 0 },
     { id: 'messages', label: '📩 Meldinger', badge: Math.max(0, unreadMessages) },
     { id: 'chat',     label: '💬 Chat',      badge: Math.max(0, unreadChats) },
   ];
@@ -316,6 +372,14 @@ export const PlayerHome: React.FC = () => {
             ))}
           </div>
         )}
+        {/* Manuell oppdateringsknapp */}
+        <button
+          onClick={() => useAppStore.getState().syncFromSupabase()}
+          className="text-[16px] text-sky-400 hover:text-sky-300 transition min-h-[44px] px-2"
+          title="Hent nyeste data fra server"
+        >
+          🔄
+        </button>
         <button onClick={logout} className="text-[11px] text-[#4a6080] hover:text-red-400 transition min-h-[44px] px-2 flex-shrink-0">Ut</button>
       </div>
 
@@ -386,6 +450,7 @@ export const PlayerHome: React.FC = () => {
         {tab === 'training' && <TrainingView />}
         {tab === 'calendar' && <CalendarView />}
         {tab === 'roles' && <RoleDescriptionsView sport={sport} myRole={myPlayer?.role} />}
+        {tab === 'profile' && <PlayerProfile />}
         {tab === 'messages' && (
           <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full space-y-4">
             {myAccount?.individualTrainingNote && (
@@ -407,7 +472,7 @@ export const PlayerHome: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  UNDERKOMPONENTER (glassmorfisme)
+//  UNDERKOMPONENTER
 // ═══════════════════════════════════════════════════════════════
 
 const LineupRow: React.FC<{ player: any; isMe: boolean; isSub?: boolean }> = ({ player, isMe, isSub }) => {

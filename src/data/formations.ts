@@ -472,7 +472,7 @@ export const getFormationDescription = (formationName: string, sport: string): s
 };
 
 // ══════════════════════════════════════════════════════════════
-//  FORBEDRET makePhase – rollebasert matching
+//  FORBEDRET makePhase – EKSAKT KOPI UTEN ENDRING
 // ══════════════════════════════════════════════════════════════
 
 /**
@@ -493,47 +493,12 @@ export const makePhase = (
   const defaultFormation = DEFAULT_FORMATION[sport] ?? formations[0]?.name;
   const formation = formations.find(f => f.name === defaultFormation) ?? formations[0];
 
-  // Hvis vi har eksisterende spillere, bruk rollebasert matching
   let players: Player[];
   if (existingPlayers && existingPlayers.length > 0) {
-    // Lag en kopi av eksisterende spillere
-    const available = [...existingPlayers];
-    const newPlayers: Player[] = [];
-
-    for (const slot of formation.homePlayers) {
-      // Finn en spiller med samme rolle som slot
-      let matchedIndex = available.findIndex(p => p.role === slot.role);
-      if (matchedIndex === -1) {
-        // Hvis ingen treff, finn en spiller som ikke allerede er brukt
-        matchedIndex = available.findIndex(p => !newPlayers.includes(p));
-      }
-      if (matchedIndex !== -1) {
-        const player = { ...available[matchedIndex] };
-        player.position = slot.position;
-        player.role = slot.role as PlayerRole;
-        newPlayers.push(player);
-        available.splice(matchedIndex, 1);
-      } else {
-        // Opprett ny spiller hvis det ikke finnes nok
-        const idx = newPlayers.length;
-        newPlayers.push({
-          id: `p-${Date.now()}-${idx}`,
-          num: idx + 1,
-          name: '',
-          role: slot.role as PlayerRole,
-          position: slot.position,
-          team: 'home',
-          notes: '',
-          isStarter: true,
-          isOnField: true,
-          minutesPlayed: 0,
-          specialRoles: [],
-        });
-      }
-    }
-    players = newPlayers;
+    // 🔥 EKSAKT KOPI – ingen rollebasert matching, bare dyp kopi
+    players = existingPlayers.map(p => ({ ...p }));
   } else {
-    // Ingen eksisterende spillere – opprett nye
+    // Første gang – opprett fra formasjonen
     players = formation.homePlayers.map((p, idx) => ({
       id: `p-${Date.now()}-${idx}`,
       num: idx + 1,

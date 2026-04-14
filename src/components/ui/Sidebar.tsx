@@ -2,11 +2,13 @@
 import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
+import { PlayerRole } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  SIDEBAR – FM‑STIL + GLASSMORPHISM
 //  ── Tropp, Tildel, Roller
 //  ── Drag‑and‑drop mellom startoppstilling og innbytterbenk
+//  ── Sortering av innbyttere via drag-and-drop
 //  ── Profesjonell FM‑look med glasspaneler, myke overganger
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -15,7 +17,6 @@ interface SidebarProps {
   onSelectPlayer: (id: string | null) => void;
 }
 
-// ─── Glassmorphism konstanter (samme som i TacticBoard) ─────────────────────
 const GLASS = {
   panel: 'rgba(8, 15, 35, 0.75)',
   border: 'rgba(56, 189, 248, 0.12)',
@@ -27,7 +28,6 @@ const GLASS = {
   danger: '#f87171',
 };
 
-// Hjelpefunksjon for å hente visningsnavn + rolle
 const getPlayerDisplayName = (player: any, playerAccounts: any[]) => {
   const account = playerAccounts.find((a: any) => a.playerId === player.id);
   const roleMeta = ROLE_META[player.role as keyof typeof ROLE_META];
@@ -49,7 +49,7 @@ const getSpecialRolesIcons = (player: any): string => {
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlayer }) => {
-  const [tab, setTab] = useState<'players' | 'assign' | 'roles'>('players');
+  const [tab, setTab] = useState<'players' | 'roles'>('players');
   const [openRole, setOpenRole] = useState<string | null>(null);
   const [showSubConfirm, setShowSubConfirm] = useState<{ outId: string; inId: string } | null>(null);
   const [selectedOutPlayer, setSelectedOutPlayer] = useState<any | null>(null);
@@ -61,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const {
     sport, phases, activePhaseIdx,
     updatePlayerField, playerAccounts, homeTeamName,
+    reorderBenchPlayers,
   } = useAppStore();
 
   const phase = phases[activePhaseIdx];
@@ -74,16 +75,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const starters = homePlayers.filter(p => p.isStarter === true);
   const subs = homePlayers.filter(p => p.isStarter !== true);
   
-  // Fyll opp startoppstillingen til teamSize med tomme plasser
   const fieldSlots: (any | null)[] = [...starters];
   while (fieldSlots.length < teamSize) fieldSlots.push(null);
   const fieldDisplay = fieldSlots.slice(0, teamSize);
 
-  // Fyll opp innbytterlisten til maxSubs med tomme plasser
   const subSlots: (any | null)[] = [...subs];
   while (subSlots.length < maxSubs) subSlots.push(null);
 
-  // ─── Drag & drop håndtering ─────────────────────────────────────────────
   const handleDragStart = (e: React.DragEvent, playerId: string, fromIndex: number, isSubSlot: boolean = false) => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ playerId, fromIndex, isSubSlot }));
     e.dataTransfer.effectAllowed = 'move';
@@ -129,7 +127,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       if (isSubSlot) {
         const targetPlayer = fieldDisplay[toIndex];
         if (targetPlayer) {
-          // Bytt starter og innbytter
           updatePlayerField(activePhaseIdx, draggedPlayer.id, {
             isStarter: true,
             position: targetPlayer.position,
@@ -139,7 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             position: draggedPlayer.position,
           });
         } else {
-          // Tom plass – sett innbytter inn i startoppstillingen
           updatePlayerField(activePhaseIdx, draggedPlayer.id, {
             isStarter: true,
             position: getPositionForIndex(toIndex),
@@ -150,11 +146,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 
       const targetPlayer = fieldDisplay[toIndex];
       if (targetPlayer) {
-        // Bytt posisjon mellom to startere
         updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: targetPlayer.position });
         updatePlayerField(activePhaseIdx, targetPlayer.id, { position: draggedPlayer.position });
       } else {
-        // Flytt starter til tom plass
         const newPos = getPositionForIndex(toIndex);
         if (newPos) {
           updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: newPos });
@@ -171,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-      const { playerId, isSubSlot } = data;
+      const { playerId, isSubSlot, fromIndex } = data;
       
       const draggedPlayer = homePlayers.find(p => p.id === playerId);
       if (!draggedPlayer) return;
@@ -179,9 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       const targetSub = subSlots[toSubIndex];
 
       if (!isSubSlot) {
-        // Starter dras til benk
         if (targetSub) {
-          // Bytt med eksisterende innbytter
           updatePlayerField(activePhaseIdx, draggedPlayer.id, {
             isStarter: false,
             position: targetSub.position ?? draggedPlayer.position,
@@ -191,17 +183,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             position: draggedPlayer.position,
           });
         } else {
-          // Flytt starter rett til benk
           updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: false });
         }
+      } else {
+        if (targetSub && fromIndex !== undefined && fromIndex !== toSubIndex) {
+          reorderBenchPlayers(activePhaseIdx, fromIndex, toSubIndex);
+        }
       }
-      // Hvis to innbyttere bytter plass – vi ignorerer for nå (ingen posisjonsendring)
     } catch (err) {
       console.error('Sub drop error:', err);
     }
   };
 
-  // ─── Bytteflyt (modal) ─────────────────────────────────────────────────
   const getAvailableSubs = (outPlayer: any) => subs.filter(p => p.id !== outPlayer.id);
 
   const swapPlayers = (playerOutId: string, playerInId: string) => {
@@ -235,7 +228,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     setShowEmptySlotPicker(null);
   };
 
-  // ─── Hjelpefunksjoner for visning ──────────────────────────────────────
   const sportEmoji = sport === 'handball' ? '🤾' : '⚽';
   const sportLabel = sport === 'handball' ? 'Håndball' : sport === 'football7' ? 'Fotball 7er' : sport === 'football9' ? 'Fotball 9er' : 'Fotball 11er';
 
@@ -256,9 +248,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     return pos[index] || `Posisjon ${index + 1}`;
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  //  RENDER
-  // ═══════════════════════════════════════════════════════════════════════
   return (
     <aside 
       className="flex-shrink-0 flex flex-col h-full overflow-hidden"
@@ -271,7 +260,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         boxShadow: '2px 0 20px rgba(0, 0, 0, 0.3)',
       }}
     >
-      {/* ─── Header ────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(56, 189, 248, 0.1)' }}>
         <div className="flex items-center gap-2 mb-1">
           <span 
@@ -292,11 +281,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         </div>
       </div>
 
-      {/* ─── Tabs (glassmorphism) ──────────────────────────────────────── */}
+      {/* Tabs */}
       <div className="flex border-b px-2 gap-1" style={{ borderColor: 'rgba(56, 189, 248, 0.08)' }}>
         {([
           ['players', '👥 Tropp'],
-          ['assign',  '🔗 Tildel'],
           ['roles',   '📚 Roller'],
         ] as const).map(([t, l]) => (
           <button 
@@ -319,15 +307,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         ))}
       </div>
 
-      {/* ─── Innhold (scrollbar) ───────────────────────────────────────── */}
+      {/* Innhold */}
       <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
         
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/*  TROPP‑FANEN                                                      */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
+        {/* Tropp-fane */}
         {tab === 'players' && phase && (
           <>
-            {/* Startoppstilling header */}
             <div className="flex items-center justify-between mb-2">
               <div className="text-[9px] font-black text-sky-400 uppercase tracking-widest">
                 ⚽ Startoppstilling ({starters.length}/{teamSize})
@@ -339,7 +324,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
               )}
             </div>
             
-            {/* Startoppstilling slots */}
             <div className="space-y-1 mb-4">
               {fieldDisplay.map((player, index) => {
                 const isDragOver = dragOverIndex === index;
@@ -395,21 +379,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                       onSelect={onSelectPlayer} 
                       playerAccounts={playerAccounts as any[]}
                       isStarter={true}
-                      onSubstituteOut={() => {
-                        const eligible = getAvailableSubs(player);
-                        if (eligible.length > 0) {
-                          setSelectedOutPlayer(player);
-                          setEligibleSubs(eligible);
-                          setShowSubConfirm({ outId: player.id, inId: eligible[0].id });
-                        }
-                      }}
                     />
                   </div>
                 );
               })}
             </div>
 
-            {/* Innbytter-seksjon */}
             <div className="flex items-center gap-3 my-3">
               <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent)' }} />
               <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">
@@ -419,7 +394,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             </div>
             
             <div className="text-[8px] text-slate-500 italic text-center mb-2">
-              💡 Dra starter hit for å bytte · Dra innbytter til start for å sette inn
+              💡 Dra starter hit for å bytte · Dra innbytter til start for å sette inn · Dra innbytter over en annen for å sortere
             </div>
 
             <div className="space-y-1">
@@ -472,16 +447,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                       onSelect={onSelectPlayer} 
                       playerAccounts={playerAccounts as any[]}
                       isStarter={false}
-                      onSubstituteIn={() => {
-                        if (starters.length > 0) {
-                          const anyStarter = starters[0];
-                          setSelectedOutPlayer(anyStarter);
-                          setEligibleSubs([p]);
-                          setShowSubConfirm({ outId: anyStarter.id, inId: p.id });
-                        } else if (starters.length < teamSize) {
-                          updatePlayerField(activePhaseIdx, p.id, { isStarter: true });
-                        }
-                      }}
                     />
                   </div>
                 );
@@ -490,22 +455,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           </>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/*  TILDEL‑FANEN                                                      */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {tab === 'assign' && phase && (
-          <AssignTab 
-            players={players} 
-            playerAccounts={playerAccounts as any[]}
-            phaseIdx={activePhaseIdx} 
-            onUpdate={updatePlayerField}
-            homeTeamName={homeTeamName} 
-          />
-        )}
-
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/*  ROLLER‑FANEN                                                      */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
+        {/* Roller-fane */}
         {tab === 'roles' && (
           <div className="space-y-1.5">
             <p className="text-[10px] text-slate-500 px-1 mb-3">Trykk for rollebeskrivelse</p>
@@ -547,7 +497,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         )}
       </div>
 
-      {/* ─── Bytt‑bekreftelse Modal (glassmorphism) ────────────────────── */}
+      {/* Modal: Bekreft bytte */}
       {showSubConfirm && selectedOutPlayer && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div 
@@ -631,7 +581,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         </div>
       )}
 
-      {/* ─── Velg spiller til tom plass (Modal) ────────────────────────── */}
+      {/* Modal: Velg spiller til tom plass */}
       {showEmptySlotPicker !== null && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div 
@@ -691,7 +641,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PLAYER ROW – FM‑STIL (GLASSMORPHISM)
+//  PLAYER ROW – UTEN BYTT-KNAPPER (kun drag & drop)
 // ═══════════════════════════════════════════════════════════════════════════
 const PlayerRow: React.FC<{
   player: any; 
@@ -699,9 +649,7 @@ const PlayerRow: React.FC<{
   onSelect: (id: string | null) => void;
   playerAccounts?: any[];
   isStarter: boolean;
-  onSubstituteOut?: () => void;
-  onSubstituteIn?: () => void;
-}> = ({ player, selected, onSelect, playerAccounts = [], isStarter, onSubstituteOut, onSubstituteIn }) => {
+}> = ({ player, selected, onSelect, playerAccounts = [], isStarter }) => {
   const m = ROLE_META[player.role as keyof typeof ROLE_META] ?? ROLE_META['midfielder'];
   const { name, roleLabel } = getPlayerDisplayName(player, playerAccounts);
   const specialIcons = getSpecialRolesIcons(player);
@@ -744,31 +692,12 @@ const PlayerRow: React.FC<{
           </div>
         </div>
       </div>
-      
-      {isStarter && onSubstituteOut && (
-        <button 
-          onClick={(e) => { e.stopPropagation(); onSubstituteOut(); }} 
-          className="px-3 py-1.5 rounded-lg text-[9px] font-bold transition-all
-            bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 active:scale-95"
-        >
-          Bytte ut
-        </button>
-      )}
-      {!isStarter && onSubstituteIn && (
-        <button 
-          onClick={(e) => { e.stopPropagation(); onSubstituteIn(); }} 
-          className="px-3 py-1.5 rounded-lg text-[9px] font-bold transition-all
-            bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 active:scale-95"
-        >
-          Til start
-        </button>
-      )}
     </div>
   );
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  ASSIGN TAB – FM‑STIL
+//  ASSIGN TAB – UTVIDET MED INNBYTTERPLASSER
 // ═══════════════════════════════════════════════════════════════════════════
 const AssignTab: React.FC<{
   players: any[]; 
@@ -776,16 +705,51 @@ const AssignTab: React.FC<{
   phaseIdx: number;
   onUpdate: (idx: number, id: string, fields: any) => void;
   homeTeamName: string;
-}> = ({ players, playerAccounts, phaseIdx, onUpdate, homeTeamName }) => {
+  benchPlayers: any[];
+  maxSubs: number;
+}> = ({ players, playerAccounts, phaseIdx, onUpdate, homeTeamName, benchPlayers, maxSubs }) => {
   const homePlayers = players.filter(p => p.team === 'home');
+  
+  const allSlots: Array<{ type: 'starter' | 'sub'; player: any | null; index: number }> = [
+    ...homePlayers.filter(p => p.isStarter === true).map((p, idx) => ({ type: 'starter' as const, player: p, index: idx })),
+    ...benchPlayers.map((p, idx) => ({ type: 'sub' as const, player: p, index: idx })),
+    ...Array(Math.max(0, maxSubs - benchPlayers.length)).fill(null).map((_, idx) => ({ type: 'sub' as const, player: null, index: benchPlayers.length + idx }))
+  ];
+
   const allAccounts = playerAccounts.filter((a: any) => a.team !== 'away');
 
-  const handleAssign = (playerId: string, accountId: string) => {
+  const handleAssign = (playerId: string | undefined, accountId: string, slotType: 'starter' | 'sub', slotIndex: number) => {
     const account = playerAccounts.find((a: any) => a.id === accountId);
-    if (account) {
+    if (!account) {
+      if (playerId) {
+        onUpdate(phaseIdx, playerId, { name: '', playerAccountId: undefined });
+      }
+      return;
+    }
+
+    if (slotType === 'starter' && playerId) {
       onUpdate(phaseIdx, playerId, { name: account.name, playerAccountId: account.id });
-    } else {
-      onUpdate(phaseIdx, playerId, { name: '', playerAccountId: undefined });
+    } else if (slotType === 'sub') {
+      if (playerId) {
+        onUpdate(phaseIdx, playerId, { name: account.name, playerAccountId: account.id });
+      } else {
+        const newPlayerId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const newNum = homePlayers.length + benchPlayers.length + 1;
+        onUpdate(phaseIdx, newPlayerId, {
+          id: newPlayerId,
+          num: newNum,
+          name: account.name,
+          role: 'midfielder' as PlayerRole,
+          position: { x: 100, y: 100 },
+          team: 'home',
+          notes: '',
+          isStarter: false,
+          isOnField: false,
+          minutesPlayed: 0,
+          specialRoles: [],
+          playerAccountId: account.id,
+        });
+      }
     }
   };
 
@@ -793,54 +757,42 @@ const AssignTab: React.FC<{
     <div>
       <div className="mb-4 p-3 rounded-xl bg-sky-500/5 border border-sky-500/10">
         <p className="text-[10px] text-slate-400 leading-relaxed">
-          Koble spillerkontoer til posisjoner på brettet.
+          Koble spillerkontoer til posisjoner. Startere og innbyttere vises samlet.
           <span className="block mt-1 text-amber-400/80 font-medium">💡 Velg en spiller fra nedtrekksmenyen</span>
         </p>
       </div>
       
       <div className="space-y-2">
-        {homePlayers.map(p => {
-          const m = ROLE_META[p.role as keyof typeof ROLE_META] ?? null;
-          const currentAccount = playerAccounts.find((a: any) => a.playerId === p.id);
+        {allSlots.map((slot, idx) => {
+          const player = slot.player;
+          const isStarter = slot.type === 'starter';
+          const currentAccount = player ? playerAccounts.find((a: any) => a.playerId === player.id || a.id === player.playerAccountId) : null;
+          const slotLabel = isStarter 
+            ? `Startplass ${slot.index + 1}` 
+            : `Innbytterplass ${slot.index + 1}`;
           
           return (
-            <div 
-              key={p.id} 
-              className="p-3 rounded-xl border transition-all"
-              style={{
-                background: 'rgba(255,255,255,0.02)',
-                borderColor: 'rgba(255,255,255,0.05)',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-md"
-                  style={{ background: m?.color ?? '#555', boxShadow: `0 4px 8px ${m?.color}40` }}
-                >
-                  {p.num}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-medium text-sky-400/80">{m?.label ?? p.role}</span>
-                    <span className="text-[9px] text-slate-500">#{p.num} {p.name || 'Navnløs'}</span>
+            <div key={isStarter ? player?.id || idx : `sub-${slot.index}`} className="flex items-center gap-2 p-2 bg-[#0f1a2a] rounded-xl border border-[#1e3050]">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <div className="text-[9px] text-[#4a6080]">{slotLabel}</div>
+                  <div className="text-[8px] text-[#4a6080]">
+                    {player ? `#${player.num} ${player.name || 'Navnløs'}` : 'Ledig plass'}
                   </div>
-                  <select 
-                    value={currentAccount?.id ?? ''}
-                    onChange={e => handleAssign(p.id, e.target.value)}
-                    className="w-full mt-1.5 px-3 py-2 rounded-lg text-xs font-medium
-                      bg-black/20 border border-white/10 text-slate-200
-                      focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/30
-                      transition-all cursor-pointer"
-                    style={{ backdropFilter: 'blur(4px)' }}
-                  >
-                    <option value="">– Ingen tilknytning –</option>
-                    {allAccounts.map((a: any) => (
-                      <option key={a.id} value={a.id} className="bg-[#0c1525]">
-                        {a.name} {a.positionPreferences ? `(${a.positionPreferences})` : ''}
-                      </option>
-                    ))}
-                  </select>
                 </div>
+                <select 
+                  value={currentAccount?.id ?? ''}
+                  onChange={e => handleAssign(player?.id, e.target.value, slot.type, slot.index)}
+                  className="w-full mt-0.5 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1
+                    text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[32px]"
+                >
+                  <option value="">– Ingen tilknytning –</option>
+                  {allAccounts.map((a: any) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} {a.positionPreferences ? `(${a.positionPreferences})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           );
@@ -850,7 +802,7 @@ const AssignTab: React.FC<{
   );
 };
 
-// Legg til custom scrollbar-stiler globalt (kan også legges i global CSS)
+// Custom scrollbar
 const style = document.createElement('style');
 style.textContent = `
   .custom-scrollbar::-webkit-scrollbar {
