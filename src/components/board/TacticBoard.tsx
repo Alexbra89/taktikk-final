@@ -1219,7 +1219,7 @@ useEffect(() => {
                   onPointerCancel={endDrag}
                   style={{
                     cursor:!isPlaying&&!drawMode?'grab':'default',
-                    touchAction:'none',
+                    touchAction: 'pan-x pan-y pinch-zoom',
                     transformOrigin: `${x}px ${y}px`,
                     transform: isBouncing?'scale(1.15)':'scale(1)',
                     transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
