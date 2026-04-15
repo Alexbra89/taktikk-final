@@ -90,7 +90,6 @@ const DashboardView: React.FC<{
         </p>
       </header>
 
-      {/* Tre hovedkort i en ryddig grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <BentoCard
           title="Taktikktavle"
@@ -115,25 +114,17 @@ const DashboardView: React.FC<{
         />
       </div>
 
-      {/* Kommunikasjon – enkelt og tydelig */}
       <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-xl p-5 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-sky-500/10 flex items-center justify-center text-2xl">
-            💬
-          </div>
+          <div className="h-12 w-12 rounded-xl bg-sky-500/10 flex items-center justify-center text-2xl">💬</div>
           <div>
             <h3 className="font-bold text-slate-200">Meldinger</h3>
             <p className="text-sm text-slate-400">
-              {unreadFromPlayers > 0
-                ? `${unreadFromPlayers} uleste fra spillerne`
-                : 'Ingen nye meldinger'}
+              {unreadFromPlayers > 0 ? `${unreadFromPlayers} uleste fra spillerne` : 'Ingen nye meldinger'}
             </p>
           </div>
         </div>
-        <button
-          onClick={onOpenChat}
-          className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-medium transition"
-        >
+        <button onClick={onOpenChat} className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-medium transition">
           Åpne chat
         </button>
       </div>
@@ -285,10 +276,9 @@ const MobileFullscreenBoard: React.FC<{
   </div>
 );
 
-// ─── MOBIL TABS (coach) ──────────────────────────────────────
+// ─── MOBIL TABS (coach) – BRETT ER FJERNET (vises som egen fullskjermside) ──
 const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
   { id: 'dashboard', label: 'Hjem',     emoji: '🏠' },
-  { id: 'board',     label: 'Brett',    emoji: '📋' },
   { id: 'calendar',  label: 'Kalender', emoji: '📅' },
   { id: 'admin',     label: 'Spillere', emoji: '👥' },
   { id: 'stats',     label: 'Stats',    emoji: '📊' },
@@ -469,15 +459,30 @@ export default function Home() {
     );
   }, [currentView, isCoach, currentUser, homeTeamName, sport, unreadFromPlayers, syncing, selectedPlayerId, selectedTraining, setView, openChat, setSelectedTraining, setShowSmartCoach, setShowMatchReport, setShowSettings]);
 
-  // ─── MOBIL LAYOUT (definert FØR betingede returns) ──────────
+  // ─── MOBIL LAYOUT – NAVIGASJON PÅ TOPPEN, TAKTIKKBRETT SOM EGEN SIDE ──────────
   const MobileLayout = useMemo(() => {
     if (!currentUser) return null;
+    
+    // Hvis vi er på "board" (taktikktavle), vis fullskjermsvisning
+    if (isCoach && mobileCoachTab === 'board') {
+      return (
+        <div className="flex sm:hidden flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
+          <div className="flex-shrink-0 flex items-center justify-between px-3 h-12 bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]">
+            <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">📋 Taktikktavle</span>
+            <button onClick={() => setMobileCoachTab('dashboard')} className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-700 text-slate-400 hover:text-white transition min-h-[36px]">✕ Lukk</button>
+          </div>
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
+            <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
+          </div>
+          {selectedPlayerId && <PlayerEditor playerId={selectedPlayerId} phaseIdx={activePhaseIdx} onClose={() => setSelectedPlayerId(null)} />}
+        </div>
+      );
+    }
+    
+    // Alle andre faner – vis med navigasjon på toppen
     return (
       <div className="flex sm:hidden flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
-        {mobileBoardFullscreen && isCoach && (
-          <MobileFullscreenBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} activePhaseIdx={activePhaseIdx} onClose={() => setMobileBoardFullscreen(false)} />
-        )}
-
         <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/95 backdrop-blur-md border-b border-slate-800 h-14 z-40">
           <span className="text-[13px] font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
             {homeTeamName || 'TAKTIKKBOARD'}
@@ -490,6 +495,36 @@ export default function Home() {
             </button>
           )}
         </header>
+
+        {/* ═══ NAVIGASJON PÅ TOPPEN (UNDER HEADER) ═══ */}
+        {isCoach && (
+          <nav className="flex-shrink-0 flex border-b border-slate-800 bg-[#08101e]/95 backdrop-blur-md relative z-40">
+            {COACH_MOBILE_TABS.map(t => {
+              const badge = t.id === 'chat' ? unreadFromPlayers : 0;
+              const isActive = mobileCoachTab === t.id;
+              return (
+                <button key={t.id}
+                  onClick={() => {
+                    setMobileCoachTab(t.id);
+                    if (t.id === 'chat') setLastReadChatCount(playerMessages.length);
+                  }}
+                  className={`flex-1 flex flex-col items-center justify-center py-2 relative min-h-[52px] transition-all group
+                    ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
+                  <span className={`text-[18px] leading-none mb-0.5 transition-transform ${isActive ? 'scale-110' : ''}`}>{t.emoji}</span>
+                  <span className="text-[8px] font-bold tracking-widest uppercase">{t.label}</span>
+                  {badge > 0 && (
+                    <span className="absolute top-1 right-1/4 w-4 h-4 rounded-full bg-sky-500 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-[#08101e]">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                  {isActive && (
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-sky-400 rounded-t-full shadow-[0_-2px_8px_rgba(56,189,248,0.5)]" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        )}
 
         <div className="flex-1 min-h-0 overflow-hidden relative">
           {currentUser.role === 'player' && <PlayerHome />}
@@ -504,21 +539,6 @@ export default function Home() {
               setShowSmartCoach={setShowSmartCoach}
               setShowMatchReport={setShowMatchReport}
             />
-          )}
-          {isCoach && mobileCoachTab === 'board' && (
-            <div className="flex flex-col h-full">
-              <div className="flex-1 overflow-hidden">
-                <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-              </div>
-              <div className="flex-shrink-0 flex gap-2 px-3 py-3 bg-[#08101e] border-t border-slate-800">
-                <button onClick={() => setMobileBoardFullscreen(true)} className="px-4 py-2.5 rounded-xl text-[12px] font-black tracking-wider border border-slate-700 text-sky-400 bg-sky-500/10 transition min-h-[44px]">
-                  ⛶ FULL
-                </button>
-                <button onClick={() => setShowSmartCoach(true)} className="flex-1 py-2.5 rounded-xl text-[12px] font-black tracking-wider border border-yellow-500/20 text-yellow-500 bg-yellow-500/10 transition min-h-[44px]">
-                  💡 Smart Coach
-                </button>
-              </div>
-            </div>
           )}
           {isCoach && mobileCoachTab === 'training' && <TrainingView initialTraining={selectedTraining || undefined} onBack={() => { setSelectedTraining(null); setMobileCoachTab('calendar'); }} />}
           {isCoach && mobileCoachTab === 'admin' && <PlayerManager />}
@@ -535,38 +555,9 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        {isCoach && (
-          <nav className="flex-shrink-0 flex border-t border-slate-800 bg-[#08101e]/95 backdrop-blur-md relative z-40" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
-            {COACH_MOBILE_TABS.map(t => {
-              const badge = t.id === 'chat' ? unreadFromPlayers : 0;
-              const isActive = mobileCoachTab === t.id;
-              return (
-                <button key={t.id}
-                  onClick={() => {
-                    setMobileCoachTab(t.id);
-                    if (t.id === 'chat') setLastReadChatCount(playerMessages.length);
-                  }}
-                  className={`flex-1 flex flex-col items-center justify-center py-3 relative min-h-[60px] transition-all group
-                    ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
-                  <span className={`text-[22px] leading-none mb-1 transition-transform ${isActive ? 'scale-110' : ''}`}>{t.emoji}</span>
-                  <span className="text-[9px] font-bold tracking-widest uppercase">{t.label}</span>
-                  {badge > 0 && (
-                    <span className="absolute top-1.5 right-1/4 w-4 h-4 rounded-full bg-sky-500 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-[#08101e]">
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
-                  {isActive && (
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-sky-400 rounded-b-full shadow-[0_2px_8px_rgba(56,189,248,0.5)]" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        )}
       </div>
     );
-  }, [isCoach, currentUser, homeTeamName, sport, unreadFromPlayers, syncing, selectedPlayerId, selectedTraining, mobileCoachTab, mobileBoardFullscreen, activePhaseIdx, chatMessages, sendChat, setMobileCoachTab, setSelectedTraining, setSelectedPlayerId, setShowSmartCoach, setShowMatchReport, setShowSettings, openChat, playerMessages.length]);
+  }, [isCoach, currentUser, homeTeamName, sport, unreadFromPlayers, syncing, selectedPlayerId, selectedTraining, mobileCoachTab, activePhaseIdx, chatMessages, sendChat, setMobileCoachTab, setSelectedTraining, setSelectedPlayerId, setShowSmartCoach, setShowMatchReport, setShowSettings, openChat, playerMessages.length]);
 
   // ═══════════════════════════════════════════════════════════
   //  BETINGEDE RETURNS – MÅ STÅ ETTER ALLE HOOKS
@@ -580,7 +571,7 @@ export default function Home() {
       {DesktopLayout}
       {MobileLayout}
 
-      {selectedPlayerId && isCoach && !mobileBoardFullscreen && (
+      {selectedPlayerId && isCoach && mobileCoachTab !== 'board' && (
         <PlayerEditor playerId={selectedPlayerId} phaseIdx={activePhaseIdx} onClose={() => setSelectedPlayerId(null)} />
       )}
       {showSmartCoach && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
