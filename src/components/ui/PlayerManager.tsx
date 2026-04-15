@@ -46,7 +46,7 @@ export const PlayerManager: React.FC = () => {
       name: name.trim(),
       email: email.trim(),
       password: password.trim(),
-      pin: '', // Tom PIN for bakoverkompatibilitet
+      pin: '',
       playerId: playerId || `player-${Date.now()}`,
       team: 'home',
     });
@@ -69,18 +69,18 @@ export const PlayerManager: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-shrink-0 px-4 py-3 bg-[#0c1525] border-b border-[#1e3050]">
-        <h2 className="text-sm font-black text-slate-100">👥 Spilleradmin</h2>
-        <p className="text-[10px] text-[#4a6080] mt-0.5">
+      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0c1525] border-b border-[#1e3050]">
+        <h2 className="text-xs sm:text-sm font-black text-slate-100">👥 Spilleradmin</h2>
+        <p className="text-[9px] sm:text-[10px] text-[#4a6080] mt-0.5">
           Legg til spillere med e-post + passord for innlogging
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 sm:space-y-5">
 
         {/* Legg til ny spiller */}
-        <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-4">
-          <div className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-4">
+        <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-3 sm:p-4">
+          <div className="text-[9px] sm:text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-3 sm:mb-4">
             ＋ Legg til spiller
           </div>
 
@@ -132,7 +132,7 @@ export const PlayerManager: React.FC = () => {
           </div>
 
           {error && (
-            <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-[11px] text-red-400">
+            <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-[10px] sm:text-[11px] text-red-400">
               {error}
             </div>
           )}
@@ -141,7 +141,7 @@ export const PlayerManager: React.FC = () => {
             onClick={create}
             disabled={!name.trim() || !email.trim() || password.length < 4}
             className="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30
-              text-sky-400 font-bold text-[13px] hover:bg-sky-500/25
+              text-sky-400 font-bold text-[12px] sm:text-[13px] hover:bg-sky-500/25
               disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] transition"
           >
             ✓ Legg til spiller
@@ -151,7 +151,7 @@ export const PlayerManager: React.FC = () => {
         {/* Spillerliste */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-widest">
+            <div className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-widest">
               Registrerte spillere ({(playerAccounts as any[]).length})
             </div>
             <div className="flex-1" />
@@ -160,12 +160,12 @@ export const PlayerManager: React.FC = () => {
               onChange={e => setSearch(e.target.value)}
               placeholder="Søk..."
               className="bg-[#111c30] border border-[#1e3050] rounded-lg
-                px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 w-24"
+                px-2 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 w-24 sm:w-32 min-h-[36px]"
             />
           </div>
 
           {accounts.length === 0 && (
-            <p className="text-[12px] text-[#4a6080] italic text-center py-6">
+            <p className="text-[11px] sm:text-[12px] text-[#4a6080] italic text-center py-6">
               {search ? 'Ingen treff.' : 'Ingen spillere registrert ennå.'}
             </p>
           )}
@@ -177,11 +177,11 @@ export const PlayerManager: React.FC = () => {
               return (
                 <div
                   key={acc.id}
-                  className="flex items-center gap-3 p-3 bg-[#0c1525] rounded-xl border border-[#1e3050]"
+                  className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-[#0c1525] rounded-xl border border-[#1e3050]"
                 >
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center
-                      text-[11px] font-bold text-white flex-shrink-0"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center
+                      text-[10px] sm:text-[11px] font-bold text-white flex-shrink-0"
                     style={{ background: bpRole ? roleColor(bpRole) : '#3b82f6' }}
                   >
                     {bp?.num ?? '?'}
@@ -192,14 +192,14 @@ export const PlayerManager: React.FC = () => {
                       <EditRow acc={acc} onDone={() => setEditId(null)} />
                     ) : (
                       <>
-                        <div className="text-[12.5px] font-bold text-slate-200 truncate">
+                        <div className="text-[11px] sm:text-[12.5px] font-bold text-slate-200 truncate">
                           {acc.name}
                         </div>
-                        <div className="text-[10px] text-[#4a6080]">
+                        <div className="text-[9px] sm:text-[10px] text-[#4a6080]">
                           E-post: {acc.email || '—'}
                           {bpRole && (
                             <span
-                              className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-semibold"
+                              className="ml-2 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-semibold"
                               style={{
                                 background: roleColor(bpRole) + '20',
                                 color: roleColor(bpRole),
@@ -216,13 +216,13 @@ export const PlayerManager: React.FC = () => {
                   <div className="flex gap-1 flex-shrink-0">
                     <button
                       onClick={() => setEditId(editId === acc.id ? null : acc.id)}
-                      className="text-[#4a6080] hover:text-sky-400 px-2 min-h-[36px] text-[12px]"
+                      className="text-[#4a6080] hover:text-sky-400 px-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-[12px]"
                     >
                       ✎
                     </button>
                     <button
                       onClick={() => removePlayerAccount(acc.id)}
-                      className="text-red-400/50 hover:text-red-400 px-2 min-h-[36px] text-sm"
+                      className="text-red-400/50 hover:text-red-400 px-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-sm"
                     >
                       ✕
                     </button>
@@ -245,7 +245,7 @@ export const PlayerManager: React.FC = () => {
 };
 
 const SmLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-widest mb-1.5">
+  <div className="text-[8px] sm:text-[9.5px] font-bold text-[#3a5070] uppercase tracking-widest mb-1.5">
     {children}
   </div>
 );
@@ -262,15 +262,15 @@ const EditRow: React.FC<{ acc: any; onDone: () => void }> = ({ acc, onDone }) =>
       <input
         value={name}
         onChange={e => setName(e.target.value)}
-        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
-          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]"
+        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-2
+          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]"
         placeholder="Navn"
       />
       <input
         value={email}
         onChange={e => setEmail(e.target.value)}
-        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
-          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]"
+        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-2
+          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]"
         placeholder="E-post"
       />
       <div className="flex gap-2 items-center">
@@ -279,13 +279,13 @@ const EditRow: React.FC<{ acc: any; onDone: () => void }> = ({ acc, onDone }) =>
           value={password}
           onChange={e => setPassword(e.target.value)}
           placeholder="Nytt passord (valgfritt)"
-          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1.5
-            text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[36px]"
+          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded px-2 py-2
+            text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]"
         />
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="text-[#4a6080] hover:text-sky-400 text-[12px] px-2"
+          className="text-[#4a6080] hover:text-sky-400 text-[12px] px-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           {showPassword ? '🙈' : '👁️'}
         </button>
@@ -300,7 +300,7 @@ const EditRow: React.FC<{ acc: any; onDone: () => void }> = ({ acc, onDone }) =>
             onDone();
           }
         }}
-        className="text-emerald-400 px-2 min-h-[36px] text-[12px] font-bold"
+        className="text-emerald-400 px-2 min-h-[44px] text-[12px] font-bold"
       >
         ✓ Lagre
       </button>

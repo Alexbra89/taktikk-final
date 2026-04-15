@@ -5,11 +5,7 @@ import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
 import { PlayerRole } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  SIDEBAR – FM‑STIL + GLASSMORPHISM
-//  ── Tropp, Tildel, Roller
-//  ── Drag‑and‑drop mellom startoppstilling og innbytterbenk
-//  ── Sortering av innbyttere via drag-and-drop
-//  ── Profesjonell FM‑look med glasspaneler, myke overganger
+//  SIDEBAR – FM‑STIL + GLASSMORPHISM (RESPONSIV OPPDATERT - KOMPLETT)
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface SidebarProps {
@@ -49,7 +45,7 @@ const getSpecialRolesIcons = (player: any): string => {
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlayer }) => {
-  const [tab, setTab] = useState<'players' | 'roles'>('players');
+  const [tab, setTab] = useState<'players' | 'roles' | 'assign'>('players');
   const [openRole, setOpenRole] = useState<string | null>(null);
   const [showSubConfirm, setShowSubConfirm] = useState<{ outId: string; inId: string } | null>(null);
   const [selectedOutPlayer, setSelectedOutPlayer] = useState<any | null>(null);
@@ -250,9 +246,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 
   return (
     <aside 
-      className="flex-shrink-0 flex flex-col h-full overflow-hidden"
+      className="flex-shrink-0 flex flex-col h-full overflow-hidden w-[260px] sm:w-[280px] md:w-[300px]"
       style={{
-        width: 280,
         background: 'rgba(8, 15, 35, 0.82)',
         backdropFilter: 'blur(20px) saturate(1.4)',
         WebkitBackdropFilter: 'blur(20px) saturate(1.4)',
@@ -261,10 +256,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       }}
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'rgba(56, 189, 248, 0.1)' }}>
+      <div className="px-3 sm:px-4 py-2 sm:py-3 border-b" style={{ borderColor: 'rgba(56, 189, 248, 0.1)' }}>
         <div className="flex items-center gap-2 mb-1">
           <span 
-            className="text-xs font-black uppercase tracking-wider"
+            className="text-[10px] sm:text-xs font-black uppercase tracking-wider truncate"
             style={{
               background: 'linear-gradient(135deg, #38bdf8 0%, #a78bfa 100%)',
               WebkitBackgroundClip: 'text',
@@ -274,10 +269,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             {homeTeamName || 'TAKTIKKBOARD'}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-slate-400">
+        <div className="flex items-center gap-1 sm:gap-2 text-[9px] sm:text-[10px] text-slate-400">
           <span>{sportEmoji} {sportLabel}</span>
-          <span className="w-1 h-1 rounded-full bg-slate-600" />
-          <span className="font-medium text-sky-400/80">{homeTeamName || 'Hjemmelag'}</span>
+          <span className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block" />
+          <span className="font-medium text-sky-400/80 truncate hidden sm:block">{homeTeamName || 'Hjemmelag'}</span>
         </div>
       </div>
 
@@ -285,12 +280,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       <div className="flex border-b px-2 gap-1" style={{ borderColor: 'rgba(56, 189, 248, 0.08)' }}>
         {([
           ['players', '👥 Tropp'],
+          ['assign',  '🔗 Tildel'],
           ['roles',   '📚 Roller'],
         ] as const).map(([t, l]) => (
           <button 
             key={t} 
             onClick={() => setTab(t)}
-            className="flex-1 py-2.5 text-[11px] font-semibold transition-all relative"
+            className="flex-1 py-2 sm:py-2.5 text-[10px] sm:text-[11px] font-semibold transition-all relative"
             style={{
               color: tab === t ? '#38bdf8' : '#64748b',
               borderBottom: tab === t ? '2px solid #38bdf8' : '2px solid transparent',
@@ -308,17 +304,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       </div>
 
       {/* Innhold */}
-      <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-3 custom-scrollbar">
         
         {/* Tropp-fane */}
         {tab === 'players' && phase && (
           <>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-[9px] font-black text-sky-400 uppercase tracking-widest">
+              <div className="text-[8px] sm:text-[9px] font-black text-sky-400 uppercase tracking-widest">
                 ⚽ Startoppstilling ({starters.length}/{teamSize})
               </div>
               {starters.length < teamSize && (
-                <span className="text-[8px] font-semibold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
+                <span className="text-[7px] sm:text-[8px] font-semibold text-amber-400 bg-amber-400/10 px-1.5 sm:px-2 py-0.5 rounded-full">
                   ⚠️ Mangler {teamSize - starters.length}
                 </span>
               )}
@@ -337,24 +333,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, index)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all cursor-default
+                      className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border transition-all cursor-default
                         ${isDragOver 
                           ? 'bg-sky-500/15 border-sky-400 shadow-lg shadow-sky-500/10' 
                           : 'border-dashed border-white/10 hover:border-sky-500/30 bg-white/[0.02]'}`}
                     >
                       <div 
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                        className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white flex-shrink-0"
                         style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
                       >
                         {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[11px] font-medium text-slate-400 italic">Ledig plass</div>
-                        <div className="text-[9px] text-sky-400/60">{posName}</div>
+                        <div className="text-[10px] sm:text-[11px] font-medium text-slate-400 italic">Ledig plass</div>
+                        <div className="text-[8px] sm:text-[9px] text-sky-400/60 truncate">{posName}</div>
                       </div>
                       <button
                         onClick={() => setShowEmptySlotPicker(index)}
-                        className="px-3 py-1.5 rounded-lg text-[9px] font-bold transition-all
+                        className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[8px] sm:text-[9px] font-bold transition-all
                           bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 active:scale-95"
                       >
                         Sett inn
@@ -385,16 +381,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
               })}
             </div>
 
-            <div className="flex items-center gap-3 my-3">
+            <div className="flex items-center gap-2 sm:gap-3 my-2 sm:my-3">
               <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent)' }} />
-              <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest">
+              <span className="text-[8px] sm:text-[9px] font-black text-amber-400 uppercase tracking-widest">
                 🪑 Innbyttere ({subs.length}/{maxSubs})
               </span>
               <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent)' }} />
             </div>
             
-            <div className="text-[8px] text-slate-500 italic text-center mb-2">
-              💡 Dra starter hit for å bytte · Dra innbytter til start for å sette inn · Dra innbytter over en annen for å sortere
+            <div className="text-[7px] sm:text-[8px] text-slate-500 italic text-center mb-2">
+              💡 Dra starter hit for å bytte · Dra innbytter til start for å sette inn
             </div>
 
             <div className="space-y-1">
@@ -408,23 +404,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                       onDragOver={(e) => handleSubDragOver(e, subIndex)}
                       onDragLeave={handleSubDragLeave}
                       onDrop={(e) => handleSubDrop(e, subIndex)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-xl border border-dashed transition-all
+                      className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-dashed transition-all
                         ${isDragOverSub
                           ? 'bg-amber-500/15 border-amber-400'
                           : 'border-white/10 bg-white/[0.01]'}`}
                     >
                       <div 
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                        className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[8px] sm:text-[9px] font-bold flex-shrink-0"
                         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#64748b' }}
                       >
                         R{subIndex + 1}
                       </div>
                       <div className="flex-1">
-                        <div className="text-[10px] text-slate-500 italic">Ledig plass</div>
-                        <div className="text-[8px] text-slate-600">Innbytter {subIndex + 1}</div>
+                        <div className="text-[9px] sm:text-[10px] text-slate-500 italic">Ledig plass</div>
+                        <div className="text-[7px] sm:text-[8px] text-slate-600">Innbytter {subIndex + 1}</div>
                       </div>
                       {isDragOverSub && (
-                        <span className="text-[8px] font-bold text-amber-400">Slipp her</span>
+                        <span className="text-[7px] sm:text-[8px] font-bold text-amber-400">Slipp her</span>
                       )}
                     </div>
                   );
@@ -455,10 +451,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           </>
         )}
 
+        {/* Tildel-fane */}
+        {tab === 'assign' && phase && (
+          <AssignTab
+            players={players}
+            playerAccounts={playerAccounts as any[]}
+            phaseIdx={activePhaseIdx}
+            onUpdate={(idx, id, fields) => updatePlayerField(idx, id, fields)}
+            homeTeamName={homeTeamName}
+            benchPlayers={subs}
+            maxSubs={maxSubs}
+          />
+        )}
+
         {/* Roller-fane */}
         {tab === 'roles' && (
           <div className="space-y-1.5">
-            <p className="text-[10px] text-slate-500 px-1 mb-3">Trykk for rollebeskrivelse</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-500 px-1 mb-3">Trykk for rollebeskrivelse</p>
             {roles.map(r => {
               const m = ROLE_META[r]; if (!m) return null;
               const open = openRole === r;
@@ -466,28 +475,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                 <button 
                   key={r} 
                   onClick={() => setOpenRole(open ? null : r)}
-                  className="w-full text-left rounded-xl p-3 transition-all border"
+                  className="w-full text-left rounded-xl p-2 sm:p-3 transition-all border"
                   style={{
                     background: open ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255,255,255,0.02)',
                     borderColor: open ? 'rgba(56, 189, 248, 0.3)' : 'rgba(255,255,255,0.05)',
                   }}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <div 
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 shadow-lg"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm flex-shrink-0 shadow-lg"
                       style={{ background: m.color, boxShadow: `0 4px 12px ${m.color}40` }}
                     >
                       {m.emoji}
                     </div>
                     <div className="flex-1">
-                      <div className="text-xs font-bold text-slate-200">{m.label}</div>
-                      <div className="text-[9px] text-slate-500 uppercase tracking-wider mt-0.5">{r}</div>
+                      <div className="text-[11px] sm:text-xs font-bold text-slate-200">{m.label}</div>
+                      <div className="text-[8px] sm:text-[9px] text-slate-500 uppercase tracking-wider mt-0.5">{r}</div>
                     </div>
-                    <span className="text-slate-500 text-xs">{open ? '▲' : '▼'}</span>
+                    <span className="text-slate-500 text-[10px] sm:text-xs">{open ? '▲' : '▼'}</span>
                   </div>
                   {open && (
-                    <div className="mt-3 pl-11">
-                      <p className="text-[11px] text-slate-400 leading-relaxed">{m.description}</p>
+                    <div className="mt-3 pl-9 sm:pl-11">
+                      <p className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed">{m.description}</p>
                     </div>
                   )}
                 </button>
@@ -656,7 +665,7 @@ const PlayerRow: React.FC<{
   
   return (
     <div 
-      className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all
+      className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border transition-all
         ${selected 
           ? 'bg-sky-500/10 border-sky-500/40 shadow-lg shadow-sky-500/5' 
           : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'}
@@ -664,10 +673,10 @@ const PlayerRow: React.FC<{
     >
       <div 
         onClick={() => onSelect(selected ? null : player.id)} 
-        className="flex items-center gap-3 flex-1 cursor-pointer active:scale-[0.99] transition-transform"
+        className="flex items-center gap-2 sm:gap-3 flex-1 cursor-pointer active:scale-[0.99] transition-transform"
       >
         <div 
-          className="relative w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black text-white flex-shrink-0 shadow-md"
+          className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[10px] sm:text-[11px] font-black text-white flex-shrink-0 shadow-md"
           style={{ 
             background: m.color, 
             opacity: player.injured ? 0.5 : 1,
@@ -675,19 +684,19 @@ const PlayerRow: React.FC<{
           }}
         >
           {player.num}
-          {player.injured && <span className="absolute -top-1 -right-1 text-[9px]">🩹</span>}
-          {(player.specialRoles ?? []).includes('captain') && <span className="absolute -bottom-1 -right-1 text-[9px]">🪖</span>}
+          {player.injured && <span className="absolute -top-1 -right-1 text-[8px] sm:text-[9px]">🩹</span>}
+          {(player.specialRoles ?? []).includes('captain') && <span className="absolute -bottom-1 -right-1 text-[8px] sm:text-[9px]">🪖</span>}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold truncate text-slate-100">{name}</span>
-            {specialIcons && <span className="text-[10px] opacity-80">{specialIcons}</span>}
+            <span className="text-[11px] sm:text-xs font-semibold truncate text-slate-100">{name}</span>
+            {specialIcons && <span className="text-[9px] sm:text-[10px] opacity-80">{specialIcons}</span>}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[9px] text-sky-400/80 font-medium">{roleLabel}</span>
-            <span className="text-[8px] text-slate-500">#{player.num}</span>
+            <span className="text-[8px] sm:text-[9px] text-sky-400/80 font-medium">{roleLabel}</span>
+            <span className="text-[7px] sm:text-[8px] text-slate-500">#{player.num}</span>
             {!isStarter && (
-              <span className="text-[8px] font-semibold text-amber-400/80 ml-auto">Innbytter</span>
+              <span className="text-[7px] sm:text-[8px] font-semibold text-amber-400/80 ml-auto">Innbytter</span>
             )}
           </div>
         </div>

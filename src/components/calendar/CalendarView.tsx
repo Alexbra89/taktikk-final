@@ -34,24 +34,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
   const currentPlayerId = currentUser?.playerId;
   const todayStr = today.toISOString().slice(0, 10);
 
-const filteredEvents = useMemo(() => {
-  // Trener ser alt
-  if (isCoach) return events;
-  
-  // Spillere ser alle arrangementer, men vi markerer individuelle
-  return events.map(event => {
-    // Sjekk om denne treningen er individuell for denne spilleren
-    const hasIndividualNote = event.trainingNotes.some(note =>
-      note.targetPlayerIds?.includes(currentPlayerId || '')
-    );
-    
-    // Legg til en markering, men behold arrangementet
-    return {
-      ...event,
-      isIndividualForMe: hasIndividualNote
-    };
-  });
-}, [events, isCoach, currentPlayerId]);
+  const filteredEvents = useMemo(() => {
+    if (isCoach) return events;
+    return events.map(event => {
+      const hasIndividualNote = event.trainingNotes.some(note =>
+        note.targetPlayerIds?.includes(currentPlayerId || '')
+      );
+      return {
+        ...event,
+        isIndividualForMe: hasIndividualNote
+      };
+    });
+  }, [events, isCoach, currentPlayerId]);
 
   const todayEvents = useMemo(() => {
     return filteredEvents.filter(e => e.date === todayStr);
@@ -98,11 +92,24 @@ const filteredEvents = useMemo(() => {
     }
   };
 
-  return (
-    <div className="flex h-full overflow-hidden">
-      {/* ── Kalender-kolonne ── */}
-      <div className={`flex flex-col ${(selectedDate || showNewEvent || showAutoGen) ? "hidden sm:flex" : "flex"} w-full sm:w-80 flex-shrink-0 sm:flex-shrink-0 border-r border-[#1e3050] bg-[#0c1525]`}>
+  const closeDetailPanel = () => {
+    setSelectedDate(null);
+    setShowNewEvent(false);
+    setShowAutoGen(false);
+    setSelectedEvent(null);
+  };
 
+  // Mobil: vis kalender ELLER detaljpanel (ikke begge side-om-side)
+  const showCalendar = !selectedDate && !showNewEvent && !showAutoGen && !selectedEvent;
+
+  return (
+    <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+      {/* ── Kalender-kolonne ── */}
+      <div className={`
+        ${showCalendar ? 'flex' : 'hidden lg:flex'}
+        flex-col w-full lg:w-80 lg:min-w-[320px] flex-shrink-0
+        border-r border-[#1e3050] bg-[#0c1525] h-full overflow-hidden
+      `}>
         {showTodayStatus && (
           <div className={`m-3 p-3 rounded-xl border ${todayStatus.bgColor} ${todayStatus.borderColor}`}>
             <div className="flex items-center justify-between">
@@ -113,7 +120,7 @@ const filteredEvents = useMemo(() => {
                   <div className={`text-sm font-bold ${todayStatus.color}`}>{todayStatus.label}</div>
                 </div>
               </div>
-              <button onClick={() => setShowTodayStatus(false)} className="text-[#4a6080] hover:text-slate-300 text-[10px]">✕</button>
+              <button onClick={() => setShowTodayStatus(false)} className="text-[#4a6080] hover:text-slate-300 text-[10px] min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
             </div>
             {todayEvents.length > 0 && (
               <div className="mt-2 space-y-1">
@@ -121,7 +128,7 @@ const filteredEvents = useMemo(() => {
                   <div
                     key={event.id}
                     onClick={() => { setSelectedDate(todayStr); handleEventClick(event); }}
-                    className="text-[10px] text-slate-300 hover:text-sky-400 cursor-pointer truncate"
+                    className="text-[10px] text-slate-300 hover:text-sky-400 cursor-pointer truncate min-h-[32px] flex items-center"
                   >
                     {event.type === 'match' ? '⚽' : '🏃'} {event.title}
                     {event.time && ` · ${event.time}`}
@@ -135,19 +142,19 @@ const filteredEvents = useMemo(() => {
           </div>
         )}
 
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3050]">
-          <button onClick={prevMonth} className="text-[#4a6080] hover:text-white text-lg w-8 h-8 flex items-center justify-center">‹</button>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e3050] flex-shrink-0">
+          <button onClick={prevMonth} className="text-[#4a6080] hover:text-white text-lg min-h-[44px] min-w-[44px] flex items-center justify-center">‹</button>
           <span className="text-sm font-bold text-slate-200">{MONTHS[month]} {year}</span>
-          <button onClick={nextMonth} className="text-[#4a6080] hover:text-white text-lg w-8 h-8 flex items-center justify-center">›</button>
+          <button onClick={nextMonth} className="text-[#4a6080] hover:text-white text-lg min-h-[44px] min-w-[44px] flex items-center justify-center">›</button>
         </div>
 
-        <div className="grid grid-cols-7 px-2 pt-2">
+        <div className="grid grid-cols-7 px-2 pt-2 flex-shrink-0">
           {DAYS.map(d => (
-            <div key={d} className="text-center text-[9.5px] font-bold text-[#3a5070] py-1">{d}</div>
+            <div key={d} className="text-center text-[9px] sm:text-[9.5px] font-bold text-[#3a5070] py-1">{d}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 px-2 pb-2 flex-1">
+        <div className="grid grid-cols-7 px-2 pb-2 flex-1 overflow-y-auto">
           {Array.from({ length: offset }).map((_, i) => <div key={`e${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
             const iso     = isoDate(day);
@@ -157,9 +164,9 @@ const filteredEvents = useMemo(() => {
             return (
               <div key={day}
                 onClick={() => { setSelectedDate(iso); setSelectedEvent(null); setShowNewEvent(false); setShowAutoGen(false); }}
-                className={`relative flex flex-col items-center p-1 rounded-lg cursor-pointer transition-all m-0.5
+                className={`relative flex flex-col items-center p-1.5 sm:p-1 rounded-lg cursor-pointer transition-all m-0.5 min-h-[44px] sm:min-h-0
                   ${isSel ? 'bg-sky-500/20 ring-1 ring-sky-500/50' : 'hover:bg-[#111c30]'}`}>
-                <span className={`text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full
+                <span className={`text-[11px] sm:text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full
                   ${isToday ? 'bg-sky-500 text-white' : isSel ? 'text-sky-400' : 'text-slate-400'}`}>
                   {day}
                 </span>
@@ -175,13 +182,13 @@ const filteredEvents = useMemo(() => {
         </div>
 
         {isCoach && (
-          <div className="border-t border-[#1e3050] p-3 space-y-2">
+          <div className="border-t border-[#1e3050] p-3 space-y-2 flex-shrink-0">
             <button onClick={() => { setShowNewEvent(true); setShowAutoGen(false); setSelectedEvent(null); }}
-              className="w-full py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[12px] font-bold hover:bg-sky-500/25 transition">
+              className="w-full py-3 sm:py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[12px] font-bold hover:bg-sky-500/25 transition min-h-[44px]">
               ＋ Nytt arrangement
             </button>
             <button onClick={() => { setShowAutoGen(true); setShowNewEvent(false); setSelectedEvent(null); }}
-              className="w-full py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/20 transition">
+              className="w-full py-3 sm:py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/20 transition min-h-[44px]">
               ✨ Autogenerer treningsplan
             </button>
           </div>
@@ -189,9 +196,12 @@ const filteredEvents = useMemo(() => {
       </div>
 
       {/* ── Detaljpanel ── */}
-      <div className={`flex-1 flex-col overflow-hidden ${(selectedDate || showNewEvent || showAutoGen) ? 'flex' : 'hidden sm:flex'}`}>
-        <button onClick={() => { setSelectedDate(null); setShowNewEvent(false); setShowAutoGen(false); }}
-          className="sm:hidden flex-shrink-0 flex items-center gap-1 px-4 py-3
+      <div className={`
+        ${!showCalendar ? 'flex' : 'hidden lg:flex'}
+        flex-1 flex-col overflow-hidden h-full
+      `}>
+        <button onClick={closeDetailPanel}
+          className="lg:hidden flex-shrink-0 flex items-center gap-1 px-4 py-3
             border-b border-[#1e3050] text-[11px] text-sky-400 min-h-[44px]">
           ‹ Tilbake til kalender
         </button>
@@ -201,8 +211,8 @@ const filteredEvents = useMemo(() => {
             <AutoGenForm
               sport={sport}
               ageGroup={ageGroup}
-              onGenerate={(evs) => { evs.forEach(e => addEvent(e)); setShowAutoGen(false); }}
-              onCancel={() => setShowAutoGen(false)}
+              onGenerate={(evs) => { evs.forEach(e => addEvent(e)); setShowAutoGen(false); closeDetailPanel(); }}
+              onCancel={closeDetailPanel}
             />
           )}
 
@@ -212,8 +222,8 @@ const filteredEvents = useMemo(() => {
               sport={sport}
               ageGroup={ageGroup}
               playerAccounts={playerAccounts as any[]}
-              onSave={(ev) => { addEvent(ev); setShowNewEvent(false); }}
-              onCancel={() => setShowNewEvent(false)}
+              onSave={(ev) => { addEvent(ev); setShowNewEvent(false); closeDetailPanel(); }}
+              onCancel={closeDetailPanel}
             />
           )}
 
@@ -276,7 +286,7 @@ const filteredEvents = useMemo(() => {
                   <p className="text-[#4a6080] text-sm mb-4">Ingen kommende arrangementer.</p>
                   {isCoach && (
                     <button onClick={() => setShowAutoGen(true)}
-                      className="px-4 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25">
+                      className="px-4 py-3 sm:py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/25 min-h-[44px]">
                       ✨ Autogenerer treningsplan
                     </button>
                   )}
@@ -290,7 +300,7 @@ const filteredEvents = useMemo(() => {
   );
 };
 
-// ═══ AUTOGENERER TRENINGSPLAN ═══════════════════════════════════
+// ═══ AUTOGENERER TRENINGSPLAN (RESPONSIV OPPDATERT) ═══════════════════════
 
 const AutoGenForm: React.FC<{
   sport: string;
@@ -340,8 +350,6 @@ const AutoGenForm: React.FC<{
     const drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
     const events: Omit<CalendarEvent, 'id'>[] = [];
 
-    console.log('🔍 AutoGenForm - Genererer', previewDates.length, 'events');
-
     previewDates.forEach((date, idx) => {
       const drill = drills[idx % drills.length];
       const focusLine = focusTags.length > 0 ? `\nFokus: ${focusTags.join(', ')}` : '';
@@ -349,7 +357,6 @@ const AutoGenForm: React.FC<{
         ? `\n\n📋 Øvelse: ${drill.name}\n${drill.description}`
         : '';
 
-      // Unik ID for hver event og hver note
       const eventId = `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
       const noteId = `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -374,9 +381,6 @@ const AutoGenForm: React.FC<{
       });
     });
 
-    console.log('🔍 AutoGenForm - Ferdig generert', events.length, 'events');
-    console.log('🔍 AutoGenForm - Event IDs:', events.map(e => e.trainingNotes[0]?.id));
-
     onGenerate(events);
   }
 
@@ -384,18 +388,18 @@ const AutoGenForm: React.FC<{
   const sportName  = activeSport === 'football' ? 'Fotball' : 'Håndball';
 
   return (
-    <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-5 mb-5 max-w-2xl">
-      <div className="flex items-center gap-2 mb-5">
+    <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-4 sm:p-5 mb-5 max-w-2xl">
+      <div className="flex items-center gap-2 mb-4 sm:mb-5">
         <span className="text-2xl">✨</span>
         <div>
           <h3 className="text-sm font-bold text-slate-200">Autogenerer treningsplan</h3>
-          <p className="text-[11px] text-[#4a6080]">
+          <p className="text-[10px] sm:text-[11px] text-[#4a6080]">
             {sportEmoji} {sportName} · {ageGroup === 'youth' ? '🧒 Barneøvelser' : '🧑 Voksenøvelser'}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <div>
           <label className="label-cal">Startdato</label>
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="inp-cal" />
@@ -419,10 +423,10 @@ const AutoGenForm: React.FC<{
 
       <div className="mb-4">
         <label className="label-cal">Treningsdager per uke</label>
-        <div className="flex gap-2 mt-2 flex-wrap">
+        <div className="flex gap-1.5 sm:gap-2 mt-2 flex-wrap">
           {WEEKDAYS.map((d, i) => (
             <button key={i} onClick={() => toggleDay(i)}
-              className={`w-10 h-10 rounded-lg text-[11px] font-bold border transition-all
+              className={`min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-10 sm:h-10 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-center
                 ${selectedDays.includes(i)
                   ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400'
                   : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
@@ -440,7 +444,7 @@ const AutoGenForm: React.FC<{
             <button key={f} onClick={() => setFocusTags(prev =>
               prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
             )}
-              className={`px-2.5 py-1 rounded-full text-[10.5px] font-semibold border transition-all
+              className={`px-2.5 py-1.5 sm:py-1 rounded-full text-[10.5px] font-semibold border transition-all min-h-[36px] sm:min-h-0
                 ${focusTags.includes(f)
                   ? 'border-sky-500/60 bg-sky-500/15 text-sky-400'
                   : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
@@ -455,9 +459,9 @@ const AutoGenForm: React.FC<{
           <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">
             Forhåndsvisning — {previewDates.length} økter
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto">
             {previewDates.map((d) => (
-              <div key={d} className="text-[10.5px] text-slate-300 bg-[#111c30] rounded-lg px-2 py-1 border border-[#1e3050]">
+              <div key={d} className="text-[10.5px] text-slate-300 bg-[#111c30] rounded-lg px-2 py-1.5 border border-[#1e3050] min-h-[36px] flex items-center">
                 {new Date(d + 'T12:00:00').toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' })}
               </div>
             ))}
@@ -465,13 +469,13 @@ const AutoGenForm: React.FC<{
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <button onClick={generate} disabled={selectedDays.length === 0}
-          className="flex-1 py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12.5px] hover:bg-emerald-500/25 disabled:opacity-40">
+          className="flex-1 py-3 sm:py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12.5px] hover:bg-emerald-500/25 disabled:opacity-40 min-h-[44px]">
           ✨ Generer {previewDates.length} treningsøkter
         </button>
         <button onClick={onCancel}
-          className="px-4 py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[12.5px] hover:text-slate-300">
+          className="px-4 py-3 sm:py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[12.5px] hover:text-slate-300 min-h-[44px]">
           Avbryt
         </button>
       </div>
@@ -481,7 +485,7 @@ const AutoGenForm: React.FC<{
   );
 };
 
-// ═══ NY HENDELSE-FORM ════════════════════════════════════════════
+// ═══ NY HENDELSE-FORM (RESPONSIV OPPDATERT) ═══════════════════════
 
 const NewEventForm: React.FC<{
   date: string;
@@ -588,13 +592,13 @@ const NewEventForm: React.FC<{
   };
 
   return (
-    <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-5 mb-5 max-w-2xl">
+    <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-4 sm:p-5 mb-5 max-w-2xl">
       <h3 className="text-sm font-bold text-slate-200 mb-4">Nytt arrangement</h3>
 
       <div className="flex gap-2 mb-4">
         {(['training', 'match'] as const).map(t => (
           <button key={t} onClick={() => setType(t)}
-            className={`flex-1 py-2 rounded-lg text-[12px] font-bold border transition-all
+            className={`flex-1 py-3 sm:py-2 rounded-lg text-[12px] font-bold border transition-all min-h-[44px]
               ${type === t
                 ? t === 'match'
                   ? 'border-red-500 bg-red-500/15 text-red-400'
@@ -605,8 +609,8 @@ const NewEventForm: React.FC<{
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div className="sm:col-span-2">
           <label className="label-cal">Tittel *</label>
           <input value={title} onChange={e => setTitle(e.target.value)}
             className="inp-cal" placeholder={type === 'match' ? 'Seriekamp runde 5' : 'Teknikktrening'} />
@@ -636,12 +640,12 @@ const NewEventForm: React.FC<{
           <label className="label-cal">Trenings type</label>
           <div className="flex gap-2 mt-1">
             <button type="button" onClick={() => setIsIndividualTraining(false)}
-              className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-all
+              className={`flex-1 py-3 sm:py-2 rounded-lg text-[11px] font-bold border transition-all min-h-[44px]
                 ${!isIndividualTraining ? 'border-sky-500 bg-sky-500/15 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
               👥 Felles trening
             </button>
             <button type="button" onClick={() => setIsIndividualTraining(true)}
-              className={`flex-1 py-2 rounded-lg text-[11px] font-bold border transition-all
+              className={`flex-1 py-3 sm:py-2 rounded-lg text-[11px] font-bold border transition-all min-h-[44px]
                 ${isIndividualTraining ? 'border-amber-500 bg-amber-500/15 text-amber-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
               🎯 Individuell trening
             </button>
@@ -655,7 +659,7 @@ const NewEventForm: React.FC<{
           <div className="flex flex-wrap gap-2 mt-1 max-h-32 overflow-y-auto p-2 bg-[#0c1525] rounded-xl border border-[#1e3050]">
             {playerAccounts.map((player: any) => (
               <button key={player.id} type="button" onClick={() => togglePlayer(player.playerId)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all
+                className={`px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] font-semibold border transition-all min-h-[36px]
                   ${selectedPlayerIds.includes(player.playerId)
                     ? 'bg-amber-500/20 border-amber-500 text-amber-400'
                     : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
@@ -678,7 +682,7 @@ const NewEventForm: React.FC<{
                 <button key={f} onClick={() => setFocusTags(prev =>
                   prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
                 )}
-                  className={`px-2.5 py-1 rounded-full text-[10.5px] font-semibold border transition-all
+                  className={`px-2.5 py-1.5 sm:py-1 rounded-full text-[10.5px] font-semibold border transition-all min-h-[36px] sm:min-h-0
                     ${focusTags.includes(f)
                       ? 'border-sky-500/60 bg-sky-500/15 text-sky-400'
                       : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
@@ -700,14 +704,14 @@ const NewEventForm: React.FC<{
                       <div className="text-[9px] text-[#4a6080]">{drill.duration} min · {drill.players} spillere · {drill.difficulty}</div>
                     </div>
                     <button type="button" onClick={() => removeDrill(drill.id)}
-                      className="text-red-400/70 hover:text-red-400 text-[11px] px-2">✕</button>
+                      className="text-red-400/70 hover:text-red-400 text-[11px] px-2 min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
                   </div>
                 ))}
               </div>
             )}
 
             <button type="button" onClick={() => setShowDrillPicker(!showDrillPicker)}
-              className="w-full mt-1 py-2 px-3 rounded-lg border border-[#1e3050] text-left text-[12px] text-[#4a6080] hover:border-sky-500/50 hover:text-slate-300 transition-all flex items-center justify-between">
+              className="w-full mt-1 py-3 sm:py-2 px-3 rounded-lg border border-[#1e3050] text-left text-[12px] text-[#4a6080] hover:border-sky-500/50 hover:text-slate-300 transition-all flex items-center justify-between min-h-[44px]">
               <span>{selectedDrills.length > 0 ? `+ Legg til flere øvelser (${selectedDrills.length} valgt)` : '– Velg øvelser –'}</span>
               <span>{showDrillPicker ? '▲' : '▼'}</span>
             </button>
@@ -717,16 +721,16 @@ const NewEventForm: React.FC<{
                 <div className="p-2 border-b border-[#1e3050] space-y-2">
                   <input type="text" placeholder="🔍 Søk etter øvelse..."
                     value={drillSearch} onChange={e => setDrillSearch(e.target.value)}
-                    className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500" />
+                    className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[44px]" />
                   <div className="flex flex-wrap gap-1">
                     <button onClick={() => setDrillCategory('alle')}
-                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                      className={`px-2 py-1.5 sm:py-0.5 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                         ${drillCategory === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                       Alle
                     </button>
                     {categories.map(cat => (
                       <button key={cat} onClick={() => setDrillCategory(cat)}
-                        className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                        className={`px-2 py-1.5 sm:py-0.5 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                           ${drillCategory === cat ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                         {CATEGORY_LABELS[cat]?.split(' ')[1] || cat}
                       </button>
@@ -734,13 +738,13 @@ const NewEventForm: React.FC<{
                   </div>
                   <div className="flex flex-wrap gap-1">
                     <button onClick={() => setDrillDifficulty('alle')}
-                      className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                      className={`px-2 py-1.5 sm:py-0.5 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                         ${drillDifficulty === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                       Alle
                     </button>
                     {['enkel', 'middels', 'avansert'].map(level => (
                       <button key={level} onClick={() => setDrillDifficulty(level)}
-                        className={`px-2 py-0.5 rounded-md text-[9px] font-semibold transition-all
+                        className={`px-2 py-1.5 sm:py-0.5 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                           ${drillDifficulty === level
                             ? level === 'enkel' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                               : level === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
@@ -761,7 +765,7 @@ const NewEventForm: React.FC<{
                       return (
                         <button key={drill.id} type="button"
                           onClick={() => isSelected ? removeDrill(drill.id) : addDrill(drill)}
-                          className={`w-full text-left px-3 py-2.5 text-[11.5px] hover:bg-[#111c30] border-b border-[#1e3050]/50 transition-all
+                          className={`w-full text-left px-3 py-3 sm:py-2.5 text-[11.5px] hover:bg-[#111c30] border-b border-[#1e3050]/50 transition-all min-h-[44px]
                             ${isSelected ? 'text-sky-400 bg-sky-500/10' : 'text-slate-300'}`}>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px]">{isSelected ? '✓' : '○'}</span>
@@ -788,18 +792,18 @@ const NewEventForm: React.FC<{
         <label className="label-cal">Beskrivelse / notat</label>
         <textarea value={teamNote} onChange={e => setTeamNote(e.target.value)}
           rows={3} placeholder="Mål for økten, beskjeder til spillerne..."
-          className="w-full mt-1 bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5
+          className="w-full mt-1 bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-3 sm:py-2.5
             text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <button type="button" onClick={save}
           disabled={saving || (isIndividualTraining && selectedPlayerIds.length === 0)}
-          className="flex-1 py-2.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12.5px] hover:bg-sky-500/25 disabled:opacity-40 transition">
+          className="flex-1 py-3 sm:py-2.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12.5px] hover:bg-sky-500/25 disabled:opacity-40 transition min-h-[44px]">
           {saving ? 'Lagrer...' : 'Lagre'}
         </button>
         <button type="button" onClick={onCancel}
-          className="px-4 py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[12.5px] hover:text-slate-300">
+          className="px-4 py-3 sm:py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[12.5px] hover:text-slate-300 min-h-[44px]">
           Avbryt
         </button>
       </div>
@@ -809,7 +813,7 @@ const NewEventForm: React.FC<{
   );
 };
 
-// ═══ EVENT CARD ═══════════════════════════════════════════════
+// ═══ EVENT CARD (RESPONSIV OPPDATERT) ═══════════════════════════
 
 const EventCard: React.FC<{
   event: CalendarEvent;
@@ -829,7 +833,7 @@ const EventCard: React.FC<{
       <div className="flex items-center gap-3 p-3">
         <div className={`w-2 h-10 rounded-full flex-shrink-0 ${event.type === 'match' ? 'bg-red-400' : isIndividualForMe ? 'bg-amber-400' : 'bg-emerald-400'}`} />
         <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] font-bold text-slate-200">{event.title}</div>
+          <div className="text-[12.5px] font-bold text-slate-200 truncate">{event.title}</div>
           <div className="text-[10.5px] text-[#4a6080]">
             {event.type === 'match' ? '⚽ Kamp' : '🏃 Trening'}
             {isIndividualForMe && <span className="ml-2 text-amber-400">🎯 Individuell</span>}
@@ -845,14 +849,14 @@ const EventCard: React.FC<{
         </div>
         {isCoach && (
           <button onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 text-sm px-1 transition">✕</button>
+            className="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 text-sm px-1 transition min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
         )}
       </div>
       {event.type === 'training' && onGoToTraining && (
         <div className="px-3 pb-3 pt-0 border-t border-[#1e3050]/50">
           <button
             onClick={(e) => { e.stopPropagation(); onGoToTraining(event); }}
-            className="w-full py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[10px] font-semibold hover:bg-sky-500/25 transition flex items-center justify-center gap-1"
+            className="w-full py-2.5 sm:py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[10px] font-semibold hover:bg-sky-500/25 transition flex items-center justify-center gap-1 min-h-[44px]"
           >
             🏃 Gå til treningssiden
           </button>
@@ -862,7 +866,7 @@ const EventCard: React.FC<{
   );
 };
 
-// ═══ EVENT DETAIL ══════════════════════════════════════════════
+// ═══ EVENT DETAIL (RESPONSIV OPPDATERT) ══════════════════════════
 
 const EventDetail: React.FC<{
   event: CalendarEvent;
@@ -894,7 +898,7 @@ const EventDetail: React.FC<{
 
   return (
     <div className="max-w-2xl">
-      <button onClick={onBack} className="text-[#4a6080] hover:text-sky-400 text-[12px] mb-4 flex items-center gap-1">
+      <button onClick={onBack} className="text-[#4a6080] hover:text-sky-400 text-[12px] mb-4 flex items-center gap-1 min-h-[44px]">
         ‹ Tilbake
       </button>
 
@@ -917,7 +921,7 @@ const EventDetail: React.FC<{
       {event.type === 'training' && onGoToTraining && (
         <button
           onClick={() => onGoToTraining(event)}
-          className="mb-4 w-full py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[12px] font-semibold hover:bg-sky-500/25 transition flex items-center justify-center gap-2"
+          className="mb-4 w-full py-3 sm:py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[12px] font-semibold hover:bg-sky-500/25 transition flex items-center justify-center gap-2 min-h-[44px]"
         >
           🏃 Gå til treningssiden (stoppeklokke og fullfør)
         </button>
@@ -929,7 +933,7 @@ const EventDetail: React.FC<{
           {isCoach ? (
             <input value={event.result || ''} onChange={e => onUpdate({ result: e.target.value })}
               placeholder="f.eks. 2-1"
-              className="bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-1.5 text-slate-200 text-[13px] w-28 focus:outline-none focus:border-sky-500" />
+              className="bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-slate-200 text-[13px] w-28 focus:outline-none focus:border-sky-500 min-h-[44px]" />
           ) : (
             <span className="text-slate-200 text-[13px]">{event.result || 'Ikke rapportert'}</span>
           )}
@@ -942,7 +946,7 @@ const EventDetail: React.FC<{
           <textarea value={event.teamNote}
             onChange={e => onUpdate({ teamNote: e.target.value })}
             rows={3} placeholder="Skriv her..."
-            className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5 text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
+            className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-3 sm:py-2.5 text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
         ) : (
           <div className="bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5 text-slate-300 text-[12.5px] whitespace-pre-wrap">
             {event.teamNote || 'Ingen notat.'}
@@ -965,7 +969,7 @@ const EventDetail: React.FC<{
                 </div>
                 {isCoach && (
                   <button onClick={() => deleteTrainingNote(event.id, tn.id)}
-                    className="text-red-400/50 hover:text-red-400 text-xs">✕</button>
+                    className="text-red-400/50 hover:text-red-400 text-xs min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
                 )}
               </div>
               <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap">{tn.content}</p>
@@ -995,7 +999,7 @@ const EventDetail: React.FC<{
                   <button key={f} onClick={() => setFocusTags(prev =>
                     prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
                   )}
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all
+                    className={`px-2 py-1.5 sm:py-1 rounded-full text-[10px] font-semibold border transition-all min-h-[36px] sm:min-h-0
                       ${focusTags.includes(f) ? 'border-sky-500/60 bg-sky-500/15 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
                     {f}
                   </button>
@@ -1003,7 +1007,7 @@ const EventDetail: React.FC<{
               </div>
               <div className="flex gap-2 mb-2">
                 <button onClick={() => setIsIndividualTraining(!isIndividualTraining)}
-                  className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-all
+                  className={`px-2 py-1.5 sm:py-1 rounded-md text-[10px] font-semibold border transition-all min-h-[36px] sm:min-h-0
                     ${isIndividualTraining ? 'border-amber-500 bg-amber-500/15 text-amber-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
                   {isIndividualTraining ? '🎯 Individuell' : '👥 Felles'}
                 </button>
@@ -1015,7 +1019,7 @@ const EventDetail: React.FC<{
                       onClick={() => setSelectedPlayerIds(prev =>
                         prev.includes(player.playerId) ? prev.filter(id => id !== player.playerId) : [...prev, player.playerId]
                       )}
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-semibold border transition-all
+                      className={`px-2 py-1.5 sm:py-1 rounded-full text-[9px] font-semibold border transition-all min-h-[36px] sm:min-h-0
                         ${selectedPlayerIds.includes(player.playerId)
                           ? 'bg-amber-500/20 border-amber-500 text-amber-400'
                           : 'border-[#1e3050] text-[#4a6080]'}`}>
@@ -1026,10 +1030,10 @@ const EventDetail: React.FC<{
               )}
               <input value={newTrainTitle} onChange={e => setNewTrainTitle(e.target.value)}
                 placeholder="Tittel"
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 mb-2 focus:outline-none focus:border-sky-500" />
+                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 mb-2 focus:outline-none focus:border-sky-500 min-h-[44px]" />
               <textarea value={newTrainContent} onChange={e => setNewTrainContent(e.target.value)}
                 rows={3} placeholder="Innhold / observasjoner..."
-                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 mb-2 leading-relaxed" />
+                className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-3 sm:py-2 text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 mb-2 leading-relaxed" />
               <button onClick={() => {
                 if (!newTrainContent.trim()) return;
                 addTrainingNote(event.id, {
@@ -1039,7 +1043,7 @@ const EventDetail: React.FC<{
                   targetPlayerIds: isIndividualTraining ? selectedPlayerIds : [],
                 });
                 setNewTrainTitle(''); setNewTrainContent(''); setFocusTags([]); setSelectedPlayerIds([]); setIsIndividualTraining(false);
-              }} className="px-4 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12px] hover:bg-emerald-500/25">
+              }} className="px-4 py-3 sm:py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12px] hover:bg-emerald-500/25 min-h-[44px]">
                 Legg til notat
               </button>
             </div>
@@ -1060,7 +1064,7 @@ const EventDetail: React.FC<{
                   </span>
                 </div>
                 <button onClick={() => deleteMatchNote(event.id, mn.id)}
-                  className="text-red-400/50 hover:text-red-400 text-xs">✕</button>
+                  className="text-red-400/50 hover:text-red-400 text-xs min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
               </div>
               <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap">{mn.content}</p>
             </div>
@@ -1071,7 +1075,7 @@ const EventDetail: React.FC<{
             <div className="flex gap-2 mb-2">
               {([1, 2, 3] as const).map(h => (
                 <button key={h} onClick={() => setNewMatchHalf(h)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all
+                  className={`px-2.5 py-1.5 sm:py-1 rounded-md text-[11px] font-semibold border transition-all min-h-[36px] sm:min-h-0
                     ${newMatchHalf === h ? 'border-red-500 bg-red-500/15 text-red-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
                   {h === 1 ? '1. omgang' : h === 2 ? '2. omgang' : 'Heltid'}
                 </button>
@@ -1079,15 +1083,15 @@ const EventDetail: React.FC<{
             </div>
             <input value={newMatchTitle} onChange={e => setNewMatchTitle(e.target.value)}
               placeholder="Tittel"
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 mb-2 focus:outline-none focus:border-sky-500" />
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 mb-2 focus:outline-none focus:border-sky-500 min-h-[44px]" />
             <textarea value={newMatchContent} onChange={e => setNewMatchContent(e.target.value)}
               rows={3} placeholder="Observasjoner, taktikknyheter, spillerbidrag..."
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 mb-2 leading-relaxed" />
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-3 sm:py-2 text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 mb-2 leading-relaxed" />
             <button onClick={() => {
               if (!newMatchContent.trim()) return;
               addMatchNote(event.id, { half: newMatchHalf, title: newMatchTitle || 'Kampnotat', content: newMatchContent, targetPlayerIds: [] });
               setNewMatchTitle(''); setNewMatchContent('');
-            }} className="px-4 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-[12px] hover:bg-red-500/25">
+            }} className="px-4 py-3 sm:py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-[12px] hover:bg-red-500/25 min-h-[44px]">
               Legg til notat
             </button>
           </div>
@@ -1097,13 +1101,13 @@ const EventDetail: React.FC<{
   );
 };
 
-// ═══ STYLES ══════════════════════════════════════════════════
+// ═══ STYLES (URØRT) ═══════════════════════════════════════════
 
 const CalStyle = () => (
   <style>{`
     .inp-cal { width:100%; background:#111c30; border:1px solid #1e3050;
-      border-radius:8px; padding:8px 10px; color:#e2e8f0; font-size:12.5px;
-      margin-top:4px; box-sizing:border-box; min-height:38px; }
+      border-radius:8px; padding:10px 12px; color:#e2e8f0; font-size:12.5px;
+      margin-top:4px; box-sizing:border-box; min-height:44px; }
     .inp-cal:focus { outline:none; border-color:#38bdf8; }
     .label-cal { font-size:9.5px; font-weight:700; color:#3a5070;
       text-transform:uppercase; letter-spacing:0.08em; display:block; }

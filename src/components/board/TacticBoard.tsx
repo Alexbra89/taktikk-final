@@ -13,15 +13,7 @@ import { Ball, DrawingCanvas } from './BoardElements';
 import { ROLE_META, ROLE_FAMILY } from '../../data/roleInfo';
 
 // ══════════════════════════════════════════════════════════════
-//  TACTIC BOARD v8 – FM LOOK + GLASSMORPHISM
-//  ─ Unified drag: pointer events (desktop + mobil)
-//  ─ INGEN HTML5 draggable
-//  ─ SPRETT-FIX: endDrag leser e.clientX/Y direkte (ikke ghostPos)
-//  ─ lastClientRef holder alltid siste pointer-koordinater
-//  ─ Slot-basert formasjon, long-press 100ms, auto-spacing myk
-//  ─ Collapsible panel (desktop) / bottom sheet (mobil)
-//  ─ Tactic Moments, Undo/Redo Ctrl+Z / Ctrl+Y
-//  ─ NÅ MED ADDPLAYER – RIKTIG OPPRETTELSE AV SPILLERE
+//  TACTIC BOARD v8 – FM LOOK + GLASSMORPHISM (RESPONSIV OPPDATERT)
 // ══════════════════════════════════════════════════════════════
 
 interface TacticBoardProps {
@@ -373,6 +365,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [moments,          setMoments]           = useState<TacticMoment[]>([]);
   const [showMoments,      setShowMoments]       = useState(false);
   const [momentLabel,      setMomentLabel]       = useState('');
+  const [showMoreMenu,     setShowMoreMenu]      = useState(false);
 
   const {
     sport, phases, activePhaseIdx,
@@ -465,15 +458,13 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const formation = availableFormations.find(f => f.name === name);
   if (!formation) return;
 
-  // Hent alle nåværende startere, sortert etter draktnummer
   const currentStarters = phase.players
     .filter(p => p.team === 'home' && p.isStarter === true)
     .sort((a, b) => (a.num || 0) - (b.num || 0));
 
-  // Gå gjennom formasjonens slots og oppdater de starterne som finnes
   formation.homePlayers.forEach((slot, index) => {
     const player = currentStarters[index];
-    if (!player) return; // ikke nok startere – resten av slots ignoreres
+    if (!player) return;
 
     updatePlayerField(activePhaseIdx, player.id, {
       position: {
@@ -481,7 +472,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         y: clamp(slot.position.y, CLAMP_MARGIN, VH - CLAMP_MARGIN),
       },
       role: slot.role as PlayerRole,
-      // isStarter og isOnField forblir true (de er allerede startere)
     });
   });
 
@@ -787,7 +777,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const DRAW_COLORS     = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
   const glassStyle      = { '--glass-bg': GLASS.panel, '--glass-border': GLASS.border, '--glass-hover': GLASS.hover } as React.CSSProperties;
 
-  // Ref‑er for å unngå gjentatte initialiseringer
   const hasAddedMissingAccounts = useRef(false);
   const hasEnsuredStarters = useRef(false);
   const prevPhaseId = useRef<string | null>(null);
@@ -801,9 +790,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 7;
   const homePlayers = phase.players.filter(p => p.team === 'home');
 
-  // Hvis vi allerede har minst teamSize spillere, trenger vi ikke opprette flere
   if (homePlayers.length >= teamSize) {
-    // Sjekk om vi må promotere noen til startere
     const starters = homePlayers.filter(p => p.isStarter === true);
     if (starters.length < teamSize) {
       const candidates = homePlayers
@@ -811,7 +798,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         .sort((a, b) => (a.num || 999) - (b.num || 999));
       const needed = teamSize - starters.length;
       const toPromote = candidates.slice(0, needed);
-      console.log(`📈 Promoterer ${toPromote.length} spillere til startere`);
       toPromote.forEach((player, idx) => {
         const formation = availableFormations.find(f => f.name === selectedFormation);
         const slot = formation?.homePlayers[starters.length + idx];
@@ -827,15 +813,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     return;
   }
 
-  // Her er homePlayers.length < teamSize
   isAddingPlayersRef.current = true;
 
   const formation = availableFormations.find(f => f.name === selectedFormation);
   const defaultPositions = formation?.homePlayers.map(slot => slot.position) ?? [];
   const existingNums = homePlayers.map(p => p.num);
   const needed = teamSize - homePlayers.length;
-
-  console.log(`➕ Oppretter ${needed} manglende spillere`);
 
   for (let i = 0; i < needed; i++) {
     let newNum = 1;
@@ -864,12 +847,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     addPlayer(activePhaseIdx, newPlayer);
   }
 
-  // Vi er ferdige med å legge til spillere – marker som fullført
   hasEnsuredStarters.current = true;
   isAddingPlayersRef.current = false;
 }, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, updatePlayerField, addPlayer, clamp]);
 
-// 🔧 MIDLERTIDIG: Generer 20 testspillere (kun i dev)
 useEffect(() => {
   if (!phase || !isMounted) return;
   if (process.env.NODE_ENV !== 'development') return;
@@ -903,12 +884,9 @@ useEffect(() => {
       isOnField: false,
       minutesPlayed: 0,
       specialRoles: [],
-      // ingen playerAccountId – vi bruker bare name
     };
     addPlayer(activePhaseIdx, newPlayer);
   }
-
-  console.log('✅ 20 testspillere lagt til (innbyttere)');
 }, [phase, isMounted, addPlayer, activePhaseIdx]);
 
   if (!phase || !isMounted) {
@@ -930,42 +908,59 @@ useEffect(() => {
         WebkitBackdropFilter:'blur(16px) saturate(1.4)',
         borderBottom:'1px solid rgba(56,189,248,0.1)',
         boxShadow:'0 1px 0 rgba(255,255,255,0.04)',
-      }} className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto overscroll-x-contain">
+      }} className="flex-shrink-0 flex flex-wrap items-center gap-1 px-2 py-1.5">
 
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {phases.map((ph, idx) => (
-            <button key={ph.id} onClick={() => !isPlaying && setActivePhaseIdx(idx)}
-              style={{
-                background: activePhaseIdx===idx ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
-                border: activePhaseIdx===idx ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.07)',
-                backdropFilter: 'blur(8px)',
-                transition: 'all 0.15s ease',
-              }}
-              className={`px-2 py-1 rounded-lg text-[10px] font-semibold min-h-[44px] whitespace-nowrap
-                ${activePhaseIdx===idx ? 'text-sky-400' : 'text-slate-500 hover:text-slate-300'}
-                ${isPlaying ? 'opacity-50' : ''}`}>
-              Fase {idx + 1}{ph.stickyNote && <span className="ml-1 text-amber-400">·</span>}
-            </button>
-          ))}
-          <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
-            style={{ background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-400 text-base disabled:opacity-40">＋</button>
-          {phases.length > 1 && (
-            <button onClick={() => { if (phases.length > 1) removePhase(activePhaseIdx); }} disabled={isPlaying}
-              style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.15)', backdropFilter:'blur(8px)' }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 text-base disabled:opacity-40">🗑️</button>
-          )}
-        </div>
+        {isMobile ? (
+          <select
+            value={activePhaseIdx}
+            onChange={(e) => !isPlaying && setActivePhaseIdx(parseInt(e.target.value))}
+            disabled={isPlaying}
+            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',backdropFilter:'blur(8px)'}}
+            className="rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none min-h-[40px] flex-shrink-0"
+          >
+            {phases.map((ph, idx) => (
+              <option key={ph.id} value={idx} style={{background:'#0c1525'}}>
+                {ph.name || `Fase ${idx + 1}`} {ph.stickyNote ? '📌' : ''}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {phases.map((ph, idx) => (
+              <button key={ph.id} onClick={() => !isPlaying && setActivePhaseIdx(idx)}
+                style={{
+                  background: activePhaseIdx===idx ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: activePhaseIdx===idx ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                  backdropFilter: 'blur(8px)',
+                  transition: 'all 0.15s ease',
+                }}
+                className={`px-2 py-1 rounded-lg text-[10px] font-semibold min-h-[40px] whitespace-nowrap
+                  ${activePhaseIdx===idx ? 'text-sky-400' : 'text-slate-500 hover:text-slate-300'}
+                  ${isPlaying ? 'opacity-50' : ''}`}>
+                {ph.name || `Fase ${idx + 1}`}{ph.stickyNote && <span className="ml-1 text-amber-400">·</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
+          style={{ background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-400 text-base disabled:opacity-40 flex-shrink-0">＋</button>
+        {phases.length > 1 && (
+          <button onClick={() => { if (phases.length > 1) removePhase(activePhaseIdx); }} disabled={isPlaying}
+            style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.15)', backdropFilter:'blur(8px)' }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 text-base disabled:opacity-40 flex-shrink-0">🗑️</button>
+        )}
 
         {availableFormations.length>0&&(
           <select value={selectedFormation} onChange={e=>updateFormation(e.target.value)} disabled={isPlaying}
             style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',backdropFilter:'blur(8px)'}}
-            className="ml-2 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px] flex-shrink-0">
+            className="ml-1 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px] flex-shrink-0">
             {availableFormations.map(f=><option key={f.name} value={f.name} style={{background:'#0c1525'}}>{f.name}</option>)}
           </select>
         )}
 
-        <div className="flex-1 min-w-[8px]"/>
+        <div className="flex-1 min-w-[4px]"/>
 
         {[{fn:doUndo,icon:'↩',title:'Angre (Ctrl+Z)'},{fn:doRedo,icon:'↪',title:'Gjør om (Ctrl+Y)'}].map(({fn,icon,title})=>(
           <button key={icon} onClick={fn} title={title}
@@ -990,36 +985,70 @@ useEffect(() => {
             className="text-[9px] font-bold text-emerald-400 px-2 py-0.5 rounded-full flex-shrink-0">🏃 Trening</span>
         )}
 
-        <button onClick={()=>setShowMoments(!showMoments)}
-          style={{
-            background: showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)',
-            border: showMoments?'1px solid rgba(167,139,250,0.35)':'1px solid rgba(255,255,255,0.07)',
-            backdropFilter:'blur(8px)',
-          }}
-          className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] flex-shrink-0 whitespace-nowrap
-            ${showMoments?'text-violet-400':'text-slate-500 hover:text-slate-300'}`}>
-          📸 Øyeblikk
-        </button>
+        {isMobile ? (
+          <>
+            <button onClick={()=>setShowMoreMenu(!showMoreMenu)}
+              style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',backdropFilter:'blur(8px)'}}
+              className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 min-h-[40px] flex-shrink-0">
+              ⋮ Mer
+            </button>
+            {showMoreMenu && (
+              <div className="absolute top-12 right-2 z-50 mt-1 p-2 rounded-xl shadow-2xl"
+                style={{background:'rgba(5,10,28,0.96)',backdropFilter:'blur(16px)',border:'1px solid rgba(56,189,248,0.15)'}}>
+                <div className="flex flex-col gap-1">
+                  <button onClick={()=>{setShowMoments(!showMoments);setShowMoreMenu(false);}}
+                    className="px-3 py-2 rounded-lg text-[10px] font-bold text-left whitespace-nowrap"
+                    style={{background:showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)'}}>
+                    📸 Øyeblikk
+                  </button>
+                  <button onClick={()=>{setShowSticky(!showSticky);setShowMoreMenu(false);}}
+                    className="px-3 py-2 rounded-lg text-[10px] font-bold text-left"
+                    style={{background:showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)'}}>
+                    📌 Notat
+                  </button>
+                  <button onClick={()=>{setDrawMode(!drawMode);setShowMoreMenu(false);}}
+                    className="px-3 py-2 rounded-lg text-[10px] font-bold text-left"
+                    style={{background:drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)'}}>
+                    ✏️ Tegn
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <button onClick={()=>setShowMoments(!showMoments)}
+              style={{
+                background: showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)',
+                border: showMoments?'1px solid rgba(167,139,250,0.35)':'1px solid rgba(255,255,255,0.07)',
+                backdropFilter:'blur(8px)',
+              }}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] flex-shrink-0 whitespace-nowrap
+                ${showMoments?'text-violet-400':'text-slate-500 hover:text-slate-300'}`}>
+              📸 Øyeblikk
+            </button>
 
-        <button onClick={()=>setShowSticky(!showSticky)}
-          style={{
-            background: showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)',
-            border: showSticky?'1px solid rgba(251,191,36,0.3)':'1px solid rgba(255,255,255,0.07)',
-            backdropFilter:'blur(8px)',
-          }}
-          className={`px-2 py-1 rounded-lg text-[13px] min-h-[40px] flex-shrink-0
-            ${showSticky?'text-amber-400':'text-slate-500 hover:text-slate-300'}`}>📌</button>
+            <button onClick={()=>setShowSticky(!showSticky)}
+              style={{
+                background: showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)',
+                border: showSticky?'1px solid rgba(251,191,36,0.3)':'1px solid rgba(255,255,255,0.07)',
+                backdropFilter:'blur(8px)',
+              }}
+              className={`px-2 py-1 rounded-lg text-[13px] min-h-[40px] flex-shrink-0
+                ${showSticky?'text-amber-400':'text-slate-500 hover:text-slate-300'}`}>📌</button>
 
-        <button onClick={()=>setDrawMode(!drawMode)}
-          style={{
-            background: drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
-            border: drawMode?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
-            backdropFilter:'blur(8px)',
-          }}
-          className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] whitespace-nowrap flex-shrink-0
-            ${drawMode?'text-red-400':'text-slate-500 hover:text-slate-300'}`}>
-          {drawMode?'✏️ Stopp':'✏️ Tegn'}
-        </button>
+            <button onClick={()=>setDrawMode(!drawMode)}
+              style={{
+                background: drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
+                border: drawMode?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
+                backdropFilter:'blur(8px)',
+              }}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] whitespace-nowrap flex-shrink-0
+                ${drawMode?'text-red-400':'text-slate-500 hover:text-slate-300'}`}>
+              {drawMode?'✏️ Stopp':'✏️ Tegn'}
+            </button>
+          </>
+        )}
 
         {drawMode&&DRAW_COLORS.map(c=>(
           <button key={c} onClick={()=>setDrawColor(c)}
@@ -1035,7 +1064,7 @@ useEffect(() => {
         )}
 
         <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.07)',backdropFilter:'blur(8px)'}}
-          className="flex items-center gap-1 rounded-lg px-1.5 py-1 flex-shrink-0">
+          className={`flex items-center gap-1 rounded-lg px-1.5 py-1 flex-shrink-0 ${isMobile ? 'ml-auto' : ''}`}>
           <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}
             disabled={isPlaying||activePhaseIdx===0}
             className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏮</button>
@@ -1063,7 +1092,7 @@ useEffect(() => {
         {isMobile&&(
           <button onClick={()=>setShowBottomSheet(true)}
             style={{background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.2)',backdropFilter:'blur(8px)'}}
-            className="px-2 py-1 rounded-lg text-[10px] font-bold text-amber-400 min-h-[40px] flex-shrink-0">
+            className="px-2 py-1 rounded-lg text-[10px] font-bold text-amber-400 min-h-[40px] flex-shrink-0 ml-auto">
             🪑 {benchPlayers.length}
           </button>
         )}

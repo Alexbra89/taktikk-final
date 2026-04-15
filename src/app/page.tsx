@@ -515,7 +515,7 @@ export default function Home() {
                   ⛶ FULL
                 </button>
                 <button onClick={() => setShowSmartCoach(true)} className="flex-1 py-2.5 rounded-xl text-[12px] font-black tracking-wider border border-yellow-500/20 text-yellow-500 bg-yellow-500/10 transition min-h-[44px]">
-                  ⚡ AI COACH
+                  💡 Smart Coach
                 </button>
               </div>
             </div>

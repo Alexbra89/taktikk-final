@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────
-//  PitchView  –  ren visningskomponent
+//  PitchView  –  ren visningskomponent (RESPONSIV OPPDATERT)
 //
 //  DRAG-HÅNDTERING ER FJERNET HER.
 //  All drag (pointer events) håndteres i TacticBoard v8 direkte
@@ -117,11 +117,15 @@ export const PitchView: React.FC<PitchViewProps> = ({
   const ball = displayBall ?? phase.ball;
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col items-stretch" style={{padding:'4px'}}>
+    <div className="relative w-full h-full min-h-0 flex items-center justify-center" style={{ padding: '4px' }}>
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
-        className="w-full h-full touch-none select-none"
-        style={{ boxShadow:'0 0 60px rgba(0,0,0,0.9)', display:'block' }}
+        className="w-full h-full max-h-full object-contain select-none"
+        style={{ 
+          boxShadow: '0 0 60px rgba(0,0,0,0.9)', 
+          display: 'block',
+          touchAction: onSelectPlayer ? 'none' : 'auto', // Kun touch-none når interaktiv
+        }}
         preserveAspectRatio="xMidYMid meet"
       >
         <PitchDefs/>
@@ -154,7 +158,6 @@ export const PitchView: React.FC<PitchViewProps> = ({
         {ball && (
           <g filter="url(#playerGlow)">
             <circle cx={ball.x} cy={ball.y} r={12} fill="white" stroke="#ddd" strokeWidth={0.8}/>
-            {/* Glassmorphism highlight */}
             <ellipse cx={ball.x-3} cy={ball.y-4} rx={4} ry={3} fill="rgba(255,255,255,0.4)" transform={`rotate(-25,${ball.x},${ball.y})`}/>
             {[{dx:-3,dy:-3,r:3},{dx:3.5,dy:-1.5,r:2.5},{dx:0,dy:4,r:2.5},{dx:-4,dy:2,r:2}].map((o,i)=>(
               <circle key={i} cx={ball.x+o.dx} cy={ball.y+o.dy} r={o.r} fill="#111" opacity={0.65}/>
@@ -167,8 +170,8 @@ export const PitchView: React.FC<PitchViewProps> = ({
           if (player.isStarter===false||player.isOnField===false) return null;
           return (
             <g key={player.id}
-              style={{ cursor:onSelectPlayer?'pointer':'default' }}
-              onClick={()=>onSelectPlayer?.(selectedPlayerId===player.id?null:player.id)}>
+              style={{ cursor: onSelectPlayer ? 'pointer' : 'default' }}
+              onClick={() => onSelectPlayer?.(selectedPlayerId===player.id ? null : player.id)}>
               <ReadOnlyJersey player={player} selected={selectedPlayerId===player.id}/>
             </g>
           );
@@ -189,10 +192,10 @@ export const PitchView: React.FC<PitchViewProps> = ({
             backdropFilter: 'blur(12px)',
             border: '1px solid rgba(56,189,248,0.15)',
           }}
-          className="absolute top-4 left-4 h-11 w-11 rounded-xl text-white hover:border-sky-400/40 hover:text-sky-400 transition-all shadow-2xl flex items-center justify-center z-50"
+          className="absolute top-4 left-4 h-10 w-10 sm:h-11 sm:w-11 rounded-xl text-white hover:border-sky-400/40 hover:text-sky-400 transition-all shadow-2xl flex items-center justify-center z-20"
           title="Fullskjerm (F)"
         >
-          <span style={{ fontSize: '18px' }}>⛶</span>
+          <span style={{ fontSize: '16px' }} className="sm:text-[18px]">⛶</span>
         </button>
       )}
     </div>
