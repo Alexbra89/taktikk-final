@@ -454,29 +454,25 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   }, [doUndo, doRedo]);
 
   const updateFormation = useCallback((name: string) => {
-  if (!phase) return;
-  const formation = availableFormations.find(f => f.name === name);
-  if (!formation) return;
-
-  const currentStarters = phase.players
-    .filter(p => p.team === 'home' && p.isStarter === true)
-    .sort((a, b) => (a.num || 0) - (b.num || 0));
-
-  formation.homePlayers.forEach((slot, index) => {
-    const player = currentStarters[index];
-    if (!player) return;
-
-    updatePlayerField(activePhaseIdx, player.id, {
-      position: {
-        x: clamp(slot.position.x, CLAMP_MARGIN, VW - CLAMP_MARGIN),
-        y: clamp(slot.position.y, CLAMP_MARGIN, VH - CLAMP_MARGIN),
-      },
-      role: slot.role as PlayerRole,
+    if (!phase) return;
+    const formation = availableFormations.find(f => f.name === name);
+    if (!formation) return;
+    const currentStarters = phase.players
+      .filter(p => p.team === 'home' && p.isStarter === true)
+      .sort((a, b) => (a.num || 0) - (b.num || 0));
+    formation.homePlayers.forEach((slot, index) => {
+      const player = currentStarters[index];
+      if (!player) return;
+      updatePlayerField(activePhaseIdx, player.id, {
+        position: {
+          x: clamp(slot.position.x, CLAMP_MARGIN, VW - CLAMP_MARGIN),
+          y: clamp(slot.position.y, CLAMP_MARGIN, VH - CLAMP_MARGIN),
+        },
+        role: slot.role as PlayerRole,
+      });
     });
-  });
-
-  setSelectedFormation(name);
-}, [phase, activePhaseIdx, availableFormations, updatePlayerField, clamp]);
+    setSelectedFormation(name);
+  }, [phase, activePhaseIdx, availableFormations, updatePlayerField, clamp]);
 
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
@@ -529,12 +525,37 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     };
   }, [phase, phases, interpFrom, interpT, isPlaying]);
 
-  const toSVG = useCallback((cx:number, cy:number): SvgPos => {
-    const svg = svgRef.current; if (!svg) return {x:0,y:0};
-    const r   = svg.getBoundingClientRect();
+  // ─── FIX 1: toSVG med letter-box-korreksjon ───────────────────
+  // preserveAspectRatio="xMidYMid meet" betyr at SVG-en kan ha
+  // tomme kanter (letter-boxing) hvis aspect ratio ikke stemmer.
+  // Vi beregner faktisk rendret størrelse og offset inni bounding rect.
+  const toSVG = useCallback((cx: number, cy: number): SvgPos => {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+
+    const rect = svg.getBoundingClientRect();
+    const rectW = rect.width;
+    const rectH = rect.height;
+
+    // Beregn faktisk rendret størrelse med "meet" (letterbox)
+    const scaleX = rectW / VW;
+    const scaleY = rectH / VH;
+    const scale  = Math.min(scaleX, scaleY); // "meet" bruker minste skala
+
+    const renderedW = VW * scale;
+    const renderedH = VH * scale;
+
+    // Sentrert offset (xMidYMid)
+    const offsetX = (rectW - renderedW) / 2;
+    const offsetY = (rectH - renderedH) / 2;
+
+    // Klientkoordinater relativt til SVG-rektangelet
+    const localX = cx - rect.left - offsetX;
+    const localY = cy - rect.top  - offsetY;
+
     return {
-      x: clamp(((cx - r.left) / r.width)  * VW, CLAMP_MARGIN, VW - CLAMP_MARGIN),
-      y: clamp(((cy - r.top)  / r.height) * VH, CLAMP_MARGIN, VH - CLAMP_MARGIN),
+      x: clamp((localX / renderedW) * VW, CLAMP_MARGIN, VW - CLAMP_MARGIN),
+      y: clamp((localY / renderedH) * VH, CLAMP_MARGIN, VH - CLAMP_MARGIN),
     };
   }, [clamp]);
 
@@ -739,7 +760,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   };
 
   const allDisplay   = useMemo(()=>getDisplayPlayers(),  [getDisplayPlayers]);
-  
+
   const onField = useMemo(
     () => allDisplay.filter(p => p.team === 'home' && p.isStarter === true),
     [allDisplay]
@@ -749,7 +770,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     [allDisplay]
   );
 
-  const displayBall  = useMemo(()=>getDisplayBall(),     [getDisplayBall]);
+  const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
   const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
   const maxSubs = isTrainingMatch?30:(sport==='football'?9:sport==='football7'?5:sport==='football9'?5:7);
@@ -777,117 +798,81 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const DRAW_COLORS     = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
   const glassStyle      = { '--glass-bg': GLASS.panel, '--glass-border': GLASS.border, '--glass-hover': GLASS.hover } as React.CSSProperties;
 
-  const hasAddedMissingAccounts = useRef(false);
-  const hasEnsuredStarters = useRef(false);
-  const prevPhaseId = useRef<string | null>(null);
-  const isAddingPlayersRef = useRef(false);
+  const hasEnsuredStarters  = useRef(false);
+  const isAddingPlayersRef  = useRef(false);
 
   useEffect(() => {
-  if (!phase) return;
-  if (hasEnsuredStarters.current) return;
-  if (isAddingPlayersRef.current) return;
+    if (!phase) return;
+    if (hasEnsuredStarters.current) return;
+    if (isAddingPlayersRef.current) return;
 
-  const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 7;
-  const homePlayers = phase.players.filter(p => p.team === 'home');
+    const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 7;
+    const homePlayers = phase.players.filter(p => p.team === 'home');
 
-  if (homePlayers.length >= teamSize) {
-    const starters = homePlayers.filter(p => p.isStarter === true);
-    if (starters.length < teamSize) {
-      const candidates = homePlayers
-        .filter(p => p.isStarter !== true)
-        .sort((a, b) => (a.num || 999) - (b.num || 999));
-      const needed = teamSize - starters.length;
-      const toPromote = candidates.slice(0, needed);
-      toPromote.forEach((player, idx) => {
-        const formation = availableFormations.find(f => f.name === selectedFormation);
-        const slot = formation?.homePlayers[starters.length + idx];
-        const pos = slot?.position ?? { x: 200 + player.num * 30, y: 280 };
-        updatePlayerField(activePhaseIdx, player.id, {
-          isStarter: true,
-          isOnField: true,
-          position: { x: clamp(pos.x, CLAMP_MARGIN, VW - CLAMP_MARGIN), y: clamp(pos.y, CLAMP_MARGIN, VH - CLAMP_MARGIN) },
+    if (homePlayers.length >= teamSize) {
+      const starters = homePlayers.filter(p => p.isStarter === true);
+      if (starters.length < teamSize) {
+        const candidates = homePlayers
+          .filter(p => p.isStarter !== true)
+          .sort((a, b) => (a.num || 999) - (b.num || 999));
+        const needed = teamSize - starters.length;
+        candidates.slice(0, needed).forEach((player, idx) => {
+          const formation = availableFormations.find(f => f.name === selectedFormation);
+          const slot = formation?.homePlayers[starters.length + idx];
+          const pos = slot?.position ?? { x: 200 + player.num * 30, y: 280 };
+          updatePlayerField(activePhaseIdx, player.id, {
+            isStarter: true,
+            isOnField: true,
+            position: { x: clamp(pos.x, CLAMP_MARGIN, VW - CLAMP_MARGIN), y: clamp(pos.y, CLAMP_MARGIN, VH - CLAMP_MARGIN) },
+          });
         });
+      }
+      hasEnsuredStarters.current = true;
+      return;
+    }
+
+    isAddingPlayersRef.current = true;
+    const formation = availableFormations.find(f => f.name === selectedFormation);
+    const defaultPositions = formation?.homePlayers.map(slot => slot.position) ?? [];
+    const existingNums = homePlayers.map(p => p.num);
+    const needed = teamSize - homePlayers.length;
+
+    for (let i = 0; i < needed; i++) {
+      let newNum = 1;
+      while (existingNums.includes(newNum)) newNum++;
+      existingNums.push(newNum);
+      const pos = defaultPositions[homePlayers.length + i] ?? { x: 200 + (homePlayers.length + i) * 50, y: 280 };
+      addPlayer(activePhaseIdx, {
+        id: `gen-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        num: newNum, name: `Spiller ${newNum}`, role: 'midfielder',
+        position: { x: clamp(pos.x, CLAMP_MARGIN, VW - CLAMP_MARGIN), y: clamp(pos.y, CLAMP_MARGIN, VH - CLAMP_MARGIN) },
+        team: 'home', notes: '', isStarter: true, isOnField: true, minutesPlayed: 0, specialRoles: [],
       });
     }
     hasEnsuredStarters.current = true;
-    return;
-  }
+    isAddingPlayersRef.current = false;
+  }, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, updatePlayerField, addPlayer, clamp]);
 
-  isAddingPlayersRef.current = true;
-
-  const formation = availableFormations.find(f => f.name === selectedFormation);
-  const defaultPositions = formation?.homePlayers.map(slot => slot.position) ?? [];
-  const existingNums = homePlayers.map(p => p.num);
-  const needed = teamSize - homePlayers.length;
-
-  for (let i = 0; i < needed; i++) {
-    let newNum = 1;
-    while (existingNums.includes(newNum)) newNum++;
-    existingNums.push(newNum);
-
-    const pos = defaultPositions[homePlayers.length + i] ?? { x: 200 + (homePlayers.length + i) * 50, y: 280 };
-    const clampedPos = {
-      x: clamp(pos.x, CLAMP_MARGIN, VW - CLAMP_MARGIN),
-      y: clamp(pos.y, CLAMP_MARGIN, VH - CLAMP_MARGIN),
-    };
-
-    const newPlayer: Player = {
-      id: `gen-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
-      num: newNum,
-      name: `Spiller ${newNum}`,
-      role: 'midfielder',
-      position: clampedPos,
-      team: 'home',
-      notes: '',
-      isStarter: true,
-      isOnField: true,
-      minutesPlayed: 0,
-      specialRoles: [],
-    };
-    addPlayer(activePhaseIdx, newPlayer);
-  }
-
-  hasEnsuredStarters.current = true;
-  isAddingPlayersRef.current = false;
-}, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, updatePlayerField, addPlayer, clamp]);
-
-useEffect(() => {
-  if (!phase || !isMounted) return;
-  if (process.env.NODE_ENV !== 'development') return;
-
-  const currentHomeCount = phase.players.filter(p => p.team === 'home').length;
-  if (currentHomeCount >= 20) return;
-
-  const existingNums = phase.players.filter(p => p.team === 'home').map(p => p.num);
-  const dummyNames = [
-    'Ola', 'Kari', 'Per', 'Lise', 'Morten', 'Ingrid', 'Anders', 'Marte',
-    'Erik', 'Silje', 'Knut', 'Anne', 'Jonas', 'Hedda', 'Svein', 'Live',
-    'Geir', 'Tuva', 'Vidar', 'Frida'
-  ];
-
-  for (let i = 0; i < 20 - currentHomeCount; i++) {
-    let newNum = 1;
-    while (existingNums.includes(newNum)) newNum++;
-    existingNums.push(newNum);
-
-    const name = dummyNames[i % dummyNames.length] + (newNum > 10 ? ` ${newNum}` : '');
-
-    const newPlayer: Player = {
-      id: `dummy-player-${Date.now()}-${i}-${Math.random().toString(36).slice(2,6)}`,
-      num: newNum,
-      name: name,
-      role: i % 5 === 0 ? 'keeper' : i % 3 === 0 ? 'defender' : i % 2 === 0 ? 'midfielder' : 'forward',
-      position: { x: 100 + (i * 10) % 300, y: 100 + (i * 15) % 400 },
-      team: 'home',
-      notes: '',
-      isStarter: false,
-      isOnField: false,
-      minutesPlayed: 0,
-      specialRoles: [],
-    };
-    addPlayer(activePhaseIdx, newPlayer);
-  }
-}, [phase, isMounted, addPlayer, activePhaseIdx]);
+  useEffect(() => {
+    if (!phase || !isMounted) return;
+    if (process.env.NODE_ENV !== 'development') return;
+    const currentHomeCount = phase.players.filter(p => p.team === 'home').length;
+    if (currentHomeCount >= 20) return;
+    const existingNums = phase.players.filter(p => p.team === 'home').map(p => p.num);
+    const dummyNames = ['Ola','Kari','Per','Lise','Morten','Ingrid','Anders','Marte','Erik','Silje','Knut','Anne','Jonas','Hedda','Svein','Live','Geir','Tuva','Vidar','Frida'];
+    for (let i = 0; i < 20 - currentHomeCount; i++) {
+      let newNum = 1;
+      while (existingNums.includes(newNum)) newNum++;
+      existingNums.push(newNum);
+      addPlayer(activePhaseIdx, {
+        id: `dummy-player-${Date.now()}-${i}-${Math.random().toString(36).slice(2,6)}`,
+        num: newNum, name: dummyNames[i % dummyNames.length] + (newNum > 10 ? ` ${newNum}` : ''),
+        role: i % 5 === 0 ? 'keeper' : i % 3 === 0 ? 'defender' : i % 2 === 0 ? 'midfielder' : 'forward',
+        position: { x: 100 + (i * 10) % 300, y: 100 + (i * 15) % 400 },
+        team: 'home', notes: '', isStarter: false, isOnField: false, minutesPlayed: 0, specialRoles: [],
+      });
+    }
+  }, [phase, isMounted, addPlayer, activePhaseIdx]);
 
   if (!phase || !isMounted) {
     return (
@@ -901,7 +886,12 @@ useEffect(() => {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden select-none" style={glassStyle}>
+    // FIX 4: Rot-div bruker IKKE overflow-hidden, og touch-action tillater pinch-zoom.
+    // touch-action: 'pan-x pan-y pinch-zoom' – tillater scroll og zoom, men ikke default click-delay.
+    <div
+      className="flex flex-col h-full select-none"
+      style={{ ...glassStyle, touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
+    >
       <div style={{
         background:'rgba(5,10,25,0.82)',
         backdropFilter:'blur(16px) saturate(1.4)',
@@ -1027,7 +1017,6 @@ useEffect(() => {
                 ${showMoments?'text-violet-400':'text-slate-500 hover:text-slate-300'}`}>
               📸 Øyeblikk
             </button>
-
             <button onClick={()=>setShowSticky(!showSticky)}
               style={{
                 background: showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)',
@@ -1036,7 +1025,6 @@ useEffect(() => {
               }}
               className={`px-2 py-1 rounded-lg text-[13px] min-h-[40px] flex-shrink-0
                 ${showSticky?'text-amber-400':'text-slate-500 hover:text-slate-300'}`}>📌</button>
-
             <button onClick={()=>setDrawMode(!drawMode)}
               style={{
                 background: drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
@@ -1153,7 +1141,12 @@ useEffect(() => {
       )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch overflow-auto landscape:min-h-[250px]" style={{padding:'4px'}}>
+        {/* FIX 4: SVG-wrapper bruker overflow-hidden kun horisontalt for å unngå
+            at pinch-zoom blokkeres. Vertikal overflow tillates ikke (unngår scroll-glitch). */}
+        <div
+          className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch landscape:min-h-[250px]"
+          style={{ padding: '4px', overflowX: 'hidden', overflowY: 'hidden' }}
+        >
           {selectedFormation&&(
             <div className="flex-shrink-0 flex items-center justify-center py-1">
               <div style={{
@@ -1166,13 +1159,22 @@ useEffect(() => {
             </div>
           )}
 
-          <svg ref={svgRef} viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet"
+          {/* FIX 4: SVG bruker touch-action pan-x pan-y pinch-zoom –
+              dette lar nettleseren håndtere pinch-zoom mens vi
+              likevel fanger pointer events for drag av spillere. */}
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${VW} ${VH}`}
+            preserveAspectRatio="xMidYMid meet"
             style={{
-              flex:1, width:'100%', height:'100%', display:'block',
-              boxShadow:'0 0 80px rgba(0,0,0,0.95)',
-              cursor:drawMode?'crosshair':'default',
-              touchAction:'none', userSelect:'none',
-              WebkitTapHighlightColor:'transparent',
+              flex: 1, width: '100%', height: '100%', display: 'block',
+              boxShadow: '0 0 80px rgba(0,0,0,0.95)',
+              cursor: drawMode ? 'crosshair' : 'default',
+              // FIX 4: 'none' blokkerer pinch-zoom. Bruker pan+pinch-zoom i stedet.
+              // Drag-logikken håndteres via pointer-events manuelt.
+              touchAction: 'pan-x pan-y pinch-zoom',
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
             }}
             onPointerDown={onSvgPtrDown}
             onPointerMove={onSvgPtrMove}
@@ -1199,17 +1201,17 @@ useEffect(() => {
             {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
 
             {onField.map(player => {
-              const meta      = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#64748b',label:player.role};
-              const name      = getDisplayName(player);
-              const isTarget  = dragOverId===player.id;
-              const isSrc     = draggingPlayerId===player.id;
-              const isOnLoan  = (player as any).onLoan === true;
-              const condition = typeof (player as any).condition === 'number' ? (player as any).condition : 90;
+              const meta       = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#64748b',label:player.role};
+              const name       = getDisplayName(player);
+              const isTarget   = dragOverId===player.id;
+              const isSrc      = draggingPlayerId===player.id;
+              const isOnLoan   = (player as any).onLoan === true;
+              const condition  = typeof (player as any).condition === 'number' ? (player as any).condition : 90;
               const isBouncing = bounceId===player.id;
               const outOfPos   = isOutOfPos(player);
-              const {x,y}     = player.position;
-              const showSwap  = isTarget&&dragFromSub;
-              const showHover = isTarget&&!showSwap;
+              const {x,y}      = player.position;
+              const showSwap   = isTarget&&dragFromSub;
+              const showHover  = isTarget&&!showSwap;
 
               return (
                 <g key={player.id} data-player="true"
@@ -1218,8 +1220,10 @@ useEffect(() => {
                   onPointerUp={endDrag}
                   onPointerCancel={endDrag}
                   style={{
-                    cursor:!isPlaying&&!drawMode?'grab':'default',
-                    touchAction: 'pan-x pan-y pinch-zoom',
+                    cursor: !isPlaying&&!drawMode ? 'grab' : 'default',
+                    // FIX 4: none her er nødvendig kun for selve spillerne
+                    // for å forhindre at dragging scrolller siden.
+                    touchAction: 'none',
                     transformOrigin: `${x}px ${y}px`,
                     transform: isBouncing?'scale(1.15)':'scale(1)',
                     transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',

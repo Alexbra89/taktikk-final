@@ -95,17 +95,17 @@ const ReadOnlyJersey: React.FC<{
 
 // ─── Eksportert komponent ─────────────────────────────────────
 interface PitchViewProps {
-  phase:       TacticPhase;
-  sport:       string;
-  homePlayers: Player[];
-  drawings:    Drawing[];
-  displayBall?: Position;
-  isPlaying?:  boolean;
-  progressFrac?: number;
+  phase:             TacticPhase;
+  sport:             string;
+  homePlayers:       Player[];
+  drawings:          Drawing[];
+  displayBall?:      Position;
+  isPlaying?:        boolean;
+  progressFrac?:     number;
   selectedPlayerId?: string | null;
-  onSelectPlayer?: (id: string | null) => void;
+  onSelectPlayer?:   (id: string | null) => void;
   showFullscreenBtn?: boolean;
-  onFullscreen?: () => void;
+  onFullscreen?:     () => void;
 }
 
 export const PitchView: React.FC<PitchViewProps> = ({
@@ -117,14 +117,25 @@ export const PitchView: React.FC<PitchViewProps> = ({
   const ball = displayBall ?? phase.ball;
 
   return (
-    <div className="relative w-full h-full min-h-0 flex items-center justify-center" style={{ padding: '4px' }}>
+    // FIX 4: Wrapper bruker IKKE overflow-hidden og IKKE touch-action none.
+    // Dette er en read-only visning – pinch-zoom skal alltid fungere her.
+    <div
+      className="relative w-full h-full min-h-0 flex items-center justify-center"
+      style={{
+        padding: '4px',
+        // Tillat pinch-zoom og scroll i read-only-visning
+        touchAction: 'pan-x pan-y pinch-zoom',
+      }}
+    >
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         className="w-full h-full max-h-full object-contain select-none"
-        style={{ 
-          boxShadow: '0 0 60px rgba(0,0,0,0.9)', 
+        style={{
+          boxShadow: '0 0 60px rgba(0,0,0,0.9)',
           display: 'block',
-          touchAction: onSelectPlayer ? 'none' : 'auto', // Kun touch-none når interaktiv
+          // FIX 4: Kun touch-action none når komponenten er interaktiv (har onSelectPlayer).
+          // Ellers tillat pinch-zoom.
+          touchAction: onSelectPlayer ? 'none' : 'pan-x pan-y pinch-zoom',
         }}
         preserveAspectRatio="xMidYMid meet"
       >

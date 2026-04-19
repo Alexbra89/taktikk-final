@@ -97,9 +97,9 @@ const DashboardView: React.FC<{
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <BentoCard title="Taktikktavle" subtitle="Sett opp lagoppstilling og formasjon" icon="📋" color="sky"    onClick={() => setView('board')} />
+        <BentoCard title="Taktikktavle" subtitle="Sett opp lagoppstilling og formasjon" icon="📋" color="sky"     onClick={() => setView('board')} />
         <BentoCard title="Kalender"     subtitle="Terminliste og treninger"              icon="📅" color="emerald" onClick={() => setView('calendar')} />
-        <BentoCard title="Spillerstall" subtitle="Administrer spillere og profiler"       icon="👥" color="indigo" onClick={() => setView('admin')} />
+        <BentoCard title="Spillerstall" subtitle="Administrer spillere og profiler"      icon="👥" color="indigo"  onClick={() => setView('admin')} />
       </div>
 
       <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-xl p-5 flex items-center justify-between">
@@ -270,18 +270,18 @@ const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
 
 // ─── HOVEDSIDE ────────────────────────────────────────────────
 export default function Home() {
-  const [selectedPlayerId,   setSelectedPlayerId]   = useState<string | null>(null);
-  const [isMounted,          setIsMounted]          = useState(false);
-  const [showSmartCoach,     setShowSmartCoach]     = useState(false);
-  const [showMatchReport,    setShowMatchReport]    = useState(false);
-  const [showSettings,       setShowSettings]       = useState(false);
-  const [showChat,           setShowChat]           = useState(false);
-  const [showFullscreenBoard,setShowFullscreenBoard]= useState(false);
-  const [mobileCoachTab,     setMobileCoachTab]     = useState<CoachTab>('dashboard');
-  const [showMobileSidebar,  setShowMobileSidebar]  = useState(false);
-  const [lastReadChatCount,  setLastReadChatCount]  = useState(0);
-  const [syncing,            setSyncing]            = useState(false);
-  const [selectedTraining,   setSelectedTraining]   = useState<CalendarEvent | null>(null);
+  const [selectedPlayerId,    setSelectedPlayerId]    = useState<string | null>(null);
+  const [isMounted,           setIsMounted]           = useState(false);
+  const [showSmartCoach,      setShowSmartCoach]      = useState(false);
+  const [showMatchReport,     setShowMatchReport]     = useState(false);
+  const [showSettings,        setShowSettings]        = useState(false);
+  const [showChat,            setShowChat]            = useState(false);
+  const [showFullscreenBoard, setShowFullscreenBoard] = useState(false);
+  const [mobileCoachTab,      setMobileCoachTab]      = useState<CoachTab>('dashboard');
+  const [showMobileSidebar,   setShowMobileSidebar]   = useState(false);
+  const [lastReadChatCount,   setLastReadChatCount]   = useState(0);
+  const [syncing,             setSyncing]             = useState(false);
+  const [selectedTraining,    setSelectedTraining]    = useState<CalendarEvent | null>(null);
 
   const {
     currentView, setView, currentUser, activePhaseIdx,
@@ -302,6 +302,16 @@ export default function Home() {
   // Lukk sidebar når man bytter bort fra brett-fanen
   useEffect(() => {
     if (mobileCoachTab !== 'board') setShowMobileSidebar(false);
+  }, [mobileCoachTab]);
+
+  // FIX 3 – Nullstill uleste meldinger når chat-fanen åpnes
+  useEffect(() => {
+    if (mobileCoachTab === 'chat') {
+      setLastReadChatCount(playerMessages.length);
+    }
+    // playerMessages.length er ikke inkludert her for å unngå re-run ved nye meldinger
+    // mens chat allerede er åpen – vi vil bare nullstille ved tab-bytte
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileCoachTab]);
 
   // F-tast for fullskjerm (desktop)
@@ -459,7 +469,7 @@ export default function Home() {
               <CalendarView onGoToTraining={(t) => { setSelectedTraining(t); setView('training'); }} />
             </div>
           )}
-          {currentView === 'players' && isCoach && <div className="flex-1 overflow-hidden"><PlayerPortal /></div>}
+          {currentView === 'players'  && isCoach && <div className="flex-1 overflow-hidden"><PlayerPortal /></div>}
           {currentView === 'stats'    && isCoach && <div className="flex-1 overflow-hidden"><StatsView /></div>}
           {currentView === 'training' && isCoach && (
             <div className="flex-1 overflow-hidden">
@@ -494,7 +504,14 @@ export default function Home() {
             <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">
               📋 Taktikktavle
             </span>
-            <div className="flex items-center gap-2">
+            {/* FIX 2 – Smart Coach tilbake på mobil, plassert i brett-headeren */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setShowSmartCoach(true)}
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px]"
+              >
+                💡
+              </button>
               <button
                 onClick={() => setShowMobileSidebar(s => !s)}
                 className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition min-h-[36px]
@@ -508,7 +525,7 @@ export default function Home() {
                 onClick={() => setMobileCoachTab('dashboard')}
                 className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-700 text-slate-400 hover:text-white transition min-h-[36px]"
               >
-                ✕ Lukk
+                ✕
               </button>
             </div>
           </div>
@@ -532,10 +549,7 @@ export default function Home() {
                 <div className="absolute right-0 top-0 h-full z-50 w-[260px] shadow-2xl animate-in slide-in-from-right duration-200">
                   <Sidebar
                     selectedPlayerId={selectedPlayerId}
-                    onSelectPlayer={(id) => {
-                      setSelectedPlayerId(id);
-                      // Ikke lukk sidebaren her – brukeren vil kanskje se mer
-                    }}
+                    onSelectPlayer={setSelectedPlayerId}
                   />
                 </div>
               </>
@@ -704,7 +718,7 @@ export default function Home() {
       {DesktopLayout}
       {MobileLayout}
 
-      {/* PlayerEditor – vises over alt unntatt når brett-draweren er åpen */}
+      {/* PlayerEditor – kun utenfor brett (håndteres internt der) */}
       {selectedPlayerId && isCoach && mobileCoachTab !== 'board' && (
         <PlayerEditor
           playerId={selectedPlayerId}
