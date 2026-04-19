@@ -2,27 +2,15 @@
 import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
-import { PlayerRole } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  SIDEBAR – FM‑STIL + GLASSMORPHISM (RESPONSIV OPPDATERT - KOMPLETT)
+//  SIDEBAR – FM‑STIL + GLASSMORPHISM
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface SidebarProps {
   selectedPlayerId: string | null;
   onSelectPlayer: (id: string | null) => void;
 }
-
-const GLASS = {
-  panel: 'rgba(8, 15, 35, 0.75)',
-  border: 'rgba(56, 189, 248, 0.12)',
-  hover: 'rgba(56, 189, 248, 0.07)',
-  active: 'rgba(56, 189, 248, 0.15)',
-  accent: '#38bdf8',
-  success: '#34d399',
-  warning: '#fbbf24',
-  danger: '#f87171',
-};
 
 const getPlayerDisplayName = (player: any, playerAccounts: any[]) => {
   const account = playerAccounts.find((a: any) => a.playerId === player.id);
@@ -45,7 +33,8 @@ const getSpecialRolesIcons = (player: any): string => {
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlayer }) => {
-  const [tab, setTab] = useState<'players' | 'roles' | 'assign'>('players');
+  // FIX 1: Kun 'players' og 'roles' – 'assign' er fjernet
+  const [tab, setTab] = useState<'players' | 'roles'>('players');
   const [openRole, setOpenRole] = useState<string | null>(null);
   const [showSubConfirm, setShowSubConfirm] = useState<{ outId: string; inId: string } | null>(null);
   const [selectedOutPlayer, setSelectedOutPlayer] = useState<any | null>(null);
@@ -64,13 +53,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const roles = getRolesForSport(sport);
   const players = phase?.players ?? [];
   const homePlayers = players.filter(p => p.team === 'home');
-  
+
   const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 7;
-  const maxSubs = sport === 'football' ? 7 : sport === 'football7' ? 5 : sport === 'football9' ? 5 : 5;
-  
+  const maxSubs  = sport === 'football' ? 7  : sport === 'football7' ? 5 : sport === 'football9' ? 5 : 5;
+
   const starters = homePlayers.filter(p => p.isStarter === true);
-  const subs = homePlayers.filter(p => p.isStarter !== true);
-  
+  const subs     = homePlayers.filter(p => p.isStarter !== true);
+
   const fieldSlots: (any | null)[] = [...starters];
   while (fieldSlots.length < teamSize) fieldSlots.push(null);
   const fieldDisplay = fieldSlots.slice(0, teamSize);
@@ -78,25 +67,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const subSlots: (any | null)[] = [...subs];
   while (subSlots.length < maxSubs) subSlots.push(null);
 
-  const handleDragStart = (e: React.DragEvent, playerId: string, fromIndex: number, isSubSlot: boolean = false) => {
+  const handleDragStart = (e: React.DragEvent, playerId: string, fromIndex: number, isSubSlot = false) => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ playerId, fromIndex, isSubSlot }));
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverIndex(index);
-  };
-
+  const handleDragOver  = (e: React.DragEvent, index: number) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIndex(index); };
   const handleDragLeave = () => setDragOverIndex(null);
-
-  const handleSubDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverSubIndex(index);
-  };
-
+  const handleSubDragOver  = (e: React.DragEvent, index: number) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverSubIndex(index); };
   const handleSubDragLeave = () => setDragOverSubIndex(null);
 
   const getPositionForIndex = (index: number) => {
@@ -104,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       { x: 440, y: 515 }, { x: 260, y: 450 }, { x: 620, y: 450 },
       { x: 370, y: 450 }, { x: 510, y: 450 }, { x: 260, y: 380 },
       { x: 440, y: 380 }, { x: 620, y: 380 }, { x: 280, y: 230 },
-      { x: 440, y: 210 }, { x: 600, y: 230 }
+      { x: 440, y: 210 }, { x: 600, y: 230 },
     ];
     return positions[index] || { x: 440, y: 280 };
   };
@@ -112,72 +90,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const handleDrop = (e: React.DragEvent, toIndex: number) => {
     e.preventDefault();
     setDragOverIndex(null);
-    
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
       const { playerId, fromIndex, isSubSlot } = data;
-      
       const draggedPlayer = homePlayers.find(p => p.id === playerId);
       if (!draggedPlayer) return;
-      
       if (isSubSlot) {
         const targetPlayer = fieldDisplay[toIndex];
         if (targetPlayer) {
-          updatePlayerField(activePhaseIdx, draggedPlayer.id, {
-            isStarter: true,
-            position: targetPlayer.position,
-          });
-          updatePlayerField(activePhaseIdx, targetPlayer.id, {
-            isStarter: false,
-            position: draggedPlayer.position,
-          });
+          updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: true, position: targetPlayer.position });
+          updatePlayerField(activePhaseIdx, targetPlayer.id, { isStarter: false, position: draggedPlayer.position });
         } else {
-          updatePlayerField(activePhaseIdx, draggedPlayer.id, {
-            isStarter: true,
-            position: getPositionForIndex(toIndex),
-          });
+          updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: true, position: getPositionForIndex(toIndex) });
         }
         return;
       }
-
       const targetPlayer = fieldDisplay[toIndex];
       if (targetPlayer) {
         updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: targetPlayer.position });
         updatePlayerField(activePhaseIdx, targetPlayer.id, { position: draggedPlayer.position });
       } else {
-        const newPos = getPositionForIndex(toIndex);
-        if (newPos) {
-          updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: newPos });
-        }
+        updatePlayerField(activePhaseIdx, draggedPlayer.id, { position: getPositionForIndex(toIndex) });
       }
-    } catch (err) {
-      console.error('Drag drop error:', err);
-    }
+    } catch (err) { console.error('Drag drop error:', err); }
   };
 
   const handleSubDrop = (e: React.DragEvent, toSubIndex: number) => {
     e.preventDefault();
     setDragOverSubIndex(null);
-    
     try {
       const data = JSON.parse(e.dataTransfer.getData('text/plain'));
       const { playerId, isSubSlot, fromIndex } = data;
-      
       const draggedPlayer = homePlayers.find(p => p.id === playerId);
       if (!draggedPlayer) return;
-
       const targetSub = subSlots[toSubIndex];
-
       if (!isSubSlot) {
         if (targetSub) {
-          updatePlayerField(activePhaseIdx, draggedPlayer.id, {
-            isStarter: false,
-            position: targetSub.position ?? draggedPlayer.position,
-          });
-          updatePlayerField(activePhaseIdx, targetSub.id, {
-            isStarter: true,
-            position: draggedPlayer.position,
-          });
+          updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: false, position: targetSub.position ?? draggedPlayer.position });
+          updatePlayerField(activePhaseIdx, targetSub.id, { isStarter: true, position: draggedPlayer.position });
         } else {
           updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: false });
         }
@@ -186,41 +136,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           reorderBenchPlayers(activePhaseIdx, fromIndex, toSubIndex);
         }
       }
-    } catch (err) {
-      console.error('Sub drop error:', err);
-    }
+    } catch (err) { console.error('Sub drop error:', err); }
   };
-
-  const getAvailableSubs = (outPlayer: any) => subs.filter(p => p.id !== outPlayer.id);
 
   const swapPlayers = (playerOutId: string, playerInId: string) => {
     const playerOut = homePlayers.find(p => p.id === playerOutId);
-    const playerIn = homePlayers.find(p => p.id === playerInId);
-    
+    const playerIn  = homePlayers.find(p => p.id === playerInId);
     if (!playerOut || !playerIn) return;
-    
     updatePlayerField(activePhaseIdx, playerOutId, { isStarter: false });
-    updatePlayerField(activePhaseIdx, playerInId, { isStarter: true });
-    
+    updatePlayerField(activePhaseIdx, playerInId,  { isStarter: true });
     if (playerOut.position && playerIn.position) {
       updatePlayerField(activePhaseIdx, playerOutId, { position: playerIn.position });
-      updatePlayerField(activePhaseIdx, playerInId, { position: playerOut.position });
+      updatePlayerField(activePhaseIdx, playerInId,  { position: playerOut.position });
     }
-    
-    setTimeout(() => {
-      setShowSubConfirm(null);
-      setSelectedOutPlayer(null);
-      setEligibleSubs([]);
-    }, 50);
+    setTimeout(() => { setShowSubConfirm(null); setSelectedOutPlayer(null); setEligibleSubs([]); }, 50);
   };
 
   const assignToEmptySlot = (playerId: string, slotIndex: number) => {
     const player = homePlayers.find(p => p.id === playerId);
     if (!player) return;
-    
-    if (player.isStarter !== true) {
-      updatePlayerField(activePhaseIdx, playerId, { isStarter: true });
-    }
+    if (player.isStarter !== true) updatePlayerField(activePhaseIdx, playerId, { isStarter: true });
     setShowEmptySlotPicker(null);
   };
 
@@ -229,23 +164,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 
   const getPositionNameForIndex = (index: number): string => {
     if (sport === 'football7') {
-      const pos = ['Keeper', 'Back', 'Back', 'Midtbane', 'Midtbane', 'Spiss', 'Spiss'];
-      return pos[index] || `Posisjon ${index + 1}`;
+      return ['Keeper','Back','Back','Midtbane','Midtbane','Spiss','Spiss'][index] || `Posisjon ${index+1}`;
     }
     if (sport === 'football9') {
-      const pos = ['Keeper', 'Back', 'Back', 'Midtstopper', 'Midtbane', 'Midtbane', 'Kant', 'Spiss', 'Spiss'];
-      return pos[index] || `Posisjon ${index + 1}`;
+      return ['Keeper','Back','Back','Midtstopper','Midtbane','Midtbane','Kant','Spiss','Spiss'][index] || `Posisjon ${index+1}`;
     }
-    const pos = [
-      'Keeper', 'Høyreback', 'Venstreback', 'Midtstopper', 'Midtstopper',
-      'Høyre midtbane', 'Sentral midtbane', 'Venstre midtbane',
-      'Høyre spiss', 'Sentral spiss', 'Venstre spiss'
-    ];
-    return pos[index] || `Posisjon ${index + 1}`;
+    return ['Keeper','Høyreback','Venstreback','Midtstopper','Midtstopper','Høyre midtbane','Sentral midtbane','Venstre midtbane','Høyre spiss','Sentral spiss','Venstre spiss'][index] || `Posisjon ${index+1}`;
   };
 
   return (
-    <aside 
+    <aside
       className="flex-shrink-0 flex flex-col h-full overflow-hidden w-[260px] sm:w-[280px] md:w-[300px] landscape:w-[180px]"
       style={{
         background: 'rgba(8, 15, 35, 0.82)',
@@ -258,13 +186,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       {/* Header */}
       <div className="px-3 sm:px-4 py-2 sm:py-3 border-b" style={{ borderColor: 'rgba(56, 189, 248, 0.1)' }}>
         <div className="flex items-center gap-2 mb-1">
-          <span 
+          <span
             className="text-[10px] sm:text-xs font-black uppercase tracking-wider truncate"
-            style={{
-              background: 'linear-gradient(135deg, #38bdf8 0%, #a78bfa 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
+            style={{ background: 'linear-gradient(135deg, #38bdf8 0%, #a78bfa 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
           >
             {homeTeamName || 'TAKTIKKBOARD'}
           </span>
@@ -276,28 +200,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* FIX 1: Kun to faner – Tildel er fjernet */}
       <div className="flex border-b px-2 gap-1" style={{ borderColor: 'rgba(56, 189, 248, 0.08)' }}>
         {([
           ['players', '👥 Tropp'],
-          ['assign',  '🔗 Tildel'],
           ['roles',   '📚 Roller'],
         ] as const).map(([t, l]) => (
-          <button 
-            key={t} 
+          <button
+            key={t}
             onClick={() => setTab(t)}
             className="flex-1 py-2 sm:py-2.5 text-[10px] sm:text-[11px] font-semibold transition-all relative"
-            style={{
-              color: tab === t ? '#38bdf8' : '#64748b',
-              borderBottom: tab === t ? '2px solid #38bdf8' : '2px solid transparent',
-            }}
+            style={{ color: tab === t ? '#38bdf8' : '#64748b', borderBottom: tab === t ? '2px solid #38bdf8' : '2px solid transparent' }}
           >
             {l}
             {tab === t && (
-              <div 
-                className="absolute inset-x-0 -bottom-px h-px"
-                style={{ background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)' }}
-              />
+              <div className="absolute inset-x-0 -bottom-px h-px" style={{ background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)' }} />
             )}
           </button>
         ))}
@@ -305,7 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 
       {/* Innhold */}
       <div className="flex-1 overflow-y-auto p-2 sm:p-3 custom-scrollbar">
-        
+
         {/* Tropp-fane */}
         {tab === 'players' && phase && (
           <>
@@ -319,29 +236,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                 </span>
               )}
             </div>
-            
+
             <div className="space-y-1 mb-4">
               {fieldDisplay.map((player, index) => {
                 const isDragOver = dragOverIndex === index;
                 const posName = getPositionNameForIndex(index);
-                
                 if (!player) {
                   return (
-                    <div 
-                      key={`empty-${index}`} 
+                    <div
+                      key={`empty-${index}`}
                       draggable={false}
-                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragOver={e => handleDragOver(e, index)}
                       onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, index)}
+                      onDrop={e => handleDrop(e, index)}
                       className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border transition-all cursor-default
-                        ${isDragOver 
-                          ? 'bg-sky-500/15 border-sky-400 shadow-lg shadow-sky-500/10' 
-                          : 'border-dashed border-white/10 hover:border-sky-500/30 bg-white/[0.02]'}`}
+                        ${isDragOver ? 'bg-sky-500/15 border-sky-400 shadow-lg shadow-sky-500/10' : 'border-dashed border-white/10 hover:border-sky-500/30 bg-white/[0.02]'}`}
                     >
-                      <div 
-                        className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white flex-shrink-0"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                      >
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white flex-shrink-0"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -350,32 +262,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                       </div>
                       <button
                         onClick={() => setShowEmptySlotPicker(index)}
-                        className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[8px] sm:text-[9px] font-bold transition-all
-                          bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 active:scale-95"
+                        className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[8px] sm:text-[9px] font-bold transition-all bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 active:scale-95"
                       >
                         Sett inn
                       </button>
                     </div>
                   );
                 }
-                
                 return (
                   <div
                     key={player.id}
                     draggable={true}
-                    onDragStart={(e) => handleDragStart(e, player.id, index, false)}
-                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragStart={e => handleDragStart(e, player.id, index, false)}
+                    onDragOver={e => handleDragOver(e, index)}
                     onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, index)}
+                    onDrop={e => handleDrop(e, index)}
                     className={`transition-all ${isDragOver ? 'ring-2 ring-sky-400 rounded-xl scale-[1.01]' : ''}`}
                   >
-                    <PlayerRow 
-                      player={player} 
-                      selected={selectedPlayerId === player.id} 
-                      onSelect={onSelectPlayer} 
-                      playerAccounts={playerAccounts as any[]}
-                      isStarter={true}
-                    />
+                    <PlayerRow player={player} selected={selectedPlayerId === player.id} onSelect={onSelectPlayer} playerAccounts={playerAccounts as any[]} isStarter={true} />
                   </div>
                 );
               })}
@@ -383,12 +287,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 
             <div className="flex items-center gap-2 sm:gap-3 my-2 sm:my-3">
               <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent)' }} />
-              <span className="text-[8px] sm:text-[9px] font-black text-amber-400 uppercase tracking-widest">
-                🪑 Innbyttere ({subs.length}/{maxSubs})
-              </span>
+              <span className="text-[8px] sm:text-[9px] font-black text-amber-400 uppercase tracking-widest">🪑 Innbyttere ({subs.length}/{maxSubs})</span>
               <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.2), transparent)' }} />
             </div>
-            
             <div className="text-[7px] sm:text-[8px] text-slate-500 italic text-center mb-2">
               💡 Dra starter hit for å bytte · Dra innbytter til start for å sette inn
             </div>
@@ -396,54 +297,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
             <div className="space-y-1">
               {subSlots.map((p, subIndex) => {
                 const isDragOverSub = dragOverSubIndex === subIndex;
-
                 if (!p) {
                   return (
                     <div
                       key={`sub-empty-${subIndex}`}
-                      onDragOver={(e) => handleSubDragOver(e, subIndex)}
+                      onDragOver={e => handleSubDragOver(e, subIndex)}
                       onDragLeave={handleSubDragLeave}
-                      onDrop={(e) => handleSubDrop(e, subIndex)}
+                      onDrop={e => handleSubDrop(e, subIndex)}
                       className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-dashed transition-all
-                        ${isDragOverSub
-                          ? 'bg-amber-500/15 border-amber-400'
-                          : 'border-white/10 bg-white/[0.01]'}`}
+                        ${isDragOverSub ? 'bg-amber-500/15 border-amber-400' : 'border-white/10 bg-white/[0.01]'}`}
                     >
-                      <div 
-                        className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[8px] sm:text-[9px] font-bold flex-shrink-0"
-                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#64748b' }}
-                      >
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-[8px] sm:text-[9px] font-bold flex-shrink-0"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#64748b' }}>
                         R{subIndex + 1}
                       </div>
                       <div className="flex-1">
                         <div className="text-[9px] sm:text-[10px] text-slate-500 italic">Ledig plass</div>
                         <div className="text-[7px] sm:text-[8px] text-slate-600">Innbytter {subIndex + 1}</div>
                       </div>
-                      {isDragOverSub && (
-                        <span className="text-[7px] sm:text-[8px] font-bold text-amber-400">Slipp her</span>
-                      )}
+                      {isDragOverSub && <span className="text-[7px] sm:text-[8px] font-bold text-amber-400">Slipp her</span>}
                     </div>
                   );
                 }
-
                 return (
                   <div
                     key={p.id}
                     draggable={true}
-                    onDragStart={(e) => handleDragStart(e, p.id, subIndex, true)}
-                    onDragOver={(e) => handleSubDragOver(e, subIndex)}
+                    onDragStart={e => handleDragStart(e, p.id, subIndex, true)}
+                    onDragOver={e => handleSubDragOver(e, subIndex)}
                     onDragLeave={handleSubDragLeave}
-                    onDrop={(e) => handleSubDrop(e, subIndex)}
-                    className={`cursor-grab active:cursor-grabbing transition-all
-                      ${isDragOverSub ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
+                    onDrop={e => handleSubDrop(e, subIndex)}
+                    className={`cursor-grab active:cursor-grabbing transition-all ${isDragOverSub ? 'ring-2 ring-amber-400 rounded-xl' : ''}`}
                   >
-                    <PlayerRow 
-                      player={p} 
-                      selected={selectedPlayerId === p.id} 
-                      onSelect={onSelectPlayer} 
-                      playerAccounts={playerAccounts as any[]}
-                      isStarter={false}
-                    />
+                    <PlayerRow player={p} selected={selectedPlayerId === p.id} onSelect={onSelectPlayer} playerAccounts={playerAccounts as any[]} isStarter={false} />
                   </div>
                 );
               })}
@@ -451,41 +337,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
           </>
         )}
 
-        {/* Tildel-fane */}
-        {tab === 'assign' && phase && (
-          <AssignTab
-            players={players}
-            playerAccounts={playerAccounts as any[]}
-            phaseIdx={activePhaseIdx}
-            onUpdate={(idx, id, fields) => updatePlayerField(idx, id, fields)}
-            homeTeamName={homeTeamName}
-            benchPlayers={subs}
-            maxSubs={maxSubs}
-          />
-        )}
-
         {/* Roller-fane */}
         {tab === 'roles' && (
           <div className="space-y-1.5">
             <p className="text-[9px] sm:text-[10px] text-slate-500 px-1 mb-3">Trykk for rollebeskrivelse</p>
             {roles.map(r => {
-              const m = ROLE_META[r]; if (!m) return null;
+              const m = ROLE_META[r];
+              if (!m) return null;
               const open = openRole === r;
               return (
-                <button 
-                  key={r} 
+                <button
+                  key={r}
                   onClick={() => setOpenRole(open ? null : r)}
                   className="w-full text-left rounded-xl p-2 sm:p-3 transition-all border"
-                  style={{
-                    background: open ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255,255,255,0.02)',
-                    borderColor: open ? 'rgba(56, 189, 248, 0.3)' : 'rgba(255,255,255,0.05)',
-                  }}
+                  style={{ background: open ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255,255,255,0.02)', borderColor: open ? 'rgba(56, 189, 248, 0.3)' : 'rgba(255,255,255,0.05)' }}
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <div 
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm flex-shrink-0 shadow-lg"
-                      style={{ background: m.color, boxShadow: `0 4px 12px ${m.color}40` }}
-                    >
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm flex-shrink-0 shadow-lg"
+                      style={{ background: m.color, boxShadow: `0 4px 12px ${m.color}40` }}>
                       {m.emoji}
                     </div>
                     <div className="flex-1">
@@ -509,80 +378,48 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       {/* Modal: Bekreft bytte */}
       {showSubConfirm && selectedOutPlayer && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div 
-            className="rounded-2xl border w-full max-w-sm p-5 shadow-2xl"
-            style={{
-              background: 'rgba(8, 15, 35, 0.95)',
-              backdropFilter: 'blur(16px)',
-              borderColor: 'rgba(56, 189, 248, 0.2)',
-            }}
-          >
+          <div className="rounded-2xl border w-full max-w-sm p-5 shadow-2xl"
+            style={{ background: 'rgba(8, 15, 35, 0.95)', backdropFilter: 'blur(16px)', borderColor: 'rgba(56, 189, 248, 0.2)' }}>
             <h3 className="text-sm font-black text-slate-100 mb-4 flex items-center gap-2">
               <span className="text-amber-400">🔄</span> Bekreft bytte
             </h3>
-            
             <div className="space-y-3 mb-5">
               <div className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/20">
                 <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 text-sm">⬆️</div>
                 <div>
-                  <div className="text-xs font-bold text-slate-200">
-                    {getPlayerDisplayName(selectedOutPlayer, playerAccounts as any[]).name}
-                  </div>
-                  <div className="text-[9px] text-slate-500">
-                    {getPlayerDisplayName(selectedOutPlayer, playerAccounts as any[]).roleLabel} · #{selectedOutPlayer.num}
-                  </div>
+                  <div className="text-xs font-bold text-slate-200">{getPlayerDisplayName(selectedOutPlayer, playerAccounts as any[]).name}</div>
+                  <div className="text-[9px] text-slate-500">{getPlayerDisplayName(selectedOutPlayer, playerAccounts as any[]).roleLabel} · #{selectedOutPlayer.num}</div>
                 </div>
               </div>
-              
               <div className="text-center text-slate-500 text-lg">⬇️</div>
-              
               <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm">⬇️</div>
                 <div>
-                  <div className="text-xs font-bold text-slate-200">
-                    {getPlayerDisplayName(eligibleSubs[0], playerAccounts as any[]).name}
-                  </div>
-                  <div className="text-[9px] text-slate-500">
-                    {getPlayerDisplayName(eligibleSubs[0], playerAccounts as any[]).roleLabel} · #{eligibleSubs[0].num}
-                  </div>
+                  <div className="text-xs font-bold text-slate-200">{getPlayerDisplayName(eligibleSubs[0], playerAccounts as any[]).name}</div>
+                  <div className="text-[9px] text-slate-500">{getPlayerDisplayName(eligibleSubs[0], playerAccounts as any[]).roleLabel} · #{eligibleSubs[0].num}</div>
                 </div>
               </div>
             </div>
-
             {eligibleSubs.length > 1 && (
               <div className="mb-4">
                 <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Andre alternativer</div>
                 <div className="flex flex-wrap gap-1.5">
                   {eligibleSubs.slice(1).map(sub => (
-                    <button 
-                      key={sub.id} 
-                      onClick={() => setShowSubConfirm({ outId: showSubConfirm.outId, inId: sub.id })}
-                      className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/10 text-slate-300 hover:bg-sky-500/20 hover:border-sky-500/40 transition-all"
-                    >
+                    <button key={sub.id} onClick={() => setShowSubConfirm({ outId: showSubConfirm.outId, inId: sub.id })}
+                      className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-white/5 border border-white/10 text-slate-300 hover:bg-sky-500/20 hover:border-sky-500/40 transition-all">
                       {getPlayerDisplayName(sub, playerAccounts as any[]).name}
                     </button>
                   ))}
                 </div>
               </div>
             )}
-
             <div className="flex gap-2">
-              <button 
-                onClick={() => swapPlayers(showSubConfirm.outId, showSubConfirm.inId)} 
-                className="flex-1 py-2.5 rounded-xl font-bold text-xs transition-all
-                  bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98]"
-              >
+              <button onClick={() => swapPlayers(showSubConfirm.outId, showSubConfirm.inId)}
+                className="flex-1 py-2.5 rounded-xl font-bold text-xs transition-all bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 active:scale-[0.98]">
                 ✓ Bekreft bytte
               </button>
-              <button 
-                onClick={() => { 
-                  setShowSubConfirm(null); 
-                  setSelectedOutPlayer(null); 
-                  setEligibleSubs([]); 
-                }} 
-                className="flex-1 py-2.5 rounded-xl font-bold text-xs border transition-all
-                  bg-transparent border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20 active:scale-[0.98]"
-              >
+              <button onClick={() => { setShowSubConfirm(null); setSelectedOutPlayer(null); setEligibleSubs([]); }}
+                className="flex-1 py-2.5 rounded-xl font-bold text-xs border transition-all bg-transparent border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20 active:scale-[0.98]">
                 Avbryt
               </button>
             </div>
@@ -593,34 +430,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       {/* Modal: Velg spiller til tom plass */}
       {showEmptySlotPicker !== null && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div 
-            className="rounded-2xl border w-full max-w-sm p-5 shadow-2xl"
-            style={{
-              background: 'rgba(8, 15, 35, 0.95)',
-              backdropFilter: 'blur(16px)',
-              borderColor: 'rgba(56, 189, 248, 0.2)',
-            }}
-          >
+          <div className="rounded-2xl border w-full max-w-sm p-5 shadow-2xl"
+            style={{ background: 'rgba(8, 15, 35, 0.95)', backdropFilter: 'blur(16px)', borderColor: 'rgba(56, 189, 248, 0.2)' }}>
             <h3 className="text-sm font-black text-slate-100 mb-1">Sett inn spiller</h3>
-            <p className="text-[11px] text-sky-400/80 mb-4">
-              Posisjon: {getPositionNameForIndex(showEmptySlotPicker)}
-            </p>
-            
+            <p className="text-[11px] text-sky-400/80 mb-4">Posisjon: {getPositionNameForIndex(showEmptySlotPicker)}</p>
             <div className="max-h-56 overflow-y-auto space-y-1.5 mb-4 custom-scrollbar">
               {homePlayers.filter(p => p.isStarter !== true).map(p => {
                 const { name, roleLabel } = getPlayerDisplayName(p, playerAccounts as any[]);
                 return (
-                  <button
-                    key={p.id}
-                    onClick={() => assignToEmptySlot(p.id, showEmptySlotPicker)}
-                    className="w-full text-left p-3 rounded-xl border transition-all
-                      bg-white/[0.02] border-white/10 hover:bg-sky-500/10 hover:border-sky-500/30"
-                  >
+                  <button key={p.id} onClick={() => assignToEmptySlot(p.id, showEmptySlotPicker)}
+                    className="w-full text-left p-3 rounded-xl border transition-all bg-white/[0.02] border-white/10 hover:bg-sky-500/10 hover:border-sky-500/30">
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                        style={{ background: ROLE_META[p.role]?.color || '#555' }}
-                      >
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                        style={{ background: ROLE_META[p.role]?.color || '#555' }}>
                         {p.num}
                       </div>
                       <div>
@@ -635,11 +457,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
                 <p className="text-center text-slate-500 text-xs py-4">Ingen innbyttere tilgjengelig</p>
               )}
             </div>
-            
-            <button
-              onClick={() => setShowEmptySlotPicker(null)}
-              className="w-full py-2.5 rounded-xl font-bold text-xs border border-white/10 text-slate-400 hover:text-slate-200 transition-all"
-            >
+            <button onClick={() => setShowEmptySlotPicker(null)}
+              className="w-full py-2.5 rounded-xl font-bold text-xs border border-white/10 text-slate-400 hover:text-slate-200 transition-all">
               Avbryt
             </button>
           </div>
@@ -650,10 +469,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PLAYER ROW – UTEN BYTT-KNAPPER (kun drag & drop)
+//  PLAYER ROW
 // ═══════════════════════════════════════════════════════════════════════════
 const PlayerRow: React.FC<{
-  player: any; 
+  player: any;
   selected: boolean;
   onSelect: (id: string | null) => void;
   playerAccounts?: any[];
@@ -662,27 +481,16 @@ const PlayerRow: React.FC<{
   const m = ROLE_META[player.role as keyof typeof ROLE_META] ?? ROLE_META['midfielder'];
   const { name, roleLabel } = getPlayerDisplayName(player, playerAccounts);
   const specialIcons = getSpecialRolesIcons(player);
-  
+
   return (
-    <div 
-      className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border transition-all
-        ${selected 
-          ? 'bg-sky-500/10 border-sky-500/40 shadow-lg shadow-sky-500/5' 
-          : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'}
-        ${!isStarter ? 'opacity-90' : ''}`}
+    <div className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border transition-all
+      ${selected ? 'bg-sky-500/10 border-sky-500/40 shadow-lg shadow-sky-500/5' : 'border-transparent hover:bg-white/[0.03] hover:border-white/10'}
+      ${!isStarter ? 'opacity-90' : ''}`}
     >
-      <div 
-        onClick={() => onSelect(selected ? null : player.id)} 
-        className="flex items-center gap-2 sm:gap-3 flex-1 cursor-pointer active:scale-[0.99] transition-transform"
-      >
-        <div 
-          className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[10px] sm:text-[11px] font-black text-white flex-shrink-0 shadow-md"
-          style={{ 
-            background: m.color, 
-            opacity: player.injured ? 0.5 : 1,
-            boxShadow: `0 4px 8px ${m.color}40`
-          }}
-        >
+      <div onClick={() => onSelect(selected ? null : player.id)}
+        className="flex items-center gap-2 sm:gap-3 flex-1 cursor-pointer active:scale-[0.99] transition-transform">
+        <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[10px] sm:text-[11px] font-black text-white flex-shrink-0 shadow-md"
+          style={{ background: m.color, opacity: player.injured ? 0.5 : 1, boxShadow: `0 4px 8px ${m.color}40` }}>
           {player.num}
           {player.injured && <span className="absolute -top-1 -right-1 text-[8px] sm:text-[9px]">🩹</span>}
           {(player.specialRoles ?? []).includes('captain') && <span className="absolute -bottom-1 -right-1 text-[8px] sm:text-[9px]">🪖</span>}
@@ -695,117 +503,9 @@ const PlayerRow: React.FC<{
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="text-[8px] sm:text-[9px] text-sky-400/80 font-medium">{roleLabel}</span>
             <span className="text-[7px] sm:text-[8px] text-slate-500">#{player.num}</span>
-            {!isStarter && (
-              <span className="text-[7px] sm:text-[8px] font-semibold text-amber-400/80 ml-auto">Innbytter</span>
-            )}
+            {!isStarter && <span className="text-[7px] sm:text-[8px] font-semibold text-amber-400/80 ml-auto">Innbytter</span>}
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  ASSIGN TAB – UTVIDET MED INNBYTTERPLASSER
-// ═══════════════════════════════════════════════════════════════════════════
-const AssignTab: React.FC<{
-  players: any[]; 
-  playerAccounts: any[]; 
-  phaseIdx: number;
-  onUpdate: (idx: number, id: string, fields: any) => void;
-  homeTeamName: string;
-  benchPlayers: any[];
-  maxSubs: number;
-}> = ({ players, playerAccounts, phaseIdx, onUpdate, homeTeamName, benchPlayers, maxSubs }) => {
-  const homePlayers = players.filter(p => p.team === 'home');
-  
-  const allSlots: Array<{ type: 'starter' | 'sub'; player: any | null; index: number }> = [
-    ...homePlayers.filter(p => p.isStarter === true).map((p, idx) => ({ type: 'starter' as const, player: p, index: idx })),
-    ...benchPlayers.map((p, idx) => ({ type: 'sub' as const, player: p, index: idx })),
-    ...Array(Math.max(0, maxSubs - benchPlayers.length)).fill(null).map((_, idx) => ({ type: 'sub' as const, player: null, index: benchPlayers.length + idx }))
-  ];
-
-  const allAccounts = playerAccounts.filter((a: any) => a.team !== 'away');
-
-  const handleAssign = (playerId: string | undefined, accountId: string, slotType: 'starter' | 'sub', slotIndex: number) => {
-    const account = playerAccounts.find((a: any) => a.id === accountId);
-    if (!account) {
-      if (playerId) {
-        onUpdate(phaseIdx, playerId, { name: '', playerAccountId: undefined });
-      }
-      return;
-    }
-
-    if (slotType === 'starter' && playerId) {
-      onUpdate(phaseIdx, playerId, { name: account.name, playerAccountId: account.id });
-    } else if (slotType === 'sub') {
-      if (playerId) {
-        onUpdate(phaseIdx, playerId, { name: account.name, playerAccountId: account.id });
-      } else {
-        const newPlayerId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const newNum = homePlayers.length + benchPlayers.length + 1;
-        onUpdate(phaseIdx, newPlayerId, {
-          id: newPlayerId,
-          num: newNum,
-          name: account.name,
-          role: 'midfielder' as PlayerRole,
-          position: { x: 100, y: 100 },
-          team: 'home',
-          notes: '',
-          isStarter: false,
-          isOnField: false,
-          minutesPlayed: 0,
-          specialRoles: [],
-          playerAccountId: account.id,
-        });
-      }
-    }
-  };
-
-  return (
-    <div>
-      <div className="mb-4 p-3 rounded-xl bg-sky-500/5 border border-sky-500/10">
-        <p className="text-[10px] text-slate-400 leading-relaxed">
-          Koble spillerkontoer til posisjoner. Startere og innbyttere vises samlet.
-          <span className="block mt-1 text-amber-400/80 font-medium">💡 Velg en spiller fra nedtrekksmenyen</span>
-        </p>
-      </div>
-      
-      <div className="space-y-2">
-        {allSlots.map((slot, idx) => {
-          const player = slot.player;
-          const isStarter = slot.type === 'starter';
-          const currentAccount = player ? playerAccounts.find((a: any) => a.playerId === player.id || a.id === player.playerAccountId) : null;
-          const slotLabel = isStarter 
-            ? `Startplass ${slot.index + 1}` 
-            : `Innbytterplass ${slot.index + 1}`;
-          
-          return (
-            <div key={isStarter ? player?.id || idx : `sub-${slot.index}`} className="flex items-center gap-2 p-2 bg-[#0f1a2a] rounded-xl border border-[#1e3050]">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <div className="text-[9px] text-[#4a6080]">{slotLabel}</div>
-                  <div className="text-[8px] text-[#4a6080]">
-                    {player ? `#${player.num} ${player.name || 'Navnløs'}` : 'Ledig plass'}
-                  </div>
-                </div>
-                <select 
-                  value={currentAccount?.id ?? ''}
-                  onChange={e => handleAssign(player?.id, e.target.value, slot.type, slot.index)}
-                  className="w-full mt-0.5 bg-[#111c30] border border-[#1e3050] rounded px-2 py-1
-                    text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[32px]"
-                >
-                  <option value="">– Ingen tilknytning –</option>
-                  {allAccounts.map((a: any) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} {a.positionPreferences ? `(${a.positionPreferences})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -814,20 +514,9 @@ const AssignTab: React.FC<{
 // Custom scrollbar
 const style = document.createElement('style');
 style.textContent = `
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(56, 189, 248, 0.2);
-    border-radius: 20px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(56, 189, 248, 0.4);
-  }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.2); border-radius: 20px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.4); }
 `;
-if (typeof document !== 'undefined') {
-  document.head.appendChild(style);
-}
+if (typeof document !== 'undefined') document.head.appendChild(style);

@@ -1,7 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
+import { ROLE_META } from '@/data/roleInfo';
+import { PlayerProfile } from '@/components/player-portal/PlayerProfile';
+
+// FIX 2: Importerer PlayerProfile og viser den i modal ved klikk på spiller
 
 export const PlayerManager: React.FC = () => {
   const {
@@ -9,15 +12,18 @@ export const PlayerManager: React.FC = () => {
     updatePlayerAccount, sport, phases, activePhaseIdx,
   } = useAppStore();
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name,     setName]     = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [playerId, setPlayerId] = useState('');
-  const [editId, setEditId] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [error, setError] = useState('');
+  const [editId,   setEditId]   = useState<string | null>(null);
+  const [search,   setSearch]   = useState('');
+  const [error,    setError]    = useState('');
 
-  const phase = phases[activePhaseIdx] ?? phases[0];
+  // FIX 2: State for å vise spillerprofil
+  const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
+
+  const phase        = phases[activePhaseIdx] ?? phases[0];
   const boardPlayers = (phase?.players ?? []).filter((p: any) => p.team === 'home');
 
   const accounts = (playerAccounts as any[]).filter(a =>
@@ -26,37 +32,17 @@ export const PlayerManager: React.FC = () => {
 
   const create = () => {
     setError('');
-
-    if (!name.trim()) {
-      setError('Fyll inn navn');
-      return;
-    }
-
-    if (!email.trim()) {
-      setError('Fyll inn e-post');
-      return;
-    }
-
-    if (!password.trim() || password.length < 4) {
-      setError('Passord må være minst 4 tegn');
-      return;
-    }
+    if (!name.trim())                         { setError('Fyll inn navn'); return; }
+    if (!email.trim())                        { setError('Fyll inn e-post'); return; }
+    if (!password.trim() || password.length < 4) { setError('Passord må være minst 4 tegn'); return; }
 
     const success = addPlayerAccount({
-      name: name.trim(),
-      email: email.trim(),
-      password: password.trim(),
-      pin: '',
-      playerId: playerId || `player-${Date.now()}`,
-      team: 'home',
+      name: name.trim(), email: email.trim(), password: password.trim(),
+      pin: '', playerId: playerId || `player-${Date.now()}`, team: 'home',
     });
 
-    if (success) {
-      setName(''); setEmail(''); setPassword(''); setPlayerId('');
-      setError('');
-    } else {
-      setError('E-post er allerede i bruk');
-    }
+    if (success) { setName(''); setEmail(''); setPassword(''); setPlayerId(''); setError(''); }
+    else         { setError('E-post er allerede i bruk'); }
   };
 
   const roleLabel = (r: string) => ROLE_META[r as keyof typeof ROLE_META]?.label ?? r;
@@ -86,36 +72,16 @@ export const PlayerManager: React.FC = () => {
 
           <div className="mb-3">
             <SmLabel>Navn *</SmLabel>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Ola Nordmann"
-              className="pm-inp"
-            />
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Ola Nordmann" className="pm-inp" />
           </div>
-
           <div className="mb-3">
             <SmLabel>E-post (brukes til innlogging) *</SmLabel>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="ola@spiller.no"
-              className="pm-inp"
-            />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ola@spiller.no" className="pm-inp" />
           </div>
-
           <div className="mb-3">
             <SmLabel>Passord (min 4 tegn) *</SmLabel>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="pm-inp"
-            />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="pm-inp" />
           </div>
-
           <div className="mb-4">
             <SmLabel>Posisjon på brettet (valgfritt)</SmLabel>
             <select value={playerId} onChange={e => setPlayerId(e.target.value)} className="pm-inp">
@@ -140,9 +106,8 @@ export const PlayerManager: React.FC = () => {
           <button
             onClick={create}
             disabled={!name.trim() || !email.trim() || password.length < 4}
-            className="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30
-              text-sky-400 font-bold text-[12px] sm:text-[13px] hover:bg-sky-500/25
-              disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] transition"
+            className="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12px] sm:text-[13px]
+              hover:bg-sky-500/25 disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] transition"
           >
             ✓ Legg til spiller
           </button>
@@ -156,11 +121,9 @@ export const PlayerManager: React.FC = () => {
             </div>
             <div className="flex-1" />
             <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Søk..."
-              className="bg-[#111c30] border border-[#1e3050] rounded-lg
-                px-2 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 w-24 sm:w-32 min-h-[36px]"
+              value={search} onChange={e => setSearch(e.target.value)} placeholder="Søk..."
+              className="bg-[#111c30] border border-[#1e3050] rounded-lg px-2 py-1.5 text-[11px] text-slate-300
+                focus:outline-none focus:border-sky-500 w-24 sm:w-32 min-h-[36px]"
             />
           </div>
 
@@ -173,47 +136,56 @@ export const PlayerManager: React.FC = () => {
           <div className="space-y-2">
             {accounts.map((acc: any) => {
               const bpRole = getPlayerRole(acc);
-              const bp = boardPlayers.find((p: any) => p.id === acc.playerId);
+              const bp     = boardPlayers.find((p: any) => p.id === acc.playerId);
               return (
-                <div
-                  key={acc.id}
+                <div key={acc.id}
                   className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-[#0c1525] rounded-xl border border-[#1e3050]"
                 >
-                  <div
+                  {/* FIX 2: Klikk på avatar/navn åpner profil */}
+                  <button
+                    onClick={() => setProfilePlayerId(acc.playerId || acc.id)}
                     className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center
-                      text-[10px] sm:text-[11px] font-bold text-white flex-shrink-0"
+                      text-[10px] sm:text-[11px] font-bold text-white flex-shrink-0 hover:ring-2 hover:ring-sky-500/50 transition-all"
                     style={{ background: bpRole ? roleColor(bpRole) : '#3b82f6' }}
+                    title="Vis spillerprofil"
                   >
                     {bp?.num ?? '?'}
-                  </div>
+                  </button>
 
                   <div className="flex-1 min-w-0">
                     {editId === acc.id ? (
                       <EditRow acc={acc} onDone={() => setEditId(null)} />
                     ) : (
-                      <>
+                      // FIX 2: Klikk på navn åpner også profil
+                      <button
+                        onClick={() => setProfilePlayerId(acc.playerId || acc.id)}
+                        className="w-full text-left hover:opacity-80 transition-opacity"
+                      >
                         <div className="text-[11px] sm:text-[12.5px] font-bold text-slate-200 truncate">
                           {acc.name}
                         </div>
                         <div className="text-[9px] sm:text-[10px] text-[#4a6080]">
-                          E-post: {acc.email || '—'}
+                          {acc.email || '—'}
                           {bpRole && (
-                            <span
-                              className="ml-2 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-semibold"
-                              style={{
-                                background: roleColor(bpRole) + '20',
-                                color: roleColor(bpRole),
-                              }}
-                            >
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-semibold"
+                              style={{ background: roleColor(bpRole) + '20', color: roleColor(bpRole) }}>
                               {roleLabel(bpRole)}
                             </span>
                           )}
                         </div>
-                      </>
+                      </button>
                     )}
                   </div>
 
                   <div className="flex gap-1 flex-shrink-0">
+                    {/* FIX 2: Profilknapp */}
+                    <button
+                      onClick={() => setProfilePlayerId(acc.playerId || acc.id)}
+                      className="text-[#4a6080] hover:text-sky-400 px-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-[12px]"
+                      title="Vis profil"
+                    >
+                      👤
+                    </button>
                     <button
                       onClick={() => setEditId(editId === acc.id ? null : acc.id)}
                       className="text-[#4a6080] hover:text-sky-400 px-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-[12px]"
@@ -234,6 +206,35 @@ export const PlayerManager: React.FC = () => {
         </div>
       </div>
 
+      {/* FIX 2: PlayerProfile-modal */}
+      {profilePlayerId && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in"
+          onClick={() => setProfilePlayerId(null)}
+        >
+          <div
+            className="bg-[#0c1525] border border-[#1e3050] rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md
+              max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle / lukk-rad */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <div className="w-10 h-1 rounded-full bg-white/20 mx-auto sm:hidden" />
+              <div className="hidden sm:block text-sm font-black text-slate-100">👤 Spillerprofil</div>
+              <button
+                onClick={() => setProfilePlayerId(null)}
+                className="text-slate-400 hover:text-white text-xl min-h-[44px] px-2 transition ml-auto"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="px-2 pb-6">
+              <PlayerProfile playerId={profilePlayerId} onClose={() => setProfilePlayerId(null)} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .pm-inp { display:block; width:100%; background:#111c30; border:1px solid #1e3050;
           border-radius:8px; padding:10px 12px; color:#e2e8f0; font-size:13px;
@@ -252,41 +253,23 @@ const SmLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const EditRow: React.FC<{ acc: any; onDone: () => void }> = ({ acc, onDone }) => {
   const { updatePlayerAccount } = useAppStore();
-  const [name, setName] = useState(acc.name);
-  const [email, setEmail] = useState(acc.email || '');
-  const [password, setPassword] = useState('');
+  const [name,         setName]         = useState(acc.name);
+  const [email,        setEmail]        = useState(acc.email || '');
+  const [password,     setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="flex flex-col gap-2">
-      <input
-        value={name}
-        onChange={e => setName(e.target.value)}
-        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-2
-          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]"
-        placeholder="Navn"
-      />
-      <input
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-2
-          text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]"
-        placeholder="E-post"
-      />
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="Navn"
+        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-2 text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]" />
+      <input value={email} onChange={e => setEmail(e.target.value)} placeholder="E-post"
+        className="bg-[#111c30] border border-[#1e3050] rounded px-2 py-2 text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]" />
       <div className="flex gap-2 items-center">
-        <input
-          type={showPassword ? 'text' : 'password'}
-          value={password}
-          onChange={e => setPassword(e.target.value)}
+        <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
           placeholder="Nytt passord (valgfritt)"
-          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded px-2 py-2
-            text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]"
-        />
-        <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="text-[#4a6080] hover:text-sky-400 text-[12px] px-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
-        >
+          className="flex-1 bg-[#111c30] border border-[#1e3050] rounded px-2 py-2 text-[11px] text-slate-300 focus:outline-none focus:border-sky-500 min-h-[40px]" />
+        <button type="button" onClick={() => setShowPassword(!showPassword)}
+          className="text-[#4a6080] hover:text-sky-400 text-[12px] px-2 min-h-[44px] min-w-[44px] flex items-center justify-center">
           {showPassword ? '🙈' : '👁️'}
         </button>
       </div>

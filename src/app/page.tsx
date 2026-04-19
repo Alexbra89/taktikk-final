@@ -399,10 +399,6 @@ export default function Home() {
                   </span>
                 )}
               </button>
-              <button onClick={() => setShowSettings(true)}
-                className="px-3 py-1.5 rounded-xl text-[12px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500 hover:text-slate-300 transition min-h-[36px] shadow-sm backdrop-blur">
-                ⚙️
-              </button>
             </div>
           )}
 
@@ -469,7 +465,10 @@ export default function Home() {
     if (isCoach && mobileCoachTab === 'board') {
       return (
         <div className="flex sm:hidden flex-col h-[100dvh] landscape:h-screen overflow-hidden bg-[#060c18]">
-          <div className="flex-shrink-0 flex items-center justify-between px-3 h-12 bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]">
+          <div
+            className="flex-shrink-0 flex items-center justify-between px-3 h-12 bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]"
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
+          >
             <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">📋 Taktikktavle</span>
             <div className="flex items-center gap-1.5">
               <button onClick={() => setShowSmartCoach(true)}
@@ -549,7 +548,7 @@ export default function Home() {
     return (
       <div className="flex sm:hidden flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
         {/* Toppmeny-header */}
-        <header className="flex-shrink-0 flex items-center gap-2 px-4 pt-[env(safe-area-inset-top,0px)] bg-[#08101e]/95 backdrop-blur-md border-b border-slate-800 h-14 z-40" style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}>
+        <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/95 backdrop-blur-md border-b border-slate-800 h-14 z-40">
           <span className="text-[13px] font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
             {homeTeamName || 'TAKTIKKBOARD'}
           </span>
