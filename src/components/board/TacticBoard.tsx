@@ -1160,7 +1160,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         {/* FIX 4: SVG-wrapper bruker overflow-hidden kun horisontalt for å unngå
             at pinch-zoom blokkeres. Vertikal overflow tillates ikke (unngår scroll-glitch). */}
         <div
-          className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch landscape:min-h-[250px]"
+          className="flex-1 min-w-0 h-full flex flex-col items-stretch"
           style={{ padding: '4px', overflowX: 'hidden', overflow: 'hidden' }}
         >
           {selectedFormation&&(

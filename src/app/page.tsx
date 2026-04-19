@@ -498,7 +498,7 @@ export default function Home() {
     // ── Brett: fullskjerm med sidebar som overlay ──────────────
     if (isCoach && mobileCoachTab === 'board') {
       return (
-        <div className="flex sm:hidden flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
+        <div className="flex sm:hidden flex-col h-[100dvh] landscape:h-screen overflow-hidden bg-[#060c18]">
           {/* Brett-header */}
           <div className="flex-shrink-0 flex items-center justify-between px-3 h-12 bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]">
             <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">
@@ -741,7 +741,7 @@ export default function Home() {
           onClick={() => setShowChat(false)}
         >
           <div
-            className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl w-full max-w-md h-[600px] flex flex-col shadow-2xl overflow-hidden"
+            className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl w-full max-w-md h-[80vh] max-h-[600px] flex flex-col shadow-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700 flex-shrink-0 bg-slate-800/50">
