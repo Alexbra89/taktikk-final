@@ -656,6 +656,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
+      // 🆕 LÅS BODY-SCROLL
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.touchAction = 'none';
+
     lastClientRef.current = { x: e.clientX, y: e.clientY };
 
     const isTouch = e.pointerType !== 'mouse';
@@ -711,6 +715,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   }, [toSVG, currentHomePlayers, findPlayerAt]);
 
   const endDrag = useCallback((e: React.PointerEvent) => {
+      // 🆕 LÅS OPP BODY-SCROLL
+     document.body.style.overflow = '';
+     document.documentElement.style.touchAction = '';
+     
     const ad = activeDragRef.current;
     if (!ad) return;
     e.preventDefault();
