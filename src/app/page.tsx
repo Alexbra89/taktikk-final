@@ -160,7 +160,6 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl min-h-[44px] px-2 transition">✕</button>
         </div>
 
-        {/* Idrett */}
         <div className="mb-5">
           <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Idrett</div>
           <div className="flex gap-2">
@@ -184,7 +183,6 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Aldersgruppe */}
         <div className="mb-5">
           <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Aldersgruppe</div>
           <div className="flex gap-2">
@@ -288,7 +286,6 @@ export default function Home() {
     chatMessages, sendChat, homeTeamName, sport,
   } = useAppStore();
 
-  // Last inn data ved oppstart
   useEffect(() => {
     setIsMounted(true);
     const load = async () => {
@@ -299,22 +296,18 @@ export default function Home() {
     load();
   }, []);
 
-  // Lukk sidebar når man bytter bort fra brett-fanen
   useEffect(() => {
     if (mobileCoachTab !== 'board') setShowMobileSidebar(false);
   }, [mobileCoachTab]);
 
-  // FIX 3 – Nullstill uleste meldinger når chat-fanen åpnes
+  // Nullstill uleste meldinger når chat-fanen åpnes
   useEffect(() => {
     if (mobileCoachTab === 'chat') {
       setLastReadChatCount(playerMessages.length);
     }
-    // playerMessages.length er ikke inkludert her for å unngå re-run ved nye meldinger
-    // mens chat allerede er åpen – vi vil bare nullstille ved tab-bytte
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileCoachTab]);
 
-  // F-tast for fullskjerm (desktop)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -342,7 +335,6 @@ export default function Home() {
     if (!currentUser) return null;
     return (
       <div className="hidden sm:flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
-        {/* Header */}
         <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/90 backdrop-blur-md border-b border-slate-800 h-14 z-40">
           <div
             className="mr-2 text-base font-black tracking-tighter whitespace-nowrap cursor-pointer"
@@ -388,24 +380,18 @@ export default function Home() {
             <div className="flex items-center gap-1.5">
               {currentView === 'board' && (
                 <>
-                  <button
-                    onClick={() => setShowSmartCoach(true)}
-                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px] backdrop-blur"
-                  >
+                  <button onClick={() => setShowSmartCoach(true)}
+                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px] backdrop-blur">
                     💡 Smart Coach
                   </button>
-                  <button
-                    onClick={() => setShowMatchReport(true)}
-                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition min-h-[36px] backdrop-blur"
-                  >
+                  <button onClick={() => setShowMatchReport(true)}
+                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition min-h-[36px] backdrop-blur">
                     📊 Rapport
                   </button>
                 </>
               )}
-              <button
-                onClick={openChat}
-                className="relative px-3 py-1.5 rounded-xl text-[12px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:border-sky-500/50 hover:text-sky-400 transition min-h-[36px] shadow-sm backdrop-blur"
-              >
+              <button onClick={openChat}
+                className="relative px-3 py-1.5 rounded-xl text-[12px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:border-sky-500/50 hover:text-sky-400 transition min-h-[36px] shadow-sm backdrop-blur">
                 💬
                 {unreadFromPlayers > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center ring-2 ring-[#08101e]">
@@ -413,10 +399,8 @@ export default function Home() {
                   </span>
                 )}
               </button>
-              <button
-                onClick={() => setShowSettings(true)}
-                className="px-3 py-1.5 rounded-xl text-[12px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500 hover:text-slate-300 transition min-h-[36px] shadow-sm backdrop-blur"
-              >
+              <button onClick={() => setShowSettings(true)}
+                className="px-3 py-1.5 rounded-xl text-[12px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500 hover:text-slate-300 transition min-h-[36px] shadow-sm backdrop-blur">
                 ⚙️
               </button>
             </div>
@@ -426,27 +410,19 @@ export default function Home() {
             <span className="text-[10px] font-bold tracking-widest uppercase text-slate-500 hidden md:inline truncate max-w-[80px]">
               {currentUser.name}
             </span>
-            <button
-              onClick={() => useAppStore.getState().logout()}
-              className="px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500 hover:text-white transition min-h-[36px]"
-            >
+            <button onClick={() => useAppStore.getState().logout()}
+              className="px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500 hover:text-white transition min-h-[36px]">
               Logg ut
             </button>
           </div>
         </header>
 
-        {/* Main */}
         <main className="flex flex-1 overflow-hidden relative">
           {(currentView === 'dashboard' || currentView === undefined) && isCoach && (
             <DashboardView
-              currentUser={currentUser}
-              homeTeamName={homeTeamName}
-              sport={sport}
-              unreadFromPlayers={unreadFromPlayers}
-              onOpenChat={openChat}
-              setView={setView}
-              setShowSmartCoach={setShowSmartCoach}
-              setShowMatchReport={setShowMatchReport}
+              currentUser={currentUser} homeTeamName={homeTeamName} sport={sport}
+              unreadFromPlayers={unreadFromPlayers} onOpenChat={openChat} setView={setView}
+              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport}
             />
           )}
           {currentView === 'board' && isCoach && (
@@ -454,13 +430,9 @@ export default function Home() {
               <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
               <div className="flex-1 overflow-hidden relative animate-in fade-in">
                 <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-                <button
-                  onClick={() => setShowFullscreenBoard(true)}
+                <button onClick={() => setShowFullscreenBoard(true)}
                   className="absolute bottom-4 left-4 h-10 w-10 flex items-center justify-center bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl text-white hover:border-sky-500 transition-colors shadow-lg z-10"
-                  title="Fullskjerm (F)"
-                >
-                  ⛶
-                </button>
+                  title="Fullskjerm (F)">⛶</button>
               </div>
             </>
           )}
@@ -473,10 +445,8 @@ export default function Home() {
           {currentView === 'stats'    && isCoach && <div className="flex-1 overflow-hidden"><StatsView /></div>}
           {currentView === 'training' && isCoach && (
             <div className="flex-1 overflow-hidden">
-              <TrainingView
-                initialTraining={selectedTraining || undefined}
-                onBack={() => { setSelectedTraining(null); setView('calendar'); }}
-              />
+              <TrainingView initialTraining={selectedTraining || undefined}
+                onBack={() => { setSelectedTraining(null); setView('calendar'); }} />
             </div>
           )}
           {currentView === 'admin'    && isCoach && <div className="flex-1 overflow-hidden"><PlayerManager /></div>}
@@ -499,91 +469,79 @@ export default function Home() {
     if (isCoach && mobileCoachTab === 'board') {
       return (
         <div className="flex sm:hidden flex-col h-[100dvh] landscape:h-screen overflow-hidden bg-[#060c18]">
-          {/* Brett-header */}
           <div className="flex-shrink-0 flex items-center justify-between px-3 h-12 bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]">
-            <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">
-              📋 Taktikktavle
-            </span>
-            {/* FIX 2 – Smart Coach tilbake på mobil, plassert i brett-headeren */}
+            <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">📋 Taktikktavle</span>
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setShowSmartCoach(true)}
-                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px]"
-              >
+              <button onClick={() => setShowSmartCoach(true)}
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px]">
                 💡
               </button>
               <button
                 onClick={() => setShowMobileSidebar(s => !s)}
                 className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition min-h-[36px]
-                  ${showMobileSidebar
-                    ? 'border-sky-500 bg-sky-500/10 text-sky-400'
-                    : 'border-sky-700/60 text-sky-500 hover:bg-sky-500/10'}`}
-              >
+                  ${showMobileSidebar ? 'border-sky-500 bg-sky-500/10 text-sky-400' : 'border-sky-700/60 text-sky-500 hover:bg-sky-500/10'}`}>
                 👥 Tropp
               </button>
-              <button
-                onClick={() => setMobileCoachTab('dashboard')}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-700 text-slate-400 hover:text-white transition min-h-[36px]"
-              >
+              <button onClick={() => setMobileCoachTab('dashboard')}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-700 text-slate-400 hover:text-white transition min-h-[36px]">
                 ✕
               </button>
             </div>
           </div>
 
-          {/* Brett – fyller resten */}
+          {/* touchAction none på wrapper – forhindrer scrolling under drag */}
           <div className="flex flex-1 overflow-hidden relative" style={{ touchAction: 'none' }}>
-            <TacticBoard
-              selectedPlayerId={selectedPlayerId}
-              onSelectPlayer={setSelectedPlayerId}
-            />
-
-            {/* Sidebar overlay */}
+            <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
             {showMobileSidebar && (
               <>
-                {/* Backdrop */}
-                <div
-                  className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm"
-                  onClick={() => setShowMobileSidebar(false)}
-                />
-                {/* Drawer fra høyre */}
+                <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                  onClick={() => setShowMobileSidebar(false)} />
                 <div className="absolute right-0 top-0 h-full z-50 w-[260px] shadow-2xl animate-in slide-in-from-right duration-200">
-                  <Sidebar
-                    selectedPlayerId={selectedPlayerId}
-                    onSelectPlayer={setSelectedPlayerId}
-                  />
+                  <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
                 </div>
               </>
             )}
           </div>
 
           {selectedPlayerId && (
-            <PlayerEditor
-              playerId={selectedPlayerId}
-              phaseIdx={activePhaseIdx}
-              onClose={() => setSelectedPlayerId(null)}
-            />
+            <PlayerEditor playerId={selectedPlayerId} phaseIdx={activePhaseIdx} onClose={() => setSelectedPlayerId(null)} />
           )}
         </div>
       );
     }
 
-    // ── Wrapper med tilbakeknapp ───────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // renderPageWithBackButton
+    //
+    // SCROLL-MODELL:
+    //   • Ytterste wrapper: overflow-y-auto  → selve scroll-containeren
+    //   • Tilbake-header:   sticky top-0     → klistret til toppen ved scroll
+    //   • Innholds-div:     flex-1 (ingen overflow) → strekker seg naturlig
+    //
+    // Komponentene (PlayerManager, StatsView osv.) har allerede
+    //   flex flex-col h-full + flex-1 overflow-y-auto internt,
+    //   men når de er pakket inn i en overflow-y-auto container fra
+    //   renderPageWithBackButton trenger de IKKE å gjenta overflow-y-auto.
+    //   De kan bare flyte naturlig (flex-1 uten overflow-restriksjoner).
+    // ─────────────────────────────────────────────────────────────
     const renderPageWithBackButton = (children: React.ReactNode, title?: string) => {
       if (mobileCoachTab === 'dashboard') return children;
       return (
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          <div className="flex-shrink-0 flex items-center px-3 py-2 bg-[#0c1525] border-b border-[#1e3050]">
+          {/* Tilbake-knapp – sticky så den alltid er synlig */}
+          <div className="flex-shrink-0 flex items-center px-3 py-2 bg-[#0c1525] border-b border-[#1e3050] sticky top-0 z-10">
             <button
               onClick={() => setMobileCoachTab('dashboard')}
               className="flex items-center gap-1 text-[12px] text-sky-400 min-h-[44px]"
             >
               ‹ Tilbake til dashboard
             </button>
-            {title && (
-              <span className="ml-2 text-[11px] font-bold text-slate-300 truncate">{title}</span>
-            )}
+            {title && <span className="ml-2 text-[11px] font-bold text-slate-300 truncate">{title}</span>}
           </div>
-          <div className="flex-1 overflow-hidden">{children}</div>
+          {/* Ingen overflow-hidden her – innholdet flyter naturlig og kan scrolles */}
+          <div className="flex-1">
+            {children}
+          </div>
         </div>
       );
     };
@@ -591,35 +549,30 @@ export default function Home() {
     return (
       <div className="flex sm:hidden flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
         {/* Toppmeny-header */}
-        <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/95 backdrop-blur-md border-b border-slate-800 h-14 z-40">
+        <header className="flex-shrink-0 flex items-center gap-2 px-4 pt-[env(safe-area-inset-top,0px)] bg-[#08101e]/95 backdrop-blur-md border-b border-slate-800 h-14 z-40" style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}>
           <span className="text-[13px] font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
             {homeTeamName || 'TAKTIKKBOARD'}
           </span>
           <SyncIndicator syncing={syncing} />
           <div className="flex-1" />
           {isCoach && (
-            <button
-              onClick={() => setShowSettings(true)}
-              className="px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-300 transition min-h-[36px] shadow-sm"
-            >
+            <button onClick={() => setShowSettings(true)}
+              className="px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-300 transition min-h-[36px] shadow-sm">
               ⚙️
             </button>
           )}
         </header>
 
-        {/* Navigasjonsfaner – under header */}
+        {/* Navigasjonsfaner */}
         {isCoach && (
           <nav className="flex-shrink-0 flex border-b border-slate-800 bg-[#08101e]/95 backdrop-blur-md relative z-40">
             {COACH_MOBILE_TABS.map(t => {
               const badge    = t.id === 'chat' ? unreadFromPlayers : 0;
               const isActive = mobileCoachTab === t.id;
               return (
-                <button
-                  key={t.id}
-                  onClick={() => setMobileCoachTab(t.id)}
+                <button key={t.id} onClick={() => setMobileCoachTab(t.id)}
                   className={`flex-1 flex flex-col items-center justify-center py-2 relative min-h-[52px] transition-all
-                    ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}
-                >
+                    ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
                   <span className={`text-[18px] leading-none mb-0.5 transition-transform ${isActive ? 'scale-110' : ''}`}>
                     {t.emoji}
                   </span>
@@ -644,14 +597,11 @@ export default function Home() {
 
           {isCoach && mobileCoachTab === 'dashboard' && (
             <DashboardView
-              currentUser={currentUser}
-              homeTeamName={homeTeamName}
-              sport={sport}
+              currentUser={currentUser} homeTeamName={homeTeamName} sport={sport}
               unreadFromPlayers={unreadFromPlayers}
               onOpenChat={() => setMobileCoachTab('chat')}
               setView={(v: AppView) => setMobileCoachTab(v as CoachTab)}
-              setShowSmartCoach={setShowSmartCoach}
-              setShowMatchReport={setShowMatchReport}
+              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport}
             />
           )}
 
@@ -690,9 +640,7 @@ export default function Home() {
                 <h2 className="font-black text-slate-100 text-base">💬 Chat med spillere</h2>
               </div>
               <ChatPanel
-                currentUser={currentUser}
-                chatMessages={chatMessages}
-                coachView
+                currentUser={currentUser} chatMessages={chatMessages} coachView
                 onSend={(text, toPlayerId) => sendChat('coach', 'Trener', text, toPlayerId)}
               />
             </div>,
@@ -709,7 +657,7 @@ export default function Home() {
     setShowSmartCoach, setShowMatchReport, setShowSettings, openChat,
   ]);
 
-  // ─── BETINGEDE RETURNS (etter alle hooks) ─────────────────────
+  // ─── BETINGEDE RETURNS ─────────────────────────────────────────
   if (!isMounted) return null;
   if (!currentUser) return <LoginGate />;
 
@@ -718,13 +666,8 @@ export default function Home() {
       {DesktopLayout}
       {MobileLayout}
 
-      {/* PlayerEditor – kun utenfor brett (håndteres internt der) */}
       {selectedPlayerId && isCoach && mobileCoachTab !== 'board' && (
-        <PlayerEditor
-          playerId={selectedPlayerId}
-          phaseIdx={activePhaseIdx}
-          onClose={() => setSelectedPlayerId(null)}
-        />
+        <PlayerEditor playerId={selectedPlayerId} phaseIdx={activePhaseIdx} onClose={() => setSelectedPlayerId(null)} />
       )}
 
       {showSmartCoach  && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
@@ -746,17 +689,11 @@ export default function Home() {
           >
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700 flex-shrink-0 bg-slate-800/50">
               <h2 className="font-black text-slate-100 text-base">💬 Chat med spillere</h2>
-              <button
-                onClick={() => setShowChat(false)}
-                className="text-slate-400 hover:text-white text-xl transition-colors min-h-[44px] px-2"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowChat(false)}
+                className="text-slate-400 hover:text-white text-xl transition-colors min-h-[44px] px-2">✕</button>
             </div>
             <ChatPanel
-              currentUser={currentUser}
-              chatMessages={chatMessages}
-              coachView
+              currentUser={currentUser} chatMessages={chatMessages} coachView
               onSend={(text, toPlayerId) => sendChat('coach', 'Trener', text, toPlayerId)}
             />
           </div>

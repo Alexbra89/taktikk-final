@@ -906,7 +906,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     // touch-action: 'pan-x pan-y pinch-zoom' – tillater scroll og zoom, men ikke default click-delay.
     <div
       className="flex flex-col h-full select-none"
-      style={{ ...glassStyle, touchAction: 'none', overflow: 'hidden' }}
+      style={{ ...glassStyle, touchAction: 'pan-x pan-y pinch-zoom', overflow: 'hidden' }}
     >
       <div style={{
         background:'rgba(5,10,25,0.82)',
@@ -1181,7 +1181,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           <svg
             ref={svgRef}
             viewBox={`0 0 ${VW} ${VH}`}
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio="xMidYMid slice"
             style={{
               flex: 1, width: '100%', height: '100%', display: 'block',
               boxShadow: '0 0 80px rgba(0,0,0,0.95)',

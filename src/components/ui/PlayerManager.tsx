@@ -76,7 +76,7 @@ export const PlayerManager: React.FC = () => {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-24 space-y-4 sm:space-y-5">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-32 space-y-4 sm:space-y-5">
 
         {/* Legg til ny spiller */}
         <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-3 sm:p-4">
