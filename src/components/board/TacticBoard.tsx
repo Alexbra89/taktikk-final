@@ -1153,7 +1153,7 @@ useEffect(() => {
       )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch" style={{padding:'4px'}}>
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch overflow-auto landscape:min-h-[250px]" style={{padding:'4px'}}>
           {selectedFormation&&(
             <div className="flex-shrink-0 flex items-center justify-center py-1">
               <div style={{

@@ -246,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 
   return (
     <aside 
-      className="flex-shrink-0 flex flex-col h-full overflow-hidden w-[260px] sm:w-[280px] md:w-[300px]"
+      className="flex-shrink-0 flex flex-col h-full overflow-hidden w-[260px] sm:w-[280px] md:w-[300px] landscape:w-[180px]"
       style={{
         background: 'rgba(8, 15, 35, 0.82)',
         backdropFilter: 'blur(20px) saturate(1.4)',
