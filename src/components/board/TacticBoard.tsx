@@ -384,6 +384,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // 🆕 Sikrer at body-scroll låses opp hvis komponenten avmonteres midt i drag
+  useEffect(() => {
+    return () => {
+    document.body.style.overflow = '';
+    document.documentElement.style.touchAction = '';
+  };
+}, []);
+
   const availableFormations = useMemo(() =>
     getFormations(sport==='football7'?'football7':sport==='football9'?'football9':sport), [sport]);
   const defaultFormation = DEFAULT_FORMATION[
@@ -718,7 +726,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       // 🆕 LÅS OPP BODY-SCROLL
      document.body.style.overflow = '';
      document.documentElement.style.touchAction = '';
-     
+
     const ad = activeDragRef.current;
     if (!ad) return;
     e.preventDefault();
@@ -898,7 +906,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     // touch-action: 'pan-x pan-y pinch-zoom' – tillater scroll og zoom, men ikke default click-delay.
     <div
       className="flex flex-col h-full select-none"
-      style={{ ...glassStyle, touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
+      style={{ ...glassStyle, touchAction: 'none', overflow: 'hidden' }}
     >
       <div style={{
         background:'rgba(5,10,25,0.82)',
@@ -1153,7 +1161,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             at pinch-zoom blokkeres. Vertikal overflow tillates ikke (unngår scroll-glitch). */}
         <div
           className="flex-1 min-w-0 min-h-0 flex flex-col items-stretch landscape:min-h-[250px]"
-          style={{ padding: '4px', overflowX: 'hidden', overflowY: 'hidden' }}
+          style={{ padding: '4px', overflowX: 'hidden', overflow: 'hidden' }}
         >
           {selectedFormation&&(
             <div className="flex-shrink-0 flex items-center justify-center py-1">
