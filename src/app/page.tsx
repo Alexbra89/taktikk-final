@@ -466,8 +466,8 @@ export default function Home() {
       return (
         <div className="flex sm:hidden flex-col h-[100dvh] landscape:h-screen overflow-hidden bg-[#060c18]">
           <div
-            className="flex-shrink-0 flex items-center justify-between px-3 h-12 bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]"
-            style={{ paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
+            className="flex-shrink-0 flex items-center justify-between px-3 min-h-[48px] bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: '8px' }}
           >
             <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">📋 Taktikktavle</span>
             <div className="flex items-center gap-1.5">

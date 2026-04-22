@@ -377,20 +377,17 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const phase = phases[activePhaseIdx] ?? null;
 
+  const [isLandscape, setIsLandscape] = useState(false);
+
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const check = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-
-  // 🆕 Sikrer at body-scroll låses opp hvis komponenten avmonteres midt i drag
-  useEffect(() => {
-    return () => {
-    document.body.style.overflow = '';
-    document.documentElement.style.touchAction = '';
-  };
-}, []);
 
   const availableFormations = useMemo(() =>
     getFormations(sport==='football7'?'football7':sport==='football9'?'football9':sport), [sport]);
@@ -664,10 +661,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
-      // 🆕 LÅS BODY-SCROLL
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.touchAction = 'none';
-
     lastClientRef.current = { x: e.clientX, y: e.clientY };
 
     const isTouch = e.pointerType !== 'mouse';
@@ -723,10 +716,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   }, [toSVG, currentHomePlayers, findPlayerAt]);
 
   const endDrag = useCallback((e: React.PointerEvent) => {
-      // 🆕 LÅS OPP BODY-SCROLL
-     document.body.style.overflow = '';
-     document.documentElement.style.touchAction = '';
-
     const ad = activeDragRef.current;
     if (!ad) return;
     e.preventDefault();
@@ -906,7 +895,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     // touch-action: 'pan-x pan-y pinch-zoom' – tillater scroll og zoom, men ikke default click-delay.
     <div
       className="flex flex-col h-full select-none"
-      style={{ ...glassStyle, touchAction: 'pan-x pan-y pinch-zoom', overflow: 'hidden' }}
+      style={{ ...glassStyle, touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
     >
       <div style={{
         background:'rgba(5,10,25,0.82)',
@@ -1157,11 +1146,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* FIX 4: SVG-wrapper bruker overflow-hidden kun horisontalt for å unngå
-            at pinch-zoom blokkeres. Vertikal overflow tillates ikke (unngår scroll-glitch). */}
         <div
           className="flex-1 min-w-0 h-full flex flex-col items-stretch"
-          style={{ padding: '4px', overflowX: 'hidden', overflow: 'hidden' }}
+          style={{ padding: '4px', overflow: 'hidden' }}
         >
           {selectedFormation&&(
             <div className="flex-shrink-0 flex items-center justify-center py-1">
@@ -1175,19 +1162,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             </div>
           )}
 
-          {/* FIX 4: SVG bruker touch-action pan-x pan-y pinch-zoom –
-              dette lar nettleseren håndtere pinch-zoom mens vi
-              likevel fanger pointer events for drag av spillere. */}
           <svg
             ref={svgRef}
             viewBox={`0 0 ${VW} ${VH}`}
-            preserveAspectRatio="xMidYMid slice"
+            preserveAspectRatio={isLandscape ? 'xMidYMid slice' : 'xMidYMid meet'}
             style={{
               flex: 1, width: '100%', height: '100%', display: 'block',
               boxShadow: '0 0 80px rgba(0,0,0,0.95)',
               cursor: drawMode ? 'crosshair' : 'default',
-              // FIX 4: 'none' blokkerer pinch-zoom. Bruker pan+pinch-zoom i stedet.
-              // Drag-logikken håndteres via pointer-events manuelt.
               touchAction: 'pan-x pan-y pinch-zoom',
               userSelect: 'none',
               WebkitTapHighlightColor: 'transparent',
