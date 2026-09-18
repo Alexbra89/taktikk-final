@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import NotificationProvider from '@/components/NotificationProvider';
 
 // 1. Metadata - themeColor er FJERNET herfra (flyttet til viewport)
 export const metadata: Metadata = {
@@ -58,9 +57,7 @@ export default function RootLayout({
           selection:bg-sky-500/30
         "
       >
-        <NotificationProvider>
-          {children}
-        </NotificationProvider>
+        {children}
       </body>
     </html>
   );

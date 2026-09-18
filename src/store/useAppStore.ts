@@ -468,7 +468,8 @@ export const useAppStore = create<AppStore>()(
         currentView: 'board',
         setView: (v) => set({ currentView: v }),
 
-        currentUser: null,
+        // C1: ingen innlogging – brukeren er alltid trener. Fjernes i C2/C3.
+        currentUser: { role: 'coach', name: 'Trener' },
         coachEmail: 'trener@lag.no',
         coachPassword: '',
         refereePin: '',

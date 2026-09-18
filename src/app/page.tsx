@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { LoginGate } from '@/components/ui/LoginGate';
-import type { CalendarEvent, AppView, ChatMessage } from '@/types';
+import type { CalendarEvent, AppView } from '@/types';
 import dynamic from 'next/dynamic';
 
 // ─── ALLE DYNAMISKE IMPORTER ─────────────────────────────────
@@ -15,20 +14,15 @@ const PlayerEditor = dynamic(() => import('@/components/ui/PlayerEditor').then(m
 const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
 const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
 const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
-const StatsView = dynamic(() => import('@/components/ui/StatsView').then(mod => mod.StatsView), { ssr: false });
 const TrainingView = dynamic(() => import('@/components/ui/TrainingView').then(mod => mod.TrainingView), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(mod => mod.CalendarView), { ssr: false });
 const Sidebar = dynamic(() => import('@/components/ui/Sidebar').then(mod => mod.Sidebar), { ssr: false });
-const ChatPanel = dynamic(() => import('@/components/ui/ChatPanel').then(mod => mod.ChatPanel), { ssr: false });
-const PlayerPortal = dynamic(() => import('@/components/player-portal/PlayerPortal').then(mod => mod.PlayerPortal), { ssr: false });
-const PlayerManager = dynamic(() => import('@/components/ui/PlayerManager').then(mod => mod.PlayerManager), { ssr: false });
-const PlayerHome = dynamic(() => import('@/components/player-portal/PlayerHome').then(mod => mod.PlayerHome), { ssr: false });
-const CoachMessages = dynamic(() => import('@/components/ui/CoachMessages').then(mod => mod.CoachMessages), { ssr: false });
 const DrillLibraryModal = dynamic(() => import('@/components/ui/DrillLibraryModal').then(mod => mod.DrillLibraryModal), { ssr: false });
 const InjuryReturnBanner = dynamic(() => import('@/components/ui/InjuryReturnBanner').then(mod => mod.InjuryReturnBanner), { ssr: false });
 
 // ─── TYPER ───────────────────────────────────────────────────
-type CoachTab = 'dashboard' | 'board' | 'calendar' | 'players' | 'training' | 'admin' | 'stats' | 'chat' | 'messages';
+type CoachTab = 'dashboard' | 'board' | 'calendar' | 'training';
+const VALID_VIEWS: AppView[] = ['dashboard', 'board', 'calendar', 'training'];
 
 interface BentoCardProps {
   title: string;
@@ -76,13 +70,11 @@ const DashboardView: React.FC<{
   currentUser: { name: string };
   homeTeamName: string;
   sport: string;
-  unreadFromPlayers: number;
-  onOpenChat: () => void;
   setView: (view: AppView) => void;
   setShowSmartCoach: (show: boolean) => void;
   setShowMatchReport: (show: boolean) => void;
   setShowDrillLibrary: (show: boolean) => void;
-}> = ({ currentUser, homeTeamName, sport, unreadFromPlayers, onOpenChat, setView, setShowDrillLibrary }) => {
+}> = ({ currentUser, homeTeamName, sport, setView, setShowDrillLibrary }) => {
   const firstName = currentUser.name.split(' ')[0];
   return (
     <div className="p-6 lg:p-12 max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
@@ -100,29 +92,10 @@ const DashboardView: React.FC<{
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
         <BentoCard title="Taktikktavle" subtitle="Sett opp lagoppstilling og formasjon" icon="📋" color="sky"     onClick={() => setView('board')} />
         <BentoCard title="Kalender"     subtitle="Terminliste og treninger"              icon="📅" color="emerald" onClick={() => setView('calendar')} />
-        <BentoCard title="Spillerstall" subtitle="Administrer spillere og profiler"      icon="👥" color="indigo"  onClick={() => setView('admin')} />
         <BentoCard title="Øvelsesbibliotek" subtitle="Bla gjennom øvelser for trening" icon="📚" color="amber" onClick={() => setShowDrillLibrary(true)} />
-      </div>
-
-      <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-xl p-5 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-sky-500/10 flex items-center justify-center text-2xl">💬</div>
-          <div>
-            <h3 className="font-bold text-slate-200">Meldinger</h3>
-            <p className="text-sm text-slate-400">
-              {unreadFromPlayers > 0 ? `${unreadFromPlayers} uleste fra spillerne` : 'Ingen nye meldinger'}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onOpenChat}
-          className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-medium transition"
-        >
-          Åpne chat
-        </button>
       </div>
     </div>
   );
@@ -265,10 +238,6 @@ const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
   { id: 'dashboard', label: 'Hjem',      emoji: '🏠' },
   { id: 'board',     label: 'Brett',     emoji: '📋' },
   { id: 'calendar',  label: 'Kalender',  emoji: '📅' },
-  { id: 'admin',     label: 'Spillere',  emoji: '👥' },
-  { id: 'stats',     label: 'Stats',     emoji: '📊' },
-  { id: 'messages',  label: 'Meldinger', emoji: '📩' },
-  { id: 'chat',      label: 'Chat',      emoji: '💬' },
 ];
 
 // ─── HOVEDSIDE ────────────────────────────────────────────────
@@ -278,18 +247,16 @@ export default function Home() {
   const [showSmartCoach,      setShowSmartCoach]      = useState(false);
   const [showMatchReport,     setShowMatchReport]     = useState(false);
   const [showSettings,        setShowSettings]        = useState(false);
-  const [showChat,            setShowChat]            = useState(false);
   const [showFullscreenBoard, setShowFullscreenBoard] = useState(false);
   const [showDrillLibrary,    setShowDrillLibrary]    = useState(false);
   const [mobileCoachTab,      setMobileCoachTab]      = useState<CoachTab>('dashboard');
   const [showMobileSidebar,   setShowMobileSidebar]   = useState(false);
-  const [lastReadChatCount,   setLastReadChatCount]   = useState(0);
   const [syncing,             setSyncing]             = useState(false);
   const [selectedTraining,    setSelectedTraining]    = useState<CalendarEvent | null>(null);
 
   const {
     currentView, setView, currentUser, activePhaseIdx,
-    chatMessages, sendChat, homeTeamName, sport,
+    homeTeamName, sport,
   } = useAppStore();
 
   useEffect(() => {
@@ -302,39 +269,26 @@ export default function Home() {
     load();
   }, []);
 
+  // Et lagret view fra en fjernet fane (stats, admin, messages …) skal ikke gi blank side.
+  useEffect(() => {
+    if (currentView && !VALID_VIEWS.includes(currentView)) setView('dashboard');
+  }, [currentView, setView]);
+
   useEffect(() => {
     if (mobileCoachTab !== 'board') setShowMobileSidebar(false);
-  }, [mobileCoachTab]);
-
-  // Nullstill uleste meldinger når chat-fanen åpnes
-  useEffect(() => {
-    if (mobileCoachTab === 'chat') {
-      setLastReadChatCount(playerMessages.length);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileCoachTab]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && currentUser?.role === 'coach' && currentView === 'board') {
+      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && currentView === 'board') {
         setShowFullscreenBoard(true);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [currentUser, currentView]);
-
-  const isCoach = currentUser?.role === 'coach';
-  const allChats = chatMessages as ChatMessage[];
-  const playerMessages = allChats.filter(m => m.fromRole === 'player');
-  const unreadFromPlayers = Math.max(0, playerMessages.length - lastReadChatCount);
-
-  const openChat = useCallback(() => {
-    setLastReadChatCount(playerMessages.length);
-    setShowChat(true);
-  }, [playerMessages.length]);
+  }, [currentView]);
 
   // ─── DESKTOP LAYOUT ──────────────────────────────────────────
   const DesktopLayout = useMemo(() => {
@@ -352,82 +306,54 @@ export default function Home() {
           </div>
           <SyncIndicator syncing={syncing} />
 
-          {isCoach && (
-            <nav className="flex gap-1 ml-4">
-              {([
-                { view: 'dashboard', label: 'Hjem',      emoji: '🏠' },
-                { view: 'board',     label: 'Brett',     emoji: '📋' },
-                { view: 'calendar',  label: 'Kalender',  emoji: '📅' },
-                { view: 'stats',     label: 'Stats',     emoji: '📊' },
-                { view: 'training',  label: 'Trening',   emoji: '🏃' },
-                { view: 'admin',     label: 'Spillere',  emoji: '⚙️' },
-                { view: 'messages',  label: 'Meldinger', emoji: '📩' },
-              ] as const).map(n => (
-                <button
-                  key={n.view}
-                  onClick={() => setView(n.view)}
-                  className={`relative px-3 py-2 rounded-xl text-[11.5px] font-bold transition-all min-h-[40px]
-                    ${(currentView === n.view || (currentView === undefined && n.view === 'dashboard'))
-                      ? 'bg-sky-500/10 text-sky-400'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
-                >
-                  {n.emoji} {n.label}
-                  {(currentView === n.view || (currentView === undefined && n.view === 'dashboard')) && (
-                    <div className="absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-4 h-[3px] bg-sky-500 rounded-t-full" />
-                  )}
-                </button>
-              ))}
-            </nav>
-          )}
+          <nav className="flex gap-1 ml-4">
+            {([
+              { view: 'dashboard', label: 'Hjem',      emoji: '🏠' },
+              { view: 'board',     label: 'Brett',     emoji: '📋' },
+              { view: 'calendar',  label: 'Kalender',  emoji: '📅' },
+              { view: 'training',  label: 'Trening',   emoji: '🏃' },
+            ] as const).map(n => (
+              <button
+                key={n.view}
+                onClick={() => setView(n.view)}
+                className={`relative px-3 py-2 rounded-xl text-[11.5px] font-bold transition-all min-h-[40px]
+                  ${(currentView === n.view || (currentView === undefined && n.view === 'dashboard'))
+                    ? 'bg-sky-500/10 text-sky-400'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
+              >
+                {n.emoji} {n.label}
+                {(currentView === n.view || (currentView === undefined && n.view === 'dashboard')) && (
+                  <div className="absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-4 h-[3px] bg-sky-500 rounded-t-full" />
+                )}
+              </button>
+            ))}
+          </nav>
 
           <div className="flex-1" />
 
-          {isCoach && (
+          {currentView === 'board' && (
             <div className="flex items-center gap-1.5">
-              {currentView === 'board' && (
-                <>
-                  <button onClick={() => setShowSmartCoach(true)}
-                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px] backdrop-blur">
-                    💡 Smart Coach
-                  </button>
-                  <button onClick={() => setShowMatchReport(true)}
-                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition min-h-[36px] backdrop-blur">
-                    📊 Rapport
-                  </button>
-                </>
-              )}
-              <button onClick={openChat}
-                className="relative px-3 py-1.5 rounded-xl text-[12px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:border-sky-500/50 hover:text-sky-400 transition min-h-[36px] shadow-sm backdrop-blur">
-                💬
-                {unreadFromPlayers > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-sky-500 text-white text-[9px] font-black flex items-center justify-center ring-2 ring-[#08101e]">
-                    {unreadFromPlayers > 9 ? '9+' : unreadFromPlayers}
-                  </span>
-                )}
+              <button onClick={() => setShowSmartCoach(true)}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px] backdrop-blur">
+                💡 Smart Coach
+              </button>
+              <button onClick={() => setShowMatchReport(true)}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition min-h-[36px] backdrop-blur">
+                📊 Rapport
               </button>
             </div>
           )}
-
-          <div className="flex items-center gap-2 ml-2 pl-3 border-l border-slate-800">
-            <span className="text-[10px] font-bold tracking-widest uppercase text-slate-500 hidden md:inline truncate max-w-[80px]">
-              {currentUser.name}
-            </span>
-            <button onClick={() => useAppStore.getState().logout()}
-              className="px-3 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase border border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500 hover:text-white transition min-h-[36px]">
-              Logg ut
-            </button>
-          </div>
         </header>
 
         <main className="flex flex-1 overflow-hidden relative">
-          {(currentView === 'dashboard' || currentView === undefined) && isCoach && (
+          {(currentView === 'dashboard' || currentView === undefined) && (
             <DashboardView
               currentUser={currentUser} homeTeamName={homeTeamName} sport={sport}
-              unreadFromPlayers={unreadFromPlayers} onOpenChat={openChat} setView={setView}
+              setView={setView}
               setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
             />
           )}
-          {currentView === 'board' && isCoach && (
+          {currentView === 'board' && (
             <>
               <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
               <div className="flex-1 overflow-hidden relative animate-in fade-in">
@@ -438,29 +364,24 @@ export default function Home() {
               </div>
             </>
           )}
-          {currentView === 'calendar' && isCoach && (
+          {currentView === 'calendar' && (
             <div className="flex-1 overflow-hidden">
               <CalendarView onGoToTraining={(t) => { setSelectedTraining(t); setView('training'); }} />
             </div>
           )}
-          {currentView === 'players'  && isCoach && <div className="flex-1 overflow-hidden"><PlayerPortal /></div>}
-          {currentView === 'stats'    && isCoach && <div className="flex-1 overflow-hidden"><StatsView /></div>}
-          {currentView === 'training' && isCoach && (
+          {currentView === 'training' && (
             <div className="flex-1 overflow-hidden">
               <TrainingView initialTraining={selectedTraining || undefined}
                 onBack={() => { setSelectedTraining(null); setView('calendar'); }} />
             </div>
           )}
-          {currentView === 'admin'    && isCoach && <div className="flex-1 overflow-hidden"><PlayerManager /></div>}
-          {currentView === 'messages' && isCoach && <div className="flex-1 overflow-hidden"><CoachMessages /></div>}
-          {currentUser.role === 'player' && <div className="flex-1 overflow-hidden"><PlayerHome /></div>}
         </main>
       </div>
     );
   }, [
-    currentView, isCoach, currentUser, homeTeamName, sport,
-    unreadFromPlayers, syncing, selectedPlayerId, selectedTraining,
-    setView, openChat,
+    currentView, currentUser, homeTeamName, sport,
+    syncing, selectedPlayerId, selectedTraining,
+    setView,
   ]);
 
   // ─── MOBIL LAYOUT ────────────────────────────────────────────
@@ -468,7 +389,7 @@ export default function Home() {
     if (!currentUser) return null;
 
     // ── Brett: fullskjerm med sidebar som overlay ──────────────
-    if (isCoach && mobileCoachTab === 'board') {
+    if (mobileCoachTab === 'board') {
       return (
         <div className="flex sm:hidden flex-col h-[100dvh] landscape:h-screen overflow-hidden bg-[#060c18]">
           <div
@@ -522,12 +443,6 @@ export default function Home() {
     //   • Ytterste wrapper: overflow-y-auto  → selve scroll-containeren
     //   • Tilbake-header:   sticky top-0     → klistret til toppen ved scroll
     //   • Innholds-div:     flex-1 (ingen overflow) → strekker seg naturlig
-    //
-    // Komponentene (PlayerManager, StatsView osv.) har allerede
-    //   flex flex-col h-full + flex-1 overflow-y-auto internt,
-    //   men når de er pakket inn i en overflow-y-auto container fra
-    //   renderPageWithBackButton trenger de IKKE å gjenta overflow-y-auto.
-    //   De kan bare flyte naturlig (flex-1 uten overflow-restriksjoner).
     // ─────────────────────────────────────────────────────────────
     const renderPageWithBackButton = (children: React.ReactNode, title?: string) => {
       if (mobileCoachTab === 'dashboard') return children;
@@ -560,119 +475,75 @@ export default function Home() {
           </span>
           <SyncIndicator syncing={syncing} />
           <div className="flex-1" />
-          {isCoach && (
-            <button onClick={() => setShowSettings(true)}
-              className="px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-300 transition min-h-[36px] shadow-sm">
-              ⚙️
-            </button>
-          )}
+          <button onClick={() => setShowSettings(true)}
+            className="px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-300 transition min-h-[36px] shadow-sm">
+            ⚙️
+          </button>
         </header>
 
         {/* Navigasjonsfaner */}
-        {isCoach && (
-          <nav className="flex-shrink-0 flex border-b border-slate-800 bg-[#08101e]/95 backdrop-blur-md relative z-40">
-            {COACH_MOBILE_TABS.map(t => {
-              const badge    = t.id === 'chat' ? unreadFromPlayers : 0;
-              const isActive = mobileCoachTab === t.id;
-              return (
-                <button key={t.id} onClick={() => setMobileCoachTab(t.id)}
-                  className={`flex-1 flex flex-col items-center justify-center py-2 relative min-h-[52px] transition-all
-                    ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
-                  <span className={`text-[18px] leading-none mb-0.5 transition-transform ${isActive ? 'scale-110' : ''}`}>
-                    {t.emoji}
-                  </span>
-                  <span className="text-[8px] font-bold tracking-widest uppercase">{t.label}</span>
-                  {badge > 0 && (
-                    <span className="absolute top-1 right-1/4 w-4 h-4 rounded-full bg-sky-500 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-[#08101e]">
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
-                  {isActive && (
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-sky-400 rounded-t-full shadow-[0_-2px_8px_rgba(56,189,248,0.5)]" />
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        )}
+        <nav className="flex-shrink-0 flex border-b border-slate-800 bg-[#08101e]/95 backdrop-blur-md relative z-40">
+          {COACH_MOBILE_TABS.map(t => {
+            const isActive = mobileCoachTab === t.id;
+            return (
+              <button key={t.id} onClick={() => setMobileCoachTab(t.id)}
+                className={`flex-1 flex flex-col items-center justify-center py-2 relative min-h-[52px] transition-all
+                  ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
+                <span className={`text-[18px] leading-none mb-0.5 transition-transform ${isActive ? 'scale-110' : ''}`}>
+                  {t.emoji}
+                </span>
+                <span className="text-[8px] font-bold tracking-widest uppercase">{t.label}</span>
+                {isActive && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-sky-400 rounded-t-full shadow-[0_-2px_8px_rgba(56,189,248,0.5)]" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
         {/* Sideinnhold */}
         <div className="flex-1 min-h-0 overflow-hidden relative">
-          {currentUser.role === 'player' && <PlayerHome />}
-
-          {isCoach && mobileCoachTab === 'dashboard' && (
+          {mobileCoachTab === 'dashboard' && (
             <DashboardView
               currentUser={currentUser} homeTeamName={homeTeamName} sport={sport}
-              unreadFromPlayers={unreadFromPlayers}
-              onOpenChat={() => setMobileCoachTab('chat')}
               setView={(v: AppView) => setMobileCoachTab(v as CoachTab)}
               setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
             />
           )}
 
-          {isCoach && mobileCoachTab === 'calendar' && renderPageWithBackButton(
+          {mobileCoachTab === 'calendar' && renderPageWithBackButton(
             <CalendarView onGoToTraining={(t) => { setSelectedTraining(t); setMobileCoachTab('training'); }} />,
             'Kalender',
           )}
 
-          {isCoach && mobileCoachTab === 'stats' && renderPageWithBackButton(
-            <StatsView />, 'Statistikk',
-          )}
-
-          {isCoach && mobileCoachTab === 'admin' && renderPageWithBackButton(
-            <PlayerManager />, 'Spilleradmin',
-          )}
-
-          {isCoach && mobileCoachTab === 'messages' && renderPageWithBackButton(
-            <CoachMessages />, 'Meldinger',
-          )}
-
-          {isCoach && mobileCoachTab === 'training' && renderPageWithBackButton(
+          {mobileCoachTab === 'training' && renderPageWithBackButton(
             <TrainingView
               initialTraining={selectedTraining || undefined}
               onBack={() => { setSelectedTraining(null); setMobileCoachTab('calendar'); }}
             />,
             'Trening',
           )}
-
-          {isCoach && mobileCoachTab === 'players' && renderPageWithBackButton(
-            <PlayerPortal />, 'Spillere',
-          )}
-
-          {isCoach && mobileCoachTab === 'chat' && renderPageWithBackButton(
-            <div className="flex flex-col h-full">
-              <div className="flex-shrink-0 px-4 py-4 bg-slate-800/50 border-b border-slate-700">
-                <h2 className="font-black text-slate-100 text-base">💬 Chat med spillere</h2>
-              </div>
-              <ChatPanel
-                currentUser={currentUser} chatMessages={chatMessages} coachView
-                onSend={(text, toPlayerId) => sendChat('coach', 'Trener', text, toPlayerId)}
-              />
-            </div>,
-            'Chat',
-          )}
         </div>
       </div>
     );
   }, [
-    isCoach, currentUser, homeTeamName, sport, unreadFromPlayers, syncing,
+    currentUser, homeTeamName, sport, syncing,
     selectedPlayerId, selectedTraining, mobileCoachTab, activePhaseIdx,
-    chatMessages, sendChat, showMobileSidebar,
+    showMobileSidebar,
     setMobileCoachTab, setSelectedTraining, setSelectedPlayerId,
-    setShowSmartCoach, setShowMatchReport, setShowSettings, setShowDrillLibrary, openChat,
+    setShowSmartCoach, setShowMatchReport, setShowSettings, setShowDrillLibrary,
   ]);
 
   // ─── BETINGEDE RETURNS ─────────────────────────────────────────
   if (!isMounted) return null;
-  if (!currentUser) return <LoginGate />;
 
   return (
     <>
-      {isCoach && <InjuryReturnBanner />}
+      <InjuryReturnBanner />
       {DesktopLayout}
       {MobileLayout}
 
-      {selectedPlayerId && isCoach && mobileCoachTab !== 'board' && (
+      {selectedPlayerId && mobileCoachTab !== 'board' && (
         <PlayerEditor playerId={selectedPlayerId} phaseIdx={activePhaseIdx} onClose={() => setSelectedPlayerId(null)} />
       )}
 
@@ -680,31 +551,8 @@ export default function Home() {
       {showMatchReport && <MatchReportModal onClose={() => setShowMatchReport(false)} />}
       {showSettings    && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showDrillLibrary && <DrillLibraryModal onClose={() => setShowDrillLibrary(false)} />}
-      {showFullscreenBoard && isCoach && (
+      {showFullscreenBoard && (
         <FullscreenBoard onClose={() => setShowFullscreenBoard(false)} interactive />
-      )}
-
-      {/* Chat-modal (kun desktop) */}
-      {showChat && isCoach && (
-        <div
-          className="hidden sm:flex fixed inset-0 bg-black/80 backdrop-blur-md z-[100] items-center justify-center p-4 animate-in fade-in"
-          onClick={() => setShowChat(false)}
-        >
-          <div
-            className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl w-full max-w-md h-[80vh] max-h-[600px] flex flex-col shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700 flex-shrink-0 bg-slate-800/50">
-              <h2 className="font-black text-slate-100 text-base">💬 Chat med spillere</h2>
-              <button onClick={() => setShowChat(false)}
-                className="text-slate-400 hover:text-white text-xl transition-colors min-h-[44px] px-2">✕</button>
-            </div>
-            <ChatPanel
-              currentUser={currentUser} chatMessages={chatMessages} coachView
-              onSend={(text, toPlayerId) => sendChat('coach', 'Trener', text, toPlayerId)}
-            />
-          </div>
-        </div>
       )}
     </>
   );

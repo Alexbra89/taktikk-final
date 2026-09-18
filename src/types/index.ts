@@ -198,7 +198,8 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'dashboard' | 'board' | 'calendar' | 'players' | 'stats' | 'admin' | 'training' | 'referee' | 'player-home' | 'messages';
+// 'player-home' og 'referee' brukes bare av login-grenene i storen – fjernes i C2.
+export type AppView = 'dashboard' | 'board' | 'calendar' | 'training' | 'player-home' | 'referee';
 
 export interface AppState {
   sport: Sport;
