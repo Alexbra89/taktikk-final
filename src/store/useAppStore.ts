@@ -1043,8 +1043,15 @@ export const useAppStore = create<AppStore>()(
           return true;
         },
         removePlayerAccount: (id) => {
-          set(s => ({ playerAccounts: s.playerAccounts.filter(a => a.id !== id) }));
+          const acc = get().playerAccounts.find(a => a.id === id);
+          set(s => ({
+            playerAccounts: s.playerAccounts.filter(a => a.id !== id),
+            phases: acc
+              ? s.phases.map(ph => ({ ...ph, players: ph.players.filter(p => p.id !== acc.playerId) }))
+              : s.phases,
+          }));
           markPlayerAccountsDirty();
+          if (acc) markPhasesDirty();
         },
         updatePlayerAccount: (id, fields) => {
           set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) }));
