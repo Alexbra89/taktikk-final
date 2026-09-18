@@ -76,10 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const maxSubs  = sport === 'football' ? 7  : sport === 'football5' ? 5 : sport === 'football7' ? 5 : sport === 'football9' ? 5 : 5;
 
   const starters       = homePlayers.filter(p => p.isStarter === true).sort(byRoleThenNum);
-  // Skadde spillere er ikke tilgjengelige som innbyttere – de får en egen
-  // seksjon under, og telles ikke med i det ordinære benke-antallet.
-  const subs           = homePlayers.filter(p => p.isStarter !== true && !p.injury).sort(byRoleThenNum);
-  const injuredPlayers = homePlayers.filter(p => p.isStarter !== true && !!p.injury).sort(byRoleThenNum);
+  const subs           = homePlayers.filter(p => p.isStarter !== true).sort(byRoleThenNum);
 
   const fieldSlots: (any | null)[] = [...starters];
   while (fieldSlots.length < teamSize) fieldSlots.push(null);
@@ -117,7 +114,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       const draggedPlayer = homePlayers.find(p => p.id === playerId);
       if (!draggedPlayer) return;
       if (isSubSlot) {
-        if (draggedPlayer.injury) return; // skadde spillere kan ikke settes på banen
         const targetPlayer = fieldDisplay[toIndex];
         if (targetPlayer) {
           updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: true, position: targetPlayer.position });
@@ -147,7 +143,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
       if (!draggedPlayer) return;
       const targetSub = subSlots[toSubIndex];
       if (!isSubSlot) {
-        if (targetSub?.injury) return; // ville satt en skadd spiller på banen
         if (targetSub) {
           updatePlayerField(activePhaseIdx, draggedPlayer.id, { isStarter: false, position: targetSub.position ?? draggedPlayer.position });
           updatePlayerField(activePhaseIdx, targetSub.id, { isStarter: true, position: draggedPlayer.position });
@@ -177,7 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
 
   const assignToEmptySlot = (playerId: string, slotIndex: number) => {
     const player = homePlayers.find(p => p.id === playerId);
-    if (!player || player.injury) return; // skadde spillere kan ikke settes på banen
+    if (!player) return;
     if (player.isStarter !== true) updatePlayerField(activePhaseIdx, playerId, { isStarter: true });
     setShowEmptySlotPicker(null);
   };
@@ -358,33 +353,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
               })}
             </div>
 
-            {injuredPlayers.length > 0 && (
-              <>
-                <div className="flex items-center gap-2 sm:gap-3 my-2 sm:my-3">
-                  <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.25), transparent)' }} />
-                  <span className="text-[8px] sm:text-[9px] font-black text-red-400 uppercase tracking-widest">🩹 Skadet ({injuredPlayers.length})</span>
-                  <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.25), transparent)' }} />
-                </div>
-                <div className="space-y-1">
-                  {injuredPlayers.map(p => {
-                    const returnDate = p.injury?.expectedReturn
-                      ? new Date(p.injury.expectedReturn + 'T12:00:00').toLocaleDateString('nb-NO')
-                      : 'ukjent dato';
-                    return (
-                      <div
-                        key={p.id}
-                        draggable={false}
-                        title={`Skadet – returnerer ${returnDate}`}
-                        className="opacity-70"
-                        style={{ cursor: 'not-allowed' }}
-                      >
-                        <PlayerRow player={p} selected={selectedPlayerId === p.id} onSelect={onSelectPlayer} playerAccounts={playerAccounts as any[]} isStarter={false} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
           </>
         )}
 
@@ -541,9 +509,8 @@ const PlayerRow: React.FC<{
       <div onClick={() => onSelect(selected ? null : player.id)}
         className="flex items-center gap-2 sm:gap-3 flex-1 cursor-pointer active:scale-[0.99] transition-transform">
         <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[10px] sm:text-[11px] font-black text-white flex-shrink-0 shadow-md"
-          style={{ background: m.color, opacity: player.injured ? 0.5 : 1, boxShadow: `0 4px 8px ${m.color}40` }}>
+          style={{ background: m.color, boxShadow: `0 4px 8px ${m.color}40` }}>
           {player.num}
-          {player.injured && <span className="absolute -top-1 -right-1 text-[8px] sm:text-[9px]">🩹</span>}
           {(player.specialRoles ?? []).includes('captain') && <span className="absolute -bottom-1 -right-1 text-[8px] sm:text-[9px]">🪖</span>}
         </div>
         <div className="flex-1 min-w-0">

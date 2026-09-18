@@ -3,29 +3,18 @@ import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { CalendarEvent, EventType } from '../../types';
 import { getDrillsBySport, DrillExercise, CATEGORY_LABELS, toDrillSport } from '../../data/drills';
-import { parseInjuryExpectedReturn } from '../../lib/injuries';
 
 const MONTHS = ['Januar','Februar','Mars','April','Mai','Juni',
                 'Juli','August','September','Oktober','November','Desember'];
 const DAYS   = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
 
-// Visuell metadata per hendelsestype – felles kilde for ikon/farge
-// slik at kalenderen viser skade/retur-events konsistent overalt.
+// Visuell metadata per hendelsestype – felles kilde for ikon/farge.
 const EVENT_META: Record<EventType, { icon: string; label: string; dot: string; text: string; bg: string; border: string }> = {
   match:    { icon: '⚽', label: 'Kamp',       dot: 'bg-red-400',     text: 'text-red-400',     bg: 'bg-red-500/15',     border: 'border-red-500/30' },
   training: { icon: '🏃', label: 'Trening',    dot: 'bg-emerald-400', text: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30' },
-  injury:   { icon: '🩹', label: 'Skade',      dot: 'bg-orange-400',  text: 'text-orange-400',  bg: 'bg-orange-500/15',  border: 'border-orange-500/30' },
-  return:   { icon: '✅', label: 'Frisk igjen',dot: 'bg-sky-400',     text: 'text-sky-400',     bg: 'bg-sky-500/15',     border: 'border-sky-500/30' },
 };
 
-// Skade-events har ingen egen sluttdato-kolonne – forventet retur er
-// kodet inn i teamNote (se src/lib/injuries.ts). Et skade-event regnes
-// derfor som "aktivt" på hver dag i intervallet [dato, forventet retur].
 function isEventOnDate(event: CalendarEvent, date: string): boolean {
-  if (event.type === 'injury') {
-    const expectedReturn = parseInjuryExpectedReturn(event.teamNote);
-    if (expectedReturn) return date >= event.date && date <= expectedReturn;
-  }
   return event.date === date;
 }
 
@@ -847,7 +836,6 @@ const EventCard: React.FC<{
   const isIndividualForMe = !isCoach && event.trainingNotes.some(note =>
     note.targetPlayerIds?.includes(currentPlayerId || '')
   );
-  const injuryExpectedReturn = event.type === 'injury' ? parseInjuryExpectedReturn(event.teamNote) : null;
 
   return (
     <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] hover:border-[#2e4060] cursor-pointer transition-all group mb-2"
@@ -864,13 +852,6 @@ const EventCard: React.FC<{
           </div>
           {event.type === 'match' && event.opponent && (
             <div className="text-[10.5px] text-slate-400">vs. {event.opponent} {event.result ? `(${event.result})` : ''}</div>
-          )}
-          {injuryExpectedReturn && (
-            <div className="text-[10.5px] text-orange-300/80">
-              {new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}
-              {' – '}
-              {new Date(injuryExpectedReturn + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}
-            </div>
           )}
           {event.trainingNotes.length > 0 && (
             <div className="text-[10px] text-emerald-400/70 mt-0.5">📋 {event.trainingNotes[0].title}</div>

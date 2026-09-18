@@ -1,26 +1,15 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   Sport, TacticPhase, CalendarEvent, PlayerAccount,
   CoachMessage, PlayerReply, AppView, Player, Drawing,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
   SubstitutionSuggestion, SpecialRole, PlayerRole,
-  TacticMoment, PlayerInjury
+  TacticMoment
 } from '../types';
 import { makePhase, getSquadCapacity } from '../data/formations';
-import { supabase } from '../lib/supabase';
 import { FormationSlot } from '../types';
-import {
-  initSyncQueue,
-  markPhasesDirty,
-  markEventsDirty,
-  markPlayerAccountsDirty,
-  markCoachMessagesDirty,
-  markChatMessagesDirty,
-  registerSyncCallbacks,
-  forceSync
-} from './syncQueue';
-import { signUp as authSignUp, signIn as authSignIn, signOut as authSignOut, getCurrentUser } from '../lib/auth';
+import { safeStorage } from '../lib/safeStorage';
 
 // ─── Types for ChatMessage (beholdes) ────────────────────────
 interface ChatMessage {
@@ -83,290 +72,19 @@ function suggestSubstitutions(
   }));
 }
 
-// ─── Supabase push-funksjoner (brukes av syncQueue) ──────────
-async function pushPhases(phases: TacticPhase[]) {
-  try {
-    const rows = phases.map((ph, i) => ({
-      id: ph.id, name: ph.name, players: ph.players as any,
-      ball: ph.ball as any, drawings: ph.drawings as any,
-      description: ph.description ?? '', sticky_note: ph.stickyNote ?? '',
-      sort_order: i, updated_at: new Date().toISOString(),
-    }));
-    const { error: upsertError } = await supabase.from('phases').upsert(rows, { onConflict: 'id' });
-    if (upsertError) throw upsertError;
-    const { data: existing, error: selectError } = await supabase.from('phases').select('id');
-    if (selectError) throw selectError;
-    const currentIds = phases.map(p => p.id);
-    const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) {
-      const { error: deleteError } = await supabase.from('phases').delete().in('id', toDelete);
-      if (deleteError) throw deleteError;
-    }
-  } catch (e) { console.warn('pushPhases error', e); throw e; }
-}
-
-async function pushSettings(fields: Record<string, any>) {
-  try {
-    await supabase.from('team_settings').upsert(
-      { id: 'default', ...fields, updated_at: new Date().toISOString() },
-      { onConflict: 'id' }
-    );
-  } catch (e) { console.warn('pushSettings error', e); }
-}
-
-async function pushEvents(events: CalendarEvent[]) {
-  try {
-    const rows = events.map(e => ({
-      id: e.id, type: e.type, title: e.title, date: e.date,
-      time: e.time ?? null, location: e.location ?? null,
-      opponent: e.opponent ?? '', result: e.result ?? '',
-      team_note: e.teamNote, training_notes: e.trainingNotes as any,
-      match_notes: e.matchNotes as any, lineup_locked_at: e.lineupLockedAt ?? null,
-      updated_at: new Date().toISOString(),
-    }));
-    if (rows.length) {
-      const { error: upsertError } = await supabase.from('events').upsert(rows, { onConflict: 'id' });
-      if (upsertError) throw upsertError;
-    }
-    const { data: existing, error: selectError } = await supabase.from('events').select('id');
-    if (selectError) throw selectError;
-    const currentIds = events.map(e => e.id);
-    const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) {
-      const { error: deleteError } = await supabase.from('events').delete().in('id', toDelete);
-      if (deleteError) throw deleteError;
-    }
-  } catch (e) { console.warn('pushEvents error', e); throw e; }
-}
-
-async function pushPlayerAccounts(accounts: PlayerAccount[]) {
-  try {
-    const rows = accounts.map(a => ({
-      id: a.id, name: a.name, player_id: a.playerId, pin: a.pin,
-      email: a.email ?? null, password: a.password ?? null,
-      team: a.team,
-      individual_training_note: a.individualTrainingNote ?? null,
-      birth_date: a.birthDate ?? null,
-      height: a.height ?? null,
-      weight: a.weight ?? null,
-      position_preferences: a.positionPreferences ?? null,
-      secondary_positions: a.secondaryPositions ?? null,
-      experience: a.experience ?? null,
-      profile_image: a.profileImage ?? null,
-      preferred_foot: a.preferredFoot ?? null,
-      strong_foot: a.strongFoot ?? null,
-      preferred_language: a.preferredLanguage ?? null,
-      updated_at: new Date().toISOString(),
-    }));
-    if (rows.length) {
-      const { error: upsertError } = await supabase.from('player_accounts').upsert(rows, { onConflict: 'id' });
-      if (upsertError) throw upsertError;
-    }
-    const { data: existing, error: selectError } = await supabase.from('player_accounts').select('id');
-    if (selectError) throw selectError;
-    const currentIds = accounts.map(a => a.id);
-    const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) {
-      const { error: deleteError } = await supabase.from('player_accounts').delete().in('id', toDelete);
-      if (deleteError) throw deleteError;
-    }
-  } catch (e) { console.warn('pushPlayerAccounts error', e); throw e; }
-}
-
-async function pushCoachMessages(msgs: CoachMessage[]) {
-  try {
-    const rows = msgs.map(m => ({
-      id: m.id, player_id: m.playerId, event_id: m.eventId ?? null,
-      content: m.content, replies: m.replies as any,
-      from_captain: m.fromCaptain ?? false,
-      created_at: m.createdAt, updated_at: new Date().toISOString(),
-    }));
-    if (rows.length) {
-      const { error: upsertError } = await supabase.from('coach_messages').upsert(rows, { onConflict: 'id' });
-      if (upsertError) throw upsertError;
-    }
-    const { data: existing, error: selectError } = await supabase.from('coach_messages').select('id');
-    if (selectError) throw selectError;
-    const currentIds = msgs.map(m => m.id);
-    const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) {
-      const { error: deleteError } = await supabase.from('coach_messages').delete().in('id', toDelete);
-      if (deleteError) throw deleteError;
-    }
-  } catch (e) { console.warn('pushCoachMessages error', e); throw e; }
-}
-
-async function pushChatMessages(msgs: ChatMessage[]) {
-  try {
-    const rows = msgs.map(m => ({
-      id: m.id, from_role: m.fromRole, from_name: m.fromName,
-      content: m.content, to_player_id: m.toPlayerId ?? null,
-      from_captain: m.fromCaptain ?? false,
-      created_at: m.createdAt, updated_at: new Date().toISOString(),
-    }));
-    if (rows.length) {
-      const { error: upsertError } = await supabase.from('chat_messages').upsert(rows, { onConflict: 'id' });
-      if (upsertError) throw upsertError;
-    }
-  } catch (e) { console.warn('pushChatMessages error', e); throw e; }
-}
-
-// ─── Load from Supabase (uendret) ─────────────────────────────
-export async function loadFromSupabase(): Promise<Partial<{
-  phases: TacticPhase[];
-  events: CalendarEvent[];
-  playerAccounts: PlayerAccount[];
-  coachMessages: CoachMessage[];
-  chatMessages: ChatMessage[];
-  sport: Sport;
-  ageGroup: 'youth' | 'adult';
-  homeTeamName: string;
-  awayTeamName: string;
-  awayTeamColor: string;
-  coachEmail: string;
-  coachPassword: string;
-  refereePin: string;
-}>> {
-  try {
-    const [settRes, phRes, evRes, paRes, cmRes, chatRes] = await Promise.all([
-      supabase.from('team_settings').select('*').eq('id', 'default').single(),
-      supabase.from('phases').select('*').order('sort_order'),
-      supabase.from('events').select('*').order('date'),
-      supabase.from('player_accounts').select('*'),
-      supabase.from('coach_messages').select('*').order('created_at'),
-      supabase.from('chat_messages').select('*').order('created_at'),
-    ]);
-
-    const loadError = phRes.error ?? evRes.error ?? paRes.error ?? cmRes.error ?? chatRes.error;
-    if (loadError) throw loadError;
-
-    const result: any = {};
-
-    if (settRes.data) {
-      const s = settRes.data;
-      result.sport         = s.sport ?? 'football';
-      result.ageGroup      = s.age_group ?? 'adult';
-      result.homeTeamName  = s.home_team_name;
-      result.awayTeamName  = s.away_team_name;
-      result.awayTeamColor = s.away_team_color;
-      result.coachEmail    = s.coach_email;
-      result.coachPassword = s.coach_password;
-      result.refereePin    = s.referee_pin;
-    }
-
-    if (phRes.data?.length) {
-      result.phases = phRes.data.map((r: any): TacticPhase => ({
-        id: r.id, name: r.name,
-        players: r.players ?? [],
-        ball: r.ball ?? { x: 440, y: 280 },
-        drawings: r.drawings ?? [],
-        description: r.description ?? '',
-        stickyNote: r.sticky_note ?? '',
-        sort_order: r.sort_order ?? 0,
-      }));
-    }
-
-    if (evRes.data?.length) {
-      result.events = evRes.data.map((r: any): CalendarEvent => ({
-        id: r.id, type: r.type, title: r.title, date: r.date,
-        time: r.time ?? undefined, location: r.location ?? undefined,
-        opponent: r.opponent ?? '', result: r.result ?? '',
-        teamNote: r.team_note ?? '',
-        trainingNotes: r.training_notes ?? [],
-        matchNotes: r.match_notes ?? [],
-        lineupLockedAt: r.lineup_locked_at ?? undefined,
-      }));
-    }
-
-    if (paRes.data?.length) {
-      result.playerAccounts = paRes.data.map((r: any): PlayerAccount => ({
-        id: r.id, name: r.name, playerId: r.player_id,
-        pin: r.pin, team: r.team,
-        email: r.email ?? undefined,
-        password: r.password ?? undefined,
-        individualTrainingNote: r.individual_training_note ?? undefined,
-        birthDate: r.birth_date ?? undefined,
-        height: r.height ?? undefined,
-        weight: r.weight ?? undefined,
-        positionPreferences: r.position_preferences ?? undefined,
-        secondaryPositions: r.secondary_positions ?? undefined,
-        experience: r.experience ?? undefined,
-        profileImage: r.profile_image ?? undefined,
-        preferredFoot: r.preferred_foot ?? undefined,
-        strongFoot: r.strong_foot ?? undefined,
-        preferredLanguage: r.preferred_language ?? undefined,
-      }));
-    }
-
-    if (cmRes.data?.length) {
-      result.coachMessages = cmRes.data.map((r: any): CoachMessage => ({
-        id: r.id, fromCoach: true, playerId: r.player_id,
-        eventId: r.event_id ?? undefined, content: r.content,
-        createdAt: r.created_at, replies: r.replies ?? [],
-        fromCaptain: r.from_captain ?? false,
-      }));
-    }
-
-    if (chatRes.data?.length) {
-      result.chatMessages = chatRes.data.map((r: any): ChatMessage => ({
-        id: r.id, fromRole: r.from_role, fromName: r.from_name,
-        content: r.content, createdAt: r.created_at,
-        toPlayerId: r.to_player_id ?? undefined,
-        fromCaptain: r.from_captain ?? false,
-      }));
-    }
-
-    return result;
-  } catch (e) {
-    console.warn('loadFromSupabase error', e);
-    throw e;
-  }
-}
-
-// ─── Realtime subscription (uendret) ──────────────────────────
-export function subscribeToSupabase(onUpdate: () => void) {
-  const channel = supabase
-    .channel('taktikkboard-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'phases' }, onUpdate)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, onUpdate)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'player_accounts' }, onUpdate)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'coach_messages' }, onUpdate)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, onUpdate)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'team_settings' }, onUpdate)
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
-}
-
 // ═══════════════════════════════════════════════════════════════
 //  ZUSTAND STORE
 // ═══════════════════════════════════════════════════════════════
 
 interface AppStore {
-  loading: boolean;
   currentView: AppView;
   setView: (v: AppView) => void;
 
-  currentUser: { role: 'coach' | 'player' | 'referee'; playerId?: string; name: string; accountId?: string; email?: string } | null;
-  
-  // Auth actions (nye)
-  signUp: (email: string, password: string) => Promise<boolean>;
-  signIn: (email: string, password: string, role: 'coach' | 'player') => Promise<boolean>;
-  signOut: () => Promise<void>;
+  // Midlertidig: ingen innlogging, brukeren er alltid trener. Fjernes i C3 sammen med isCoach-sjekkene.
+  currentUser: { role: 'coach'; playerId?: string; name: string; accountId?: string } | null;
 
-  // Beholdes for bakoverkompatibilitet
-  loginCoach: (email: string, password: string) => boolean;
-  loginPlayer: (emailOrId: string, passwordOrPin: string) => boolean;
-  loginReferee: (pin: string) => boolean;
-  logout: () => void;
-
-  coachEmail: string;
-  coachPassword: string;
-  refereePin: string;
   homeTeamName: string;
   awayTeamName: string;
-  setCoachEmail: (email: string) => void;
-  setCoachPassword: (pw: string) => void;
-  setRefereePin: (pin: string) => void;
   setHomeTeamName: (name: string) => void;
   setAwayTeamName: (name: string) => void;
 
@@ -399,10 +117,6 @@ interface AppStore {
   removeSecondaryRole: (phaseIdx: number, playerId: string, role: PlayerRole) => void;
   awayTeamColor: string;
   setAwayTeamColor: (color: string) => void;
-  setPlayerInjury: (phaseIdx: number, playerId: string, injured: boolean, returnDate?: string) => void;
-  checkAndHealInjuries: (phaseIdx: number) => void;
-  markPlayerInjured: (playerId: string, injury: PlayerInjury) => void;
-  markPlayerHealed: (playerId: string) => void;
   setPlayerStarter: (phaseIdx: number, playerId: string, isStarter: boolean) => void;
 
   matchTimer: MatchTimer;
@@ -443,8 +157,6 @@ interface AppStore {
   replyToMessage: (messageId: string, playerId: string, content: string) => void;
   deleteCoachMessage: (messageId: string) => void;
 
-  syncFromSupabase: () => Promise<void>;
-
   moments: TacticMoment[];
   saveMoment: (phaseIdx: number, name: string) => void;
   deleteMoment: (id: string) => void;
@@ -454,125 +166,17 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => {
-      // ─── Registrer syncQueue callbacks ───────────────────────
-      registerSyncCallbacks({
-        pushPhases,
-        pushEvents,
-        pushPlayerAccounts,
-        pushCoachMessages,
-        pushChatMessages,
-      });
-
       return {
-        loading: false,
         currentView: 'board',
         setView: (v) => set({ currentView: v }),
 
-        // C1: ingen innlogging – brukeren er alltid trener. Fjernes i C2/C3.
+        // Midlertidig: ingen innlogging, brukeren er alltid trener. Fjernes i C3.
         currentUser: { role: 'coach', name: 'Trener' },
-        coachEmail: 'trener@lag.no',
-        coachPassword: '',
-        refereePin: '',
         homeTeamName: 'Hjemmelag',
         awayTeamName: 'Bortelag',
 
-        // ─── Nye auth actions ──────────────────────────────────
-        signUp: async (email, password) => {
-          try {
-            const user = await authSignUp(email, password);
-            if (!user) return false;
-            set({
-              coachEmail: email,
-              coachPassword: password,
-              currentUser: { role: 'coach', name: email.split('@')[0], email },
-              currentView: 'board',
-            });
-            pushSettings({ coach_email: email, coach_password: password });
-            return true;
-          } catch (error) {
-            console.warn('SignUp failed', error);
-            return false;
-          }
-        },
-
-        signIn: async (email, password, role) => {
-          try {
-            const user = await authSignIn(email, password);
-            if (!user) return false;
-            let playerAccount: PlayerAccount | undefined;
-            if (role === 'player') {
-              playerAccount = get().playerAccounts.find(a => a.email?.toLowerCase() === email.toLowerCase());
-            }
-            set({
-              currentUser: {
-                role,
-                name: playerAccount?.name || email.split('@')[0],
-                playerId: playerAccount?.playerId,
-                accountId: playerAccount?.id,
-                email: user.email,
-              },
-              currentView: role === 'coach' ? 'board' : 'player-home',
-            });
-            return true;
-          } catch (error) {
-            console.warn('SignIn failed', error);
-            return false;
-          }
-        },
-
-        signOut: async () => {
-          try {
-            await authSignOut();
-            set({ currentUser: null, currentView: 'board' });
-          } catch (error) {
-            console.warn('SignOut failed', error);
-          }
-        },
-
-        // ─── Behold gamle login-metoder ──
-        loginCoach: (email, password) => {
-          const state = get();
-          if (!password || !state.coachPassword) return false;
-          if (email.toLowerCase().trim() === state.coachEmail.toLowerCase().trim() && password === state.coachPassword) {
-            set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
-            return true;
-          }
-          return false;
-        },
-
-        loginPlayer: (emailOrId, passwordOrPin) => {
-          const state = get();
-          const acc = state.playerAccounts.find(a =>
-            (a.id === emailOrId || a.email?.toLowerCase() === emailOrId.toLowerCase()) &&
-            (a.password === passwordOrPin || a.pin === passwordOrPin)
-          );
-          if (acc) {
-            set({
-              currentUser: { role: 'player', playerId: acc.playerId, name: acc.name, accountId: acc.id },
-              currentView: 'player-home',
-            });
-            return true;
-          }
-          return false;
-        },
-
-        loginReferee: (pin) => {
-          const refereePin = get().refereePin;
-          if (!pin || !refereePin) return false;
-          if (pin === refereePin) {
-            set({ currentUser: { role: 'referee', name: 'Dommer' }, currentView: 'referee' });
-            return true;
-          }
-          return false;
-        },
-
-        logout: () => set({ currentUser: null, currentView: 'board' }),
-
-        setCoachEmail: (email) => { set({ coachEmail: email }); pushSettings({ coach_email: email }); },
-        setCoachPassword: (pw) => { set({ coachPassword: pw }); pushSettings({ coach_password: pw }); },
-        setRefereePin: (pin) => { set({ refereePin: pin }); pushSettings({ referee_pin: pin }); },
-        setHomeTeamName: (name) => { set({ homeTeamName: name }); pushSettings({ home_team_name: name }); },
-        setAwayTeamName: (name) => { set({ awayTeamName: name }); pushSettings({ away_team_name: name }); },
+        setHomeTeamName: (name) => set({ homeTeamName: name }),
+        setAwayTeamName: (name) => set({ awayTeamName: name }),
 
         chatMessages: [],
         sendChat: (fromRole, fromName, content, toPlayerId, fromCaptain) => {
@@ -581,7 +185,6 @@ export const useAppStore = create<AppStore>()(
             createdAt: new Date().toISOString(), toPlayerId, fromCaptain
           };
           set(s => ({ chatMessages: [...s.chatMessages, msg] }));
-          markChatMessagesDirty();
         },
 
         sport: 'football',
@@ -590,8 +193,8 @@ export const useAppStore = create<AppStore>()(
         activePhaseIdx: 0,
         moments: [],
 
-        setSport: (s) => { set({ sport: s }); pushSettings({ sport: s }); },
-        setAgeGroup: (age) => { set({ ageGroup: age }); pushSettings({ age_group: age }); },
+        setSport: (s) => set({ sport: s }),
+        setAgeGroup: (age) => set({ ageGroup: age }),
         setActivePhaseIdx: (i) => set({ activePhaseIdx: i }),
 
         addPhase: () => {
@@ -601,7 +204,6 @@ export const useAppStore = create<AppStore>()(
           const np = makePhase(`Fase ${phases.length + 1}`, pitchSport, cur.players, cur.ball);
           const newPhases = [...phases, np];
           set({ phases: newPhases, activePhaseIdx: phases.length });
-          markPhasesDirty();
         },
 
         removePhase: (idx) => {
@@ -609,7 +211,6 @@ export const useAppStore = create<AppStore>()(
           if (phases.length <= 1) return;
           const newP = phases.filter((_, i) => i !== idx);
           set({ phases: newP, activePhaseIdx: Math.min(activePhaseIdx, newP.length - 1) });
-          markPhasesDirty();
         },
 
         applyFormation: (phaseIdx, newSlots) => {
@@ -641,7 +242,6 @@ export const useAppStore = create<AppStore>()(
           };
 
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         saveMoment: (phaseIdx, name) => {
@@ -668,7 +268,6 @@ export const useAppStore = create<AppStore>()(
                 p.id === playerId ? { ...p, position: pos, currentSlotId: slotId ?? p.currentSlotId } : p
               )
             };
-            markPhasesDirty();
             return { phases: newPhases };
           });
         },
@@ -676,7 +275,6 @@ export const useAppStore = create<AppStore>()(
         updateBallPosition: (phaseIdx, pos) => {
           const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, ball: pos });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         updatePlayerField: (phaseIdx, playerId, fields) => {
@@ -697,7 +295,6 @@ export const useAppStore = create<AppStore>()(
             };
             return { phases: newPhases };
           });
-          markPhasesDirty();
         },
 
         // ═══════════════════════════════════════════════════════════════
@@ -715,7 +312,6 @@ export const useAppStore = create<AppStore>()(
             };
             return { phases: newPhases };
           });
-          markPhasesDirty();
         },
 
         updatePlayersInPhase: (phaseIdx, updates) => {
@@ -730,7 +326,6 @@ export const useAppStore = create<AppStore>()(
             newPhases[phaseIdx] = { ...phase, players: updatedPlayers };
             return { phases: newPhases };
           });
-          markPhasesDirty();
         },
 
         reorderBenchPlayers: (phaseIdx, fromIndex, toIndex) => {
@@ -751,7 +346,6 @@ export const useAppStore = create<AppStore>()(
             newPhases[phaseIdx] = { ...phase, players: playersCopy };
             return { phases: newPhases };
           });
-          markPhasesDirty();
         },
 
         addDrawing: (phaseIdx, drawing) => {
@@ -760,25 +354,21 @@ export const useAppStore = create<AppStore>()(
             ...ph, drawings: [...ph.drawings, d],
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         clearDrawings: (phaseIdx) => {
           const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, drawings: [] });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         updatePhaseName: (phaseIdx, name) => {
           const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, name });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         updateStickyNote: (phaseIdx, note) => {
           const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : { ...ph, stickyNote: note });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         setSpecialRole: (phaseIdx, playerId, role, active) => {
@@ -793,7 +383,6 @@ export const useAppStore = create<AppStore>()(
             }),
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         setSecondaryRoles: (phaseIdx, playerId, roles) => {
@@ -803,7 +392,6 @@ export const useAppStore = create<AppStore>()(
             ),
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         addSecondaryRole: (phaseIdx, playerId, role) => {
@@ -816,7 +404,6 @@ export const useAppStore = create<AppStore>()(
             }),
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         removeSecondaryRole: (phaseIdx, playerId, role) => {
@@ -828,88 +415,17 @@ export const useAppStore = create<AppStore>()(
             }),
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         setPlayerStarter: (phaseIdx, playerId, isStarter) => {
-          // En skadd spiller kan ikke settes til starter – han må erklæres
-          // frisk (markPlayerHealed) først.
-          if (isStarter) {
-            const player = get().phases[phaseIdx]?.players.find(p => p.id === playerId);
-            if (player?.injury) return;
-          }
           const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
             ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, isStarter } : p),
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         awayTeamColor: '#ef4444',
-        setAwayTeamColor: (color) => { set({ awayTeamColor: color }); pushSettings({ away_team_color: color }); },
-
-        // Eldre, enklere skade-toggle (PlayerEditor). Holder også det
-        // nyere player.injury-feltet synkronisert – ellers ville en spiller
-        // markert skadet herfra ikke dukke opp i "Skadet"-seksjonen eller
-        // bli hindret fra å dras inn på banen andre steder i appen.
-        // Oppdaterer alle faser (skade er en spiller-egenskap, ikke
-        // fase-spesifikk), i tråd med markPlayerInjured/markPlayerHealed.
-        setPlayerInjury: (phaseIdx, playerId, injured, returnDate) => {
-          const newPhases = get().phases.map(ph => ({
-            ...ph, players: ph.players.map(p => p.id === playerId
-              ? {
-                  ...p, injured, injuryReturnDate: returnDate,
-                  injury: injured ? { startDate: p.injury?.startDate ?? new Date().toISOString().slice(0, 10), expectedReturn: returnDate } : undefined,
-                  ...(injured ? {} : { isStarter: false, isOnField: false }),
-                }
-              : p),
-          }));
-          set({ phases: newPhases });
-          markPhasesDirty();
-        },
-
-        checkAndHealInjuries: (phaseIdx) => {
-          const today = new Date().toISOString().slice(0, 10);
-          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
-            ...ph, players: ph.players.map(p => {
-              if (p.injured && p.injuryReturnDate && p.injuryReturnDate <= today)
-                return { ...p, injured: false, injuryReturnDate: undefined, injury: undefined, isStarter: false, isOnField: false };
-              return p;
-            }),
-          });
-          set({ phases: newPhases });
-          markPhasesDirty();
-        },
-
-        // En skade er en egenskap ved SPILLEREN, ikke ved den taktiske
-        // fasen – derfor oppdateres spilleren i ALLE faser (matchet på
-        // id), ikke bare den aktive. injured/injuryReturnDate settes i
-        // tillegg for bakoverkompatibilitet med eksisterende 🩹-visning
-        // rundt om i appen (TacticBoard, PitchView, Sidebar m.fl.).
-        markPlayerInjured: (playerId, injury) => {
-          const newPhases = get().phases.map(ph => ({
-            ...ph,
-            players: ph.players.map(p => p.id === playerId
-              ? { ...p, injury, injured: true, injuryReturnDate: injury.expectedReturn }
-              : p),
-          }));
-          set({ phases: newPhases });
-          markPhasesDirty();
-        },
-
-        // Frisk-erklærte spillere flyttes alltid tilbake til innbytterne –
-        // en trener velger selv når de eventuelt skal settes på banen igjen,
-        // de gjenoppstår ikke automatisk som starter.
-        markPlayerHealed: (playerId) => {
-          const newPhases = get().phases.map(ph => ({
-            ...ph,
-            players: ph.players.map(p => p.id === playerId
-              ? { ...p, injury: undefined, injured: false, injuryReturnDate: undefined, isStarter: false, isOnField: false }
-              : p),
-          }));
-          set({ phases: newPhases });
-          markPhasesDirty();
-        },
+        setAwayTeamColor: (color) => set({ awayTeamColor: color }),
 
         matchTimer: { running: false, startedAt: null, elapsed: 0 },
         startTimer: () => {
@@ -932,7 +448,6 @@ export const useAppStore = create<AppStore>()(
               ? { ...p, minutesPlayed: (p.minutesPlayed ?? 0) + minutes } : p),
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         togglePlayerOnField: (phaseIdx, playerId) => {
@@ -941,7 +456,6 @@ export const useAppStore = create<AppStore>()(
               ? { ...p, isOnField: !p.isOnField } : p),
           });
           set({ phases: newPhases });
-          markPhasesDirty();
         },
 
         getSubstitutionSuggestions: (phaseIdx, intervalMinutes = 10) => {
@@ -978,51 +492,42 @@ export const useAppStore = create<AppStore>()(
         addEvent: (ev) => {
           const newEv = { id: uid(), ...ev };
           set(s => ({ events: [...s.events, newEv] }));
-          markEventsDirty();
         },
         updateEvent: (id, fields) => {
           set(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...fields } : e) }));
-          markEventsDirty();
         },
         deleteEvent: (id) => {
           set(s => ({ events: s.events.filter(e => e.id !== id) }));
-          markEventsDirty();
         },
         addTrainingNote: (eventId, note) => {
           const n: TrainingNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
           set(s => ({ events: s.events.map(e => e.id !== eventId ? e
             : { ...e, trainingNotes: [...e.trainingNotes, n] }) }));
-          markEventsDirty();
         },
         updateTrainingNote: (eventId, noteId, fields) => {
           set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
             ...e, trainingNotes: e.trainingNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
           })}));
-          markEventsDirty();
         },
         deleteTrainingNote: (eventId, noteId) => {
           set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
             ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
           })}));
-          markEventsDirty();
         },
         addMatchNote: (eventId, note) => {
           const n: MatchNote = { id: uid(), createdAt: new Date().toISOString(), ...note };
           set(s => ({ events: s.events.map(e => e.id !== eventId ? e
             : { ...e, matchNotes: [...e.matchNotes, n] }) }));
-          markEventsDirty();
         },
         updateMatchNote: (eventId, noteId, fields) => {
           set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
             ...e, matchNotes: e.matchNotes.map(n => n.id !== noteId ? n : { ...n, ...fields }),
           })}));
-          markEventsDirty();
         },
         deleteMatchNote: (eventId, noteId) => {
           set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
             ...e, matchNotes: e.matchNotes.filter(n => n.id !== noteId),
           })}));
-          markEventsDirty();
         },
 
         playerAccounts: [],
@@ -1040,7 +545,6 @@ export const useAppStore = create<AppStore>()(
             password: acc.password || acc.pin,
           };
           set(s => ({ playerAccounts: [...s.playerAccounts, newAcc] }));
-          markPlayerAccountsDirty();
           return true;
         },
         removePlayerAccount: (id) => {
@@ -1051,12 +555,9 @@ export const useAppStore = create<AppStore>()(
               ? s.phases.map(ph => ({ ...ph, players: ph.players.filter(p => p.id !== acc.playerId) }))
               : s.phases,
           }));
-          markPlayerAccountsDirty();
-          if (acc) markPhasesDirty();
         },
         updatePlayerAccount: (id, fields) => {
           set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) }));
-          markPlayerAccountsDirty();
         },
 
         // Oppretter en spillerkonto OG en tilhørende spiller på
@@ -1112,7 +613,6 @@ export const useAppStore = create<AppStore>()(
           });
           if (!accountCreated) return { success: false, reason: 'duplicate_email' };
 
-          forceSync();
           return { success: true, assignedNum, numberWasTaken };
         },
 
@@ -1168,43 +668,35 @@ export const useAppStore = create<AppStore>()(
             createdAt: new Date().toISOString(), replies: [], fromCaptain,
           };
           set(s => ({ coachMessages: [...s.coachMessages, msg] }));
-          markCoachMessagesDirty();
         },
         replyToMessage: (messageId, playerId, content) => {
           const reply: PlayerReply = { id: uid(), playerId, content, createdAt: new Date().toISOString() };
           set(s => ({ coachMessages: s.coachMessages.map(m => m.id !== messageId ? m : {
             ...m, replies: [...m.replies, reply],
           })}));
-          markCoachMessagesDirty();
         },
         deleteCoachMessage: (messageId) => {
           set(s => ({ coachMessages: s.coachMessages.filter(m => m.id !== messageId) }));
-          markCoachMessagesDirty();
         },
 
-        syncFromSupabase: async () => {
-          set({ loading: true });
-          try {
-            const data = await loadFromSupabase();
-            set(state => ({ ...state, ...data, loading: false }));
-            initSyncQueue(() => get());
-          } catch (error) {
-            console.error('Sync failed:', error);
-            set({ loading: false });
-          }
-        }
       };
     },
     {
       name: 'taktikkboard-storage',
       version: 1,
+      storage: createJSONStorage(() => safeStorage),
       migrate: (persistedState) => {
         const state = { ...(persistedState as Record<string, unknown>) };
+        delete state.coachEmail;
         delete state.coachPassword;
         delete state.refereePin;
         return state;
       },
+      // Midlertidig i C2: phases og events lagres nå lokalt, siden appen ikke lenger har noen server.
+      // C4 utvider dette til hele den nye modellen.
       partialize: (state) => ({
+        phases: state.phases,
+        events: state.events,
         moments: state.moments,
         currentView: state.currentView,
         sport: state.sport,
@@ -1212,7 +704,6 @@ export const useAppStore = create<AppStore>()(
         homeTeamName: state.homeTeamName,
         awayTeamName: state.awayTeamName,
         awayTeamColor: state.awayTeamColor,
-        coachEmail: state.coachEmail,
       })
     }
   )

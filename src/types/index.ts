@@ -21,13 +21,6 @@ export type SpecialRole =
   | 'throwin'
   | 'goalkeeper_kicks';
 
-export interface PlayerInjury {
-  startDate: string;
-  expectedReturn?: string;
-  type?: string;
-  notes?: string;
-}
-
 export interface Player {
   id: string;
   num: number;
@@ -38,9 +31,6 @@ export interface Player {
   team: 'home' | 'away';
   notes: string;
   playerReply?: string;
-  injured?: boolean;
-  injuryReturnDate?: string;
-  injury?: PlayerInjury;
   minutesPlayed?: number;
   isOnField?: boolean;
   isStarter?: boolean;
@@ -68,7 +58,7 @@ export interface TacticPhase {
   sort_order?: number;
 }
 
-export type EventType = 'training' | 'match' | 'injury' | 'return';
+export type EventType = 'training' | 'match';
 
 export interface CalendarEvent {
   id: string;
@@ -198,8 +188,7 @@ export interface MatchReport {
   generatedText: string;
 }
 
-// 'player-home' og 'referee' brukes bare av login-grenene i storen – fjernes i C2.
-export type AppView = 'dashboard' | 'board' | 'calendar' | 'training' | 'player-home' | 'referee';
+export type AppView = 'dashboard' | 'board' | 'calendar' | 'training';
 
 export interface AppState {
   sport: Sport;

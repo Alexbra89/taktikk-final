@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import type { CalendarEvent, AppView } from '@/types';
+import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
 
 // ─── ALLE DYNAMISKE IMPORTER ─────────────────────────────────
@@ -18,7 +19,6 @@ const TrainingView = dynamic(() => import('@/components/ui/TrainingView').then(m
 const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(mod => mod.CalendarView), { ssr: false });
 const Sidebar = dynamic(() => import('@/components/ui/Sidebar').then(mod => mod.Sidebar), { ssr: false });
 const DrillLibraryModal = dynamic(() => import('@/components/ui/DrillLibraryModal').then(mod => mod.DrillLibraryModal), { ssr: false });
-const InjuryReturnBanner = dynamic(() => import('@/components/ui/InjuryReturnBanner').then(mod => mod.InjuryReturnBanner), { ssr: false });
 
 // ─── TYPER ───────────────────────────────────────────────────
 type CoachTab = 'dashboard' | 'board' | 'calendar' | 'training';
@@ -104,20 +104,16 @@ const DashboardView: React.FC<{
 // ─── INNSTILLINGER MODAL ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const {
-    coachEmail, coachPassword, homeTeamName, awayTeamName,
-    setCoachEmail, setCoachPassword, setHomeTeamName, setAwayTeamName,
+    homeTeamName, awayTeamName,
+    setHomeTeamName, setAwayTeamName,
     sport, setSport, ageGroup, setAgeGroup,
   } = useAppStore();
 
-  const [email, setEmail] = useState(coachEmail);
-  const [pw,    setPw]    = useState(coachPassword);
   const [home,  setHome]  = useState(homeTeamName);
   const [away,  setAway]  = useState(awayTeamName);
   const [saved, setSaved] = useState(false);
 
   const save = () => {
-    if (email.trim()) setCoachEmail(email.trim());
-    if (pw.trim())    setCoachPassword(pw.trim());
     if (home.trim())  setHomeTeamName(home.trim());
     if (away.trim())  setAwayTeamName(away.trim());
     setSaved(true);
@@ -187,20 +183,10 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Ditt lagnavn</div>
           <input value={home} onChange={e => setHome(e.target.value)} className="sett-inp mt-1" placeholder="Eks: Sotra SK" />
         </div>
-        <div className="mb-5">
+        <div className="mb-6">
           <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Motstanderlag</div>
           <input value={away} onChange={e => setAway(e.target.value)} className="sett-inp mt-1" placeholder="Eks: Bergen SK" />
         </div>
-        <div className="border-t border-slate-700 my-4" />
-        <div className="mb-4">
-          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Trener e-post</div>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="sett-inp mt-1" />
-        </div>
-        <div className="mb-6">
-          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Trener passord</div>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)} className="sett-inp mt-1" />
-        </div>
-
         <button
           onClick={save}
           className={`w-full py-3.5 rounded-xl font-bold text-[14px] transition min-h-[52px] backdrop-blur
@@ -224,15 +210,6 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-// ─── SYNC INDIKATOR ──────────────────────────────────────────
-const SyncIndicator: React.FC<{ syncing: boolean }> = ({ syncing }) =>
-  syncing ? (
-    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 backdrop-blur-sm">
-      <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping" />
-      <span className="text-[9px] text-sky-400 font-bold tracking-widest uppercase">Synk</span>
-    </div>
-  ) : null;
-
 // ─── MOBIL TABS ───────────────────────────────────────────────
 const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
   { id: 'dashboard', label: 'Hjem',      emoji: '🏠' },
@@ -251,7 +228,7 @@ export default function Home() {
   const [showDrillLibrary,    setShowDrillLibrary]    = useState(false);
   const [mobileCoachTab,      setMobileCoachTab]      = useState<CoachTab>('dashboard');
   const [showMobileSidebar,   setShowMobileSidebar]   = useState(false);
-  const [syncing,             setSyncing]             = useState(false);
+  const [storageError,        setStorageError]        = useState<string | null>(null);
   const [selectedTraining,    setSelectedTraining]    = useState<CalendarEvent | null>(null);
 
   const {
@@ -259,14 +236,13 @@ export default function Home() {
     homeTeamName, sport,
   } = useAppStore();
 
+  useEffect(() => { setIsMounted(true); }, []);
+
+  // safeStorage varsler når localStorage er full slik at lagringen stille feiler.
   useEffect(() => {
-    setIsMounted(true);
-    const load = async () => {
-      setSyncing(true);
-      await useAppStore.getState().syncFromSupabase();
-      setSyncing(false);
-    };
-    load();
+    const onStorageError = (e: Event) => setStorageError((e as CustomEvent<string>).detail);
+    window.addEventListener(STORAGE_ERROR_EVENT, onStorageError);
+    return () => window.removeEventListener(STORAGE_ERROR_EVENT, onStorageError);
   }, []);
 
   // Et lagret view fra en fjernet fane (stats, admin, messages …) skal ikke gi blank side.
@@ -304,7 +280,6 @@ export default function Home() {
               ⚽ {homeTeamName || 'TAKTIKKBOARD'}
             </span>
           </div>
-          <SyncIndicator syncing={syncing} />
 
           <nav className="flex gap-1 ml-4">
             {([
@@ -380,7 +355,7 @@ export default function Home() {
     );
   }, [
     currentView, currentUser, homeTeamName, sport,
-    syncing, selectedPlayerId, selectedTraining,
+    selectedPlayerId, selectedTraining,
     setView,
   ]);
 
@@ -473,7 +448,6 @@ export default function Home() {
           <span className="text-[13px] font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
             {homeTeamName || 'TAKTIKKBOARD'}
           </span>
-          <SyncIndicator syncing={syncing} />
           <div className="flex-1" />
           <button onClick={() => setShowSettings(true)}
             className="px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-300 transition min-h-[36px] shadow-sm">
@@ -527,7 +501,7 @@ export default function Home() {
       </div>
     );
   }, [
-    currentUser, homeTeamName, sport, syncing,
+    currentUser, homeTeamName, sport,
     selectedPlayerId, selectedTraining, mobileCoachTab, activePhaseIdx,
     showMobileSidebar,
     setMobileCoachTab, setSelectedTraining, setSelectedPlayerId,
@@ -539,7 +513,14 @@ export default function Home() {
 
   return (
     <>
-      <InjuryReturnBanner />
+      {storageError && (
+        <div role="alert"
+          className="fixed top-0 inset-x-0 z-[200] flex items-center justify-center gap-3 bg-red-600/90 backdrop-blur px-4 py-2 text-[12px] font-bold text-white"
+          style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
+          <span>⚠️ {storageError}</span>
+          <button onClick={() => setStorageError(null)} aria-label="Lukk varsel" className="px-2 min-h-[32px]">✕</button>
+        </div>
+      )}
       {DesktopLayout}
       {MobileLayout}
 

@@ -114,7 +114,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [showMoments,      setShowMoments]       = useState(false);
   const [momentLabel,      setMomentLabel]       = useState('');
   const [showMoreMenu,     setShowMoreMenu]      = useState(false);
-  const [dismissedInjuryWarnings, setDismissedInjuryWarnings] = useState<string[]>([]);
 
   const {
     sport, phases, activePhaseIdx,
@@ -372,10 +371,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const target  = targetId ? phase.players.find(p=>p.id===targetId) : null;
 
     if (target && target.id !== dragged.id) {
-      // Uansett hvilken side som er benk-spilleren i dette byttet – en
-      // skadd spiller kan aldri havne på banen.
-      const benchSide = dragged.isStarter !== true ? dragged : target.isStarter !== true ? target : null;
-      if (benchSide?.injury) return;
       if (!canSub(dragged.isStarter===false || target.isStarter===false)) return;
       swapPlayers(dragged.id, target.id);
       return;
@@ -394,7 +389,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (snap) pos = snap;
 
     if (dragged.isStarter===false||fromSub) {
-      if (dragged.injury) return; // skadde spillere kan ikke settes på banen
       if (!canSub(true)) return;
       moveToField(dragged.id, pos);
     } else {
@@ -409,8 +403,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     e: React.PointerEvent, playerId:string, fromSub:boolean,
   ) => {
     if (isPlaying||drawMode) return;
-    // Skadde spillere kan ikke dras fra benken og inn på banen.
-    if (fromSub && phase?.players.find(p=>p.id===playerId)?.injury) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -546,13 +538,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     () => allDisplay.filter(p => p.team === 'home' && p.isStarter !== true),
     [allDisplay]
   );
-  // Starter(e) som har blitt skadet – varsles med "bytt ham ut?" til
-  // trener manuelt bytter dem ut eller lukker varselet.
-  const injuredStarters = useMemo(
-    () => onField.filter(p => !!p.injury && !dismissedInjuryWarnings.includes(p.id)),
-    [onField, dismissedInjuryWarnings]
-  );
-
   const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
   const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
@@ -859,27 +844,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         )}
       </div>
 
-      {injuredStarters.length>0&&(
-        <div style={{background:'rgba(239,68,68,0.08)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(239,68,68,0.2)'}}
-          className="flex-shrink-0 flex flex-col gap-1 px-3 py-2">
-          {injuredStarters.map(p=>(
-            <div key={p.id} className="flex items-center gap-2">
-              <span className="text-red-400 text-[13px]">🩹</span>
-              <span className="flex-1 text-[11px] text-red-300">
-                <b>{getDisplayName(p)}</b> er skadet – bytt ham ut?
-              </span>
-              <button onClick={()=>stableOnSelectPlayer(p.id)}
-                style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)'}}
-                className="px-2 py-1 rounded-lg text-[10px] font-bold text-red-400 hover:bg-red-500/20 transition flex-shrink-0">
-                Vis spiller
-              </button>
-              <button onClick={()=>setDismissedInjuryWarnings(d=>[...d,p.id])}
-                className="text-red-400/60 hover:text-red-300 text-[12px] px-1 flex-shrink-0" title="Lukk varsel">✕</button>
-            </div>
-          ))}
-        </div>
-      )}
-
       {showSticky&&phase&&(
         <div style={{background:'rgba(251,191,36,0.05)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(251,191,36,0.15)'}}
           className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
@@ -1021,7 +985,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                       stroke="rgba(56,189,248,0.6)" strokeWidth={2} strokeDasharray="6,4"/>
                   )}
                   <JerseyIcon x={x} y={y} num={player.num} color={(meta as {color:string}).color}
-                    selected={selectedPlayerId===player.id} injured={!!player.injured}
+                    selected={selectedPlayerId===player.id}
                     specialRoles={player.specialRoles??[]} isDragging={!!isSrc}
                     isTarget={isTarget} isOutOfPos={outOfPos}/>
                   <RoleBadge x={x} y={y+23} role={player.role}/>
@@ -1093,7 +1057,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                     onPointerMove={moveDrag}
                     onPointerUp={endDrag}
                     onPointerCancel={endDrag}
-                    isDraggable={!!player&&!isPlaying&&!player.injury}/>
+                    isDraggable={!!player&&!isPlaying}/>
                 ))}
               </div>
             )}
@@ -1151,7 +1115,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                   onPointerMove={moveDrag}
                   onPointerUp={endDrag}
                   onPointerCancel={endDrag}
-                  isDraggable={!!player&&!isPlaying&&!player.injury}/>
+                  isDraggable={!!player&&!isPlaying}/>
               ))}
             </div>
           </div>

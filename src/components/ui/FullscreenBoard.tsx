@@ -217,7 +217,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
               const fill = meta?.color ?? '#64748b';
               const { x, y } = player.position;
               return (
-                <g key={player.id} filter="url(#ds3)" opacity={player.injured ? 0.5 : 1}>
+                <g key={player.id} filter="url(#ds3)">
                   <circle cx={x} cy={y} r={38} fill="transparent" />
                   <circle cx={x} cy={y} r={21} fill="rgba(255,255,255,0.9)"/>
                   <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
@@ -237,9 +237,6 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
                       style={{ pointerEvents: 'none' }}>
                       {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
                     </text>
-                  )}
-                  {player.injured && (
-                    <text x={x - 10} y={y - 14} fontSize={12} style={{ pointerEvents: 'none' }}>🩹</text>
                   )}
                 </g>
               );

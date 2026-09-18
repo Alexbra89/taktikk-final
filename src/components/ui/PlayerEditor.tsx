@@ -34,12 +34,10 @@ const COLOR_CLASSES: Record<string, { active: string; idle: string }> = {
 export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, onClose }) => {
   const {
     phases, sport, updatePlayerField, sendCoachMessage,
-    setPlayerInjury, checkAndHealInjuries, togglePlayerOnField,
+    togglePlayerOnField,
     setSpecialRole, setPlayerStarter, updatePlayerAccount,
     playerAccounts, currentUser,
   } = useAppStore();
-
-  useEffect(() => { checkAndHealInjuries(phaseIdx); }, []);
 
   const phase  = phases[phaseIdx];
   const player = phase?.players.find(p => p.id === playerId);
@@ -90,14 +88,12 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
               border: `3px solid ${player.team === 'home' ? 'white' : '#1e293b'}`,
             }}>
             {player.num}
-            {player.injured && <span className="absolute -top-1 -right-1 text-sm">🩹</span>}
             {hasRole('captain') && <span className="absolute -bottom-1 -right-1 text-sm">🪖</span>}
           </div>
           <div className="flex-1">
             <div className="text-base font-bold text-slate-100">{player.name || 'Navnløs'}</div>
             <div className="text-[11px] text-[#4a6080] flex items-center gap-2 flex-wrap">
               {meta.label} · {player.team === 'home' ? 'Hjemmelag' : 'Bortelag'}
-              {player.injured && <span className="text-red-400 font-bold">SKADET</span>}
               {player.isStarter === false
                 ? <span className="text-amber-400 font-bold">INNBYTTER</span>
                 : <span className="text-emerald-400 font-bold">STARTER</span>}
@@ -244,39 +240,6 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
             💡 Sekundære posisjoner lar spilleren bytte inn på andre roller ved behov.
           </div>
         </Field>
-
-        {/* ── Skademodul ── */}
-        <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">
-          <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">
-            🩹 Skadestatus
-          </div>
-          <button
-            onClick={() => setPlayerInjury(phaseIdx, playerId, !player.injured, player.injuryReturnDate)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all mb-2
-              ${player.injured
-                ? 'bg-red-500/20 border-red-500 text-red-400'
-                : 'border-[#1e3050] text-[#4a6080] hover:border-red-500/50 hover:text-red-400'}`}>
-            {player.injured ? '🩹 Markert som skadet' : 'Marker som skadet'}
-          </button>
-          {player.injured && (
-            <label className="block">
-              <div className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1">
-                FORVENTET RETUR
-              </div>
-              <input type="date" value={player.injuryReturnDate ?? ''}
-                onChange={e => setPlayerInjury(phaseIdx, playerId, true, e.target.value)}
-                className="inp" min={new Date().toISOString().slice(0, 10)} />
-              {player.injuryReturnDate && (
-                <div className="text-[10.5px] text-[#4a6080] mt-1">
-                  {new Date(player.injuryReturnDate + 'T12:00:00').toLocaleDateString('nb-NO', {
-                    weekday: 'short', day: 'numeric', month: 'long',
-                  })}
-                  {' · '}<span className="text-amber-400">Auto-fjernes på returdato</span>
-                </div>
-              )}
-            </label>
-          )}
-        </div>
 
         {/* ── Spilletid ── */}
         <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">

@@ -42,9 +42,6 @@ export const SubRow: React.FC<{
   const meta     = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#555',label:player.role};
   const rc       = getDutyColors(player.role);
   const lastName = displayName.includes(' ') ? displayName.split(' ').slice(-1)[0] : displayName;
-  const returnDate = player.injury?.expectedReturn
-    ? new Date(player.injury.expectedReturn + 'T12:00:00').toLocaleDateString('nb-NO')
-    : 'ukjent dato';
 
   return (
     <div
@@ -54,14 +51,12 @@ export const SubRow: React.FC<{
       onPointerUp={isDraggable   ? (e => onPointerUp(e as React.PointerEvent))   : undefined}
       onPointerCancel={isDraggable ? (e => onPointerCancel(e as React.PointerEvent)) : undefined}
       onClick={onSelect}
-      title={player.injury ? `Skadet – returnerer ${returnDate}` : undefined}
       style={{
         background: isDragOver?'rgba(251,191,36,0.08)':isSelected?'rgba(56,189,248,0.06)':'transparent',
         borderBottom:'1px solid rgba(255,255,255,0.04)',
         borderLeft: isDragOver?'2px solid #fbbf24':isSelected?'2px solid #38bdf8':'2px solid transparent',
         touchAction:'none', userSelect:'none',
-        opacity: player.injury?0.6:1,
-        cursor: player.injury?'not-allowed':'pointer',
+        cursor:'pointer',
         transition:'background 0.1s, border-color 0.1s',
       }}
       className="flex items-center gap-2 px-2.5 py-2 min-h-[46px] relative hover:bg-white/[0.03]"
@@ -73,7 +68,6 @@ export const SubRow: React.FC<{
         }}>
         {player.num}
         {(player.specialRoles??[]).includes('captain')&&<span className="absolute -top-1 -right-1 text-[8px] leading-none">🪖</span>}
-        {player.injured&&<span className="absolute -top-1 -right-1 text-[8px] leading-none">🩹</span>}
       </div>
 
       <div className="flex-1 min-w-0">

@@ -2,9 +2,9 @@ import React from 'react';
 
 export const JerseyIcon = React.memo<{
   x:number; y:number; num:number; color:string;
-  selected:boolean; injured:boolean; specialRoles:string[];
+  selected:boolean; specialRoles:string[];
   isDragging:boolean; isTarget:boolean; isOutOfPos:boolean;
-}>(({ x,y,num,color,selected,injured,specialRoles,isDragging,isTarget,isOutOfPos }) => {
+}>(({ x,y,num,color,selected,specialRoles,isDragging,isTarget,isOutOfPos }) => {
   const w=38, h=34, sh=9, nw=10, nh=5, tx=x-w/2, ty=y-h/2;
   return (
     <g opacity={isDragging ? 0.32 : 1} style={{ transition:'opacity 0.1s' }}>
@@ -28,7 +28,7 @@ export const JerseyIcon = React.memo<{
           L ${tx+6},${ty+h} L ${tx+w-6},${ty+h}
           L ${tx+w-6},${ty+sh+4} L ${tx+w},${ty+sh}
           L ${tx+w-nw},${ty} Q ${x},${ty-nh} ${tx+nw},${ty} Z`}
-        fill={injured ? '#334155' : color}
+        fill={color}
         stroke={selected ? '#38bdf8' : isOutOfPos ? '#f97316' : 'rgba(255,255,255,0.18)'}
         strokeWidth={selected ? 1.6 : 0.7}
         filter="url(#jerseyDrop)"
@@ -39,7 +39,6 @@ export const JerseyIcon = React.memo<{
         fill="white" fontSize={13} fontWeight="900" fontFamily="system-ui,sans-serif"
         paintOrder="stroke" stroke="rgba(0,0,0,0.6)" strokeWidth={2.5}
         style={{pointerEvents:'none'}}>{num}</text>
-      {injured && <text x={x+16} y={y-13} fontSize={11} style={{pointerEvents:'none'}}>🩹</text>}
       {specialRoles.includes('captain') && <text x={x-20} y={y-13} fontSize={11} style={{pointerEvents:'none'}}>🪖</text>}
       {specialRoles.includes('penalty') && <text x={x+16} y={y-13} fontSize={10} style={{pointerEvents:'none'}}>🎯</text>}
       {specialRoles.includes('freekick') && !specialRoles.includes('penalty') &&
