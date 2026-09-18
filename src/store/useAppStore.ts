@@ -470,8 +470,8 @@ export const useAppStore = create<AppStore>()(
 
         currentUser: null,
         coachEmail: 'trener@lag.no',
-        coachPassword: 'trener123',
-        refereePin: '0000',
+        coachPassword: '',
+        refereePin: '',
         homeTeamName: 'Hjemmelag',
         awayTeamName: 'Bortelag',
 
@@ -531,6 +531,7 @@ export const useAppStore = create<AppStore>()(
         // ─── Behold gamle login-metoder ──
         loginCoach: (email, password) => {
           const state = get();
+          if (!password || !state.coachPassword) return false;
           if (email.toLowerCase().trim() === state.coachEmail.toLowerCase().trim() && password === state.coachPassword) {
             set({ currentUser: { role: 'coach', name: 'Trener' }, currentView: 'board' });
             return true;
@@ -555,7 +556,9 @@ export const useAppStore = create<AppStore>()(
         },
 
         loginReferee: (pin) => {
-          if (pin === get().refereePin) {
+          const refereePin = get().refereePin;
+          if (!pin || !refereePin) return false;
+          if (pin === refereePin) {
             set({ currentUser: { role: 'referee', name: 'Dommer' }, currentView: 'referee' });
             return true;
           }
@@ -1186,6 +1189,13 @@ export const useAppStore = create<AppStore>()(
     },
     {
       name: 'taktikkboard-storage',
+      version: 1,
+      migrate: (persistedState) => {
+        const state = { ...(persistedState as Record<string, unknown>) };
+        delete state.coachPassword;
+        delete state.refereePin;
+        return state;
+      },
       partialize: (state) => ({
         moments: state.moments,
         currentView: state.currentView,
@@ -1195,8 +1205,6 @@ export const useAppStore = create<AppStore>()(
         awayTeamName: state.awayTeamName,
         awayTeamColor: state.awayTeamColor,
         coachEmail: state.coachEmail,
-        coachPassword: state.coachPassword,
-        refereePin: state.refereePin,
       })
     }
   )

@@ -106,6 +106,7 @@ export const LoginGate: React.FC = () => {
     setSport,
     setAgeGroup,
     syncFromSupabase,
+    loading: storeLoading,
   } = useAppStore();
 
   const [showRegister, setShowRegister] = useState(false);
@@ -199,6 +200,14 @@ export const LoginGate: React.FC = () => {
   const Spinner = () => (
     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
   );
+
+  if (storeLoading) {
+    return (
+      <div className="min-h-screen w-full bg-[#060c18] flex items-center justify-center">
+        <div className="w-10 h-10 border-[3px] border-sky-500/30 border-t-sky-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#060c18] relative overflow-x-hidden flex flex-col items-center">
