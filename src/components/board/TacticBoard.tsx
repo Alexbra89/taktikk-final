@@ -10,6 +10,9 @@ import {
 import { FootballPitch } from './pitches/FootballPitch';
 import { Ball, DrawingCanvas } from './BoardElements';
 import { ROLE_META, ROLE_FAMILY } from '../../data/roleInfo';
+import { ROLE_SHORT, LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM, GLASS } from './constants';
+import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
+import { getDutyColors } from '../../lib/roleColors';
 
 // ══════════════════════════════════════════════════════════════
 //  TACTIC BOARD v8 – FM LOOK + GLASSMORPHISM (RESPONSIV OPPDATERT)
@@ -43,84 +46,6 @@ interface UndoEntry {
 }
 
 interface TacticMoment { id: string; label: string; snapshot: string; at: string }
-interface SvgPos { x: number; y: number }
-
-// ─── KONSTANTER ───────────────────────────────────────────────
-const ROLE_SHORT: Record<string, string> = {
-  keeper:'KV', defender:'FS', wingback:'VB', sweeper:'SV',
-  midfielder:'MB', box2box:'BBM', playmaker:'PM', winger:'KANT',
-  forward:'ANG', false9:'F9', trequartista:'TQ', targetman:'TM',
-  pressforward:'PF', libero:'LIB',
-};
-
-const MIN_DIST     = 46;
-const SNAP_R       = 15;
-const LONG_PRESS   = 100;
-const DRAG_THRESH  = 6;
-const MAX_UNDO     = 25;
-// Minimal bounds – kun stort nok til at trøyeikon/navnelapp ikke klippes
-// av SVG-en. Spillere skal ellers kunne flyttes fritt over hele banen,
-// helt ut til sidelinjer og mål-/dødlinjer.
-const CLAMP_X        = 24;
-const CLAMP_Y_TOP    = 22;
-const CLAMP_Y_BOTTOM = 56;
-
-const GLASS = {
-  panel:  'rgba(8, 15, 35, 0.75)',
-  border: 'rgba(56, 189, 248, 0.12)',
-  hover:  'rgba(56, 189, 248, 0.07)',
-  active: 'rgba(56, 189, 248, 0.15)',
-};
-
-function getDutyColors(role: string): { bg: string; text: string; glow: string } {
-  if (['keeper'].includes(role))
-    return { bg:'rgba(26,58,92,0.85)',  text:'#7dd3fc', glow:'rgba(125,211,252,0.3)' };
-  if (['defender','sweeper','libero'].includes(role))
-    return { bg:'rgba(26,58,92,0.85)',  text:'#93c5fd', glow:'rgba(147,197,253,0.3)' };
-  if (['wingback'].includes(role))
-    return { bg:'rgba(22,58,42,0.85)',  text:'#6ee7b7', glow:'rgba(110,231,183,0.3)' };
-  if (['midfielder','playmaker','box2box'].includes(role))
-    return { bg:'rgba(30,42,26,0.85)',  text:'#86efac', glow:'rgba(134,239,172,0.3)' };
-  if (['forward','targetman','pressforward','false9','trequartista'].includes(role))
-    return { bg:'rgba(42,26,26,0.85)',  text:'#fca5a5', glow:'rgba(252,165,165,0.3)' };
-  if (['winger'].includes(role))
-    return { bg:'rgba(42,21,32,0.85)',  text:'#f9a8d4', glow:'rgba(249,168,212,0.3)' };
-  return   { bg:'rgba(30,42,26,0.85)', text:'#86efac', glow:'rgba(134,239,172,0.3)' };
-}
-
-function separatePlayers(pts: SvgPos[], minDist = MIN_DIST): SvgPos[] {
-  const r = pts.map(p => ({ ...p }));
-  for (let it = 0; it < 1; it++) {
-    for (let i = 0; i < r.length; i++) {
-      for (let j = i + 1; j < r.length; j++) {
-        const dx = r[j].x - r[i].x, dy = r[j].y - r[i].y;
-        const d  = Math.hypot(dx, dy);
-        if (d < minDist && d > 0.01) {
-          const push = (minDist - d) * 0.1, nx = dx / d, ny = dy / d;
-          r[i].x -= nx * push; r[i].y -= ny * push;
-          r[i].x = Math.max(CLAMP_X, Math.min(VW - CLAMP_X, r[i].x));
-          r[i].y = Math.max(CLAMP_Y_TOP, Math.min(VH - CLAMP_Y_BOTTOM, r[i].y));
-          r[j].x = Math.max(CLAMP_X, Math.min(VW - CLAMP_X, r[j].x));
-          r[j].y = Math.max(CLAMP_Y_TOP, Math.min(VH - CLAMP_Y_BOTTOM, r[j].y));
-        }
-      }
-    }
-  }
-  return r;
-}
-
-function nearestSlotPos(
-  pos: SvgPos,
-  slots: { position: { x: number; y: number } }[],
-  r = SNAP_R,
-): SvgPos | null {
-  let best: SvgPos | null = null, bestD = r;
-  for (const s of slots) {
-    const d = Math.hypot(s.position.x - pos.x, s.position.y - pos.y);
-    if (d < bestD) { bestD = d; best = s.position; }
-  }
-  return best;
-}
 
 // ══════════════════════════════════════════════════════════════
 //  SVG-KOMPONENTER
