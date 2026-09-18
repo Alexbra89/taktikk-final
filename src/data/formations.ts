@@ -400,6 +400,17 @@ export const DEFAULT_FORMATION: Record<string, string> = {
   football9:  '3-4-1',
 };
 
+// ═══ STALLSTØRRELSE PER IDRETT ════════════════════════════════
+// Felles kilde for "antall startspillere" / "maks innbyttere i en
+// vanlig kamp" – brukt av TacticBoard (formasjon/teststall) og
+// storen (kapasitetssjekk ved oppretting av nye spillere) slik at
+// tallene ikke kan drifte fra hverandre.
+export function getSquadCapacity(sport: string): { teamSize: number; maxSubs: number; total: number } {
+  const teamSize = sport === 'football' ? 11 : sport === 'football5' ? 5 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 11;
+  const maxSubs  = sport === 'football' ? 9 : 5;
+  return { teamSize, maxSubs, total: teamSize + maxSubs };
+}
+
 export const getFormationDescription = (formationName: string, sport: string): string => {
   const formations = getFormations(sport);
   const formation = formations.find(f => f.name === formationName);

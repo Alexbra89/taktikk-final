@@ -668,7 +668,7 @@ export const StatsView: React.FC = () => {
                 >
                   ‹ Tilbake til oversikt
                 </button>
-                <PlayerProfile playerId={selectedPlayerId} onClose={() => setSelectedPlayerId(null)} />
+                <PlayerProfile playerId={selectedPlayerId} onClose={() => setSelectedPlayerId(null)} readOnlyName />
               </>
             ) : (
               <div className="space-y-2">

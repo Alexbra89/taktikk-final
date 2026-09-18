@@ -2,21 +2,34 @@
 import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
+import { INJURY_TYPES, injuryTypeLabel, buildInjuryEventNote } from '@/lib/injuries';
+import { PlayerInjury } from '@/types';
 
 interface PlayerProfileProps {
   onClose?: () => void;
   playerId?: string;  // 🔧 LEGG TIL: for å vise en spesifikk spillers profil
+  readOnlyName?: boolean; // true = navnet er allerede satt (f.eks. via taktikkbrettet) og skal vises som ren tekst
 }
 
-export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose, playerId }) => {
-  const { currentUser, playerAccounts, updatePlayerAccount, sport } = useAppStore();
+export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose, playerId, readOnlyName = false }) => {
+  const {
+    currentUser, playerAccounts, updatePlayerAccount, sport,
+    phases, markPlayerInjured, markPlayerHealed, addEvent,
+  } = useAppStore();
 
   const isCoach = currentUser?.role === 'coach';
-  
+
   // 🔧 FIX: Hent riktig konto – enten den innloggede spilleren, eller en spesifikk spiller (trener)
   const myAccount = (playerAccounts as any[]).find(
     (a: any) => a.playerId === (playerId || currentUser?.playerId)
   );
+
+  const boardPlayerId = playerId || currentUser?.playerId;
+  const boardPlayer = phases
+    .flatMap(ph => ph.players)
+    .find(p => p.id === boardPlayerId);
+
+  const [showInjuryModal, setShowInjuryModal] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -52,7 +65,9 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose, playerId 
     if (!myAccount) return;
 
     updatePlayerAccount(myAccount.id, {
-      name: formData.name,
+      // Navnet er read-only i denne visningen – ikke send det med, slik
+      // at vi aldri kan overskrive det med en potensielt utdatert verdi.
+      ...(readOnlyName ? {} : { name: formData.name }),
       birthDate: formData.birthDate || undefined,
       height: formData.height ? Number(formData.height) : undefined,
       weight: formData.weight ? Number(formData.weight) : undefined,
@@ -108,6 +123,33 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose, playerId 
   };
 
   const age = calculateAge(formData.birthDate);
+
+  const handleSaveInjury = (injury: PlayerInjury) => {
+    if (!boardPlayerId) return;
+    markPlayerInjured(boardPlayerId, injury);
+    addEvent({
+      type: 'injury',
+      title: `Skade: ${myAccount?.name ?? 'Spiller'}`,
+      date: injury.startDate,
+      teamNote: buildInjuryEventNote(injury),
+      trainingNotes: [],
+      matchNotes: [],
+    });
+    setShowInjuryModal(false);
+  };
+
+  const handleMarkHealthy = () => {
+    if (!boardPlayerId) return;
+    markPlayerHealed(boardPlayerId);
+    addEvent({
+      type: 'return',
+      title: `Frisk igjen: ${myAccount?.name ?? 'Spiller'}`,
+      date: new Date().toISOString().slice(0, 10),
+      teamNote: '',
+      trainingNotes: [],
+      matchNotes: [],
+    });
+  };
 
   if (!myAccount) {
     return (
@@ -236,12 +278,48 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose, playerId 
           </div>
         </div>
 
+        {/* Skadestatus */}
+        {canEditProfile && boardPlayerId && (
+          <div className={`rounded-xl p-3 border ${boardPlayer?.injury ? 'bg-red-500/10 border-red-500/30' : 'bg-[#0f1a2a] border-[#1e3050]'}`}>
+            <div className="text-[9px] font-bold text-[#4a6080] uppercase tracking-wider mb-1.5">
+              Skadestatus
+            </div>
+            {boardPlayer?.injury ? (
+              <div>
+                <div className="text-[13px] font-bold text-red-400 mb-1">🩹 Skadet</div>
+                <div className="text-[11.5px] text-slate-300 space-y-0.5">
+                  <div>Skadedato: {new Date(boardPlayer.injury.startDate + 'T12:00:00').toLocaleDateString('nb-NO')}</div>
+                  {boardPlayer.injury.expectedReturn && (
+                    <div>Forventet retur: {new Date(boardPlayer.injury.expectedReturn + 'T12:00:00').toLocaleDateString('nb-NO')}</div>
+                  )}
+                  <div>Type: {injuryTypeLabel(boardPlayer.injury.type)}</div>
+                  {boardPlayer.injury.notes && <div className="text-[#7a9ab8] whitespace-pre-wrap">Notat: {boardPlayer.injury.notes}</div>}
+                </div>
+                <button
+                  onClick={handleMarkHealthy}
+                  className="mt-2.5 w-full py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12px] hover:bg-emerald-500/25 transition min-h-[40px]"
+                >
+                  ✅ Marker som frisk
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowInjuryModal(true)}
+                className="w-full py-2.5 rounded-lg bg-red-500/10 border border-red-500/25 text-red-400 font-bold text-[12px] hover:bg-red-500/20 transition min-h-[40px]"
+              >
+                🩹 Marker som skadet
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Navn */}
         <div className="bg-[#0f1a2a] rounded-xl p-3 border border-[#1e3050]">
-          <div className="text-[9px] font-bold text-[#4a6080] uppercase tracking-wider mb-1">
+          <div className="text-[9px] font-bold text-[#4a6080] uppercase tracking-wider mb-1 flex items-center gap-1.5">
             Navn
+            {readOnlyName && isEditing && <span className="normal-case font-normal text-[#3a5070]">(satt i stallen)</span>}
           </div>
-          {isEditing ? (
+          {isEditing && !readOnlyName ? (
             <input
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -480,6 +558,115 @@ export const PlayerProfile: React.FC<PlayerProfileProps> = ({ onClose, playerId 
             </button>
           </div>
         )}
+      </div>
+
+      {showInjuryModal && (
+        <InjuryModal
+          onSave={handleSaveInjury}
+          onCancel={() => setShowInjuryModal(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// ═══ Modal: registrer skade ═══════════════════════════════════
+const InjuryModal: React.FC<{
+  onSave: (injury: PlayerInjury) => void;
+  onCancel: () => void;
+}> = ({ onSave, onCancel }) => {
+  const [startDate, setStartDate]           = useState(new Date().toISOString().slice(0, 10));
+  const [expectedReturn, setExpectedReturn] = useState('');
+  const [type, setType]                     = useState('');
+  const [notes, setNotes]                   = useState('');
+
+  const save = () => {
+    if (!startDate) return;
+    onSave({
+      startDate,
+      expectedReturn: expectedReturn || undefined,
+      type: type || undefined,
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-[#0c1525] border border-red-500/30 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e3050]">
+          <h3 className="text-sm font-black text-red-400">🩹 Registrer skade</h3>
+          <button onClick={onCancel} className="text-[#4a6080] hover:text-white text-xl min-h-[44px] px-2">✕</button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="text-[9px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1">Skadedato</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[44px]"
+            />
+          </div>
+
+          <div>
+            <label className="text-[9px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1">Forventet retur (valgfritt)</label>
+            <input
+              type="date"
+              value={expectedReturn}
+              onChange={e => setExpectedReturn(e.target.value)}
+              min={startDate}
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[44px]"
+            />
+          </div>
+
+          <div>
+            <label className="text-[9px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1">Skadetype (valgfritt)</label>
+            <select
+              value={type}
+              onChange={e => setType(e.target.value)}
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[13px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[44px]"
+            >
+              <option value="">– Velg type –</option>
+              {INJURY_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] font-bold text-[#4a6080] uppercase tracking-wider block mb-1">Notat (valgfritt)</label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Hva skjedde, alvorlighetsgrad, oppfølging..."
+              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-200 resize-none focus:outline-none focus:border-sky-500"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] text-[12.5px] font-bold hover:text-slate-300 transition min-h-[44px]"
+            >
+              Avbryt
+            </button>
+            <button
+              onClick={save}
+              disabled={!startDate}
+              className="flex-1 py-2.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-[12.5px] hover:bg-red-500/25 disabled:opacity-40 transition min-h-[44px]"
+            >
+              Lagre skade
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,12 +1,33 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { CalendarEvent } from '../../types';
+import { CalendarEvent, EventType } from '../../types';
 import { getDrillsBySport, DrillExercise, CATEGORY_LABELS, toDrillSport } from '../../data/drills';
+import { parseInjuryExpectedReturn } from '../../lib/injuries';
 
 const MONTHS = ['Januar','Februar','Mars','April','Mai','Juni',
                 'Juli','August','September','Oktober','November','Desember'];
 const DAYS   = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+
+// Visuell metadata per hendelsestype – felles kilde for ikon/farge
+// slik at kalenderen viser skade/retur-events konsistent overalt.
+const EVENT_META: Record<EventType, { icon: string; label: string; dot: string; text: string; bg: string; border: string }> = {
+  match:    { icon: '⚽', label: 'Kamp',       dot: 'bg-red-400',     text: 'text-red-400',     bg: 'bg-red-500/15',     border: 'border-red-500/30' },
+  training: { icon: '🏃', label: 'Trening',    dot: 'bg-emerald-400', text: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30' },
+  injury:   { icon: '🩹', label: 'Skade',      dot: 'bg-orange-400',  text: 'text-orange-400',  bg: 'bg-orange-500/15',  border: 'border-orange-500/30' },
+  return:   { icon: '✅', label: 'Frisk igjen',dot: 'bg-sky-400',     text: 'text-sky-400',     bg: 'bg-sky-500/15',     border: 'border-sky-500/30' },
+};
+
+// Skade-events har ingen egen sluttdato-kolonne – forventet retur er
+// kodet inn i teamNote (se src/lib/injuries.ts). Et skade-event regnes
+// derfor som "aktivt" på hver dag i intervallet [dato, forventet retur].
+function isEventOnDate(event: CalendarEvent, date: string): boolean {
+  if (event.type === 'injury') {
+    const expectedReturn = parseInjuryExpectedReturn(event.teamNote);
+    if (expectedReturn) return date >= event.date && date <= expectedReturn;
+  }
+  return event.date === date;
+}
 
 const FOCUS_OPTIONS = [
   'Pasningsspill','Pressing','Forsvarsstilling','Avslutning','Kontrapress',
@@ -71,7 +92,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
   const isoDate = (d: number) =>
     `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 
-  const eventsOnDate = (date: string) => filteredEvents.filter(e => e.date === date);
+  const eventsOnDate = (date: string) => filteredEvents.filter(e => isEventOnDate(e, date));
   const evtsSelected = selectedDate ? eventsOnDate(selectedDate) : [];
   const openEvent    = selectedEvent ? filteredEvents.find(e => e.id === selectedEvent) : null;
 
@@ -130,7 +151,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
                     onClick={() => { setSelectedDate(todayStr); handleEventClick(event); }}
                     className="text-[10px] text-slate-300 hover:text-sky-400 cursor-pointer truncate min-h-[32px] flex items-center"
                   >
-                    {event.type === 'match' ? '⚽' : '🏃'} {event.title}
+                    {EVENT_META[event.type]?.icon ?? '📅'} {event.title}
                     {event.time && ` · ${event.time}`}
                   </div>
                 ))}
@@ -173,7 +194,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
                 <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
                   {dayEvts.slice(0, 3).map(e => (
                     <span key={e.id}
-                      className={`w-1.5 h-1.5 rounded-full ${e.type === 'match' ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                      className={`w-1.5 h-1.5 rounded-full ${EVENT_META[e.type]?.dot ?? 'bg-emerald-400'}`} />
                   ))}
                 </div>
               </div>
@@ -826,22 +847,30 @@ const EventCard: React.FC<{
   const isIndividualForMe = !isCoach && event.trainingNotes.some(note =>
     note.targetPlayerIds?.includes(currentPlayerId || '')
   );
+  const injuryExpectedReturn = event.type === 'injury' ? parseInjuryExpectedReturn(event.teamNote) : null;
 
   return (
     <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] hover:border-[#2e4060] cursor-pointer transition-all group mb-2"
       onClick={onClick}>
       <div className="flex items-center gap-3 p-3">
-        <div className={`w-2 h-10 rounded-full flex-shrink-0 ${event.type === 'match' ? 'bg-red-400' : isIndividualForMe ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+        <div className={`w-2 h-10 rounded-full flex-shrink-0 ${isIndividualForMe && event.type === 'training' ? 'bg-amber-400' : EVENT_META[event.type]?.dot ?? 'bg-emerald-400'}`} />
         <div className="flex-1 min-w-0">
           <div className="text-[12.5px] font-bold text-slate-200 truncate">{event.title}</div>
           <div className="text-[10.5px] text-[#4a6080]">
-            {event.type === 'match' ? '⚽ Kamp' : '🏃 Trening'}
+            {EVENT_META[event.type] ? `${EVENT_META[event.type].icon} ${EVENT_META[event.type].label}` : event.title}
             {isIndividualForMe && <span className="ml-2 text-amber-400">🎯 Individuell</span>}
             {event.time && ` · ${event.time}`}
             {event.location && ` · 📍 ${event.location}`}
           </div>
           {event.type === 'match' && event.opponent && (
             <div className="text-[10.5px] text-slate-400">vs. {event.opponent} {event.result ? `(${event.result})` : ''}</div>
+          )}
+          {injuryExpectedReturn && (
+            <div className="text-[10.5px] text-orange-300/80">
+              {new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}
+              {' – '}
+              {new Date(injuryExpectedReturn + 'T12:00:00').toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}
+            </div>
           )}
           {event.trainingNotes.length > 0 && (
             <div className="text-[10px] text-emerald-400/70 mt-0.5">📋 {event.trainingNotes[0].title}</div>
@@ -903,8 +932,10 @@ const EventDetail: React.FC<{
       </button>
 
       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold mb-3
-        ${event.type === 'match' ? 'bg-red-500/15 text-red-400' : isForMe ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
-        {event.type === 'match' ? '⚽ Kamp' : isForMe ? '🎯 Individuell trening' : '🏃 Felles trening'}
+        ${event.type === 'training' && isForMe ? 'bg-amber-500/15 text-amber-400' : `${EVENT_META[event.type]?.bg ?? 'bg-emerald-500/15'} ${EVENT_META[event.type]?.text ?? 'text-emerald-400'}`}`}>
+        {event.type === 'training'
+          ? (isForMe ? '🎯 Individuell trening' : '🏃 Felles trening')
+          : (EVENT_META[event.type] ? `${EVENT_META[event.type].icon} ${EVENT_META[event.type].label}` : event.title)}
       </div>
 
       <h2 className="text-xl font-black text-slate-100 mb-1">{event.title}</h2>

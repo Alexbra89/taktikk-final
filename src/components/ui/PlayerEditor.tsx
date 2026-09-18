@@ -108,9 +108,12 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
         </div>
 
         {/* ── Navn & Nummer ── */}
+        {/* Navn endres kun via PlayerProfile (spillerprofilen) – ikke her. */}
         <div className="grid grid-cols-[1fr_80px] gap-3 mb-4">
           <Field label="SPILLERNAVN">
-            <input value={player.name} onChange={e => upd({ name: e.target.value })} className="inp" />
+            <div className="inp flex items-center text-slate-300">
+              {linkedAccount?.name || player.name || 'Navnløs'}
+            </div>
           </Field>
           <Field label="DRAKT #">
             <input type="number" value={player.num}
@@ -118,6 +121,7 @@ export const PlayerEditor: React.FC<PlayerEditorProps> = ({ playerId, phaseIdx, 
               className="inp text-center" />
           </Field>
         </div>
+        <p className="text-[9.5px] text-[#3a5070] -mt-3 mb-4">Navn endres via spillerprofilen.</p>
 
         {/* ── Starter / Innbytter ── */}
         <div className="bg-[#0f1a2a] rounded-xl p-3.5 border border-[#1e3050] mb-4">

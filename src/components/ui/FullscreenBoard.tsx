@@ -104,10 +104,10 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   })();
 
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
-  const homePlayers = (displayPlayers as any[]).filter((p: any) => p.team === 'home' &&
-    p.isStarter !== false && p.isOnField !== false);
-  const bench = (phase.players as any[]).filter((p: any) =>
-    p.team === 'home' && (p.isStarter === false || p.isOnField === false));
+  // Samme kriterium som den interaktive TacticBoard: kun isStarter
+  // avgjør bane/benk (isOnField er en egen live kamptid-markering).
+  const homePlayers = (displayPlayers as any[]).filter((p: any) => p.team === 'home' && p.isStarter === true);
+  const bench = (phase.players as any[]).filter((p: any) => p.team === 'home' && p.isStarter !== true);
 
   return (
     <div

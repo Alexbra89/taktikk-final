@@ -1,14 +1,16 @@
 'use client';
 import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { ROLE_META } from '@/data/roleInfo';
+import { ROLE_META, getRolesForSport } from '@/data/roleInfo';
+import { getSquadCapacity } from '@/data/formations';
 import { PlayerProfile } from '@/components/player-portal/PlayerProfile';
+import type { PlayerRole } from '@/types';
 
 // FIX 2: Importerer PlayerProfile og viser den i modal ved klikk på spiller
 
 export const PlayerManager: React.FC = () => {
   const {
-    playerAccounts, addPlayerAccount, removePlayerAccount,
+    playerAccounts, addPlayerAccount, addPlayerWithAccount, seedTestSquad, removePlayerAccount,
     updatePlayerAccount, sport, phases, activePhaseIdx,
   } = useAppStore();
 
@@ -16,33 +18,76 @@ export const PlayerManager: React.FC = () => {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [playerId, setPlayerId] = useState('');
+  const [newRole,  setNewRole]  = useState<PlayerRole>('midfielder');
+  const [newNum,   setNewNum]   = useState('');
   const [editId,   setEditId]   = useState<string | null>(null);
   const [search,   setSearch]   = useState('');
   const [error,    setError]    = useState('');
+  const [notice,   setNotice]   = useState('');
 
   // FIX 2: State for å vise spillerprofil
   const [profilePlayerId, setProfilePlayerId] = useState<string | null>(null);
 
   const phase        = phases[activePhaseIdx] ?? phases[0];
   const boardPlayers = (phase?.players ?? []).filter((p: any) => p.team === 'home');
+  const { total: squadCapacity } = getSquadCapacity(sport);
+  const squadIsFull = boardPlayers.length >= squadCapacity;
 
   const accounts = (playerAccounts as any[]).filter(a =>
     !search || a.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const roles = getRolesForSport(sport === 'football7' ? 'football' : sport);
+
   const create = () => {
-    setError('');
+    setError(''); setNotice('');
     if (!name.trim())                         { setError('Fyll inn navn'); return; }
     if (!email.trim())                        { setError('Fyll inn e-post'); return; }
     if (!password.trim() || password.length < 4) { setError('Passord må være minst 4 tegn'); return; }
 
-    const success = addPlayerAccount({
+    // Kobler til en eksisterende, ulinket spiller på brettet
+    if (playerId) {
+      const success = addPlayerAccount({
+        name: name.trim(), email: email.trim(), password: password.trim(),
+        pin: '', playerId, team: 'home',
+      });
+      if (success) { setName(''); setEmail(''); setPassword(''); setPlayerId(''); setError(''); }
+      else         { setError('E-post er allerede i bruk'); }
+      return;
+    }
+
+    // Oppretter en helt ny spiller – legges automatisk på benken i
+    // aktiv fase med ledig draktnummer og valgt rolle.
+    const result = addPlayerWithAccount({
       name: name.trim(), email: email.trim(), password: password.trim(),
-      pin: '', playerId: playerId || `player-${Date.now()}`, team: 'home',
+      role: newRole, num: newNum ? parseInt(newNum, 10) : undefined,
     });
 
-    if (success) { setName(''); setEmail(''); setPassword(''); setPlayerId(''); setError(''); }
-    else         { setError('E-post er allerede i bruk'); }
+    if (!result.success) {
+      if (result.reason === 'squad_full') {
+        setError(`Stallen er full (${squadCapacity} spillere for denne idretten). Fjern en spiller før du legger til flere.`);
+      } else if (result.reason === 'duplicate_email') {
+        setError('E-post er allerede i bruk');
+      } else {
+        setError('Kunne ikke legge til spiller');
+      }
+      return;
+    }
+
+    setName(''); setEmail(''); setPassword(''); setNewNum(''); setNewRole('midfielder');
+    setNotice(
+      result.numberWasTaken
+        ? `✓ ${name.trim()} lagt til på benken med draktnummer ${result.assignedNum} (ønsket nummer var opptatt).`
+        : `✓ ${name.trim()} lagt til på benken med draktnummer ${result.assignedNum}.`
+    );
+  };
+
+  const handleSeedTestSquad = () => {
+    setError(''); setNotice('');
+    const { added } = seedTestSquad();
+    setNotice(added > 0
+      ? `✓ La til ${added} testspiller${added === 1 ? '' : 'e'} (navn, konto og innlogging) på benken.`
+      : 'Stallen har allerede maks antall spillere (minus én ledig plass) – ingen ble lagt til.');
   };
 
   const roleLabel = (r: string) => ROLE_META[r as keyof typeof ROLE_META]?.label ?? r;
@@ -55,19 +100,35 @@ export const PlayerManager: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0c1525] border-b border-[#1e3050]">
-        <h2 className="text-xs sm:text-sm font-black text-slate-100">👥 Spilleradmin</h2>
-        <p className="text-[9px] sm:text-[10px] text-[#4a6080] mt-0.5">
-          Legg til spillere med e-post + passord for innlogging
-        </p>
+      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0c1525] border-b border-[#1e3050] flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-xs sm:text-sm font-black text-slate-100">👥 Spilleradmin</h2>
+          <p className="text-[9px] sm:text-[10px] text-[#4a6080] mt-0.5">
+            Legg til spillere med e-post + passord for innlogging
+          </p>
+        </div>
+        {process.env.NODE_ENV === 'development' && (
+          <button
+            onClick={handleSeedTestSquad}
+            title="Fyller stallen med testspillere (navn, draktnummer, rolle, konto) – beholder én ledig plass"
+            className="flex-shrink-0 px-2.5 py-2 rounded-lg text-[9px] sm:text-[10px] font-bold bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition min-h-[36px]"
+          >
+            🧪 Seed testspillere
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-32 space-y-4 sm:space-y-5">
 
         {/* Legg til ny spiller */}
         <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-3 sm:p-4">
-          <div className="text-[9px] sm:text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-3 sm:mb-4">
-            ＋ Legg til spiller
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="text-[9px] sm:text-[10px] font-bold text-sky-400 uppercase tracking-widest">
+              ＋ Legg til spiller
+            </div>
+            <div className={`text-[9px] sm:text-[10px] font-bold ${squadIsFull ? 'text-red-400' : 'text-[#4a6080]'}`}>
+              {boardPlayers.length}/{squadCapacity} i stallen
+            </div>
           </div>
 
           <div className="mb-3">
@@ -82,10 +143,10 @@ export const PlayerManager: React.FC = () => {
             <SmLabel>Passord (min 4 tegn) *</SmLabel>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="pm-inp" />
           </div>
-          <div className="mb-4">
-            <SmLabel>Posisjon på brettet (valgfritt)</SmLabel>
+          <div className="mb-3">
+            <SmLabel>Koble til eksisterende spiller på brettet (valgfritt)</SmLabel>
             <select value={playerId} onChange={e => setPlayerId(e.target.value)} className="pm-inp">
-              <option value="">– Ingen kobling –</option>
+              <option value="">– Ingen kobling / ny spiller –</option>
               {boardPlayers.map((p: any) => {
                 const meta = ROLE_META[p.role as keyof typeof ROLE_META];
                 return (
@@ -97,15 +158,49 @@ export const PlayerManager: React.FC = () => {
             </select>
           </div>
 
+          {!playerId && (
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <SmLabel>Rolle</SmLabel>
+                <select value={newRole} onChange={e => setNewRole(e.target.value as PlayerRole)} className="pm-inp">
+                  {roles.map(r => (
+                    <option key={r} value={r}>{ROLE_META[r]?.label ?? r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <SmLabel>Draktnummer (valgfritt)</SmLabel>
+                <input type="number" min={1} value={newNum}
+                  onChange={e => setNewNum(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Auto" className="pm-inp" />
+              </div>
+            </div>
+          )}
+          {!playerId && (
+            <p className="text-[9px] sm:text-[10px] text-[#3a5070] -mt-2 mb-4">
+              Legges automatisk på benken. Er nummeret opptatt, tildeles nærmeste ledige og du varsles om det.
+            </p>
+          )}
+
+          {notice && (
+            <div className="mb-3 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-[10px] sm:text-[11px] text-emerald-400">
+              {notice}
+            </div>
+          )}
           {error && (
             <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-[10px] sm:text-[11px] text-red-400">
               {error}
             </div>
           )}
+          {!playerId && squadIsFull && !error && (
+            <div className="mb-3 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[10px] sm:text-[11px] text-amber-400">
+              ⚠️ Stallen er full ({squadCapacity} spillere for denne idretten) – fjern en spiller for å legge til flere.
+            </div>
+          )}
 
           <button
             onClick={create}
-            disabled={!name.trim() || !email.trim() || password.length < 4}
+            disabled={!name.trim() || !email.trim() || password.length < 4 || (!playerId && squadIsFull)}
             className="w-full py-3 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12px] sm:text-[13px]
               hover:bg-sky-500/25 disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] transition"
           >
@@ -144,12 +239,15 @@ export const PlayerManager: React.FC = () => {
                   {/* FIX 2: Klikk på avatar/navn åpner profil */}
                   <button
                     onClick={() => setProfilePlayerId(acc.playerId || acc.id)}
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center
+                    className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center
                       text-[10px] sm:text-[11px] font-bold text-white flex-shrink-0 hover:ring-2 hover:ring-sky-500/50 transition-all"
                     style={{ background: bpRole ? roleColor(bpRole) : '#3b82f6' }}
-                    title="Vis spillerprofil"
+                    title={bp?.injury ? 'Skadet – vis spillerprofil' : 'Vis spillerprofil'}
                   >
                     {bp?.num ?? '?'}
+                    {bp?.injury && (
+                      <span className="absolute -top-1 -right-1 text-[9px] leading-none">🩹</span>
+                    )}
                   </button>
 
                   <div className="flex-1 min-w-0">
@@ -229,7 +327,7 @@ export const PlayerManager: React.FC = () => {
               </button>
             </div>
             <div className="px-2 pb-6">
-              <PlayerProfile playerId={profilePlayerId} onClose={() => setProfilePlayerId(null)} />
+              <PlayerProfile playerId={profilePlayerId} onClose={() => setProfilePlayerId(null)} readOnlyName={false} />
             </div>
           </div>
         </div>

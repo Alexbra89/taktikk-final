@@ -141,8 +141,12 @@ export const ReadOnlyTacticBoard: React.FC = () => {
   }, [phase, isPlaying, interpT, interpFrom, phases]);
 
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
-  const homePlayers  = (displayPlayers as Player[]).filter(p => p.team === 'home' && p.isStarter !== false && p.isOnField !== false);
-  const bench        = (phase.players ?? []).filter(p => p.team === 'home' && (p.isStarter === false || p.isOnField === false));
+  // Samme kriterium som den interaktive TacticBoard (kilde til sannhet):
+  // kun isStarter avgjør bane/benk. isOnField er en egen, løsrevet
+  // markering for live kamptid-sporing (SmartCoach/PlayerEditor) og skal
+  // ikke påvirke hvem som vises på taktikkbrettet.
+  const homePlayers  = (displayPlayers as Player[]).filter(p => p.team === 'home' && p.isStarter === true);
+  const bench        = (phase.players ?? []).filter(p => p.team === 'home' && p.isStarter !== true);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#060c18]">
@@ -382,8 +386,8 @@ export const PlayerHome: React.FC = () => {
     return acc?.name || p.name || `#${p.num}`;
   }, [playerAccounts]);
 
-  const homeStarters = useMemo(() => (phase?.players?.filter(p => p.team === 'home' && p.isStarter !== false) ?? []).map(p => ({ ...p, name: resolvePlayerName(p) })), [phase, resolvePlayerName]);
-  const homeSubs = useMemo(() => (phase?.players?.filter(p => p.team === 'home' && p.isStarter === false) ?? []).map(p => ({ ...p, name: resolvePlayerName(p) })), [phase, resolvePlayerName]);
+  const homeStarters = useMemo(() => (phase?.players?.filter(p => p.team === 'home' && p.isStarter === true) ?? []).map(p => ({ ...p, name: resolvePlayerName(p) })), [phase, resolvePlayerName]);
+  const homeSubs = useMemo(() => (phase?.players?.filter(p => p.team === 'home' && p.isStarter !== true) ?? []).map(p => ({ ...p, name: resolvePlayerName(p) })), [phase, resolvePlayerName]);
 
   const tabs = [
     { id: 'board',    label: isMobile ? '📋' : '📋 Taktikk',   badge: 0 },

@@ -207,12 +207,11 @@ const SquadView: React.FC<{ phase: any; playerAccounts?: any[] }> = ({ phase, pl
     return { ...p, name: displayName, accountId: acc?.id };
   });
   
-  const starters    = enriched.filter((p: any) => p.isStarter !== false && p.isOnField !== false);
-  const substitutes = enriched.filter((p: any) => p.isStarter === false || p.isOnField === false);
-
-  // Debug logging
-  console.log('🔍 SquadView - homePlayers:', home.length);
-  console.log('🔍 SquadView - enriched navn:', enriched.map(p => ({ num: p.num, name: p.name, role: p.role })));
+  // Samme kriterium som den interaktive TacticBoard (kilde til sannhet):
+  // kun isStarter avgjør bane/benk her. isOnField er løsrevet fra
+  // taktikklineupen (brukes til live kamptid-sporing andre steder).
+  const starters    = enriched.filter((p: any) => p.isStarter === true);
+  const substitutes = enriched.filter((p: any) => p.isStarter !== true);
 
   return (
     <div className="max-w-3xl mx-auto">

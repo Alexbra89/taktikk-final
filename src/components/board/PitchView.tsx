@@ -176,7 +176,7 @@ export const PitchView: React.FC<PitchViewProps> = ({
 
         {/* Read-only spillere */}
         {homePlayers.map(player => {
-          if (player.isStarter===false||player.isOnField===false) return null;
+          if (player.isStarter===false) return null;
           return (
             <g key={player.id}
               style={{ cursor: onSelectPlayer ? 'pointer' : 'default' }}

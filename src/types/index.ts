@@ -21,6 +21,13 @@ export type SpecialRole =
   | 'throwin'
   | 'goalkeeper_kicks';
 
+export interface PlayerInjury {
+  startDate: string;
+  expectedReturn?: string;
+  type?: string;
+  notes?: string;
+}
+
 export interface Player {
   id: string;
   num: number;
@@ -33,6 +40,7 @@ export interface Player {
   playerReply?: string;
   injured?: boolean;
   injuryReturnDate?: string;
+  injury?: PlayerInjury;
   minutesPlayed?: number;
   isOnField?: boolean;
   isStarter?: boolean;
@@ -60,7 +68,7 @@ export interface TacticPhase {
   sort_order?: number;
 }
 
-export type EventType = 'training' | 'match';
+export type EventType = 'training' | 'match' | 'injury' | 'return';
 
 export interface CalendarEvent {
   id: string;

@@ -25,6 +25,7 @@ const PlayerManager = dynamic(() => import('@/components/ui/PlayerManager').then
 const PlayerHome = dynamic(() => import('@/components/player-portal/PlayerHome').then(mod => mod.PlayerHome), { ssr: false });
 const CoachMessages = dynamic(() => import('@/components/ui/CoachMessages').then(mod => mod.CoachMessages), { ssr: false });
 const DrillLibraryModal = dynamic(() => import('@/components/ui/DrillLibraryModal').then(mod => mod.DrillLibraryModal), { ssr: false });
+const InjuryReturnBanner = dynamic(() => import('@/components/ui/InjuryReturnBanner').then(mod => mod.InjuryReturnBanner), { ssr: false });
 
 // ─── TYPER ───────────────────────────────────────────────────
 type CoachTab = 'dashboard' | 'board' | 'calendar' | 'players' | 'training' | 'admin' | 'stats' | 'chat' | 'messages';
@@ -667,6 +668,7 @@ export default function Home() {
 
   return (
     <>
+      {isCoach && <InjuryReturnBanner />}
       {DesktopLayout}
       {MobileLayout}
 

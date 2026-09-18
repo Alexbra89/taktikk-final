@@ -5,7 +5,7 @@ import React, {
 import { useAppStore } from '../../store/useAppStore';
 import { Player, PlayerRole } from '../../types';
 import {
-  VW, VH, getFormations, DEFAULT_FORMATION,
+  VW, VH, getFormations, DEFAULT_FORMATION, getSquadCapacity,
 } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { Ball, DrawingCanvas } from './BoardElements';
@@ -58,7 +58,12 @@ const SNAP_R       = 15;
 const LONG_PRESS   = 100;
 const DRAG_THRESH  = 6;
 const MAX_UNDO     = 25;
-const CLAMP_MARGIN = 80;
+// Minimal bounds – kun stort nok til at trøyeikon/navnelapp ikke klippes
+// av SVG-en. Spillere skal ellers kunne flyttes fritt over hele banen,
+// helt ut til sidelinjer og mål-/dødlinjer.
+const CLAMP_X        = 24;
+const CLAMP_Y_TOP    = 22;
+const CLAMP_Y_BOTTOM = 56;
 
 const GLASS = {
   panel:  'rgba(8, 15, 35, 0.75)',
@@ -93,10 +98,10 @@ function separatePlayers(pts: SvgPos[], minDist = MIN_DIST): SvgPos[] {
         if (d < minDist && d > 0.01) {
           const push = (minDist - d) * 0.1, nx = dx / d, ny = dy / d;
           r[i].x -= nx * push; r[i].y -= ny * push;
-          r[i].x = Math.max(CLAMP_MARGIN, Math.min(VW - CLAMP_MARGIN, r[i].x));
-          r[i].y = Math.max(CLAMP_MARGIN, Math.min(VH - CLAMP_MARGIN, r[i].y));
-          r[j].x = Math.max(CLAMP_MARGIN, Math.min(VW - CLAMP_MARGIN, r[j].x));
-          r[j].y = Math.max(CLAMP_MARGIN, Math.min(VH - CLAMP_MARGIN, r[j].y));
+          r[i].x = Math.max(CLAMP_X, Math.min(VW - CLAMP_X, r[i].x));
+          r[i].y = Math.max(CLAMP_Y_TOP, Math.min(VH - CLAMP_Y_BOTTOM, r[i].y));
+          r[j].x = Math.max(CLAMP_X, Math.min(VW - CLAMP_X, r[j].x));
+          r[j].y = Math.max(CLAMP_Y_TOP, Math.min(VH - CLAMP_Y_BOTTOM, r[j].y));
         }
       }
     }
@@ -340,6 +345,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [ghostPos,         setGhostPos]         = useState<GhostPos|null>(null);
   const [snapTarget,       setSnapTarget]        = useState<SvgPos|null>(null);
   const [dragOverId,       setDragOverId]        = useState<string|null>(null);
+  const [dragOverEmptyIdx, setDragOverEmptyIdx]  = useState<number|null>(null);
   const [draggingPlayerId, setDraggingPlayerId]  = useState<string|null>(null);
   const [dragFromSub,      setDragFromSub]       = useState(false);
   const [bounceId,         setBounceId]          = useState<string|null>(null);
@@ -361,6 +367,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [showMoments,      setShowMoments]       = useState(false);
   const [momentLabel,      setMomentLabel]       = useState('');
   const [showMoreMenu,     setShowMoreMenu]      = useState(false);
+  const [dismissedInjuryWarnings, setDismissedInjuryWarnings] = useState<string[]>([]);
 
   const {
     sport, phases, activePhaseIdx,
@@ -397,6 +404,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   }, [sport, availableFormations, defaultFormation, selectedFormation]);
 
   const clamp = useCallback((v:number,lo:number,hi:number) => Math.max(lo,Math.min(hi,v)), []);
+  const clampToPitch = useCallback((x:number, y:number): SvgPos => ({
+    x: clamp(x, CLAMP_X, VW - CLAMP_X),
+    y: clamp(y, CLAMP_Y_TOP, VH - CLAMP_Y_BOTTOM),
+  }), [clamp]);
 
   const currentHomePlayers = useMemo(() =>
     availableFormations.find(f=>f.name===selectedFormation)?.homePlayers ?? [],
@@ -464,15 +475,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       const player = currentStarters[index];
       if (!player) return;
       updatePlayerField(activePhaseIdx, player.id, {
-        position: {
-          x: clamp(slot.position.x, CLAMP_MARGIN, VW - CLAMP_MARGIN),
-          y: clamp(slot.position.y, CLAMP_MARGIN, VH - CLAMP_MARGIN),
-        },
+        position: clampToPitch(slot.position.x, slot.position.y),
         role: slot.role as PlayerRole,
       });
     });
     setSelectedFormation(name);
-  }, [phase, activePhaseIdx, availableFormations, updatePlayerField, clamp]);
+  }, [phase, activePhaseIdx, availableFormations, updatePlayerField, clampToPitch]);
 
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
@@ -525,10 +533,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     };
   }, [phase, phases, interpFrom, interpT, isPlaying]);
 
-  // ─── FIX 1: toSVG med letter-box-korreksjon ───────────────────
-  // preserveAspectRatio="xMidYMid meet" betyr at SVG-en kan ha
-  // tomme kanter (letter-boxing) hvis aspect ratio ikke stemmer.
-  // Vi beregner faktisk rendret størrelse og offset inni bounding rect.
+  // ─── toSVG med letter-box/crop-korreksjon ─────────────────────
+  // Må speile <svg preserveAspectRatio> nøyaktig: "meet" (letterbox,
+  // tomme kanter, skala=min) i portrett, "slice" (fyller/beskjærer,
+  // skala=max) i landskap. Feil skala her ga feil dra-posisjon i
+  // liggende mobilvisning.
   const toSVG = useCallback((cx: number, cy: number): SvgPos => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
@@ -537,15 +546,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const rectW = rect.width;
     const rectH = rect.height;
 
-    // Beregn faktisk rendret størrelse med "meet" (letterbox)
     const scaleX = rectW / VW;
     const scaleY = rectH / VH;
-    const scale  = Math.min(scaleX, scaleY); // "meet" bruker minste skala
+    const scale  = isLandscape ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
 
     const renderedW = VW * scale;
     const renderedH = VH * scale;
 
-    // Sentrert offset (xMidYMid)
+    // Sentrert offset (xMidYMid) – negativ ved "slice" (beskjæring)
     const offsetX = (rectW - renderedW) / 2;
     const offsetY = (rectH - renderedH) / 2;
 
@@ -553,16 +561,16 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const localX = cx - rect.left - offsetX;
     const localY = cy - rect.top  - offsetY;
 
-    return {
-      x: clamp((localX / renderedW) * VW, CLAMP_MARGIN, VW - CLAMP_MARGIN),
-      y: clamp((localY / renderedH) * VH, CLAMP_MARGIN, VH - CLAMP_MARGIN),
-    };
-  }, [clamp]);
+    return clampToPitch((localX / renderedW) * VW, (localY / renderedH) * VH);
+  }, [clampToPitch, isLandscape]);
 
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
     for (const p of (phase?.players??[])) {
-      if (p.id===excludeId||p.team!=='home') continue;
+      // Kun spillere som faktisk vises på banen kan være mål for en
+      // posisjons-basert treff – ellers kan en benkespiller med en
+      // gammel/tilfeldig posisjon feilaktig "treffes" og byttes inn.
+      if (p.id===excludeId||p.team!=='home'||p.isStarter!==true) continue;
       const d = Math.hypot(p.position.x - sx, p.position.y - sy);
       if (d<bestD) { bestD=d; best=p; }
     }
@@ -620,25 +628,36 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     draggedId:string, fromSub:boolean,
     targetId:string|undefined,
     svgX:number, svgY:number,
+    droppedOnEmptyBench:boolean,
   ) => {
     if (!phase) return;
     const dragged = phase.players.find(p=>p.id===draggedId); if (!dragged) return;
     const target  = targetId ? phase.players.find(p=>p.id===targetId) : null;
 
     if (target && target.id !== dragged.id) {
+      // Uansett hvilken side som er benk-spilleren i dette byttet – en
+      // skadd spiller kan aldri havne på banen.
+      const benchSide = dragged.isStarter !== true ? dragged : target.isStarter !== true ? target : null;
+      if (benchSide?.injury) return;
       if (!canSub(dragged.isStarter===false || target.isStarter===false)) return;
       swapPlayers(dragged.id, target.id);
       return;
     }
 
-    let pos: SvgPos = {
-      x: clamp(svgX, CLAMP_MARGIN, VW - CLAMP_MARGIN),
-      y: clamp(svgY, CLAMP_MARGIN, VH - CLAMP_MARGIN),
-    };
+    // Dratt fra bane og sluppet på en tom benkerad → sett på benken (FM-stil).
+    if (droppedOnEmptyBench && !fromSub && dragged.isStarter !== false) {
+      if (!canSub(true)) return;
+      moveToBench(dragged.id);
+      setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
+      return;
+    }
+
+    let pos: SvgPos = clampToPitch(svgX, svgY);
     const snap = nearestSlotPos(pos, currentHomePlayers);
     if (snap) pos = snap;
 
     if (dragged.isStarter===false||fromSub) {
+      if (dragged.injury) return; // skadde spillere kan ikke settes på banen
       if (!canSub(true)) return;
       moveToField(dragged.id, pos);
     } else {
@@ -647,12 +666,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       scheduleSpacing(dragged.id);
     }
     setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
-  }, [phase, canSub, swapPlayers, currentHomePlayers, moveToField, pushUndo, updatePlayerPosition, activePhaseIdx, scheduleSpacing, clamp]);
+  }, [phase, canSub, swapPlayers, currentHomePlayers, moveToField, moveToBench, pushUndo, updatePlayerPosition, activePhaseIdx, scheduleSpacing, clampToPitch]);
 
   const startDrag = useCallback((
     e: React.PointerEvent, playerId:string, fromSub:boolean,
   ) => {
     if (isPlaying||drawMode) return;
+    // Skadde spillere kan ikke dras fra benken og inn på banen.
+    if (fromSub && phase?.players.find(p=>p.id===playerId)?.injury) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -675,7 +696,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           activeDragRef.current.longPressReady = true;
       }, LONG_PRESS);
     }
-  }, [isPlaying, drawMode]);
+  }, [isPlaying, drawMode, phase]);
 
   const moveDrag = useCallback((e: React.PointerEvent) => {
     const ad = activeDragRef.current;
@@ -701,6 +722,23 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     const cx = e.clientX, cy = e.clientY;
     rafRef.current = requestAnimationFrame(() => {
+      // Sjekk først om pekeren er over en benkerad (kun relevant når vi
+      // drar en spiller FRA banen – pointer capture gjør at vanlige
+      // pointer-events på benkeradene aldri fyres, så vi må slå opp
+      // elementet under pekeren direkte via elementFromPoint.
+      if (!ad.fromSub) {
+        const overEl  = document.elementFromPoint(cx, cy) as HTMLElement | null;
+        const benchEl = overEl?.closest('[data-bench-row]') as HTMLElement | null;
+        if (benchEl) {
+          const pid = benchEl.dataset.playerId || '';
+          const idxAttr = benchEl.dataset.benchIdx;
+          setDragOverId(pid || null);
+          setDragOverEmptyIdx(pid ? null : (idxAttr ? parseInt(idxAttr, 10) : null));
+          setSnapTarget(null);
+          return;
+        }
+      }
+      setDragOverEmptyIdx(null);
       const sp   = toSVG(cx, cy);
       const snap = nearestSlotPos(sp, currentHomePlayers);
       setSnapTarget(snap);
@@ -718,12 +756,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (longPressRef.current) clearTimeout(longPressRef.current);
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current=null; }
 
-    const wasDragging = ad.started;
-    const targetId    = dragOverId;
+    const wasDragging          = ad.started;
+    const targetId              = dragOverId;
+    const droppedOnEmptyBench   = dragOverEmptyIdx !== null;
 
     activeDragRef.current = null;
     setGhostPos(null);
     setDragOverId(null);
+    setDragOverEmptyIdx(null);
     setDraggingPlayerId(null);
     setDragFromSub(false);
     setSnapTarget(null);
@@ -735,8 +775,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (!phase) return;
 
     const finalPos = toSVG(lastClientRef.current.x, lastClientRef.current.y);
-    resolveDrop(ad.playerId, ad.fromSub, targetId ?? undefined, finalPos.x, finalPos.y);
-  }, [dragOverId, phase, selectedPlayerId, resolveDrop, stableOnSelectPlayer, toSVG]);
+    resolveDrop(ad.playerId, ad.fromSub, targetId ?? undefined, finalPos.x, finalPos.y, droppedOnEmptyBench);
+  }, [dragOverId, dragOverEmptyIdx, phase, selectedPlayerId, resolveDrop, stableOnSelectPlayer, toSVG]);
 
   const onSvgPtrDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (isPlaying||!drawMode) return;
@@ -769,17 +809,29 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     () => allDisplay.filter(p => p.team === 'home' && p.isStarter !== true),
     [allDisplay]
   );
+  // Starter(e) som har blitt skadet – varsles med "bytt ham ut?" til
+  // trener manuelt bytter dem ut eller lukker varselet.
+  const injuredStarters = useMemo(
+    () => onField.filter(p => !!p.injury && !dismissedInjuryWarnings.includes(p.id)),
+    [onField, dismissedInjuryWarnings]
+  );
 
   const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
   const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
-  const maxSubs = isTrainingMatch?30:(sport==='football'?9:sport==='football5'?5:sport==='football7'?5:sport==='football9'?5:5);
+  const maxSubs = isTrainingMatch?30:getSquadCapacity(sport).maxSubs;
   const subSlots = useMemo(()=>
     [...benchPlayers,...Array(Math.max(0,maxSubs-benchPlayers.length)).fill(null)] as (Player|null)[],
     [benchPlayers, maxSubs]);
 
+  // Navn skal kun kunne endres via PlayerProfile.tsx (som skriver til
+  // PlayerAccount.name) – ikke inline på brettet. player.playerAccountId
+  // settes aldri noe sted i appen, så vi matcher på playerId (samme
+  // oppslag som PlayerHome/PlayerPortal bruker) for at navneendringer
+  // faktisk vises her.
   const getDisplayName = useCallback((player: Player): string => {
-    const acc = playerAccounts.find(a => a.id === player.playerAccountId);
+    const acc = playerAccounts.find(a => a.id === player.playerAccountId)
+      ?? playerAccounts.find(a => a.playerId === player.id);
     return acc?.name || player.name || `#${player.num}`;
   }, [playerAccounts]);
 
@@ -806,7 +858,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (hasEnsuredStarters.current) return;
     if (isAddingPlayersRef.current) return;
 
-    const teamSize = sport === 'football' ? 11 : sport === 'football5' ? 5 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 11;
+    const teamSize = getSquadCapacity(sport).teamSize;
     const homePlayers = phase.players.filter(p => p.team === 'home');
 
     if (homePlayers.length >= teamSize) {
@@ -823,7 +875,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           updatePlayerField(activePhaseIdx, player.id, {
             isStarter: true,
             isOnField: true,
-            position: { x: clamp(pos.x, CLAMP_MARGIN, VW - CLAMP_MARGIN), y: clamp(pos.y, CLAMP_MARGIN, VH - CLAMP_MARGIN) },
+            position: clampToPitch(pos.x, pos.y),
           });
         });
       }
@@ -845,34 +897,18 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       addPlayer(activePhaseIdx, {
         id: `gen-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
         num: newNum, name: `Spiller ${newNum}`, role: 'midfielder',
-        position: { x: clamp(pos.x, CLAMP_MARGIN, VW - CLAMP_MARGIN), y: clamp(pos.y, CLAMP_MARGIN, VH - CLAMP_MARGIN) },
+        position: clampToPitch(pos.x, pos.y),
         team: 'home', notes: '', isStarter: true, isOnField: true, minutesPlayed: 0, specialRoles: [],
       });
     }
     hasEnsuredStarters.current = true;
     isAddingPlayersRef.current = false;
-  }, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, updatePlayerField, addPlayer, clamp]);
+  }, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, updatePlayerField, addPlayer, clampToPitch]);
 
-  useEffect(() => {
-    if (!phase || !isMounted) return;
-    if (process.env.NODE_ENV !== 'development') return;
-    const currentHomeCount = phase.players.filter(p => p.team === 'home').length;
-    if (currentHomeCount >= 20) return;
-    const existingNums = phase.players.filter(p => p.team === 'home').map(p => p.num);
-    const dummyNames = ['Ola','Kari','Per','Lise','Morten','Ingrid','Anders','Marte','Erik','Silje','Knut','Anne','Jonas','Hedda','Svein','Live','Geir','Tuva','Vidar','Frida'];
-    for (let i = 0; i < 20 - currentHomeCount; i++) {
-      let newNum = 1;
-      while (existingNums.includes(newNum)) newNum++;
-      existingNums.push(newNum);
-      addPlayer(activePhaseIdx, {
-        id: `dummy-player-${Date.now()}-${i}-${Math.random().toString(36).slice(2,6)}`,
-        num: newNum, name: dummyNames[i % dummyNames.length] + (newNum > 10 ? ` ${newNum}` : ''),
-        role: i % 5 === 0 ? 'keeper' : i % 3 === 0 ? 'defender' : i % 2 === 0 ? 'midfielder' : 'forward',
-        position: { x: 100 + (i * 10) % 300, y: 100 + (i * 15) % 400 },
-        team: 'home', notes: '', isStarter: false, isOnField: false, minutesPlayed: 0, specialRoles: [],
-      });
-    }
-  }, [phase, isMounted, addPlayer, activePhaseIdx]);
+  // Teststall seedes ikke lenger automatisk her – phase.players-only
+  // seeding var årsaken til at testspillere manglet i Spillerstall
+  // (ingen PlayerAccount ble opprettet). Bruk "🧪 Seed testspillere"
+  // i PlayerManager, som oppretter begge deler via seedTestSquad().
 
   if (!phase || !isMounted) {
     return (
@@ -1086,6 +1122,27 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         )}
       </div>
 
+      {injuredStarters.length>0&&(
+        <div style={{background:'rgba(239,68,68,0.08)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(239,68,68,0.2)'}}
+          className="flex-shrink-0 flex flex-col gap-1 px-3 py-2">
+          {injuredStarters.map(p=>(
+            <div key={p.id} className="flex items-center gap-2">
+              <span className="text-red-400 text-[13px]">🩹</span>
+              <span className="flex-1 text-[11px] text-red-300">
+                <b>{getDisplayName(p)}</b> er skadet – bytt ham ut?
+              </span>
+              <button onClick={()=>stableOnSelectPlayer(p.id)}
+                style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)'}}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold text-red-400 hover:bg-red-500/20 transition flex-shrink-0">
+                Vis spiller
+              </button>
+              <button onClick={()=>setDismissedInjuryWarnings(d=>[...d,p.id])}
+                className="text-red-400/60 hover:text-red-300 text-[12px] px-1 flex-shrink-0" title="Lukk varsel">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {showSticky&&phase&&(
         <div style={{background:'rgba(251,191,36,0.05)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(251,191,36,0.15)'}}
           className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
@@ -1291,7 +1348,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                   <SubRow key={player?.id??`empty-${idx}`}
                     player={player} idx={idx}
                     isSelected={!!player&&selectedPlayerId===player.id}
-                    isDragOver={!!player&&dragOverId===player.id}
+                    isDragOver={player ? dragOverId===player.id : dragOverEmptyIdx===idx}
                     displayName={player?getDisplayName(player):''}
                     isLimited={subLimitReached}
                     onSelect={()=>player&&stableOnSelectPlayer(selectedPlayerId===player.id?null:player.id)}
@@ -1299,13 +1356,29 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                     onPointerMove={moveDrag}
                     onPointerUp={endDrag}
                     onPointerCancel={endDrag}
-                    isDraggable={!!player&&!isPlaying}/>
+                    isDraggable={!!player&&!isPlaying&&!player.injury}/>
                 ))}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {isMobile&&draggingPlayerId&&!dragFromSub&&!showBottomSheet&&(
+        <div data-bench-row data-bench-idx={-1} data-player-id=""
+          style={{
+            background: dragOverEmptyIdx===-1?'rgba(52,211,153,0.22)':'rgba(251,191,36,0.14)',
+            border: dragOverEmptyIdx===-1?'2px dashed #34d399':'2px dashed rgba(251,191,36,0.5)',
+            backdropFilter:'blur(12px)',
+            transition:'background 0.15s, border-color 0.15s',
+          }}
+          className="fixed left-2 right-2 bottom-2 z-[60] rounded-xl py-3 flex items-center justify-center gap-2 pointer-events-auto">
+          <span className="text-[13px]">🪑</span>
+          <span className={`text-[11px] font-bold ${dragOverEmptyIdx===-1?'text-emerald-300':'text-amber-300'}`}>
+            {dragOverEmptyIdx===-1?'Slipp her for å sette på benken':'Dra hit for å bytte ut'}
+          </span>
+        </div>
+      )}
 
       {isMobile&&showBottomSheet&&(
         <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={()=>setShowBottomSheet(false)}>
@@ -1333,7 +1406,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                 <SubRow key={player?.id??`empty-${idx}`}
                   player={player} idx={idx}
                   isSelected={!!player&&selectedPlayerId===player.id}
-                  isDragOver={!!player&&dragOverId===player.id}
+                  isDragOver={player ? dragOverId===player.id : dragOverEmptyIdx===idx}
                   displayName={player?getDisplayName(player):''}
                   isLimited={subLimitReached}
                   onSelect={()=>player&&stableOnSelectPlayer(selectedPlayerId===player.id?null:player.id)}
@@ -1341,7 +1414,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                   onPointerMove={moveDrag}
                   onPointerUp={endDrag}
                   onPointerCancel={endDrag}
-                  isDraggable={!!player&&!isPlaying}/>
+                  isDraggable={!!player&&!isPlaying&&!player.injury}/>
               ))}
             </div>
           </div>
@@ -1372,11 +1445,17 @@ const SubRow: React.FC<{
 }) => {
   if (!player) {
     return (
-      <div style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}
+      <div data-bench-row data-bench-idx={idx} data-player-id=""
+        style={{
+          borderBottom:'1px solid rgba(255,255,255,0.04)',
+          background: isDragOver?'rgba(52,211,153,0.1)':'transparent',
+          borderLeft: isDragOver?'2px solid #34d399':'2px solid transparent',
+          transition:'background 0.1s, border-color 0.1s',
+        }}
         className="flex items-center gap-2 px-2.5 py-2 min-h-[46px] hover:bg-white/[0.02] transition-colors">
         <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.07)'}}
           className="w-7 h-7 rounded-md flex items-center justify-center text-[9px] text-slate-600 flex-shrink-0">–</div>
-        <div className="text-[9.5px] text-slate-600 italic">R{idx+1}</div>
+        <div className="text-[9.5px] text-slate-600 italic">{isDragOver?'Slipp for å sette på benk':`R${idx+1}`}</div>
       </div>
     );
   }
@@ -1384,22 +1463,29 @@ const SubRow: React.FC<{
   const meta     = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#555',label:player.role};
   const rc       = getDutyColors(player.role);
   const lastName = displayName.includes(' ') ? displayName.split(' ').slice(-1)[0] : displayName;
+  const returnDate = player.injury?.expectedReturn
+    ? new Date(player.injury.expectedReturn + 'T12:00:00').toLocaleDateString('nb-NO')
+    : 'ukjent dato';
 
   return (
     <div
+      data-bench-row data-bench-idx={idx} data-player-id={player.id}
       onPointerDown={isDraggable ? onPointerDown : undefined}
       onPointerMove={isDraggable ? (e => onPointerMove(e as React.PointerEvent)) : undefined}
       onPointerUp={isDraggable   ? (e => onPointerUp(e as React.PointerEvent))   : undefined}
       onPointerCancel={isDraggable ? (e => onPointerCancel(e as React.PointerEvent)) : undefined}
       onClick={onSelect}
+      title={player.injury ? `Skadet – returnerer ${returnDate}` : undefined}
       style={{
         background: isDragOver?'rgba(251,191,36,0.08)':isSelected?'rgba(56,189,248,0.06)':'transparent',
         borderBottom:'1px solid rgba(255,255,255,0.04)',
         borderLeft: isDragOver?'2px solid #fbbf24':isSelected?'2px solid #38bdf8':'2px solid transparent',
         touchAction:'none', userSelect:'none',
+        opacity: player.injury?0.6:1,
+        cursor: player.injury?'not-allowed':'pointer',
         transition:'background 0.1s, border-color 0.1s',
       }}
-      className="flex items-center gap-2 px-2.5 py-2 cursor-pointer min-h-[46px] relative hover:bg-white/[0.03]"
+      className="flex items-center gap-2 px-2.5 py-2 min-h-[46px] relative hover:bg-white/[0.03]"
     >
       <div className="w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-black text-white flex-shrink-0 relative"
         style={{

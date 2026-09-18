@@ -5,9 +5,9 @@ import {
   CoachMessage, PlayerReply, AppView, Player, Drawing,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
   SubstitutionSuggestion, SpecialRole, PlayerRole,
-  TacticMoment
+  TacticMoment, PlayerInjury
 } from '../types';
-import { makePhase } from '../data/formations';
+import { makePhase, getSquadCapacity } from '../data/formations';
 import { supabase } from '../lib/supabase';
 import { FormationSlot } from '../types';
 import {
@@ -34,6 +34,13 @@ interface ChatMessage {
 }
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+export interface NewPlayerResult {
+  success: boolean;
+  reason?: 'squad_full' | 'duplicate_email' | 'no_active_phase';
+  assignedNum?: number;
+  numberWasTaken?: boolean;
+}
 
 // ─── Rapport-tekst-generator (uendret) ───────────────────────
 const TAG_LABELS: Record<ReportTag, string> = {
@@ -362,6 +369,8 @@ interface AppStore {
   setAwayTeamColor: (color: string) => void;
   setPlayerInjury: (phaseIdx: number, playerId: string, injured: boolean, returnDate?: string) => void;
   checkAndHealInjuries: (phaseIdx: number) => void;
+  markPlayerInjured: (playerId: string, injury: PlayerInjury) => void;
+  markPlayerHealed: (playerId: string) => void;
   setPlayerStarter: (phaseIdx: number, playerId: string, isStarter: boolean) => void;
 
   matchTimer: MatchTimer;
@@ -392,6 +401,10 @@ interface AppStore {
   addPlayerAccount: (acc: Omit<PlayerAccount, 'id'>) => boolean;
   removePlayerAccount: (id: string) => void;
   updatePlayerAccount: (id: string, fields: Partial<PlayerAccount>) => void;
+  addPlayerWithAccount: (input: {
+    name: string; email: string; password: string; role: PlayerRole; num?: number;
+  }) => NewPlayerResult;
+  seedTestSquad: () => { added: number };
 
   coachMessages: CoachMessage[];
   sendCoachMessage: (playerId: string, content: string, eventId?: string, fromCaptain?: boolean) => void;
@@ -783,6 +796,12 @@ export const useAppStore = create<AppStore>()(
         },
 
         setPlayerStarter: (phaseIdx, playerId, isStarter) => {
+          // En skadd spiller kan ikke settes til starter – han må erklæres
+          // frisk (markPlayerHealed) først.
+          if (isStarter) {
+            const player = get().phases[phaseIdx]?.players.find(p => p.id === playerId);
+            if (player?.injury) return;
+          }
           const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
             ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, isStarter } : p),
           });
@@ -793,11 +812,22 @@ export const useAppStore = create<AppStore>()(
         awayTeamColor: '#ef4444',
         setAwayTeamColor: (color) => { set({ awayTeamColor: color }); pushSettings({ away_team_color: color }); },
 
+        // Eldre, enklere skade-toggle (PlayerEditor). Holder også det
+        // nyere player.injury-feltet synkronisert – ellers ville en spiller
+        // markert skadet herfra ikke dukke opp i "Skadet"-seksjonen eller
+        // bli hindret fra å dras inn på banen andre steder i appen.
+        // Oppdaterer alle faser (skade er en spiller-egenskap, ikke
+        // fase-spesifikk), i tråd med markPlayerInjured/markPlayerHealed.
         setPlayerInjury: (phaseIdx, playerId, injured, returnDate) => {
-          const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
+          const newPhases = get().phases.map(ph => ({
             ...ph, players: ph.players.map(p => p.id === playerId
-              ? { ...p, injured, injuryReturnDate: returnDate } : p),
-          });
+              ? {
+                  ...p, injured, injuryReturnDate: returnDate,
+                  injury: injured ? { startDate: p.injury?.startDate ?? new Date().toISOString().slice(0, 10), expectedReturn: returnDate } : undefined,
+                  ...(injured ? {} : { isStarter: false, isOnField: false }),
+                }
+              : p),
+          }));
           set({ phases: newPhases });
           markPhasesDirty();
         },
@@ -807,10 +837,40 @@ export const useAppStore = create<AppStore>()(
           const newPhases = get().phases.map((ph, i) => i !== phaseIdx ? ph : {
             ...ph, players: ph.players.map(p => {
               if (p.injured && p.injuryReturnDate && p.injuryReturnDate <= today)
-                return { ...p, injured: false, injuryReturnDate: undefined };
+                return { ...p, injured: false, injuryReturnDate: undefined, injury: undefined, isStarter: false, isOnField: false };
               return p;
             }),
           });
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        // En skade er en egenskap ved SPILLEREN, ikke ved den taktiske
+        // fasen – derfor oppdateres spilleren i ALLE faser (matchet på
+        // id), ikke bare den aktive. injured/injuryReturnDate settes i
+        // tillegg for bakoverkompatibilitet med eksisterende 🩹-visning
+        // rundt om i appen (TacticBoard, PitchView, Sidebar m.fl.).
+        markPlayerInjured: (playerId, injury) => {
+          const newPhases = get().phases.map(ph => ({
+            ...ph,
+            players: ph.players.map(p => p.id === playerId
+              ? { ...p, injury, injured: true, injuryReturnDate: injury.expectedReturn }
+              : p),
+          }));
+          set({ phases: newPhases });
+          markPhasesDirty();
+        },
+
+        // Frisk-erklærte spillere flyttes alltid tilbake til innbytterne –
+        // en trener velger selv når de eventuelt skal settes på banen igjen,
+        // de gjenoppstår ikke automatisk som starter.
+        markPlayerHealed: (playerId) => {
+          const newPhases = get().phases.map(ph => ({
+            ...ph,
+            players: ph.players.map(p => p.id === playerId
+              ? { ...p, injury: undefined, injured: false, injuryReturnDate: undefined, isStarter: false, isOnField: false }
+              : p),
+          }));
           set({ phases: newPhases });
           markPhasesDirty();
         },
@@ -954,6 +1014,108 @@ export const useAppStore = create<AppStore>()(
         updatePlayerAccount: (id, fields) => {
           set(s => ({ playerAccounts: s.playerAccounts.map(a => a.id === id ? { ...a, ...fields } : a) }));
           markPlayerAccountsDirty();
+        },
+
+        // Oppretter en spillerkonto OG en tilhørende spiller på
+        // taktikkbrettet i samme steg, slik at PlayerManager aldri kan
+        // lage en "foreldreløs" konto med en playerId som ikke finnes i
+        // noen fase (dette var årsaken til at nye spillere ikke dukket
+        // opp på brettet/benken). Legges alltid til på benken i aktiv
+        // fase, med ledig draktnummer og rolle valgt av treneren.
+        addPlayerWithAccount: (input) => {
+          const state = get();
+          const phaseIdx = state.activePhaseIdx;
+          const phase = state.phases[phaseIdx];
+          if (!phase) return { success: false, reason: 'no_active_phase' };
+
+          const existingEmail = state.playerAccounts.find(a =>
+            input.email && a.email?.toLowerCase() === input.email.toLowerCase()
+          );
+          if (existingEmail) return { success: false, reason: 'duplicate_email' };
+
+          const homePlayers = phase.players.filter(p => p.team === 'home');
+          const { total: capacity } = getSquadCapacity(state.sport);
+          if (homePlayers.length >= capacity) return { success: false, reason: 'squad_full' };
+
+          const takenNums = new Set(homePlayers.map(p => p.num));
+          const requestedNum = input.num;
+          const numberWasTaken = !!requestedNum && takenNums.has(requestedNum);
+          let assignedNum = requestedNum && !numberWasTaken ? requestedNum : 1;
+          while (takenNums.has(assignedNum)) assignedNum++;
+
+          const playerId = `p-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const newPlayer: Player = {
+            id: playerId,
+            num: assignedNum,
+            name: input.name,
+            role: input.role,
+            position: { x: 120, y: 120 + (homePlayers.length % 8) * 40 },
+            team: 'home',
+            notes: '',
+            isStarter: false,
+            isOnField: false,
+            minutesPlayed: 0,
+            specialRoles: [],
+          };
+
+          get().addPlayer(phaseIdx, newPlayer);
+          const accountCreated = get().addPlayerAccount({
+            name: input.name,
+            email: input.email,
+            password: input.password,
+            pin: '',
+            playerId,
+            team: 'home',
+          });
+          if (!accountCreated) return { success: false, reason: 'duplicate_email' };
+
+          forceSync();
+          return { success: true, assignedNum, numberWasTaken };
+        },
+
+        // Fyller opp stallen med testspillere for utvikling/testing –
+        // oppretter BÅDE en phase.players-oppføring OG en PlayerAccount
+        // per spiller (via addPlayerWithAccount), slik at de dukker opp
+        // både på taktikkbrettet og i Spillerstall-visningen. Navngis
+        // tydelig som testdata og fyller opp til én ledig plass i stallen.
+        seedTestSquad: () => {
+          const state = get();
+          const phase = state.phases[state.activePhaseIdx];
+          if (!phase) return { added: 0 };
+
+          const { teamSize, maxSubs } = getSquadCapacity(state.sport);
+          const targetSquadSize = teamSize + maxSubs - 1; // behold én ledig plass
+          const currentCount = phase.players.filter(p => p.team === 'home').length;
+          const needed = Math.max(0, targetSquadSize - currentCount);
+          if (needed === 0) return { added: 0 };
+
+          const TEST_NAMES = [
+            'Ola Nordmann', 'Kari Hansen', 'Per Olsen', 'Lise Berg', 'Morten Dahl',
+            'Ingrid Haug', 'Anders Vik', 'Marte Solberg', 'Erik Nygård', 'Silje Aas',
+            'Knut Moe', 'Anne Bakken', 'Jonas Strand', 'Hedda Lie', 'Svein Rud',
+            'Live Iversen', 'Geir Sandvik', 'Tuva Eide', 'Vidar Skog', 'Frida Fjeld',
+          ];
+          const TEST_ROLES: PlayerRole[] = ['keeper', 'defender', 'midfielder', 'forward'];
+
+          const existingTestNums = state.playerAccounts
+            .map(a => /^test(\d+)@testil\.local$/i.exec(a.email ?? ''))
+            .filter((m): m is RegExpExecArray => !!m)
+            .map(m => parseInt(m[1], 10));
+          let emailCounter = existingTestNums.length ? Math.max(...existingTestNums) + 1 : 1;
+
+          let added = 0;
+          for (let i = 0; i < needed; i++) {
+            const result = get().addPlayerWithAccount({
+              name: `TEST: ${TEST_NAMES[i % TEST_NAMES.length]}`,
+              email: `test${emailCounter}@testil.local`,
+              password: 'test1234',
+              role: TEST_ROLES[i % TEST_ROLES.length],
+            });
+            if (!result.success) break; // stallen er full e.l. – stopp der
+            added++;
+            emailCounter++;
+          }
+          return { added };
         },
 
         coachMessages: [],
