@@ -92,12 +92,17 @@ async function pushPhases(phases: TacticPhase[]) {
       description: ph.description ?? '', sticky_note: ph.stickyNote ?? '',
       sort_order: i, updated_at: new Date().toISOString(),
     }));
-    await supabase.from('phases').upsert(rows, { onConflict: 'id' });
-    const { data: existing } = await supabase.from('phases').select('id');
+    const { error: upsertError } = await supabase.from('phases').upsert(rows, { onConflict: 'id' });
+    if (upsertError) throw upsertError;
+    const { data: existing, error: selectError } = await supabase.from('phases').select('id');
+    if (selectError) throw selectError;
     const currentIds = phases.map(p => p.id);
     const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) await supabase.from('phases').delete().in('id', toDelete);
-  } catch (e) { console.warn('pushPhases error', e); }
+    if (toDelete.length) {
+      const { error: deleteError } = await supabase.from('phases').delete().in('id', toDelete);
+      if (deleteError) throw deleteError;
+    }
+  } catch (e) { console.warn('pushPhases error', e); throw e; }
 }
 
 async function pushSettings(fields: Record<string, any>) {
@@ -119,12 +124,19 @@ async function pushEvents(events: CalendarEvent[]) {
       match_notes: e.matchNotes as any, lineup_locked_at: e.lineupLockedAt ?? null,
       updated_at: new Date().toISOString(),
     }));
-    if (rows.length) await supabase.from('events').upsert(rows, { onConflict: 'id' });
-    const { data: existing } = await supabase.from('events').select('id');
+    if (rows.length) {
+      const { error: upsertError } = await supabase.from('events').upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+    const { data: existing, error: selectError } = await supabase.from('events').select('id');
+    if (selectError) throw selectError;
     const currentIds = events.map(e => e.id);
     const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) await supabase.from('events').delete().in('id', toDelete);
-  } catch (e) { console.warn('pushEvents error', e); }
+    if (toDelete.length) {
+      const { error: deleteError } = await supabase.from('events').delete().in('id', toDelete);
+      if (deleteError) throw deleteError;
+    }
+  } catch (e) { console.warn('pushEvents error', e); throw e; }
 }
 
 async function pushPlayerAccounts(accounts: PlayerAccount[]) {
@@ -146,12 +158,19 @@ async function pushPlayerAccounts(accounts: PlayerAccount[]) {
       preferred_language: a.preferredLanguage ?? null,
       updated_at: new Date().toISOString(),
     }));
-    if (rows.length) await supabase.from('player_accounts').upsert(rows, { onConflict: 'id' });
-    const { data: existing } = await supabase.from('player_accounts').select('id');
+    if (rows.length) {
+      const { error: upsertError } = await supabase.from('player_accounts').upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+    const { data: existing, error: selectError } = await supabase.from('player_accounts').select('id');
+    if (selectError) throw selectError;
     const currentIds = accounts.map(a => a.id);
     const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) await supabase.from('player_accounts').delete().in('id', toDelete);
-  } catch (e) { console.warn('pushPlayerAccounts error', e); }
+    if (toDelete.length) {
+      const { error: deleteError } = await supabase.from('player_accounts').delete().in('id', toDelete);
+      if (deleteError) throw deleteError;
+    }
+  } catch (e) { console.warn('pushPlayerAccounts error', e); throw e; }
 }
 
 async function pushCoachMessages(msgs: CoachMessage[]) {
@@ -162,12 +181,19 @@ async function pushCoachMessages(msgs: CoachMessage[]) {
       from_captain: m.fromCaptain ?? false,
       created_at: m.createdAt, updated_at: new Date().toISOString(),
     }));
-    if (rows.length) await supabase.from('coach_messages').upsert(rows, { onConflict: 'id' });
-    const { data: existing } = await supabase.from('coach_messages').select('id');
+    if (rows.length) {
+      const { error: upsertError } = await supabase.from('coach_messages').upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+    const { data: existing, error: selectError } = await supabase.from('coach_messages').select('id');
+    if (selectError) throw selectError;
     const currentIds = msgs.map(m => m.id);
     const toDelete = (existing ?? []).filter((r: any) => !currentIds.includes(r.id)).map((r: any) => r.id);
-    if (toDelete.length) await supabase.from('coach_messages').delete().in('id', toDelete);
-  } catch (e) { console.warn('pushCoachMessages error', e); }
+    if (toDelete.length) {
+      const { error: deleteError } = await supabase.from('coach_messages').delete().in('id', toDelete);
+      if (deleteError) throw deleteError;
+    }
+  } catch (e) { console.warn('pushCoachMessages error', e); throw e; }
 }
 
 async function pushChatMessages(msgs: ChatMessage[]) {
@@ -178,8 +204,11 @@ async function pushChatMessages(msgs: ChatMessage[]) {
       from_captain: m.fromCaptain ?? false,
       created_at: m.createdAt, updated_at: new Date().toISOString(),
     }));
-    if (rows.length) await supabase.from('chat_messages').upsert(rows, { onConflict: 'id' });
-  } catch (e) { console.warn('pushChatMessages error', e); }
+    if (rows.length) {
+      const { error: upsertError } = await supabase.from('chat_messages').upsert(rows, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+  } catch (e) { console.warn('pushChatMessages error', e); throw e; }
 }
 
 // ─── Load from Supabase (uendret) ─────────────────────────────
