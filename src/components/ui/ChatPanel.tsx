@@ -80,22 +80,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const send = () => {
     if (!text.trim()) return;
-    
+
     if (coachView || isCurrentUserCaptain) {
       if (sendToAll) {
         onSend(text.trim());
+        setSendToAll(true);
       } else if (targetPlayer) {
         onSend(text.trim(), targetPlayer);
+      } else {
+        return;
       }
     } else {
       onSend(text.trim());
     }
-    
+
     setText('');
-    if (targetPlayer) {
-      setTargetPlayer(null);
-      setShowPlayerSelector(false);
-    }
   };
 
   const getPlayerName = (playerId: string) => {
