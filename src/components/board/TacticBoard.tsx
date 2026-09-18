@@ -22,6 +22,7 @@ import { SnapIndicator } from './svg/SnapIndicator';
 import { LoanBadge } from './svg/LoanBadge';
 import { SvgDefs } from './svg/SvgDefs';
 import { SubRow } from './panels/SubRow';
+import { useViewport } from '../../hooks/useViewport';
 
 // ══════════════════════════════════════════════════════════════
 //  TACTIC BOARD v8 – FM LOOK + GLASSMORPHISM (RESPONSIV OPPDATERT)
@@ -108,7 +109,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [selectedFormation,setSelectedFormation] = useState('');
   const [subPanelOpen,     setSubPanelOpen]      = useState(true);
   const [showBottomSheet,  setShowBottomSheet]   = useState(false);
-  const [isMobile,         setIsMobile]          = useState(false);
   const [substitutions,    setSubstitutions]     = useState(0);
   const [moments,          setMoments]           = useState<TacticMoment[]>([]);
   const [showMoments,      setShowMoments]       = useState(false);
@@ -126,17 +126,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const phase = phases[activePhaseIdx] ?? null;
 
-  const [isLandscape, setIsLandscape] = useState(false);
-
-  useEffect(() => {
-    const check = () => {
-      setIsMobile(window.innerWidth < 768);
-      setIsLandscape(window.innerWidth > window.innerHeight);
-    };
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+  const { isMobile, isLandscape } = useViewport();
 
   const availableFormations = useMemo(() =>
     getFormations(sport), [sport]);
