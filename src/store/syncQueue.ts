@@ -62,55 +62,66 @@ export function registerSyncCallbacks(callbacks: {
 }
 
 function scheduleSync() {
+  if (!initialized) return;
   if (syncTimer) return;
   syncTimer = setTimeout(async () => {
     let failed = false;
-    try {
-      // Hent siste state fra store (vi må ha en måte å hente den på)
-      // For å unngå sirkulær avhengighet, bruker vi en getState-funksjon som settes fra storen.
-      const state = getCurrentState();
+    // Hent siste state fra store (vi må ha en måte å hente den på)
+    // For å unngå sirkulær avhengighet, bruker vi en getState-funksjon som settes fra storen.
+    const state = getCurrentState();
 
-      if (dirty.phases && state.phases) {
+    if (dirty.phases && state.phases) {
+      try {
         await withTimeout(pushPhasesFn(state.phases));
         dirty.phases = false;
-      }
-      if (dirty.events && state.events) {
+      } catch (e) { failed = true; console.warn('syncQueue: pushPhases failed', e); }
+    }
+    if (dirty.events && state.events) {
+      try {
         await withTimeout(pushEventsFn(state.events));
         dirty.events = false;
-      }
-      if (dirty.playerAccounts && state.playerAccounts) {
+      } catch (e) { failed = true; console.warn('syncQueue: pushEvents failed', e); }
+    }
+    if (dirty.playerAccounts && state.playerAccounts) {
+      try {
         await withTimeout(pushPlayerAccountsFn(state.playerAccounts));
         dirty.playerAccounts = false;
-      }
-      if (dirty.coachMessages && state.coachMessages) {
+      } catch (e) { failed = true; console.warn('syncQueue: pushPlayerAccounts failed', e); }
+    }
+    if (dirty.coachMessages && state.coachMessages) {
+      try {
         await withTimeout(pushCoachMessagesFn(state.coachMessages));
         dirty.coachMessages = false;
-      }
-      if (dirty.chatMessages && state.chatMessages) {
+      } catch (e) { failed = true; console.warn('syncQueue: pushCoachMessages failed', e); }
+    }
+    if (dirty.chatMessages && state.chatMessages) {
+      try {
         await withTimeout(pushChatMessagesFn(state.chatMessages));
         dirty.chatMessages = false;
-      }
-    } catch (e) {
-      failed = true;
+      } catch (e) { failed = true; console.warn('syncQueue: pushChatMessages failed', e); }
+    }
+
+    syncTimer = null;
+    if (!failed) {
+      syncFailCount = 0;
+    } else {
       syncFailCount += 1;
-      console.warn('syncQueue run failed', e);
-    } finally {
-      syncTimer = null;
-      if (!failed) {
-        syncFailCount = 0;
-      } else if (syncFailCount >= MAX_SYNC_ATTEMPTS) {
+      if (syncFailCount >= MAX_SYNC_ATTEMPTS) {
         console.error(`syncQueue ga opp etter ${MAX_SYNC_ATTEMPTS} feilede forsøk; endringer venter på ny brukerhandling`);
       }
-      // Prøv igjen inntil maks antall forsøk er nådd.
-      if (hasDirty() && syncFailCount < MAX_SYNC_ATTEMPTS) scheduleSync();
     }
+    // Prøv igjen inntil maks antall forsøk er nådd.
+    if (hasDirty() && syncFailCount < MAX_SYNC_ATTEMPTS) scheduleSync();
   }, 2000); // 2 sekunders batch-vindu
 }
 
 let getCurrentState: () => any = () => ({});
+let initialized = false;
 
 export function initSyncQueue(getState: () => any) {
   getCurrentState = getState;
+  initialized = true;
+  if (hasDirty()) scheduleSync();
 }
 
 // ─── Eksponerte mark-funksjoner ───────────────────────────────
