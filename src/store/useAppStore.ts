@@ -208,6 +208,9 @@ export async function loadFromSupabase(): Promise<Partial<{
       supabase.from('chat_messages').select('*').order('created_at'),
     ]);
 
+    const loadError = phRes.error ?? evRes.error ?? paRes.error ?? cmRes.error ?? chatRes.error;
+    if (loadError) throw loadError;
+
     const result: any = {};
 
     if (settRes.data) {
@@ -287,7 +290,7 @@ export async function loadFromSupabase(): Promise<Partial<{
     return result;
   } catch (e) {
     console.warn('loadFromSupabase error', e);
-    return {};
+    throw e;
   }
 }
 
