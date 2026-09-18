@@ -3,7 +3,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { VW, VH } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
-import { HandballPitch } from '@/components/board/pitches/HandballPitch';
 import { ROLE_META } from '@/data/roleInfo';
 
 // ═══════════════════════════════════════════════════════════════
@@ -182,8 +181,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
             </defs>
             <rect width={VW} height={VH} fill="url(#gr3)"/>
 
-            {(sport === 'football' || sport === 'football7') && <FootballPitch />}
-            {sport === 'handball' && <HandballPitch />}
+            <FootballPitch />
 
             {/* Tegninger */}
             {(phase.drawings ?? []).map((d: any) => {

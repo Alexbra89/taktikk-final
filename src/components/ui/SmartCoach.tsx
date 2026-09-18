@@ -12,7 +12,7 @@ export const SmartCoach: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { sport } = useAppStore();
   const [tab, setTab] = useState<'timer' | 'subs' | 'drills'>('timer');
   
-  const showSubsTab = sport === 'handball' || sport === 'football7';
+  const showSubsTab = sport === 'football5' || sport === 'football7';
   
   const allTabs = [
     { id: 'timer' as const, label: '⏱ Klokke' },
@@ -172,7 +172,7 @@ const TimerTab: React.FC = () => {
   );
 };
 
-// ═══ BYTTEPLAN – KUN FOR HÅNDBALL OG 7ER ═══════════════════════
+// ═══ BYTTEPLAN – KUN FOR 5ER OG 7ER ═══════════════════════
 
 const SubsTab: React.FC = () => {
   const { phases, activePhaseIdx, getSubstitutionSuggestions,
@@ -343,7 +343,7 @@ const DrillsTab: React.FC = () => {
   const displayed    = showAll ? allDrills : weeklyDrills;
 
   const sportLabel: Record<string, string> = {
-    football: 'Fotball 11er', football7: 'Fotball 7er', handball: 'Håndball',
+    football: 'Fotball 11er', football5: 'Fotball 5er', football7: 'Fotball 7er', football9: 'Fotball 9er',
   };
 
   const applyNote = (drill: Drill, stepIdx: number) => {

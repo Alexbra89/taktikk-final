@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     default: 'Taktikkboard',
     template: '%s | Taktikkboard',
   },
-  description: 'Profesjonell lagstrategi for fotball og håndball – Football Manager-stil',
+  description: 'Profesjonell lagstrategi for fotball – Football Manager-stil',
   manifest: '/manifest.json',
   applicationName: 'Taktikkboard',
   appleWebApp: {

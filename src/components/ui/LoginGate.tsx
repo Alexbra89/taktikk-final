@@ -119,7 +119,7 @@ export const LoginGate: React.FC = () => {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regTeamName, setRegTeamName] = useState('');
-  const [regSport, setRegSport] = useState<'football' | 'football9' | 'football7' | 'handball'>('football');
+  const [regSport, setRegSport] = useState<'football' | 'football5' | 'football9' | 'football7'>('football');
   const [regAgeGroup, setRegAgeGroup] = useState<'youth' | 'adult'>('adult');
 
   // Refs for autoFocus
@@ -263,9 +263,9 @@ export const LoginGate: React.FC = () => {
                     className="w-full bg-[#060c18] border border-slate-800 rounded-2xl py-4 px-4 text-slate-200 focus:outline-none focus:border-sky-500/50 appearance-none transition-all"
                   >
                     <option value="football">Fotball 11er</option>
+                    <option value="football5">Fotball 5er</option>
                     <option value="football9">Fotball 9er</option>
                     <option value="football7">Fotball 7er</option>
-                    <option value="handball">Håndball</option>
                   </select>
                 </div>
 

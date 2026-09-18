@@ -54,38 +54,6 @@ const POS = {
   CM7R: { x: 360, y: 400 },
   ST7:  { x: 720, y: 280 },
 };
-
-// ──────────────────────────────────────────────────────────────
-//  HÅNDBALL POSISJONER (tilpasset 40x20m bane i landscape)
-// ──────────────────────────────────────────────────────────────
-// Håndball: keeper på x=92, feltspillere fra x=180 til x=700
-
-const POS_HB = {
-  GK:  { x: 92,  y: 280 },           // Keeper
-
-  // Midtbacker (forsvarsrekke)
-  CB_L: { x: 200, y: 140 },          // Venstre midtback
-  CB_C: { x: 200, y: 280 },          // Senter midtback
-  CB_R: { x: 200, y: 420 },          // Høyre midtback
-
-  // Backer (bredde)
-  LB:   { x: 260, y: 80 },           // Venstre back
-  RB:   { x: 260, y: 480 },          // Høyre back
-
-  // Playmaker / sentral
-  PM:   { x: 360, y: 280 },          // Playmaker
-
-  // Kantspillere
-  LW:   { x: 520, y: 120 },          // Venstre kant
-  RW:   { x: 520, y: 440 },          // Høyre kant
-
-  // Pivot
-  PIV:  { x: 640, y: 280 },          // Pivot (sentral spiss)
-
-  // Ekstra offensiv
-  ST:   { x: 700, y: 280 },          // Spiss (alternativ)
-};
-
 // ──────────────────────────────────────────────────────────────
 //  FORMASJONSTYPER
 // ──────────────────────────────────────────────────────────────
@@ -237,6 +205,57 @@ export const FORMATIONS_11ER: Formation[] = [
   },
 ];
 
+// ===== 5er FOTBALL FORMASJONER =====
+
+const POS_5ER = {
+  GK:  { x: 92,  y: 280 },
+  CB:  { x: 200, y: 280 },
+  LB:  { x: 200, y: 160 },
+  RB:  { x: 200, y: 400 },
+  CM:  { x: 380, y: 280 },
+  LCM: { x: 380, y: 170 },
+  RCM: { x: 380, y: 390 },
+  ST:  { x: 660, y: 280 },
+  LS:  { x: 660, y: 180 },
+  RS:  { x: 660, y: 380 },
+};
+
+export const FORMATIONS_5ER: Formation[] = [
+  {
+    name: '1-2-1',
+    description: 'En back, to midtbanespillere og en spiss. Balansert formasjon for 5er fotball.',
+    homePlayers: [
+      { role: 'keeper',     position: POS_5ER.GK },
+      { role: 'defender',   position: POS_5ER.CB },
+      { role: 'midfielder', position: POS_5ER.LCM },
+      { role: 'midfielder', position: POS_5ER.RCM },
+      { role: 'forward',    position: POS_5ER.ST },
+    ],
+  },
+  {
+    name: '2-2',
+    description: 'To backer og to spisser. Enkel og direkte spillestil.',
+    homePlayers: [
+      { role: 'keeper',   position: POS_5ER.GK },
+      { role: 'defender', position: POS_5ER.LB },
+      { role: 'defender', position: POS_5ER.RB },
+      { role: 'forward',  position: POS_5ER.LS },
+      { role: 'forward',  position: POS_5ER.RS },
+    ],
+  },
+  {
+    name: '1-1-2',
+    description: 'En back, en midtbanespiller og to spisser. Offensivt orientert.',
+    homePlayers: [
+      { role: 'keeper',     position: POS_5ER.GK },
+      { role: 'defender',   position: POS_5ER.CB },
+      { role: 'midfielder', position: POS_5ER.CM },
+      { role: 'forward',    position: POS_5ER.LS },
+      { role: 'forward',    position: POS_5ER.RS },
+    ],
+  },
+];
+
 // ═══ 7er FOTBALL FORMASJONER ══════════════════════════════════
 
 export const FORMATIONS_7ER: Formation[] = [
@@ -365,104 +384,20 @@ export const FORMATIONS_9ER: Formation[] = [
     ],
   },
 ];
-
-// ═══ HÅNDBALL FORMASJONER (FLERE) ═════════════════════════════
-
-export const FORMATIONS_HANDBALL: Formation[] = [
-  {
-    name: '6-0',
-    description: 'Klassisk 6-0 forsvar – alle seks utespillere på en linje. Mest brukte defensiv formasjon.',
-    homePlayers: [
-      { role: 'hb_keeper',   position: POS_HB.GK },
-      { role: 'hb_backcourt', position: POS_HB.CB_L },
-      { role: 'hb_backcourt', position: POS_HB.CB_C },
-      { role: 'hb_backcourt', position: POS_HB.CB_R },
-      { role: 'hb_backcourt', position: POS_HB.LB },
-      { role: 'hb_backcourt', position: POS_HB.RB },
-      { role: 'hb_playmaker', position: POS_HB.PM },
-    ],
-  },
-  {
-    name: '5-1',
-    description: 'Fem utespillere i forsvar og en playmaker. Ofte brukt i angrep for å skape overtall.',
-    homePlayers: [
-      { role: 'hb_keeper',   position: POS_HB.GK },
-      { role: 'hb_backcourt', position: POS_HB.CB_L },
-      { role: 'hb_backcourt', position: POS_HB.CB_C },
-      { role: 'hb_backcourt', position: POS_HB.CB_R },
-      { role: 'hb_backcourt', position: POS_HB.LB },
-      { role: 'hb_backcourt', position: POS_HB.RB },
-      { role: 'hb_pivot',     position: POS_HB.PIV },
-    ],
-  },
-  {
-    name: '4-2',
-    description: 'Fire forsvarsspillere og to playmakere. Offensivt og god ballfordeling.',
-    homePlayers: [
-      { role: 'hb_keeper',   position: POS_HB.GK },
-      { role: 'hb_backcourt', position: POS_HB.CB_L },
-      { role: 'hb_backcourt', position: POS_HB.CB_C },
-      { role: 'hb_backcourt', position: POS_HB.CB_R },
-      { role: 'hb_playmaker', position: POS_HB.PM },
-      { role: 'hb_playmaker', position: POS_HB.LW },
-      { role: 'hb_pivot',     position: POS_HB.PIV },
-    ],
-  },
-  {
-    name: '3-3',
-    description: 'Tre bakspillere og tre angripere. Svært offensiv formasjon for å presse høyt.',
-    homePlayers: [
-      { role: 'hb_keeper',   position: POS_HB.GK },
-      { role: 'hb_backcourt', position: POS_HB.CB_L },
-      { role: 'hb_backcourt', position: POS_HB.CB_C },
-      { role: 'hb_backcourt', position: POS_HB.CB_R },
-      { role: 'hb_wing',      position: POS_HB.LW },
-      { role: 'hb_wing',      position: POS_HB.RW },
-      { role: 'hb_pivot',     position: POS_HB.PIV },
-    ],
-  },
-  {
-    name: '3-2-1',
-    description: 'Tre bak, to playmakere, en pivot. Moderne formasjon for rask omstilling.',
-    homePlayers: [
-      { role: 'hb_keeper',   position: POS_HB.GK },
-      { role: 'hb_backcourt', position: POS_HB.CB_L },
-      { role: 'hb_backcourt', position: POS_HB.CB_C },
-      { role: 'hb_backcourt', position: POS_HB.CB_R },
-      { role: 'hb_playmaker', position: POS_HB.PM },
-      { role: 'hb_playmaker', position: POS_HB.LW },
-      { role: 'hb_pivot',     position: POS_HB.PIV },
-    ],
-  },
-  {
-    name: '7-0',
-    description: 'Ekstremt defensivt – alle syv utespillere i forsvar. Brukes sjelden, men for å beskytte ledelse.',
-    homePlayers: [
-      { role: 'hb_keeper',   position: POS_HB.GK },
-      { role: 'hb_backcourt', position: POS_HB.CB_L },
-      { role: 'hb_backcourt', position: POS_HB.CB_C },
-      { role: 'hb_backcourt', position: POS_HB.CB_R },
-      { role: 'hb_backcourt', position: POS_HB.LB },
-      { role: 'hb_backcourt', position: POS_HB.RB },
-      { role: 'hb_playmaker', position: POS_HB.PM },
-    ],
-  },
-];
-
 // ═══ HENT FORMASJONER BASERT PÅ SPORT ════════════════════════
 
 export const getFormations = (sport: string): Formation[] => {
+  if (sport === 'football5') return FORMATIONS_5ER;
   if (sport === 'football7') return FORMATIONS_7ER;
   if (sport === 'football9') return FORMATIONS_9ER;
-  if (sport === 'handball') return FORMATIONS_HANDBALL;
   return FORMATIONS_11ER;
 };
 
 export const DEFAULT_FORMATION: Record<string, string> = {
   football:   '4-3-3',
+  football5:  '1-2-1',
   football7:  '2-3-1',
   football9:  '3-4-1',
-  handball:   '6-0',
 };
 
 export const getFormationDescription = (formationName: string, sport: string): string => {
@@ -478,7 +413,7 @@ export const getFormationDescription = (formationName: string, sport: string): s
 /**
  * Lager en ny taktisk fase.
  * @param name – navn på fasen
- * @param sport – sport ('football', 'football7', 'football9', 'handball')
+ * @param sport – sport ('football', 'football5', 'football7', 'football9')
  * @param existingPlayers – valgfri liste over eksisterende spillere (fra forrige fase)
  * @param existingBall – valgfri ballposisjon
  * @returns en fullstendig TacticPhase

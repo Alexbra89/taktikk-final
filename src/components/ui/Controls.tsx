@@ -4,14 +4,13 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Play, Pause, SkipForward, SkipBack,
-  Plus, Trash2, Zap, Target, Trophy, Pencil
+  Plus, Trash2, Zap, Trophy, Pencil
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { Sport } from '@/types';
 
 const SPORTS: { id: Sport; name: string; icon: React.ReactNode }[] = [
   { id: 'football',  name: 'Fotball',   icon: <Trophy className="w-3.5 h-3.5" /> },
-  { id: 'handball',  name: 'Håndball',  icon: <Target className="w-3.5 h-3.5" /> },
 ];
 
 export const Controls: React.FC = () => {

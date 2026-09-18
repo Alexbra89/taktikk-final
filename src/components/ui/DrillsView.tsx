@@ -10,7 +10,6 @@ type ViewMode = 'browse' | 'detail';
 
 const SPORT_LABELS: Record<string, string> = {
   football: '⚽ Fotball',
-  handball: '🤾 Håndball',
 };
 
 const DIFFICULTY_COLORS: Record<string, string> = {

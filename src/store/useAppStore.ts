@@ -856,7 +856,7 @@ export const useAppStore = create<AppStore>()(
             matchTimer.running && matchTimer.startedAt
               ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
           );
-          const teamSizes: Record<string, number> = { football: 11, football7: 7, handball: 7 };
+          const teamSizes: Record<string, number> = { football: 11, football5: 5, football7: 7, football9: 9 };
           return suggestSubstitutions(
             ph.players, ph.players.length,
             teamSizes[sport] ?? 11,

@@ -230,112 +230,12 @@ export const ROLE_META: Record<PlayerRole, RoleMeta> = {
       'Hjelpe til i direkte dueller'
     ]
   },
-
-  // ─── HÅNDBALL ─────────────────────────────────────────────
-
-  hb_keeper: {
-    label: 'Keeper (HB)', color: '#f59e0b', border: '#d97706', emoji: '🧤',
-    description:
-      'Håndballkeeperen forsvarer et 3×2 meter stort mål og er lagets viktigste enkeltspiller. ' +
-      'De møter baller kastet opptil 130 km/t og må reagere på bruddel av et sekund. ' +
-      'En god håndballkeeper leser kasterens kroppsspråk, kommuniserer med forsvarerne og starter raske kontraangrep. ' +
-      'I moderne håndball er keepers evne til å delta i laget når borte fra målet stadig viktigere.',
-    responsibilities: [
-      'Redde skudd opp til 130 km/t',
-      'Lese kasterens kroppsspråk',
-      'Kommunisere med forsvarerne',
-      'Starte raske kontraangrep',
-      'Delta i laget utenfor målfeltet'
-    ]
-  },
-
-  hb_pivot: {
-    label: 'Pivot', color: '#ef4444', border: '#dc2626', emoji: '🔴',
-    description:
-      'Pivoten er plassert inne i motstanderens forsvar og er lagets viktigste skjermspiller. ' +
-      'De skaper rom for bakspillerne gjennom blokker, skjermer og direkte gjennombrudd. ' +
-      'Pivoten trenger sterk kropp, god bevegelse og evne til å score på nært hold. ' +
-      'En dyktig pivot forstyrrer forsvaret og tvinger frem åpninger som skaper scoringssjanser.',
-    responsibilities: [
-      'Skape rom for bakspillere',
-      'Blokkere og skjerme',
-      'Gjøre direkte gjennombrudd',
-      'Score på nært hold',
-      'Forstyrre motstanderens forsvar'
-    ]
-  },
-
-  hb_backcourt: {
-    label: 'Bakspiller', color: '#3b82f6', border: '#2563eb', emoji: '💪',
-    description:
-      'Bakspillerne (venstre og høyre bakspiller) er lagets viktigste skyttere og organisatorer. ' +
-      'De opererer fra baklinjen og kombinerer med fløyspillere og pivot. ' +
-      'En god bakspiller har kraftig kast, kan drive forbi forsvarere og ser pasningsmulighetene raskt. ' +
-      'Defensivt sperrer de for motstanderens gjennombrudd og bidrar i kontringsforsvar.',
-    responsibilities: [
-      'Skyte fra baklinjen',
-      'Kombinere med fløy og pivot',
-      'Drive forbi forsvarere',
-      'Se pasningsmuligheter raskt',
-      'Sperre defensivt og kontre'
-    ]
-  },
-
-  hb_wing: {
-    label: 'Fløy', color: '#22c55e', border: '#16a34a', emoji: '🏃',
-    description:
-      'Fløyspillerne opererer i ytterkantene av banen og scorer fra spisse vinkler. ' +
-      'De er vanligvis lagets raskeste spillere og utnytter rommet etter gjennombrudd fra bakspillerne. ' +
-      'Viktige ferdigheter er hurtighet, hoppstyrke, presisjon i kast og evne til å score fra vanskelige vinkler. ' +
-      'Fløyspillerne er også viktige i forsvar for å stoppe motstanderens fløyangrep.',
-    responsibilities: [
-      'Score fra spisse vinkler',
-      'Utnytte rom etter gjennombrudd',
-      'Være rask og spenstig',
-      'Ha presisjon i kast',
-      'Stoppe motstanderens fløyangrep'
-    ]
-  },
-
-  hb_center: {
-    label: 'Midtback (HB)', color: '#8b5cf6', border: '#7c3aed', emoji: '🎯',
-    description:
-      'Midtbacken i håndball er lagets dirigent og organiserer angrepsstrategien. ' +
-      'De bestemmer tempo, fordeler ballen og avgjør om laget skal spille raskt eller bygge opp. ' +
-      'En god midtback ser hele banen, kommuniserer godt og kan true mål både selv og ved pasning. ' +
-      'Defensivt er midtbacken sentral i å stoppe motstanderens gjennombrudd.',
-    responsibilities: [
-      'Organisere angrepsstrategien',
-      'Bestemme tempo og fordeling',
-      'Se hele banen',
-      'True mål med skudd og pasning',
-      'Stoppe motstanderens gjennombrudd'
-    ]
-  },
-
-  hb_playmaker: {
-    label: 'Playmaker (HB)', color: '#a855f7', border: '#9333ea', emoji: '✨',
-    description:
-      'Håndball-playmakerens primære oppgave er å skape sjanser for medspillerne gjennom kreativt spill. ' +
-      'De kombinerer rollen som midtback og kreativ spiller, og overrasker forsvaret med uventede pasninger og bevegelser. ' +
-      'En playmaker i håndball trenger god kastarm, høy pasningskvalitet under press og evne til å se løsninger raskt.',
-    responsibilities: [
-      'Skape sjanser med kreativt spill',
-      'Overraske med uventede pasninger',
-      'Ha god kastarm',
-      'Passe presist under press',
-      'Se løsninger raskt'
-    ]
-  },
 };
 
 // ─── Hjelpefunksjoner ──────────────────────────────────────────
 
 export function getRolesForSport(sport: Sport): PlayerRole[] {
-  if (sport === 'handball') {
-    return ['hb_keeper','hb_pivot','hb_backcourt','hb_wing','hb_center','hb_playmaker'];
-  }
-  // football + football7
+  // football + football5 + football7 + football9
   return ['keeper','defender','wingback','sweeper','midfielder','box2box','playmaker','winger','forward','false9','trequartista','targetman','pressforward','libero'];
 }
 
@@ -362,10 +262,4 @@ export const ROLE_FAMILY: Record<string, string> = {
   trequartista: 'att',
   targetman: 'att',
   pressforward: 'att',
-  hb_keeper: 'gk',
-  hb_pivot: 'att',
-  hb_backcourt: 'mid',
-  hb_wing: 'att',
-  hb_center: 'mid',
-  hb_playmaker: 'mid',
 };

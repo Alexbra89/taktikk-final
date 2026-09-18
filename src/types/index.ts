@@ -2,13 +2,12 @@
 //  TAKTIKKBOARD – Type-definisjoner (v6) – FM PRO EDITION
 // ═══════════════════════════════════════════════════════════════
 
-export type Sport = 'football' | 'football7' | 'football9' | 'handball';
+export type Sport = 'football' | 'football5' | 'football7' | 'football9';
 
 export type PlayerRole =
   | 'keeper' | 'defender' | 'midfielder' | 'forward'
   | 'winger' | 'false9' | 'libero' | 'playmaker'
-  | 'sweeper' | 'wingback' | 'box2box' | 'trequartista' | 'targetman' | 'pressforward'
-  | 'hb_keeper' | 'hb_pivot' | 'hb_backcourt' | 'hb_wing' | 'hb_center' | 'hb_playmaker';
+  | 'sweeper' | 'wingback' | 'box2box' | 'trequartista' | 'targetman' | 'pressforward';
 
 export type UserRole = 'coach' | 'player' | 'referee';
 

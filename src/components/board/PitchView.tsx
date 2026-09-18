@@ -15,7 +15,6 @@ import React from 'react';
 import { TacticPhase, Drawing, Position, Player } from '@/types';
 import { VW, VH } from '@/data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
-import { HandballPitch } from './pitches/HandballPitch';
 import { ROLE_META } from '@/data/roleInfo';
 
 // ── Glassmorphism SVG-defs (gjenbrukes) ──────────────────────
@@ -144,8 +143,7 @@ export const PitchView: React.FC<PitchViewProps> = ({
         <rect width={VW} height={VH} fill="url(#grassPattern)"/>
         <rect width={VW} height={VH} fill="url(#pitchVignette)"/>
 
-        {(sport==='football'||sport==='football7'||sport==='football9') && <FootballPitch/>}
-        {sport==='handball' && <HandballPitch/>}
+        <FootballPitch/>
 
         {/* Tegninger */}
         {drawings.map(d => d.pts && d.pts.length >= 2 && (

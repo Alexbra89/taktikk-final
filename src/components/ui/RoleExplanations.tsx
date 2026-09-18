@@ -37,7 +37,6 @@ const footballRoles: RoleExplanation[] = [
   }
 ];
 
-// Du kan lime inn handballRoles og floorballRoles her på samme måte
 
 export const RoleExplanations: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);

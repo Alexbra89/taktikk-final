@@ -90,9 +90,10 @@ const DashboardView: React.FC<{
         <p className="text-slate-400 font-medium">
           {homeTeamName || 'TAKTIKKBOARD'} ·{' '}
           {sport === 'football' ? 'Fotball 11er'
+            : sport === 'football5' ? 'Fotball 5er'
             : sport === 'football7' ? 'Fotball 7er'
             : sport === 'football9' ? 'Fotball 9er'
-            : 'Håndball'}
+            : 'Fotball'}
         </p>
       </header>
 
@@ -165,9 +166,9 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <div className="flex gap-2">
             {([
               { v: 'football',  e: '⚽', l: 'Fotball 11er' },
+              { v: 'football5', e: '⚽', l: 'Fotball 5er' },
               { v: 'football7', e: '⚽', l: 'Fotball 7er' },
               { v: 'football9', e: '⚽', l: 'Fotball 9er' },
-              { v: 'handball',  e: '🤾', l: 'Håndball' },
             ] as const).map(({ v, e, l }) => (
               <button
                 key={v}

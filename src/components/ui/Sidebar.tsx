@@ -54,8 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
   const players = phase?.players ?? [];
   const homePlayers = players.filter(p => p.team === 'home');
 
-  const teamSize = sport === 'football' ? 11 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 7;
-  const maxSubs  = sport === 'football' ? 7  : sport === 'football7' ? 5 : sport === 'football9' ? 5 : 5;
+  const teamSize = sport === 'football' ? 11 : sport === 'football5' ? 5 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 11;
+  const maxSubs  = sport === 'football' ? 7  : sport === 'football5' ? 5 : sport === 'football7' ? 5 : sport === 'football9' ? 5 : 5;
 
   const starters = homePlayers.filter(p => p.isStarter === true);
   const subs     = homePlayers.filter(p => p.isStarter !== true);
@@ -159,8 +159,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ selectedPlayerId, onSelectPlay
     setShowEmptySlotPicker(null);
   };
 
-  const sportEmoji = sport === 'handball' ? '🤾' : '⚽';
-  const sportLabel = sport === 'handball' ? 'Håndball' : sport === 'football7' ? 'Fotball 7er' : sport === 'football9' ? 'Fotball 9er' : 'Fotball 11er';
+  const sportEmoji = '⚽';
+  const sportLabel = sport === 'football5' ? 'Fotball 5er' : sport === 'football7' ? 'Fotball 7er' : sport === 'football9' ? 'Fotball 9er' : 'Fotball 11er';
 
   const getPositionNameForIndex = (index: number): string => {
     if (sport === 'football7') {

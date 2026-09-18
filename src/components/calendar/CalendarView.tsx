@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { CalendarEvent } from '../../types';
-import { getDrillsBySport, DrillExercise, CATEGORY_LABELS } from '../../data/drills';
+import { getDrillsBySport, DrillExercise, CATEGORY_LABELS, toDrillSport } from '../../data/drills';
 
 const MONTHS = ['Januar','Februar','Mars','April','Mai','Juni',
                 'Juli','August','September','Oktober','November','Desember'];
@@ -316,7 +316,7 @@ const AutoGenForm: React.FC<{
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 3, 5]);
   const [focusTags, setFocusTags] = useState<string[]>([]);
 
-  const activeSport = sport === 'handball' ? 'handball' : 'football';
+  const activeSport = toDrillSport(sport);
   const WEEKDAYS = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'];
 
   function toggleDay(d: number) {
@@ -384,8 +384,8 @@ const AutoGenForm: React.FC<{
     onGenerate(events);
   }
 
-  const sportEmoji = activeSport === 'football' ? '⚽' : '🤾';
-  const sportName  = activeSport === 'football' ? 'Fotball' : 'Håndball';
+  const sportEmoji = '⚽';
+  const sportName  = 'Fotball';
 
   return (
     <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-4 sm:p-5 mb-5 max-w-2xl">
@@ -513,7 +513,7 @@ const NewEventForm: React.FC<{
   const [drillCategory, setDrillCategory]   = useState<string>('alle');
   const [drillDifficulty, setDrillDifficulty] = useState<string>('alle');
 
-  const allDrillsForEvent = getDrillsBySport(sport === 'handball' ? 'handball' : 'football');
+  const allDrillsForEvent = getDrillsBySport(toDrillSport(sport));
 
   const categories = useMemo(() => {
     return Array.from(new Set(allDrillsForEvent.map(d => d.category)));
