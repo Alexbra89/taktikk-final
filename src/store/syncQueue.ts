@@ -14,6 +14,9 @@ let dirty = {
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 const SYNC_TIMEOUT_MS = 12_000;
+const MAX_SYNC_ATTEMPTS = 5;
+
+let syncFailCount = 0;
 
 function withTimeout<T>(promise: Promise<T>): Promise<T> {
   const controller = new AbortController();
@@ -61,6 +64,7 @@ export function registerSyncCallbacks(callbacks: {
 function scheduleSync() {
   if (syncTimer) return;
   syncTimer = setTimeout(async () => {
+    let failed = false;
     try {
       // Hent siste state fra store (vi må ha en måte å hente den på)
       // For å unngå sirkulær avhengighet, bruker vi en getState-funksjon som settes fra storen.
@@ -87,11 +91,18 @@ function scheduleSync() {
         dirty.chatMessages = false;
       }
     } catch (e) {
+      failed = true;
+      syncFailCount += 1;
       console.warn('syncQueue run failed', e);
     } finally {
       syncTimer = null;
-      // Hvis noe fortsatt er dirty (push feilet), prøv igjen.
-      if (hasDirty()) scheduleSync();
+      if (!failed) {
+        syncFailCount = 0;
+      } else if (syncFailCount >= MAX_SYNC_ATTEMPTS) {
+        console.error(`syncQueue ga opp etter ${MAX_SYNC_ATTEMPTS} feilede forsøk; endringer venter på ny brukerhandling`);
+      }
+      // Prøv igjen inntil maks antall forsøk er nådd.
+      if (hasDirty() && syncFailCount < MAX_SYNC_ATTEMPTS) scheduleSync();
     }
   }, 2000); // 2 sekunders batch-vindu
 }
