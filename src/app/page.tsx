@@ -24,6 +24,7 @@ const PlayerPortal = dynamic(() => import('@/components/player-portal/PlayerPort
 const PlayerManager = dynamic(() => import('@/components/ui/PlayerManager').then(mod => mod.PlayerManager), { ssr: false });
 const PlayerHome = dynamic(() => import('@/components/player-portal/PlayerHome').then(mod => mod.PlayerHome), { ssr: false });
 const CoachMessages = dynamic(() => import('@/components/ui/CoachMessages').then(mod => mod.CoachMessages), { ssr: false });
+const DrillLibraryModal = dynamic(() => import('@/components/ui/DrillLibraryModal').then(mod => mod.DrillLibraryModal), { ssr: false });
 
 // ─── TYPER ───────────────────────────────────────────────────
 type CoachTab = 'dashboard' | 'board' | 'calendar' | 'players' | 'training' | 'admin' | 'stats' | 'chat' | 'messages';
@@ -79,7 +80,8 @@ const DashboardView: React.FC<{
   setView: (view: AppView) => void;
   setShowSmartCoach: (show: boolean) => void;
   setShowMatchReport: (show: boolean) => void;
-}> = ({ currentUser, homeTeamName, sport, unreadFromPlayers, onOpenChat, setView }) => {
+  setShowDrillLibrary: (show: boolean) => void;
+}> = ({ currentUser, homeTeamName, sport, unreadFromPlayers, onOpenChat, setView, setShowDrillLibrary }) => {
   const firstName = currentUser.name.split(' ')[0];
   return (
     <div className="p-6 lg:p-12 max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
@@ -97,10 +99,11 @@ const DashboardView: React.FC<{
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <BentoCard title="Taktikktavle" subtitle="Sett opp lagoppstilling og formasjon" icon="📋" color="sky"     onClick={() => setView('board')} />
         <BentoCard title="Kalender"     subtitle="Terminliste og treninger"              icon="📅" color="emerald" onClick={() => setView('calendar')} />
         <BentoCard title="Spillerstall" subtitle="Administrer spillere og profiler"      icon="👥" color="indigo"  onClick={() => setView('admin')} />
+        <BentoCard title="Øvelsesbibliotek" subtitle="Bla gjennom øvelser for trening" icon="📚" color="amber" onClick={() => setShowDrillLibrary(true)} />
       </div>
 
       <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-xl p-5 flex items-center justify-between">
@@ -276,6 +279,7 @@ export default function Home() {
   const [showSettings,        setShowSettings]        = useState(false);
   const [showChat,            setShowChat]            = useState(false);
   const [showFullscreenBoard, setShowFullscreenBoard] = useState(false);
+  const [showDrillLibrary,    setShowDrillLibrary]    = useState(false);
   const [mobileCoachTab,      setMobileCoachTab]      = useState<CoachTab>('dashboard');
   const [showMobileSidebar,   setShowMobileSidebar]   = useState(false);
   const [lastReadChatCount,   setLastReadChatCount]   = useState(0);
@@ -419,7 +423,7 @@ export default function Home() {
             <DashboardView
               currentUser={currentUser} homeTeamName={homeTeamName} sport={sport}
               unreadFromPlayers={unreadFromPlayers} onOpenChat={openChat} setView={setView}
-              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport}
+              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
             />
           )}
           {currentView === 'board' && isCoach && (
@@ -601,7 +605,7 @@ export default function Home() {
               unreadFromPlayers={unreadFromPlayers}
               onOpenChat={() => setMobileCoachTab('chat')}
               setView={(v: AppView) => setMobileCoachTab(v as CoachTab)}
-              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport}
+              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
             />
           )}
 
@@ -654,7 +658,7 @@ export default function Home() {
     selectedPlayerId, selectedTraining, mobileCoachTab, activePhaseIdx,
     chatMessages, sendChat, showMobileSidebar,
     setMobileCoachTab, setSelectedTraining, setSelectedPlayerId,
-    setShowSmartCoach, setShowMatchReport, setShowSettings, openChat,
+    setShowSmartCoach, setShowMatchReport, setShowSettings, setShowDrillLibrary, openChat,
   ]);
 
   // ─── BETINGEDE RETURNS ─────────────────────────────────────────
@@ -673,6 +677,7 @@ export default function Home() {
       {showSmartCoach  && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
       {showMatchReport && <MatchReportModal onClose={() => setShowMatchReport(false)} />}
       {showSettings    && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showDrillLibrary && <DrillLibraryModal onClose={() => setShowDrillLibrary(false)} />}
       {showFullscreenBoard && isCoach && (
         <FullscreenBoard onClose={() => setShowFullscreenBoard(false)} interactive />
       )}
