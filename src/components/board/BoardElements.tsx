@@ -80,16 +80,9 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
       filter="url(#dropShadow)"
     >
       <circle cx={x} cy={y} r={28} fill="transparent" style={{ pointerEvents: 'all' }} />
-      <circle cx={x} cy={y} r={12} fill="white" />
-      <circle cx={x} cy={y} r={12} fill="none" stroke="#ddd" strokeWidth={0.5} />
-      {[
-        { dx: -4, dy: -4, r: 3.5 },
-        { dx: 4.5, dy: -2, r: 3 },
-        { dx: 0, dy: 5, r: 3 },
-        { dx: -5, dy: 2.5, r: 2.5 },
-      ].map((o, i) => (
-        <circle key={i} cx={x + o.dx} cy={y + o.dy} r={o.r} fill="#111" opacity={0.72} />
-      ))}
+      {/* Kalk: ballen er en blekkprikk med kalkkjerne – leses på både mørk og lys bane. */}
+      <circle cx={x} cy={y} r={10} style={{ fill: 'rgb(var(--k-ink))' }} />
+      <circle cx={x} cy={y} r={4} style={{ fill: 'rgb(var(--k-pitch))' }} />
     </g>
   );
 };

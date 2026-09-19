@@ -5,9 +5,8 @@ import { useAppStore } from '@/store/useAppStore';
 import type { CalendarEvent, AppView } from '@/types';
 import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
-import { Lightbulb, Settings, Sun, Moon, Maximize2 } from 'lucide-react';
+import { Lightbulb, Settings, Sun, Moon } from 'lucide-react';
 import { Sidebar, NAV_ITEMS } from '@/components/ui/Sidebar';
-import { TacticTabs } from '@/components/ui/TacticTabs';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/cn';
 
@@ -16,7 +15,6 @@ const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(
   ssr: false,
   loading: () => <div className="flex-1 bg-canvas" />,
 });
-const Controls = dynamic(() => import('@/components/ui/Controls').then(mod => mod.Controls), { ssr: false });
 const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
 const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
 const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
@@ -181,15 +179,11 @@ export default function Home() {
         <main className="flex flex-1 min-w-0 overflow-hidden relative">
           {currentView === 'board' && (
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden animate-in fade-in">
-              <Controls />
-              <div className="flex-1 min-h-0 overflow-hidden relative">
-                <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-                <button onClick={() => setShowFullscreenBoard(true)}
-                  className="tap-auto absolute top-2 right-2 h-9 w-9 flex items-center justify-center rounded-ctl bg-canvas-panel/80 backdrop-blur text-ink-muted shadow-hair-strong hover:text-ink transition-colors z-10"
-                  aria-label="Fullskjerm" title="Fullskjerm (F)">
-                  <Maximize2 size={15} strokeWidth={1.75} />
-                </button>
-              </div>
+              <TacticBoard
+                selectedPlayerId={selectedPlayerId}
+                onSelectPlayer={setSelectedPlayerId}
+                onFullscreen={() => setShowFullscreenBoard(true)}
+              />
             </div>
           )}
           {currentView === 'drills' && <div className="flex-1 min-w-0 overflow-hidden"><DrillsView /></div>}
@@ -244,15 +238,8 @@ export default function Home() {
 
         <div className="flex-1 min-h-0 overflow-hidden relative">
           {currentView === 'board' && (
-            <div className="flex flex-col h-full">
-              {/* Faner og kontroller ligger utenfor touch-action:none-wrapperen, slik at fanene kan rulles. */}
-              <TacticTabs />
-              <Controls />
-              {/* touchAction none på wrapper – forhindrer scrolling under drag */}
-              <div className="flex flex-1 min-h-0 overflow-hidden relative" style={{ touchAction: 'none' }}>
-                <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-              </div>
-            </div>
+            /* Brettet eier nå sine egne linjer over og under banen (se TacticBoard). */
+            <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
           )}
           {/* DrillsView scroller selv (egen filterrad + liste), så ingen overflow-y her. */}
           {currentView === 'drills' && <div className="h-full overflow-hidden"><DrillsView /></div>}

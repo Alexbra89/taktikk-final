@@ -4,10 +4,13 @@ import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic, getSportChangeMessage, SPORT_LABELS } from '@/store/selectors';
 import { getFormations } from '@/data/formations';
 import { Sport } from '@/types';
+import { FilterChip } from './FilterBar';
 import { RoleExplanations } from './RoleExplanations';
 
 // ═══════════════════════════════════════════════════════════════
-//  KONTROLLER FOR AKTIV TAKTIKK: sport (5/7/9/11), formasjon og roller.
+//  OPPSETT FOR AKTIV TAKTIKK: sport (5/7/9/11), formasjon og roller.
+//  Ligger i brettpanelet (BoardPanel) – ikke lenger som egen linje
+//  over banen. Kalk: chips i stedet for nedtrekk, signal som aksent.
 // ═══════════════════════════════════════════════════════════════
 
 const SPORT_ORDER: Sport[] = ['football5', 'football7', 'football9', 'football'];
@@ -28,52 +31,43 @@ export const Controls: React.FC = () => {
 
   return (
     <>
-      <div
-        style={{ background: 'rgba(5,10,25,0.82)', borderBottom: '1px solid rgba(56,189,248,0.1)' }}
-        className="flex-shrink-0 flex flex-wrap items-center gap-2 px-2 py-1.5"
-      >
-        <div
-          role="group"
-          aria-label="Antall spillere"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-          className="flex items-center gap-0.5 rounded-lg p-0.5 flex-shrink-0"
-        >
-          <span className="pl-2 pr-1 text-[13px]" aria-hidden>⚽</span>
-          {SPORT_ORDER.map(s => {
-            const active = tactic.sport === s;
-            return (
-              <button
+      <div className="flex flex-col gap-4">
+        <section>
+          <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mb-2">Antall spillere</div>
+          <div role="group" aria-label="Antall spillere" className="flex flex-wrap gap-1.5">
+            {SPORT_ORDER.map(s => (
+              <FilterChip
                 key={s}
+                accent="signal"
+                active={tactic.sport === s}
                 onClick={() => changeSport(s)}
-                aria-pressed={active}
-                className={`px-2.5 rounded-md min-h-[36px] text-[11px] font-bold transition-colors
-                  ${active ? 'bg-sky-500/20 text-sky-400' : 'text-slate-500 hover:text-slate-300'}`}
               >
                 {SPORT_LABELS[s]}
-              </button>
-            );
-          })}
-        </div>
-
-        <label className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
-          <select
-            value={tactic.formation}
-            onChange={e => setFormation(e.target.value)}
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-            className="rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px]"
-          >
-            {getFormations(tactic.sport).map(f => (
-              <option key={f.name} value={f.name} style={{ background: '#0c1525' }}>{f.name}</option>
+              </FilterChip>
             ))}
-          </select>
-        </label>
+          </div>
+        </section>
+
+        <section>
+          <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mb-2">Formasjon</div>
+          <div role="group" aria-label="Formasjon" className="flex flex-wrap gap-1.5">
+            {getFormations(tactic.sport).map(f => (
+              <FilterChip
+                key={f.name}
+                accent="signal"
+                active={tactic.formation === f.name}
+                onClick={() => setFormation(f.name)}
+              >
+                {f.name}
+              </FilterChip>
+            ))}
+          </div>
+        </section>
 
         <button
           onClick={() => setShowRoles(true)}
-          style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)' }}
-          className="px-3 rounded-lg min-h-[40px] text-[11px] font-bold text-violet-300 hover:bg-violet-500/15 flex-shrink-0"
-        >🎓 Roller</button>
+          className="self-start px-3 min-h-[36px] rounded-ctl text-body text-ink-muted hover:text-ink hover:bg-canvas-hover shadow-hair transition-colors"
+        >Forklar rollene</button>
       </div>
 
       {showRoles && <RoleExplanations onClose={() => setShowRoles(false)} />}

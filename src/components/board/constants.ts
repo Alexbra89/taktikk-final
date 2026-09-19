@@ -11,9 +11,3 @@ export const CLAMP_X        = 24;
 export const CLAMP_Y_TOP    = 22;
 export const CLAMP_Y_BOTTOM = 56;
 
-export const GLASS = {
-  panel:  'rgba(8, 15, 35, 0.75)',
-  border: 'rgba(56, 189, 248, 0.12)',
-  hover:  'rgba(56, 189, 248, 0.07)',
-  active: 'rgba(56, 189, 248, 0.15)',
-};

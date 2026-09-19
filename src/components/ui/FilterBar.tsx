@@ -44,8 +44,9 @@ export const FilterRow: React.FC<{
 
 export interface FilterChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
-  /** Overstyrer aksentfargen når chipen er aktiv (f.eks. vanskelighetsgrad). */
-  accent?: 'brand' | 'ok' | 'warn' | 'bad' | 'neutral';
+  /** Overstyrer aksentfargen når chipen er aktiv (f.eks. vanskelighetsgrad).
+   *  'signal' er Kalk-varianten og bruker Kalk-tokens også i hvilende tilstand. */
+  accent?: 'brand' | 'ok' | 'warn' | 'bad' | 'neutral' | 'signal';
   /** Liten telling til høyre i chipen. */
   count?: number;
 }
@@ -56,7 +57,13 @@ const ACTIVE: Record<NonNullable<FilterChipProps['accent']>, string> = {
   warn:    'border-warn-500/60 bg-warn-500/15 text-warn-300',
   bad:     'border-bad-500/60  bg-bad-500/15  text-bad-300',
   neutral: 'border-line-strong bg-surface-hover text-fg',
+  signal:  'border-signal/50 bg-signal/10 text-signal',
 };
+
+// Kalk-chipen har egen hvilende tilstand – Fase 1-flatene (surface-card) ville
+// stått som en blå flekk i et Kalk-panel.
+const IDLE_SIGNAL = 'border-rule bg-canvas-raised text-ink-muted hover:text-ink';
+const IDLE_FASE1  = 'border-line bg-surface-card text-fg-subtle hover:text-fg-muted hover:border-line-strong';
 
 export const FilterChip: React.FC<FilterChipProps> = ({
   active = false,
@@ -75,7 +82,7 @@ export const FilterChip: React.FC<FilterChipProps> = ({
       'transition-all duration-150 focus-ring',
       active
         ? ACTIVE[accent]
-        : 'border-line bg-surface-card text-fg-subtle hover:text-fg-muted hover:border-line-strong',
+        : accent === 'signal' ? IDLE_SIGNAL : IDLE_FASE1,
       className,
     )}
     {...rest}

@@ -55,7 +55,7 @@ export const TacticTabs: React.FC<TacticTabsProps> = ({ variant = 'bar', onActiv
       aria-orientation={isList ? 'vertical' : 'horizontal'}
       className={isList
         ? 'flex flex-col gap-px'
-        : 'flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto whitespace-nowrap no-scrollbar bg-canvas-sunken border-b border-rule'}
+        : 'flex-shrink-0 flex items-center gap-1 overflow-x-auto whitespace-nowrap no-scrollbar'}
     >
       {tactics.map(t => {
         const active = t.id === activeTacticId;

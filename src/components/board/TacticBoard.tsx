@@ -9,24 +9,34 @@ import { VW, VH, getFormationSlots } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { Ball, DrawingCanvas } from './BoardElements';
 import { ROLE_INFO } from '../../data/roleInfo';
-import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM, GLASS } from './constants';
+import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from './constants';
 import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
-import { JerseyIcon } from './svg/JerseyIcon';
+import { PlayerChip } from './svg/PlayerChip';
 import { RoleBadge } from './svg/RoleBadge';
 import { NameLabel } from './svg/NameLabel';
 import { DragGhost } from './svg/DragGhost';
 import { SnapIndicator } from './svg/SnapIndicator';
 import { SvgDefs } from './svg/SvgDefs';
 import { PlayerNameBar } from './PlayerNameBar';
+import { BoardPanel } from './BoardPanel';
+import { TacticTabs } from '../ui/TacticTabs';
 import { useViewport } from '../../hooks/useViewport';
+import {
+  Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
+} from 'lucide-react';
+import { cn } from '../../lib/cn';
 
 // ══════════════════════════════════════════════════════════════
-//  TACTIC BOARD v8 – FM LOOK + GLASSMORPHISM (RESPONSIV OPPDATERT)
+//  TACTIC BOARD – KALK
+//  Banen er helten: én linje over (taktikk + formasjon) og én under
+//  (faser, angre, tegn, avspilling). Alt annet ligger i BoardPanel.
 // ══════════════════════════════════════════════════════════════
 
 interface TacticBoardProps {
   selectedPlayerId: string | null;
   onSelectPlayer:   (id: string | null) => void;
+  /** Vises som knapp i linja over banen når den er satt (desktop). */
+  onFullscreen?:    () => void;
 }
 
 interface ActiveDrag {
@@ -46,14 +56,13 @@ interface UndoEntry {
   prevPos:       { x: number; y: number };
 }
 
-interface TacticMoment { id: string; label: string; snapshot: string; at: string }
-
 // ══════════════════════════════════════════════════════════════
 //  HOVED-KOMPONENT
 // ══════════════════════════════════════════════════════════════
 export const TacticBoard: React.FC<TacticBoardProps> = ({
   selectedPlayerId,
   onSelectPlayer: onSelectPlayerProp,
+  onFullscreen,
 }) => {
   const onSelectPlayerRef = useRef(onSelectPlayerProp);
   useEffect(() => { onSelectPlayerRef.current = onSelectPlayerProp; }, [onSelectPlayerProp]);
@@ -70,7 +79,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const timerRef      = useRef<ReturnType<typeof setInterval>|null>(null);
   const playRef       = useRef({ from:0, t:0 });
   const spacingDebRef = useRef<ReturnType<typeof setTimeout>|null>(null);
-  const stickyDebRef  = useRef<ReturnType<typeof setTimeout>|null>(null);
   const longPressRef  = useRef<ReturnType<typeof setTimeout>|null>(null);
   const rafRef        = useRef<number|null>(null);
   const undoStack     = useRef<UndoEntry[]>([]);
@@ -84,24 +92,19 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [dragOverId,       setDragOverId]        = useState<string|null>(null);
   const [draggingPlayerId, setDraggingPlayerId]  = useState<string|null>(null);
   const [bounceId,         setBounceId]          = useState<string|null>(null);
-  const [localStickyNote,  setLocalStickyNote]   = useState('');
   const [drawMode,         setDrawMode]          = useState(false);
-  const [drawColor,        setDrawColor]         = useState('#f87171');
+  const [drawColor,        setDrawColor]         = useState('#EDEDEF');
   const [isPlaying,        setIsPlaying]         = useState(false);
   const [playSpeed,        setPlaySpeed]         = useState(1);
   const [interpFrom,       setInterpFrom]        = useState(0);
   const [interpT,          setInterpT]           = useState(0);
   const [liveDrawPts,      setLiveDrawPts]       = useState<SvgPos[]>([]);
-  const [showSticky,       setShowSticky]        = useState(false);
-  const [moments,          setMoments]           = useState<TacticMoment[]>([]);
-  const [showMoments,      setShowMoments]       = useState(false);
-  const [momentLabel,      setMomentLabel]       = useState('');
-  const [showMoreMenu,     setShowMoreMenu]      = useState(false);
+  const [showPanel,        setShowPanel]         = useState(false);
 
   const {
     setActivePhaseIdx, addPhase, removePhase,
     movePlayer, moveBall,
-    addDrawing, clearDrawings, updateStickyNote,
+    addDrawing, clearDrawings,
   } = useAppStore();
 
   const tactic = useActiveTactic();
@@ -126,20 +129,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   useEffect(() => () => {
     if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
-    if (stickyDebRef.current)  clearTimeout(stickyDebRef.current);
     if (longPressRef.current)  clearTimeout(longPressRef.current);
     if (rafRef.current)        cancelAnimationFrame(rafRef.current);
     if (timerRef.current)      clearInterval(timerRef.current);
   }, []);
-
-  const stickyNote = phase?.stickyNote ?? '';
-  useEffect(() => { setLocalStickyNote(stickyNote); }, [stickyNote, activePhaseIdx]);
-
-  const handleStickyChange = useCallback((v:string) => {
-    setLocalStickyNote(v);
-    if (stickyDebRef.current) clearTimeout(stickyDebRef.current);
-    stickyDebRef.current = setTimeout(() => updateStickyNote(v, activePhaseIdx), 500);
-  }, [activePhaseIdx, updateStickyNote]);
 
   const pushUndo = useCallback((e:UndoEntry) => {
     undoStack.current = [...undoStack.current.slice(-MAX_UNDO+1), e];
@@ -453,51 +446,70 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
   const ghostSlot   = ghostPlayer ? getSlot(tactic, ghostPlayer.slotIdx) : null;
 
-  const DRAW_COLORS     = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
-  const glassStyle      = { '--glass-bg': GLASS.panel, '--glass-border': GLASS.border, '--glass-hover': GLASS.hover } as React.CSSProperties;
+  // Tegnefargene er bevisst ikke Kalk-tokens: strekene er notater oppå banen,
+  // og må kunne skilles fra hverandre og fra de røde brikkene.
+  const DRAW_COLORS = ['#EDEDEF','#6E93E6','#5BAE84','#D9A93E','#E8834A'];
 
   if (!phase || !isMounted) {
     return (
-      <div className="flex h-full w-full items-center justify-center text-slate-500">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-6 h-6 border-2 border-sky-500/30 border-t-sky-500 rounded-full animate-spin"/>
-          <span className="text-xs">Laster taktikktavle...</span>
-        </div>
+      <div className="flex h-full w-full items-center justify-center bg-canvas text-ink-subtle">
+        <span className="text-caption">Laster taktikktavle …</span>
       </div>
     );
   }
 
-  return (
-    // FIX 4: Rot-div bruker IKKE overflow-hidden, og touch-action tillater pinch-zoom.
-    // touch-action: 'pan-x pan-y pinch-zoom' – tillater scroll og zoom, men ikke default click-delay.
-    <div
-      className="flex flex-col h-full select-none"
-      style={{ ...glassStyle, touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
-    >
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div
-          className="flex-1 min-w-0 h-full flex flex-col items-stretch"
-          style={{ padding: '4px', overflow: 'hidden' }}
-        >
-          {formation&&(
-            <div className="flex-shrink-0 flex items-center justify-center py-1">
-              <div style={{
-                background:'rgba(5,10,28,0.7)',backdropFilter:'blur(12px)',
-                border:'1px solid rgba(56,189,248,0.12)',boxShadow:'0 0 20px rgba(56,189,248,0.05)',
-              }} className="flex items-center gap-2 px-4 py-1.5 rounded-xl">
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
-                <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{formation}</span>
-              </div>
-            </div>
-          )}
+  const iconBtn = 'tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30 disabled:hover:text-ink-subtle disabled:hover:bg-transparent';
 
+  return (
+    // Rot-div bruker IKKE overflow-hidden, og touch-action tillater pinch-zoom.
+    <div
+      className="flex flex-col h-full select-none bg-canvas"
+      style={{ touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
+    >
+      {/* --- EN LINJE OVER BANEN: taktikk + formasjon --- */}
+      <div className="relative flex-shrink-0 flex items-center gap-2 px-2 py-1.5 bg-canvas-sunken border-b border-rule">
+        {isMobile ? (
+          <div className="flex-1 min-w-0"><TacticTabs /></div>
+        ) : (
+          <span className="pl-1 font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">Formasjon</span>
+        )}
+        <button
+          onClick={() => setShowPanel(v => !v)}
+          aria-expanded={showPanel}
+          aria-haspopup="dialog"
+          title="Oppsett, notat, øyeblikk og fart"
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 min-h-[40px] rounded-ctl bg-canvas-raised text-ink shadow-hair hover:bg-canvas-hover transition-colors"
+        >
+          <span className="font-mono text-body">{formation}</span>
+          <ChevronDown size={14} strokeWidth={1.75} className="text-ink-subtle" />
+        </button>
+
+        {onFullscreen && (
+          <button onClick={onFullscreen} aria-label="Fullskjerm" title="Fullskjerm (F)" className={iconBtn}>
+            <Maximize2 size={16} strokeWidth={1.75} />
+          </button>
+        )}
+
+        {showPanel && (
+          <BoardPanel
+            isMobile={isMobile}
+            onClose={() => setShowPanel(false)}
+            playSpeed={playSpeed}
+            setPlaySpeed={setPlaySpeed}
+          />
+        )}
+      </div>
+
+      {/* touchAction none rundt selve banen på mobil – forhindrer at siden scroller
+          under drag. Linjene over og under ligger utenfor, så de kan rulles. */}
+      <div className="flex flex-1 min-h-0 overflow-hidden" style={isMobile ? { touchAction: 'none' } : undefined}>
+        <div className="flex-1 min-w-0 h-full flex flex-col items-stretch p-1 overflow-hidden">
           <svg
             ref={svgRef}
             viewBox={`0 0 ${VW} ${VH}`}
             preserveAspectRatio="xMidYMid meet"
             style={{
               flex: 1, width: '100%', height: '100%', display: 'block',
-              boxShadow: '0 0 80px rgba(0,0,0,0.95)',
               cursor: drawMode ? 'crosshair' : 'default',
               touchAction: 'pan-x pan-y pinch-zoom',
               userSelect: 'none',
@@ -509,8 +521,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             onPointerLeave={onSvgPtrUp}
           >
             <SvgDefs/>
-            <rect width={VW} height={VH} fill="url(#grass)"/>
-            <rect width={VW} height={VH} fill="url(#vignette)"/>
+            <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
 
             <FootballPitch/>
             {phase.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
@@ -528,14 +539,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
             {allDisplay.map(player => {
               const slot       = getSlot(tactic, player.slotIdx);
-              const color      = ROLE_INFO[slot.role].color;
               const name       = getDisplayName(player);
               const isTarget   = dragOverId===player.id;
               const isSrc      = draggingPlayerId===player.id;
               const isBouncing = bounceId===player.id;
               const outOfPos   = isOutOfPos(player);
               const {x,y}      = player.position;
-              const showHover  = isTarget;
 
               return (
                 <g key={player.id} data-player="true"
@@ -545,96 +554,36 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                   onPointerCancel={endDrag}
                   style={{
                     cursor: !isPlaying&&!drawMode ? 'grab' : 'default',
-                    // FIX 4: none her er nødvendig kun for selve spillerne
-                    // for å forhindre at dragging scrolller siden.
+                    // none her er nødvendig kun for selve spillerne,
+                    // for å forhindre at dragging scroller siden.
                     touchAction: 'none',
                     transformOrigin: `${x}px ${y}px`,
-                    transform: isBouncing?'scale(1.15)':'scale(1)',
+                    transform: isBouncing?'scale(1.12)':'scale(1)',
                     transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
                   }}
                 >
-                  {showHover&&(
-                    <circle cx={x} cy={y} r={32} fill="none"
-                      stroke="rgba(56,189,248,0.6)" strokeWidth={2} strokeDasharray="6,4"/>
-                  )}
-                  <JerseyIcon x={x} y={y} num={player.num} color={color}
+                  <PlayerChip x={x} y={y} num={player.num}
                     selected={selectedPlayerId===player.id} isDragging={!!isSrc}
                     isTarget={isTarget} isOutOfPos={outOfPos}/>
-                  <RoleBadge x={x} y={y+23} role={slot.role} label={slot.label}/>
-                  {name&&<NameLabel x={x} y={y+47} name={name}/>}
+                  <RoleBadge x={x} y={y+22} label={slot.label}/>
+                  {name&&<NameLabel x={x} y={y+44} name={name}/>}
                 </g>
               );
             })}
 
             {ghostPos&&ghostPlayer&&ghostSlot&&(
               <DragGhost x={ghostPos.x} y={ghostPos.y}
-                color={ROLE_INFO[ghostSlot.role].color}
                 num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
-                role={ghostSlot.role} label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
+                label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
             )}
 
             {isPlaying&&(
-              <rect x={32} y={VH-14} rx={3} height={5}
-                width={progressFrac*(VW-64)} fill="#38bdf8" opacity={0.8}/>
+              <rect x={32} y={VH-14} rx={2} height={4}
+                width={progressFrac*(VW-64)} style={{ fill:'rgb(var(--k-signal))' }}/>
             )}
           </svg>
         </div>
-
       </div>
-
-      {showSticky&&phase&&(
-        <div style={{background:'rgba(251,191,36,0.05)',backdropFilter:'blur(12px)',borderTop:'1px solid rgba(251,191,36,0.15)'}}
-          className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
-          <span className="text-amber-400 text-[13px]">📌</span>
-          <input value={localStickyNote} onChange={e=>handleStickyChange(e.target.value)}
-            placeholder={`Notat for ${phase.name}…`}
-            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/35 focus:outline-none min-h-[40px]"/>
-        </div>
-      )}
-
-      {showMoments&&(
-        <div style={{background:'rgba(5,8,22,0.88)',backdropFilter:'blur(16px)',borderTop:'1px solid rgba(167,139,250,0.15)'}}
-          className="flex-shrink-0 px-3 py-2">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">📸 Taktiske Øyeblikk</span>
-          </div>
-          <div className="flex gap-2 mb-2">
-            <input value={momentLabel} onChange={e=>setMomentLabel(e.target.value)}
-              onKeyDown={e=>{
-                if (e.key==='Enter'&&momentLabel.trim()&&phase) {
-                  setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
-                  setMomentLabel('');
-                }
-              }}
-              placeholder="Navn på øyeblikk…"
-              style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(167,139,250,0.2)'}}
-              className="flex-1 rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none min-h-[36px]"/>
-            <button onClick={()=>{
-              if (!momentLabel.trim()||!phase) return;
-              setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
-              setMomentLabel('');
-            }} disabled={!momentLabel.trim()}
-              style={{background:'rgba(167,139,250,0.12)',border:'1px solid rgba(167,139,250,0.3)'}}
-              className="px-3 py-1.5 rounded-lg text-violet-400 text-[11px] font-bold disabled:opacity-40">Lagre</button>
-          </div>
-          {moments.length>0&&(
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {moments.map(m=>(
-                <div key={m.id}
-                  style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(167,139,250,0.15)',backdropFilter:'blur(8px)'}}
-                  className="flex-shrink-0 rounded-xl px-3 py-2 min-w-[120px]">
-                  <div className="text-[10px] font-bold text-violet-300">{m.label}</div>
-                  <div className="text-[8px] text-slate-500 mt-0.5">
-                    {new Date(m.at).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}
-                  </div>
-                  <button onClick={()=>setMoments(ms=>ms.filter(x=>x.id!==m.id))}
-                    className="text-[8px] text-red-400 mt-1 hover:text-red-300">Slett</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {selectedPlayer&&(
         <PlayerNameBar key={selectedPlayer.id} player={selectedPlayer}
@@ -642,171 +591,113 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           onClose={()=>stableOnSelectPlayer(null)}/>
       )}
 
-      <div style={{
-        background:'rgba(5,10,25,0.82)',
-        backdropFilter:'blur(16px) saturate(1.4)',
-        WebkitBackdropFilter:'blur(16px) saturate(1.4)',
-        borderTop:'1px solid rgba(56,189,248,0.1)',
-        boxShadow:'0 1px 0 rgba(255,255,255,0.04)',
-      }} className="relative flex-shrink-0 flex flex-wrap items-center gap-1 px-2 py-1.5">
+      {/* --- EN LINJE UNDER BANEN: faser, angre, tegn, avspilling --- */}
+      <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar bg-canvas-sunken border-t border-rule">
 
         {isMobile ? (
           <select
             value={activePhaseIdx}
             onChange={(e) => !isPlaying && setActivePhaseIdx(parseInt(e.target.value))}
             disabled={isPlaying}
-            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',backdropFilter:'blur(8px)'}}
-            className="rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none min-h-[40px] flex-shrink-0"
+            aria-label="Fase"
+            className="flex-shrink-0 rounded-ctl px-2 min-h-[40px] bg-canvas-raised text-body text-ink shadow-hair focus:outline-none disabled:opacity-40"
           >
             {phases.map((ph, idx) => (
-              <option key={ph.id} value={idx} style={{background:'#0c1525'}}>
-                {ph.name || `Fase ${idx + 1}`} {ph.stickyNote ? '📌' : ''}
+              <option key={ph.id} value={idx}>
+                {ph.name || `Fase ${idx + 1}`}{ph.stickyNote ? ' ·' : ''}
               </option>
             ))}
           </select>
         ) : (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {phases.map((ph, idx) => (
-              <button key={ph.id} onClick={() => !isPlaying && setActivePhaseIdx(idx)}
-                style={{
-                  background: activePhaseIdx===idx ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
-                  border: activePhaseIdx===idx ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.07)',
-                  backdropFilter: 'blur(8px)',
-                  transition: 'all 0.15s ease',
-                }}
-                className={`px-2 py-1 rounded-lg text-[10px] font-semibold min-h-[40px] whitespace-nowrap
-                  ${activePhaseIdx===idx ? 'text-sky-400' : 'text-slate-500 hover:text-slate-300'}
-                  ${isPlaying ? 'opacity-50' : ''}`}>
-                {ph.name || `Fase ${idx + 1}`}{ph.stickyNote && <span className="ml-1 text-amber-400">·</span>}
-              </button>
-            ))}
+          <div role="tablist" aria-label="Faser" className="flex items-center gap-1 flex-shrink-0">
+            {phases.map((ph, idx) => {
+              const active = activePhaseIdx === idx;
+              return (
+                <button key={ph.id} role="tab" aria-selected={active}
+                  onClick={() => !isPlaying && setActivePhaseIdx(idx)}
+                  className={cn(
+                    'px-3 min-h-[40px] rounded-ctl text-body whitespace-nowrap transition-colors',
+                    active ? 'bg-canvas-raised text-ink shadow-hair' : 'text-ink-muted hover:text-ink hover:bg-canvas-hover',
+                    isPlaying && 'opacity-50',
+                  )}>
+                  {ph.name || `Fase ${idx + 1}`}
+                  {ph.stickyNote && <span className="ml-1 text-signal" aria-hidden>·</span>}
+                </button>
+              );
+            })}
           </div>
         )}
 
         <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
-          style={{ background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.2)', backdropFilter:'blur(8px)' }}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-400 text-base disabled:opacity-40 flex-shrink-0">＋</button>
+          aria-label="Legg til fase" title="Legg til fase" className={iconBtn}>
+          <Plus size={16} strokeWidth={1.75} />
+        </button>
         {phases.length > 1 && (
           <button onClick={() => { if (phases.length > 1) removePhase(activePhaseIdx); }} disabled={isPlaying}
-            style={{ background:'rgba(248,113,113,0.08)', border:'1px solid rgba(248,113,113,0.15)', backdropFilter:'blur(8px)' }}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 text-base disabled:opacity-40 flex-shrink-0">🗑️</button>
+            aria-label="Slett fasen" title="Slett fasen" className={iconBtn}>
+            <Trash2 size={16} strokeWidth={1.75} />
+          </button>
         )}
 
         <div className="flex-1 min-w-[4px]"/>
 
-        {[{fn:doUndo,icon:'↩',title:'Angre (Ctrl+Z)'},{fn:doRedo,icon:'↪',title:'Gjør om (Ctrl+Y)'}].map(({fn,icon,title})=>(
-          <button key={icon} onClick={fn} title={title}
-            style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.07)',backdropFilter:'blur(8px)'}}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 text-sm hover:text-slate-300 flex-shrink-0">
-            {icon}
-          </button>
-        ))}
+        <button onClick={doUndo} aria-label="Angre" title="Angre (Ctrl+Z)" className={iconBtn}>
+          <Undo2 size={16} strokeWidth={1.75} />
+        </button>
+        <button onClick={doRedo} aria-label="Gjør om" title="Gjør om (Ctrl+Y)" className={iconBtn}>
+          <Redo2 size={16} strokeWidth={1.75} />
+        </button>
 
-        {isMobile ? (
-          <>
-            <button onClick={()=>setShowMoreMenu(!showMoreMenu)}
-              style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',backdropFilter:'blur(8px)'}}
-              className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 min-h-[40px] flex-shrink-0">
-              ⋮ Mer
-            </button>
-            {showMoreMenu && (
-              <div className="absolute bottom-full right-2 z-50 mb-1 p-2 rounded-xl shadow-2xl"
-                style={{background:'rgba(5,10,28,0.96)',backdropFilter:'blur(16px)',border:'1px solid rgba(56,189,248,0.15)'}}>
-                <div className="flex flex-col gap-1">
-                  <button onClick={()=>{setShowMoments(!showMoments);setShowMoreMenu(false);}}
-                    className="px-3 py-2 rounded-lg text-[10px] font-bold text-left whitespace-nowrap"
-                    style={{background:showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)'}}>
-                    📸 Øyeblikk
-                  </button>
-                  <button onClick={()=>{setShowSticky(!showSticky);setShowMoreMenu(false);}}
-                    className="px-3 py-2 rounded-lg text-[10px] font-bold text-left"
-                    style={{background:showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)'}}>
-                    📌 Notat
-                  </button>
-                  <button onClick={()=>{setDrawMode(!drawMode);setShowMoreMenu(false);}}
-                    className="px-3 py-2 rounded-lg text-[10px] font-bold text-left"
-                    style={{background:drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)'}}>
-                    ✏️ Tegn
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <button onClick={()=>setShowMoments(!showMoments)}
-              style={{
-                background: showMoments?'rgba(167,139,250,0.12)':'rgba(255,255,255,0.04)',
-                border: showMoments?'1px solid rgba(167,139,250,0.35)':'1px solid rgba(255,255,255,0.07)',
-                backdropFilter:'blur(8px)',
-              }}
-              className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] flex-shrink-0 whitespace-nowrap
-                ${showMoments?'text-violet-400':'text-slate-500 hover:text-slate-300'}`}>
-              📸 Øyeblikk
-            </button>
-            <button onClick={()=>setShowSticky(!showSticky)}
-              style={{
-                background: showSticky?'rgba(251,191,36,0.1)':'rgba(255,255,255,0.04)',
-                border: showSticky?'1px solid rgba(251,191,36,0.3)':'1px solid rgba(255,255,255,0.07)',
-                backdropFilter:'blur(8px)',
-              }}
-              className={`px-2 py-1 rounded-lg text-[13px] min-h-[40px] flex-shrink-0
-                ${showSticky?'text-amber-400':'text-slate-500 hover:text-slate-300'}`}>📌</button>
-            <button onClick={()=>setDrawMode(!drawMode)}
-              style={{
-                background: drawMode?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
-                border: drawMode?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
-                backdropFilter:'blur(8px)',
-              }}
-              className={`px-2 py-1 rounded-lg text-[10px] font-bold min-h-[40px] whitespace-nowrap flex-shrink-0
-                ${drawMode?'text-red-400':'text-slate-500 hover:text-slate-300'}`}>
-              {drawMode?'✏️ Stopp':'✏️ Tegn'}
-            </button>
-          </>
-        )}
+        <button onClick={()=>setDrawMode(!drawMode)}
+          aria-pressed={drawMode}
+          aria-label={drawMode ? 'Stopp tegning' : 'Tegn'}
+          title={drawMode ? 'Stopp tegning' : 'Tegn'}
+          className={cn(iconBtn, drawMode && 'bg-signal/10 text-signal shadow-hair-signal hover:text-signal')}>
+          <PenLine size={16} strokeWidth={1.75} />
+        </button>
 
         {drawMode&&DRAW_COLORS.map(c=>(
           <button key={c} onClick={()=>setDrawColor(c)}
-            className={`w-7 h-7 rounded-full border-2 flex-shrink-0 transition-all
-              ${drawColor===c?'border-white scale-110':'border-transparent opacity-55'}`}
+            aria-label={`Tegnefarge ${c}`}
+            aria-pressed={drawColor===c}
+            className={cn(
+              'tap-auto w-6 h-6 flex-shrink-0 rounded-full transition-transform',
+              drawColor===c ? 'scale-110 shadow-hair-strong' : 'opacity-55',
+            )}
             style={{background:c}}/>
         ))}
 
         {(phase?.drawings?.length??0)>0&&(
-          <button onClick={()=>clearDrawings()}
-            style={{background:'rgba(248,113,113,0.06)',border:'1px solid rgba(248,113,113,0.12)'}}
-            className="px-2 py-1 rounded-lg text-[13px] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
+          <button onClick={()=>clearDrawings()} aria-label="Slett tegningene" title="Slett tegningene" className={iconBtn}>
+            <Eraser size={16} strokeWidth={1.75} />
+          </button>
         )}
 
-        <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.07)',backdropFilter:'blur(8px)'}}
-          className={`flex items-center gap-1 rounded-lg px-1.5 py-1 flex-shrink-0 ${isMobile ? 'ml-auto' : ''}`}>
+        <div className="flex items-center gap-0.5 flex-shrink-0 pl-1 ml-1 border-l border-rule">
           <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}
             disabled={isPlaying||activePhaseIdx===0}
-            className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏮</button>
+            aria-label="Forrige fase" className={iconBtn}>
+            <SkipBack size={15} strokeWidth={1.75} />
+          </button>
           <button onClick={()=>isPlaying?stopPlayback():startPlayback()} disabled={phases.length<2}
-            style={{
-              background: phases.length<2?'transparent':isPlaying?'rgba(248,113,113,0.12)':'rgba(56,189,248,0.12)',
-              border: phases.length<2?'1px solid rgba(255,255,255,0.07)':isPlaying?'1px solid rgba(248,113,113,0.4)':'1px solid rgba(56,189,248,0.4)',
-            }}
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm
-              ${phases.length<2?'text-slate-600 cursor-not-allowed':isPlaying?'text-red-400':'text-sky-400'}`}>
-            {isPlaying?'⏸':'▶'}
+            aria-label={isPlaying ? 'Stopp avspilling' : 'Spill av fasene'}
+            className={cn(
+              'tap-auto w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-colors',
+              phases.length<2
+                ? 'text-ink-faint cursor-not-allowed shadow-hair'
+                : 'bg-signal text-signal-fg hover:brightness-110',
+            )}>
+            {isPlaying
+              ? <Pause size={16} strokeWidth={2} fill="currentColor" />
+              : <Play size={16} strokeWidth={2} fill="currentColor" />}
           </button>
           <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.min(phases.length-1,activePhaseIdx+1))}
             disabled={isPlaying||activePhaseIdx===phases.length-1}
-            className="text-slate-400 disabled:opacity-30 text-base px-1 min-w-[32px] min-h-[40px]">⏭</button>
-          <div className="ml-1 pl-1" style={{borderLeft:'1px solid rgba(255,255,255,0.07)'}}>
-            <select value={playSpeed} onChange={e=>setPlaySpeed(parseFloat(e.target.value))} disabled={isPlaying}
-              style={{background:'transparent',border:'none'}}
-              className="text-[10px] text-slate-400 focus:outline-none min-h-[40px] cursor-pointer">
-              {[0.5,1,1.5,2].map(v=><option key={v} value={v} style={{background:'#0c1525'}}>{v}×</option>)}
-            </select>
-          </div>
+            aria-label="Neste fase" className={iconBtn}>
+            <SkipForward size={15} strokeWidth={1.75} />
+          </button>
         </div>
-
       </div>
-
-
     </div>
   );
 };

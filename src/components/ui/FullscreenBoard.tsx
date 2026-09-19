@@ -4,7 +4,8 @@ import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
-import { ROLE_INFO } from '@/data/roleInfo';
+import { X, Play, Pause } from 'lucide-react';
+import { cn } from '@/lib/cn';
 
 // ═══════════════════════════════════════════════════════════════
 //  FULLSCREEN BOARD — read-only for players, interactive for coach
@@ -110,154 +111,154 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-[#050c18] flex flex-col"
+      className="fixed inset-0 z-[100] bg-canvas flex flex-col"
       onPointerDown={resetHideTimer}
       onTouchStart={resetHideTimer}
     >
-      {/* ── Topbar (auto-hides) ── */}
-      <div className={`flex-shrink-0 flex items-center gap-2 px-3 h-11
-        bg-[#08101e]/95 border-b border-[#1a2d46] transition-all duration-300
-        ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-
-        {/* Fase-knapper */}
-        <div className="flex items-center gap-1 flex-1 overflow-x-auto">
-          {phases.map((ph: any, idx: number) => (
-            <button key={ph.id}
-              onClick={() => { if (!isPlaying) { setActiveIdx(idx); setActivePhaseIdx(idx); } resetHideTimer(); }}
-              className={`px-2.5 py-1 rounded text-[10px] font-bold border whitespace-nowrap min-h-[32px] transition-all
-                ${activeIdx === idx ? 'bg-sky-500/20 border-sky-500 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}
-                ${isPlaying ? 'opacity-40' : ''}`}>
-              {ph.name}
-              {ph.stickyNote && <span className="ml-1 text-amber-400">·</span>}
-            </button>
-          ))}
+      {/* -- Topplinje (skjules automatisk) -- */}
+      <div className={cn(
+        'flex-shrink-0 flex items-center gap-1 px-2 h-12 bg-canvas-sunken border-b border-rule transition-opacity duration-300',
+        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none',
+      )}>
+        <div role="tablist" aria-label="Faser" className="flex items-center gap-1 flex-1 overflow-x-auto no-scrollbar">
+          {phases.map((ph: any, idx: number) => {
+            const active = activeIdx === idx;
+            return (
+              <button key={ph.id} role="tab" aria-selected={active}
+                onClick={() => { if (!isPlaying) { setActiveIdx(idx); setActivePhaseIdx(idx); } resetHideTimer(); }}
+                className={cn(
+                  'px-3 min-h-[40px] rounded-ctl text-body whitespace-nowrap transition-colors',
+                  active ? 'bg-canvas-raised text-ink shadow-hair' : 'text-ink-muted hover:text-ink hover:bg-canvas-hover',
+                  isPlaying && 'opacity-50',
+                )}>
+                {ph.name}
+                {ph.stickyNote && <span className="ml-1 text-signal" aria-hidden>·</span>}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Playback */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={() => { isPlaying ? stopPlayback() : startPlayback(); resetHideTimer(); }}
-            disabled={phases.length < 2}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border transition-all
-              ${phases.length < 2 ? 'border-[#1e3050] text-[#334155] cursor-not-allowed'
-              : isPlaying ? 'border-red-500 bg-red-500/15 text-red-400'
-              : 'border-sky-500 bg-sky-500/15 text-sky-400'}`}>
-            {isPlaying ? '⏸' : '▶'}
-          </button>
-        </div>
+        <button onClick={() => { isPlaying ? stopPlayback() : startPlayback(); resetHideTimer(); }}
+          disabled={phases.length < 2}
+          aria-label={isPlaying ? 'Stopp avspilling' : 'Spill av fasene'}
+          className={cn(
+            'tap-auto w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-colors',
+            phases.length < 2
+              ? 'text-ink-faint cursor-not-allowed shadow-hair'
+              : 'bg-signal text-signal-fg hover:brightness-110',
+          )}>
+          {isPlaying
+            ? <Pause size={16} strokeWidth={2} fill="currentColor" />
+            : <Play size={16} strokeWidth={2} fill="currentColor" />}
+        </button>
 
-        {/* Lukk */}
-        <button onClick={onClose}
-          className="px-3 py-1.5 rounded-lg text-[11px] border border-[#1e3050]
-            text-[#4a6080] hover:text-white transition min-h-[32px] flex-shrink-0">
-          ✕
+        <button onClick={onClose} aria-label="Lukk fullskjerm"
+          className="tap-auto w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors">
+          <X size={17} strokeWidth={1.75} />
         </button>
       </div>
 
-      {/* ── SVG bane — bedre skalering (mindre scrolling) ── */}
-      <div className="flex-1 min-h-0 overflow-auto" style={{ padding: '4px' }}>
-        <div className="w-full h-full flex items-center justify-center">
-          <svg
-            viewBox={`0 0 ${VW} ${VH}`}
-            preserveAspectRatio="xMidYMid meet"
-            style={{
-              width: 'auto',
-              height: 'auto',
-              maxWidth: '95%',
-              maxHeight: '95%',
-              display: 'block',
-              touchAction: 'none',
-              userSelect: 'none',
-            }}
-          >
-            <defs>
-              <filter id="ds3">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.6"/>
-              </filter>
-              <pattern id="gr3" patternUnits="userSpaceOnUse" width="50" height="50">
-                <rect width="50" height="50" fill="#1b5e2a"/>
-                <rect width="50" height="25" fill="#1d6430"/>
-              </pattern>
-            </defs>
-            <rect width={VW} height={VH} fill="url(#gr3)"/>
+      {/* -- Banen tar hele hoyden som er igjen -- */}
+      <div className="flex-1 min-h-0 p-1">
+        <svg
+          viewBox={`0 0 ${VW} ${VH}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            touchAction: 'none',
+            userSelect: 'none',
+          }}
+        >
+          <defs>
+            <filter id="ds3">
+              <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.35"/>
+            </filter>
+          </defs>
+          <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
 
-            <FootballPitch />
+          <FootballPitch />
 
-            {/* Tegninger */}
-            {(phase.drawings ?? []).map((d: any) => {
-              if (!d.pts || d.pts.length < 2) return null;
-              const p1 = d.pts[d.pts.length - 2];
-              const p2 = d.pts[d.pts.length - 1];
-              const a  = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-              const s  = 12;
-              return (
-                <g key={d.id}>
-                  <polyline points={d.pts.map((p: any) => `${p.x},${p.y}`).join(' ')}
-                    stroke={d.color ?? '#f87171'} strokeWidth={3} fill="none"
-                    strokeLinecap="round" strokeLinejoin="round" />
-                  <polygon fill={d.color ?? '#f87171'} opacity={0.88}
-                    points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`} />
-                </g>
-              );
-            })}
-
-            {/* Ball */}
-            {displayBall && (
-              <g filter="url(#ds3)">
-                <circle cx={displayBall.x} cy={displayBall.y} r={11} fill="white" stroke="#ccc" strokeWidth={1}/>
-                {[{dx:-3,dy:-3,r:3},{dx:3.5,dy:-1.5,r:2.5},{dx:0,dy:4,r:2.5},{dx:-4,dy:2,r:2}].map((o,i) => (
-                  <circle key={i} cx={displayBall.x+o.dx} cy={displayBall.y+o.dy} r={o.r} fill="#111" opacity={0.7}/>
-                ))}
+          {/* Tegninger */}
+          {(phase.drawings ?? []).map((d: any) => {
+            if (!d.pts || d.pts.length < 2) return null;
+            const p1 = d.pts[d.pts.length - 2];
+            const p2 = d.pts[d.pts.length - 1];
+            const a  = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            const s  = 12;
+            return (
+              <g key={d.id}>
+                <polyline points={d.pts.map((p: any) => `${p.x},${p.y}`).join(' ')}
+                  stroke={d.color ?? '#EDEDEF'} strokeWidth={3} fill="none"
+                  strokeLinecap="round" strokeLinejoin="round" />
+                <polygon fill={d.color ?? '#EDEDEF'} opacity={0.88}
+                  points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`} />
               </g>
-            )}
+            );
+          })}
 
-            {/* Spillere — hjemmelaget, kun startere */}
-            {homePlayers.map((player: any) => {
-              const fill = ROLE_INFO[getSlot(tactic, player.slotIdx).role].color;
-              const { x, y } = player.position;
-              return (
-                <g key={player.id} filter="url(#ds3)">
-                  <circle cx={x} cy={y} r={38} fill="transparent" />
-                  <circle cx={x} cy={y} r={21} fill="rgba(255,255,255,0.9)"/>
-                  <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
-                  <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
-                    fill="white" fontSize={12} fontWeight="800"
-                    fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
-                    {player.num}
+          {/* Ball */}
+          {displayBall && (
+            <g filter="url(#ds3)">
+              <circle cx={displayBall.x} cy={displayBall.y} r={10} style={{ fill: 'rgb(var(--k-ink))' }}/>
+              <circle cx={displayBall.x} cy={displayBall.y} r={4} style={{ fill: 'rgb(var(--k-pitch))' }}/>
+            </g>
+          )}
+
+          {/* Spillere - hjemmelaget, kun startere */}
+          {homePlayers.map((player: any) => {
+            const { x, y } = player.position;
+            const label = getSlot(tactic, player.slotIdx).label;
+            return (
+              <g key={player.id}>
+                <circle cx={x} cy={y} r={17} style={{ fill: 'rgb(var(--k-signal))' }}/>
+                <text x={x} y={y + 0.5} textAnchor="middle" dominantBaseline="middle"
+                  fill="#FFFFFF" fontSize={13} fontWeight="600"
+                  fontFamily="var(--font-mono), ui-monospace, monospace"
+                  style={{ pointerEvents: 'none' }}>
+                  {player.num}
+                </text>
+                <text x={x} y={y + 29} textAnchor="middle" dominantBaseline="middle"
+                  fontSize={8} fontWeight="500" letterSpacing="0.09em"
+                  fontFamily="var(--font-mono), ui-monospace, monospace"
+                  style={{ pointerEvents: 'none', fill: 'rgb(var(--k-ink-muted))' }}>
+                  {label.toUpperCase()}
+                </text>
+                {player.name && (
+                  <text x={x} y={y + 44} textAnchor="middle" dominantBaseline="middle"
+                    fontSize={9.5} fontWeight="500"
+                    fontFamily="var(--font-sans), system-ui, sans-serif"
+                    style={{ pointerEvents: 'none', fill: 'rgb(var(--k-ink))' }}>
+                    {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
                   </text>
-                  {player.name && (
-                    <text x={x} y={y + 31} textAnchor="middle"
-                      fill="white" fontSize={9.5} fontWeight="600"
-                      fontFamily="system-ui, sans-serif"
-                      paintOrder="stroke" stroke="rgba(0,0,0,0.8)" strokeWidth={3}
-                      style={{ pointerEvents: 'none' }}>
-                      {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+                )}
+              </g>
+            );
+          })}
 
-            {/* Fremdriftsbar */}
-            {isPlaying && (
-              <rect x={32} y={VH - 12} rx={3} height={5}
-                width={progressFrac * (VW - 64)} fill="#38bdf8" opacity={0.8}/>
-            )}
-          </svg>
-        </div>
+          {/* Fremdriftsbar */}
+          {isPlaying && (
+            <rect x={32} y={VH - 12} rx={2} height={4}
+              width={progressFrac * (VW - 64)} style={{ fill: 'rgb(var(--k-signal))' }}/>
+          )}
+        </svg>
       </div>
 
-      {/* Sticky note */}
+      {/* Notat for fasen */}
       {phase.stickyNote && (
-        <div className={`flex-shrink-0 px-4 py-2 bg-amber-500/10 border-t border-amber-500/20
-          transition-all duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-          <p className="text-[11px] text-amber-300">📌 {phase.stickyNote}</p>
+        <div className={cn(
+          'flex-shrink-0 px-4 py-2 bg-canvas-sunken border-t border-rule transition-opacity duration-300',
+          showControls ? 'opacity-100' : 'opacity-0',
+        )}>
+          <p className="text-body text-ink-muted">{phase.stickyNote}</p>
         </div>
       )}
 
-      {/* Tap hint */}
+      {/* Hint */}
       {!showControls && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
-          <div className="bg-black/40 text-white/40 text-[10px] px-3 py-1.5 rounded-full">
+          <div className="rounded-pill bg-canvas-panel/80 px-3 py-1.5 text-caption text-ink-subtle">
             Trykk for å vise kontroller
           </div>
         </div>
