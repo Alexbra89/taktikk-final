@@ -6,8 +6,64 @@
    BASE
    ============================================================ */
 
-:root {
+/* ============================================================
+   KALK – TEMA-VARIABLER
+   RGB-kanaler (uten rgb()) så Tailwind kan legge på alfa.
+   Kveld er standard. Dagslys: data-theme="light" på <html>.
+   ============================================================ */
+
+:root,
+:root[data-theme='dark'] {
   color-scheme: dark;
+
+  --k-canvas: 11 11 12;      /* #0B0B0C */
+  --k-sunken: 8 8 10;        /* #08080A */
+  --k-panel:  17 17 19;      /* #111113 */
+  --k-raised: 23 23 26;      /* #17171A */
+  --k-hover:  29 29 33;      /* #1D1D21 */
+
+  --k-ink:        237 237 239; /* #EDEDEF */
+  --k-ink-muted:  160 160 168; /* #A0A0A8 */
+  --k-ink-subtle: 110 110 120; /* #6E6E78 */
+  --k-ink-faint:  69 69 77;    /* #45454D */
+
+  --k-rule:        rgba(255, 255, 255, 0.07);
+  --k-rule-strong: rgba(255, 255, 255, 0.12);
+
+  --k-signal:    255 90 54;  /* #FF5A36 */
+  --k-signal-fg: 22 7 4;     /* mørk tekst på signal – 6.5:1 */
+
+  --k-pitch:      13 17 14;  /* #0D110E */
+  --k-pitch-line: rgba(237, 237, 239, 0.17);
+
+  --k-shadow-pop: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 24px 60px -20px rgba(0, 0, 0, 0.8);
+}
+
+/* Dagslys – for sidelinja i sol. Varmt papir, svart blekk. */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --k-canvas: 245 244 240;   /* #F5F4F0 */
+  --k-sunken: 238 237 232;   /* #EEEDE8 */
+  --k-panel:  255 255 255;
+  --k-raised: 242 241 236;   /* #F2F1EC */
+  --k-hover:  234 233 227;   /* #EAE9E3 */
+
+  --k-ink:        17 17 16;    /* #111110 */
+  --k-ink-muted:  85 84 79;    /* #55544F */
+  --k-ink-subtle: 138 137 131; /* #8A8983 */
+  --k-ink-faint:  187 186 179; /* #BBBAB3 */
+
+  --k-rule:        rgba(20, 20, 15, 0.08);
+  --k-rule-strong: rgba(20, 20, 15, 0.14);
+
+  --k-signal:    228 70 31;  /* #E4461F */
+  --k-signal-fg: 255 255 255; /* 3.9:1 – kun på fet tekst i knapper */
+
+  --k-pitch:      232 235 227; /* #E8EBE3 */
+  --k-pitch-line: rgba(17, 17, 16, 0.24);
+
+  --k-shadow-pop: 0 0 0 1px rgba(20, 20, 15, 0.14), 0 24px 60px -24px rgba(40, 30, 10, 0.25);
 }
 
 /* Reset + bedre rendering */
@@ -19,9 +75,9 @@
 html,
 body {
   height: 100%;
-  background: #060c18;
-  color: #e2e8f0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  background: rgb(var(--k-canvas));
+  color: rgb(var(--k-ink));
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
@@ -104,17 +160,16 @@ button:active,
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a1420;
-  border-radius: 10px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e3050;
+  background: var(--k-rule-strong);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a4060;
+  background: rgb(var(--k-ink-faint));
 }
 
 /* Premium scrollbar (FM-inspirert) - valgfri oppgradering */

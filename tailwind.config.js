@@ -8,9 +8,54 @@ module.exports = {
   theme: {
     extend: {
       // ── FARGER ────────────────────────────────────────────────
-      // Semantiske navn. Bruk disse i stedet for rå hex eller
-      // slate-*/sky-* direkte, slik at paletten kan justeres ett sted.
+      // KALK: verdiene ligger som RGB-kanaler i CSS-variabler i globals.css,
+      // slik at kveld/dagslys byttes med data-theme på <html> uten nye klasser,
+      // og slik at opasitet (bg-ink/5, bg-signal/10) fortsatt virker.
       colors: {
+        // Flater – nøytral grafitt, stigende lyshet = stigende nærhet
+        canvas: {
+          DEFAULT: 'rgb(var(--k-canvas) / <alpha-value>)', // app-bakgrunn, lerret
+          sunken:  'rgb(var(--k-sunken) / <alpha-value>)', // sidefelt, gruppeoverskrifter
+          panel:   'rgb(var(--k-panel) / <alpha-value>)',  // inspektør, kort, modaler
+          raised:  'rgb(var(--k-raised) / <alpha-value>)', // valgt rad, input, chips
+          hover:   'rgb(var(--k-hover) / <alpha-value>)',
+        },
+        // Tekst og ikoner
+        ink: {
+          DEFAULT: 'rgb(var(--k-ink) / <alpha-value>)',
+          muted:   'rgb(var(--k-ink-muted) / <alpha-value>)',
+          subtle:  'rgb(var(--k-ink-subtle) / <alpha-value>)',
+          faint:   'rgb(var(--k-ink-faint) / <alpha-value>)',
+        },
+        // Hårstreker. Faste alfaverdier per tema, derfor uten <alpha-value>.
+        rule: {
+          DEFAULT: 'var(--k-rule)',
+          strong:  'var(--k-rule-strong)',
+        },
+        // Den ene aksenten: eget lag, primærhandling, «nå». Aldri pynt, aldri feil.
+        signal: {
+          DEFAULT: 'rgb(var(--k-signal) / <alpha-value>)',
+          fg:      'rgb(var(--k-signal-fg) / <alpha-value>)', // tekst på signalflate
+          soft:    'rgb(var(--k-signal) / 0.12)',
+          line:    'rgb(var(--k-signal) / 0.45)',
+          zone:    'rgb(var(--k-signal) / 0.06)',
+        },
+        // Banen: nesten svart (kveld) / lys kalkgrå (dagslys) med kalklinjer
+        pitch: {
+          DEFAULT: 'rgb(var(--k-pitch) / <alpha-value>)',
+          line:    'var(--k-pitch-line)',
+        },
+        // Kategori-identitet i Kalk: dempet, kun som 6px-prikker og tidslinjer
+        category: {
+          keeper:   '#D9A93E',
+          forsvar:  '#6E93E6',
+          midtbane: '#9A88F0',
+          angrep:   '#E8834A',
+          cardio:   '#D97599',
+          styrke:   '#5BAE84',
+        },
+
+        // ── FASE 1 (fjernes når alle skjermer er over på Kalk) ──
         // Flater – dyp blå-svart, stigende lyshet = stigende nærhet
         surface: {
           base:   '#05090F', // app-bakgrunn
@@ -63,17 +108,23 @@ module.exports = {
       // Navngitt skala med innebygd linjehøyde/tracking/vekt.
       // Erstatter text-[12.5px]-stilen. Tailwinds egne xs/sm/base
       // står urørt slik at eksisterende skjermer ikke endres.
+      // KALK: tre familier, alle selvhostet via next/font i layout.tsx.
       fontFamily: {
-        sans: [
-          '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto',
-          'Helvetica Neue', 'Arial', 'sans-serif',
-        ],
-        // Barlow – kun overskrifter og etiketter. Lastes i layout.tsx.
-        // Knyttes automatisk til text-h1…h4/display/label, se globals.css.
+        // Schibsted Grotesk – alt grensesnitt. Tegnet for norsk redaksjonell presse.
+        sans: ['var(--font-sans)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        // Instrument Serif – kun sidetitler og store øyeblikk.
+        serif: ['var(--font-serif)', 'Georgia', 'serif'],
+        // IBM Plex Mono – tall, tider, draktnumre, snarveier.
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        // FASE 1: Barlow på text-h1…h4/display/label. Fjernes sammen med Fase 1-tokens.
         display: ['var(--font-barlow)', 'Barlow', 'Segoe UI', 'Roboto', 'sans-serif'],
-        num: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        num: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {
+        // KALK: serif-titler. Resten av Kalk bruker meta/caption/body/lead under.
+        title: ['2.75rem', { lineHeight: '1',    letterSpacing: '-0.01em' }], // 44px sidetittel
+        hero:  ['3.5rem',  { lineHeight: '0.95', letterSpacing: '-0.01em' }], // 56px «Tirsdag 22.»
+        // FASE 1-skala
         label:   ['0.625rem',  { lineHeight: '0.875rem', letterSpacing: '0.09em', fontWeight: '700' }], // 10px, VERSALER
         meta:    ['0.6875rem', { lineHeight: '1rem',     letterSpacing: '0.01em' }],                    // 11px
         caption: ['0.75rem',   { lineHeight: '1.1rem' }],                                               // 12px
@@ -88,10 +139,18 @@ module.exports = {
 
       // ── FORM OG DYBDE ─────────────────────────────────────────
       borderRadius: {
+        ctl:   '6px',  // KALK: knapper, input, segmenter
+        panel: '8px',  // KALK: verktøylinjer, kort, bane
         card: '1rem',
         pill: '9999px',
       },
       boxShadow: {
+        // KALK: hårstrek som innfelt skygge, så den ikke påvirker layout
+        hair:          'inset 0 0 0 1px var(--k-rule)',
+        'hair-strong': 'inset 0 0 0 1px var(--k-rule-strong)',
+        'hair-signal': 'inset 0 0 0 1px rgb(var(--k-signal) / 0.45)',
+        pop:           'var(--k-shadow-pop)', // flytende verktøy, menyer, modaler
+        // FASE 1
         card:      '0 1px 2px rgba(0,0,0,0.4)',
         raised:    '0 4px 16px -4px rgba(0,0,0,0.55)',
         float:     '0 18px 48px -12px rgba(0,0,0,0.75)',

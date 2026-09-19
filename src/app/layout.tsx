@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Barlow } from 'next/font/google';
+import { Barlow, Schibsted_Grotesk, Instrument_Serif, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
-// Barlow brukes kun til overskrifter og etiketter – brødtekst blir stående
-// på systemfonten. Da lastes én font i tre vekter, og teksten trenere faktisk
-// leser på banen rendres uten å vente på nettverk.
-// next/font selvhoster filene, så PWA-en fungerer offline.
+// Kalk-typografi. next/font selvhoster filene, så PWA-en fungerer offline.
+// Schibsted Grotesk er variabel – én fil dekker alle vekter.
+const sans = Schibsted_Grotesk({ subsets: ['latin'], display: 'swap', variable: '--font-sans' });
+const serif = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], display: 'swap', variable: '--font-serif' });
+const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], display: 'swap', variable: '--font-mono' });
+
+// FASE 1: Barlow på text-h1…h4/display/label. Fjernes når skjermene er over på Kalk.
 const barlow = Barlow({
   subsets: ['latin'],
   weight: ['600', '700', '800'],
@@ -40,7 +43,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#060c18',
+  themeColor: '#0B0B0C',
 };
 
 export default function RootLayout({
@@ -49,7 +52,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="no" className={barlow.variable} suppressHydrationWarning>
+    <html
+      lang="no"
+      data-theme="dark"
+      className={`${sans.variable} ${serif.variable} ${mono.variable} ${barlow.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/* PWA / Mobile optimalisering - beholdes for eldre nettlesere */}
         <link rel="manifest" href="/manifest.json" />
@@ -62,11 +70,12 @@ export default function RootLayout({
       <body
         className="
           min-h-screen
-          bg-[#060c18]
-          text-slate-200
+          bg-canvas
+          text-ink
+          font-sans
           antialiased
           overscroll-none
-          selection:bg-sky-500/30
+          selection:bg-signal/25
         "
       >
         {children}
