@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic } from '@/store/selectors';
-import { DRILL_LIBRARY, getDrillsForContext, getWeeklyDrills, getISOWeek, toDrillSport } from '@/data/drills';
-import { Drill } from '@/types';
+import { DRILL_LIBRARY, getDrillsForContext, getWeeklyDrills, getISOWeek, toDrillSport, DrillExercise } from '@/data/drills';
 
 // ═══════════════════════════════════════════════════════════════
 //  SMART COACH – Kampklokke · Ukentlige øvelser (RESPONSIV)
@@ -112,7 +111,7 @@ const DrillsTab: React.FC = () => {
   const { updateStickyNote, ageGroup: storeAgeGroup } = useAppStore();
   const { sport } = useActiveTactic();
 
-  const [activeDrill, setActiveDrill] = useState<Drill | null>(null);
+  const [activeDrill, setActiveDrill] = useState<DrillExercise | null>(null);
   const [activeStep, setActiveStep]   = useState(0);
   const [showAll, setShowAll]         = useState(false);
 
@@ -127,7 +126,7 @@ const DrillsTab: React.FC = () => {
     football: 'Fotball 11er', football5: 'Fotball 5er', football7: 'Fotball 7er', football9: 'Fotball 9er',
   };
 
-  const applyNote = (drill: Drill, stepIdx: number) => {
+  const applyNote = (drill: DrillExercise, stepIdx: number) => {
     const step = drill.steps[stepIdx];
     if (!step) return;
     updateStickyNote(`${drill.name} · Steg ${stepIdx + 1}: ${step.name}`);

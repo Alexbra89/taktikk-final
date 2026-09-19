@@ -81,20 +81,39 @@ export interface MatchNote {
   content: string;
 }
 
+export type DrillCategory = 'keeper' | 'forsvar' | 'midtbane' | 'angrep' | 'cardio' | 'styrke';
+
+export type DrillDifficulty = 'enkel' | 'middels' | 'avansert';
+
+export type DrillAgeBand = '6-7' | '8-9' | '10-12' | '13-16' | '17+';
+
 export interface DrillStep {
   id: string;
   name: string;
   description: string;
 }
 
-export interface Drill {
+export interface DrillExercise {
   id: string;
   name: string;
+  category: DrillCategory;
   ageGroup: 'youth' | 'adult';
-  sport: Sport | 'all';
+  ageBand: DrillAgeBand[];
+  difficulty: DrillDifficulty;
+  duration: number;
+  players: string;
   description: string;
+  why: string;
   steps: DrillStep[];
-  weekNumber?: number;
+  coachingPoints: string[];
+  commonMistakes: string[];
+  variations: string[];
+  equipment: string[];
+  source?: string;
+  background?: string;
+  unverifiedSource?: string;
+  sketch?: string;
+  warning?: string;
 }
 
 export interface MatchTimer {
