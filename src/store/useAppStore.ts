@@ -125,7 +125,7 @@ const patchPhase = (t: Tactic, idx: number, fn: (ph: TacticPhase) => TacticPhase
 // ═══════════════════════════════════════════════════════════════
 
 const LEGACY_ATTENDANCE_TITLE = '✅ Fremmøte';
-const VALID_VIEWS: AppView[] = ['dashboard', 'board', 'calendar', 'training'];
+const VALID_VIEWS: AppView[] = ['board', 'calendar', 'training'];
 
 function cleanPersistedEvents(events: CalendarEvent[]): CalendarEvent[] {
   const stripTargets = <T extends { title: string }>(notes: T[] | undefined) =>

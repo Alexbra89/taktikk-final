@@ -1,150 +1,202 @@
 'use client';
+import React, { useEffect, useMemo, useState } from 'react';
+import { PlayerRole } from '@/types';
+import { useActiveTactic, getSlot, SPORT_LABELS } from '@/store/selectors';
+import { getFormationSlots } from '@/data/formations';
+import { ROLE_INFO } from '@/data/roleInfo';
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BookOpen, ChevronDown, Target, Shield, 
-  Sword, Users, Info, Star 
-} from 'lucide-react';
-// FIKSET: Bruker riktig store-navn
-import { useActiveTactic } from '@/store/selectors';
+// ═══════════════════════════════════════════════════════════════
+//  ROLLEFORKLARINGER – læringsverktøy for unge trenere. Åpnes som modal fra
+//  «🎓 Roller». Viser først rollene i aktiv formasjon, deretter «Andre roller».
+// ═══════════════════════════════════════════════════════════════
 
-// Vi definerer typene her slik at TypeScript ikke klager på manglende filer
-interface RoleExplanation {
-  role: string;
+type CardId =
+  | 'keeper' | 'stopper' | 'back' | 'wingback' | 'sweeper' | 'midfielder' | 'playmaker'
+  | 'box2box' | 'winger' | 'forward' | 'false9' | 'trequartista' | 'targetman';
+
+interface RoleCard {
+  id: CardId;
+  role: PlayerRole;
   name: string;
-  description: string;
-  responsibilities: string[];
-  tacticalNotes: string[];
-  examplePlayers?: string[];
+  withBall: string[];
+  withoutBall: string[];
 }
 
-// Her legger vi inn de fulle listene for alle idretter rett i fila
-const footballRoles: RoleExplanation[] = [
+// Rolletypen `defender` vises som «Stopper» eller «Back» ut fra etiketten på sloten.
+const CARDS: RoleCard[] = [
   {
-    role: 'keeper',
-    name: 'Målvakt',
-    description: 'Lagets bakerste ledd og den eneste som kan bruke hendene i eget felt.',
-    responsibilities: ['Stoppe skudd', 'Sette i gang spillet', 'Dirigere forsvaret'],
-    tacticalNotes: ['Vær offensiv i feltet', 'Kommuniser tydelig med stopperne'],
+    id: 'keeper', role: 'keeper', name: 'Keeper',
+    withBall: ['Spill enkelt ut til stopperne eller backene', 'Tilby deg som pasningsalternativ når laget bygger opp', 'Slå langt hvis laget er presset'],
+    withoutBall: ['Stå klar midt i mål, litt foran streken', 'Rop og dirigér forsvarslinja', 'Kom ut og rydd når ballen slås bak forsvaret'],
   },
   {
-    role: 'defender',
-    name: 'Midtstopper',
-    description: 'Sørger for trygghet i forsvaret og bryter motstanderens angrep.',
-    responsibilities: ['Markering', 'Vinne hodedueller', 'Posisjonering'],
-    tacticalNotes: ['Hold linja', 'Faller av ved bakromstrussel'],
-  }
+    id: 'stopper', role: 'defender', name: 'Stopper',
+    withBall: ['Spill kort til keeper, back eller midtbane', 'Flytt ballen raskt, ikke drible under press', 'Gå frem med ballen når det er god plass'],
+    withoutBall: ['Stå mellom ballen og eget mål', 'Hold linja sammen med de andre forsvarerne', 'Dekk spissen og vinn duellene'],
+  },
+  {
+    id: 'back', role: 'defender', name: 'Back',
+    withBall: ['Spill ballen opp til kanten eller midtbanen', 'Løp forbi kantspilleren når det er rom', 'Slå innlegg når du kommer langt frem'],
+    withoutBall: ['Stå mellom ballen og målet på din side', 'Følg motstanderens kantspiller', 'Trekk inn mot midten når ballen er på andre siden'],
+  },
+  {
+    id: 'wingback', role: 'wingback', name: 'Vingback',
+    withBall: ['Løp langs sidelinja og slå innlegg', 'Skap overtall sammen med kantspilleren', 'Bytt side med lange pasninger'],
+    withoutBall: ['Løp tilbake og dekk hele kanten', 'Hjelp stopperne inn mot midten', 'Vær klar til å presse motstanderens kant'],
+  },
+  {
+    id: 'sweeper', role: 'sweeper', name: 'Sweeper',
+    withBall: ['Spill enkelt fra baksiden og start angrepet', 'Gå frem i rommet foran forsvaret når det er trygt'],
+    withoutBall: ['Stå bak de andre forsvarerne og dekk rommet', 'Grip inn når en motstander kommer gjennom', 'Rop til lagkameratene hvem som skal dekke hvem'],
+  },
+  {
+    id: 'midfielder', role: 'midfielder', name: 'Midtbane',
+    withBall: ['Tilby deg hele tiden, slik at ballfører har et alternativ', 'Se deg rundt før du får ballen', 'Spill fremover når det er mulig, ellers til siden'],
+    withoutBall: ['Hold passe avstand til lagkameratene', 'Press ballfører sammen med en medspiller', 'Dekk rommet foran eget forsvar'],
+  },
+  {
+    id: 'playmaker', role: 'playmaker', name: 'Playmaker',
+    withBall: ['Ta imot mellom motstanderens midtbane og forsvar', 'Spill den avgjørende pasningen til spiss eller kant', 'Bestem tempoet: roe ned eller øk farten'],
+    withoutBall: ['Press motstanderens midtbane når laget mister ballen', 'Kom tilbake og hjelp midtbanen', 'Hold deg sentralt slik at du er lett å finne'],
+  },
+  {
+    id: 'box2box', role: 'box2box', name: 'Box-to-box',
+    withBall: ['Bær ballen fremover fra midtbanen', 'Kom inn i boksen og avslutt', 'Spill kort og løp videre etter pasningen'],
+    withoutBall: ['Løp tilbake og hjelp forsvaret', 'Vinn ballen i midtbanen', 'Hold energien oppe gjennom hele kampen'],
+  },
+  {
+    id: 'winger', role: 'winger', name: 'Kantspiller',
+    withBall: ['Utfordre backen én mot én', 'Slå innlegg eller skjær inn og skyt', 'Spill kort til spissen når du blir dobbeltmarkert'],
+    withoutBall: ['Press motstanderens back', 'Kom tilbake og hjelp din egen back', 'Hold bredden slik at laget får mer plass'],
+  },
+  {
+    id: 'forward', role: 'forward', name: 'Spiss',
+    withBall: ['Hold ballen og hent laget opp i banen', 'Avslutt når du får sjansen', 'Løp bak forsvaret når en pasning er på vei'],
+    withoutBall: ['Press motstanderens stoppere og keeper', 'Hindre motstanderen i å spille lett ut', 'Ikke gå for langt fra midtbanen'],
+  },
+  {
+    id: 'false9', role: 'false9', name: 'Falsk 9er',
+    withBall: ['Trekk ned i rommet mellom midtbane og forsvar', 'Dra stopperen med deg ut av posisjon', 'Slipp ballen til kantene som løper inn'],
+    withoutBall: ['Press først som en vanlig spiss', 'Gå tilbake og hjelp midtbanen'],
+  },
+  {
+    id: 'trequartista', role: 'trequartista', name: 'Trequartista',
+    withBall: ['Finn rommet bak spissen og ta imot der', 'Lag overraskelser: gjennomlegg, dribling og skudd'],
+    withoutBall: ['Press når ballen er nær deg', 'De andre midtbanespillerne dekker for deg'],
+  },
+  {
+    id: 'targetman', role: 'targetman', name: 'Targetman',
+    withBall: ['Vis deg som mål for lange baller', 'Skjerm ballen med kroppen og legg av', 'Vinn hodedueller i boksen'],
+    withoutBall: ['Press stopperne når avstanden er kort', 'Stå klar på motstanderens siste linje'],
+  },
 ];
 
+const cardIdFor = (role: PlayerRole, label: string): CardId =>
+  role === 'defender' ? (label === 'MS' ? 'stopper' : 'back') : (role as CardId);
 
-export const RoleExplanations: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<RoleExplanation | null>(null);
-  const { sport: currentSport } = useActiveTactic();
+export const RoleExplanations: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const tactic = useActiveTactic();
+  const [openId, setOpenId] = useState<CardId | null>(null);
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'keeper': return <Shield className="w-5 h-5" />;
-      case 'defender': return <Shield className="w-5 h-5" />;
-      case 'midfielder': return <Users className="w-5 h-5" />;
-      case 'forward': return <Sword className="w-5 h-5" />;
-      default: return <Info className="w-5 h-5" />;
-    }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  // Etikettene per rolle i aktiv formasjon, i rekkefølgen de først forekommer (keeper først).
+  const inFormation = useMemo(() => {
+    const labels = new Map<CardId, Map<string, number>>();
+    getFormationSlots(tactic.sport, tactic.formation).forEach((_, i) => {
+      const { role, label } = getSlot(tactic, i);
+      const id = cardIdFor(role, label);
+      const perLabel = labels.get(id) ?? new Map<string, number>();
+      perLabel.set(label, (perLabel.get(label) ?? 0) + 1);
+      labels.set(id, perLabel);
+    });
+    return labels;
+  }, [tactic]);
+
+  const usedCards = [...inFormation.keys()].map(id => CARDS.find(c => c.id === id)!);
+  const otherCards = CARDS.filter(c => !inFormation.has(c.id));
+
+  const renderCard = (card: RoleCard) => {
+    const open = openId === card.id;
+    const labels = inFormation.get(card.id);
+    return (
+      <div key={card.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+        className="rounded-xl overflow-hidden">
+        <button
+          onClick={() => setOpenId(open ? null : card.id)}
+          aria-expanded={open}
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-left min-h-[44px]"
+        >
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: ROLE_INFO[card.role].color }} />
+          <span className="text-[13px] font-bold text-slate-100">{card.name}</span>
+          {labels && (
+            <span className="flex gap-1 flex-wrap">
+              {[...labels.entries()].map(([label, n]) => (
+                <span key={label} className="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 text-[9.5px] font-black tracking-wide">
+                  {label}{n > 1 ? ` ×${n}` : ''}
+                </span>
+              ))}
+            </span>
+          )}
+          <span className="ml-auto text-slate-500 text-[10px]">{open ? '▲' : '▼'}</span>
+        </button>
+        {open && (
+          <div className="px-3 pb-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <div className="text-[9.5px] font-black text-emerald-400 uppercase tracking-widest mb-1">Med ball</div>
+              <ul className="space-y-1 text-[12px] text-slate-300 leading-snug">
+                {card.withBall.map(t => <li key={t}>• {t}</li>)}
+              </ul>
+            </div>
+            <div>
+              <div className="text-[9.5px] font-black text-amber-400 uppercase tracking-widest mb-1">Uten ball</div>
+              <ul className="space-y-1 text-[12px] text-slate-300 leading-snug">
+                {card.withoutBall.map(t => <li key={t}>• {t}</li>)}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-700/50 transition"
+    <div
+      className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Rolleforklaringer"
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'rgba(8,16,32,0.98)', border: '1px solid rgba(56,189,248,0.15)' }}
+        className="w-full sm:max-w-xl max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl"
       >
-        <div className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-blue-400" />
-          <span className="font-medium text-sm">Rolleforklaringer</span>
+        <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-white/5">
+          <h2 className="text-[14px] font-black text-slate-100">🎓 Roller</h2>
+          <button onClick={onClose} aria-label="Lukk"
+            className="ml-auto w-10 h-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-white">✕</button>
         </div>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="w-4 h-4" />
-        </motion.div>
-      </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="border-t border-slate-700"
-          >
-            <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
-              {footballRoles.map((role) => (
-                <motion.button
-                  key={role.role}
-                  whileHover={{ scale: 1.02, x: 5 }}
-                  onClick={() => setSelectedRole(role)}
-                  className="w-full bg-slate-900/50 rounded-lg p-3 text-left hover:bg-slate-800 transition border border-slate-700"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    {getRoleIcon(role.role)}
-                    <h4 className="font-bold text-sm">{role.name}</h4>
-                  </div>
-                  <p className="text-xs text-slate-400 line-clamp-2">{role.description}</p>
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">
+            I {tactic.formation} ({SPORT_LABELS[tactic.sport]})
+          </div>
+          {usedCards.map(renderCard)}
 
-      <AnimatePresence>
-        {selectedRole && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedRole(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-slate-900 rounded-2xl border border-slate-700 max-w-lg w-full p-6 shadow-2xl"
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                 <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                    {getRoleIcon(selectedRole.role)}
-                 </div>
-                 <h2 className="text-2xl font-bold">{selectedRole.name}</h2>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-blue-400 text-sm font-bold flex items-center gap-2 mb-2">
-                    <Target size={14}/> ANSVAR
-                  </h3>
-                  <ul className="text-sm text-slate-300 space-y-1">
-                    {selectedRole.responsibilities.map((r, i) => (
-                      <li key={i}>• {r}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setSelectedRole(null)}
-                className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition shadow-lg"
-              >
-                Ferdig
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          {otherCards.length > 0 && (
+            <>
+              <div className="pt-3 text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Andre roller</div>
+              {otherCards.map(renderCard)}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

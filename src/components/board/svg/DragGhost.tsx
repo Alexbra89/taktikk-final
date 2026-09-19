@@ -20,12 +20,14 @@ export const DragGhost = React.memo<{x:number;y:number;color:string;num:number;n
       <text x={0} y={33} textAnchor="middle" dominantBaseline="middle"
         fill={text} fontSize={7.5} fontWeight="700"
         fontFamily="system-ui,sans-serif" letterSpacing="0.05em">{label}</text>
-      <text x={0} y={47} textAnchor="middle" dominantBaseline="middle"
-        fill="rgba(255,255,255,0.9)" fontSize={8} fontWeight="600"
-        fontFamily="system-ui,sans-serif" paintOrder="stroke"
-        stroke="rgba(0,0,0,0.85)" strokeWidth={2.5}>
-        {name.length>10?name.slice(0,10)+'…':name}
-      </text>
+      {name&&(
+        <text x={0} y={47} textAnchor="middle" dominantBaseline="middle"
+          fill="rgba(255,255,255,0.9)" fontSize={8} fontWeight="600"
+          fontFamily="system-ui,sans-serif" paintOrder="stroke"
+          stroke="rgba(0,0,0,0.85)" strokeWidth={2.5}>
+          {name.length>10?name.slice(0,10)+'…':name}
+        </text>
+      )}
     </g>
   );
 });

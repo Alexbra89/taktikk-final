@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { useActiveTactic, getSportChangeImpact } from '@/store/selectors';
-import type { CalendarEvent, AppView, Sport } from '@/types';
+import type { CalendarEvent, AppView } from '@/types';
 import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
 
@@ -12,118 +11,30 @@ const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(
   ssr: false,
   loading: () => <div className="flex-1 bg-[#060c18]" />,
 });
+const TacticTabs = dynamic(() => import('@/components/ui/TacticTabs').then(mod => mod.TacticTabs), { ssr: false });
+const Controls = dynamic(() => import('@/components/ui/Controls').then(mod => mod.Controls), { ssr: false });
 const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
 const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
 const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
 const TrainingView = dynamic(() => import('@/components/ui/TrainingView').then(mod => mod.TrainingView), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(mod => mod.CalendarView), { ssr: false });
-const DrillLibraryModal = dynamic(() => import('@/components/ui/DrillLibraryModal').then(mod => mod.DrillLibraryModal), { ssr: false });
 
-// ─── TYPER ───────────────────────────────────────────────────
-type CoachTab = 'dashboard' | 'board' | 'calendar' | 'training';
-const VALID_VIEWS: AppView[] = ['dashboard', 'board', 'calendar', 'training'];
-
-interface BentoCardProps {
-  title: string;
-  subtitle: string;
-  icon: string;
-  color: string;
-  onClick: () => void;
-  className?: string;
-}
-
-// ─── BENTO CARD ──────────────────────────────────────────────
-const BentoCard: React.FC<BentoCardProps> = ({ title, subtitle, icon, color, onClick, className = '' }) => {
-  const colorMap: Record<string, { bg: string; glow: string; hoverBorder: string }> = {
-    sky:    { bg: 'rgba(56, 189, 248, 0.08)',  glow: '#38bdf8', hoverBorder: 'hover:border-sky-400/50' },
-    yellow: { bg: 'rgba(250, 204, 21, 0.08)',  glow: '#facc15', hoverBorder: 'hover:border-yellow-400/50' },
-    emerald:{ bg: 'rgba(16, 185, 129, 0.08)',  glow: '#10b981', hoverBorder: 'hover:border-emerald-400/50' },
-    amber:  { bg: 'rgba(245, 158, 11, 0.08)',  glow: '#f59e0b', hoverBorder: 'hover:border-amber-400/50' },
-    indigo: { bg: 'rgba(99, 102, 241, 0.08)',  glow: '#6366f1', hoverBorder: 'hover:border-indigo-400/50' },
-  };
-  const active = colorMap[color] || colorMap.sky;
-
-  return (
-    <button
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-3xl border border-[#1e3050] backdrop-blur-xl p-6 text-left transition-all duration-300 ${active.hoverBorder} hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] ${className}`}
-      style={{ background: active.bg }}
-    >
-      <div
-        className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
-        style={{ background: `${active.glow}20`, color: active.glow }}
-      >
-        <span className="text-2xl">{icon}</span>
-      </div>
-      <h3 className="text-lg font-black text-slate-100 leading-tight tracking-tight">{title}</h3>
-      <p className="text-xs text-slate-400 mt-1 font-medium">{subtitle}</p>
-      <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-        <span className="text-sm font-bold" style={{ color: active.glow }}>Åpne →</span>
-      </div>
-    </button>
-  );
-};
-
-// ─── DASHBOARD VIEW ──────────────────────────────────────────
-const DashboardView: React.FC<{
-  homeTeamName: string;
-  sport: string;
-  setView: (view: AppView) => void;
-  setShowSmartCoach: (show: boolean) => void;
-  setShowMatchReport: (show: boolean) => void;
-  setShowDrillLibrary: (show: boolean) => void;
-}> = ({ homeTeamName, sport, setView, setShowDrillLibrary }) => {
-  return (
-    <div className="p-6 lg:p-12 max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
-      <header className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight">
-          Velkommen 👋
-        </h1>
-        <p className="text-slate-400 font-medium">
-          {homeTeamName || 'TAKTIKKBOARD'} ·{' '}
-          {sport === 'football' ? 'Fotball 11er'
-            : sport === 'football5' ? 'Fotball 5er'
-            : sport === 'football7' ? 'Fotball 7er'
-            : sport === 'football9' ? 'Fotball 9er'
-            : 'Fotball'}
-        </p>
-      </header>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-        <BentoCard title="Taktikktavle" subtitle="Sett opp lagoppstilling og formasjon" icon="📋" color="sky"     onClick={() => setView('board')} />
-        <BentoCard title="Kalender"     subtitle="Terminliste og treninger"              icon="📅" color="emerald" onClick={() => setView('calendar')} />
-        <BentoCard title="Øvelsesbibliotek" subtitle="Bla gjennom øvelser for trening" icon="📚" color="amber" onClick={() => setShowDrillLibrary(true)} />
-      </div>
-    </div>
-  );
-};
+// ─── NAVIGASJON ──────────────────────────────────────────────
+// Øvelser-fanen kommer sammen med det nye øvelsesbiblioteket.
+const NAV: { view: AppView; label: string; emoji: string }[] = [
+  { view: 'board',    label: 'Brett',    emoji: '📋' },
+  { view: 'calendar', label: 'Kalender', emoji: '📅' },
+  { view: 'training', label: 'Trening',  emoji: '🏃' },
+];
+const VALID_VIEWS: AppView[] = NAV.map(n => n.view);
 
 // ─── INNSTILLINGER MODAL ─────────────────────────────────────
-const SPORT_NAMES: Record<Sport, string> = {
-  football: '11er', football5: '5er', football7: '7er', football9: '9er',
-};
-
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const {
     homeTeamName, awayTeamName,
     setHomeTeamName, setAwayTeamName,
-    setSport, ageGroup, setAgeGroup,
+    ageGroup, setAgeGroup,
   } = useAppStore();
-  const tactic = useActiveTactic();
-  const sport = tactic.sport;
-
-  // Sportbytte fjerner eller legger til spillere i alle faser, så vi spør når det finnes flere faser.
-  const changeSport = (next: Sport) => {
-    if (next === sport) return;
-    if (tactic.phases.length > 1) {
-      const { phases, added, removed } = getSportChangeImpact(tactic, next);
-      const effect = removed > 0
-        ? `fjerner ${removed} spillere fra ${phases} faser`
-        : `legger til ${added} spillere i ${phases} faser`;
-      if (!window.confirm(`Bytte til ${SPORT_NAMES[next]} ${effect} og nullstiller posisjonene i aktiv fase. Fortsette?`)) return;
-    }
-    setSport(next);
-  };
 
   const [home,  setHome]  = useState(homeTeamName);
   const [away,  setAway]  = useState(awayTeamName);
@@ -148,29 +59,6 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-black text-slate-100 text-base">⚙️ Innstillinger</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl min-h-[44px] px-2 transition">✕</button>
-        </div>
-
-        <div className="mb-5">
-          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Idrett</div>
-          <div className="flex gap-2">
-            {([
-              { v: 'football',  e: '⚽', l: 'Fotball 11er' },
-              { v: 'football5', e: '⚽', l: 'Fotball 5er' },
-              { v: 'football7', e: '⚽', l: 'Fotball 7er' },
-              { v: 'football9', e: '⚽', l: 'Fotball 9er' },
-            ] as const).map(({ v, e, l }) => (
-              <button
-                key={v}
-                onClick={() => changeSport(v)}
-                className={`flex-1 py-3 rounded-xl text-[10px] font-bold border transition-all min-h-[48px] backdrop-blur
-                  ${sport === v
-                    ? 'bg-sky-500/20 border-sky-500 text-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.2)]'
-                    : 'border-slate-700 text-slate-500 hover:bg-slate-800/50'}`}
-              >
-                {e}<br />{l}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="mb-5">
@@ -226,32 +114,27 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-// ─── MOBIL TABS ───────────────────────────────────────────────
-const COACH_MOBILE_TABS: { id: CoachTab; label: string; emoji: string }[] = [
-  { id: 'dashboard', label: 'Hjem',      emoji: '🏠' },
-  { id: 'board',     label: 'Brett',     emoji: '📋' },
-  { id: 'calendar',  label: 'Kalender',  emoji: '📅' },
-];
-
 // ─── HOVEDSIDE ────────────────────────────────────────────────
 export default function Home() {
   const [selectedPlayerId,    setSelectedPlayerId]    = useState<string | null>(null);
-  const [isMounted,           setIsMounted]           = useState(false);
+  // null til vi vet skjermbredden: bare én av layoutene monteres, slik at brettet aldri finnes to ganger.
+  const [isDesktop,           setIsDesktop]           = useState<boolean | null>(null);
   const [showSmartCoach,      setShowSmartCoach]      = useState(false);
   const [showMatchReport,     setShowMatchReport]     = useState(false);
   const [showSettings,        setShowSettings]        = useState(false);
   const [showFullscreenBoard, setShowFullscreenBoard] = useState(false);
-  const [showDrillLibrary,    setShowDrillLibrary]    = useState(false);
-  const [mobileCoachTab,      setMobileCoachTab]      = useState<CoachTab>('dashboard');
   const [storageError,        setStorageError]        = useState<string | null>(null);
   const [selectedTraining,    setSelectedTraining]    = useState<CalendarEvent | null>(null);
 
-  const {
-    currentView, setView, homeTeamName,
-  } = useAppStore();
-  const { sport } = useActiveTactic();
+  const { currentView, setView, homeTeamName } = useAppStore();
 
-  useEffect(() => { setIsMounted(true); }, []);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   // safeStorage varsler når localStorage er full slik at lagringen stille feiler.
   useEffect(() => {
@@ -260,9 +143,9 @@ export default function Home() {
     return () => window.removeEventListener(STORAGE_ERROR_EVENT, onStorageError);
   }, []);
 
-  // Et lagret view fra en fjernet fane (stats, admin, messages …) skal ikke gi blank side.
+  // Et lagret view fra en fjernet fane (dashboard, stats, admin, messages …) skal ikke gi blank side.
   useEffect(() => {
-    if (currentView && !VALID_VIEWS.includes(currentView)) setView('dashboard');
+    if (!VALID_VIEWS.includes(currentView)) setView('board');
   }, [currentView, setView]);
 
   useEffect(() => {
@@ -277,14 +160,23 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [currentView]);
 
+  // Kalender og trening er felles for desktop og mobil; bare rammen rundt er ulik.
+  const calendarView = (
+    <CalendarView onGoToTraining={(t) => { setSelectedTraining(t); setView('training'); }} />
+  );
+  const trainingView = (
+    <TrainingView initialTraining={selectedTraining || undefined}
+      onBack={() => { setSelectedTraining(null); setView('calendar'); }} />
+  );
+
   // ─── DESKTOP LAYOUT ──────────────────────────────────────────
   const DesktopLayout = useMemo(() => {
     return (
-      <div className="hidden sm:flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
+      <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
         <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/90 backdrop-blur-md border-b border-slate-800 h-14 z-40">
           <div
             className="mr-2 text-base font-black tracking-tighter whitespace-nowrap cursor-pointer"
-            onClick={() => setView('dashboard')}
+            onClick={() => setView('board')}
           >
             <span className="bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
               ⚽ {homeTeamName || 'TAKTIKKBOARD'}
@@ -292,22 +184,17 @@ export default function Home() {
           </div>
 
           <nav className="flex gap-1 ml-4">
-            {([
-              { view: 'dashboard', label: 'Hjem',      emoji: '🏠' },
-              { view: 'board',     label: 'Brett',     emoji: '📋' },
-              { view: 'calendar',  label: 'Kalender',  emoji: '📅' },
-              { view: 'training',  label: 'Trening',   emoji: '🏃' },
-            ] as const).map(n => (
+            {NAV.map(n => (
               <button
                 key={n.view}
                 onClick={() => setView(n.view)}
                 className={`relative px-3 py-2 rounded-xl text-[11.5px] font-bold transition-all min-h-[40px]
-                  ${(currentView === n.view || (currentView === undefined && n.view === 'dashboard'))
+                  ${currentView === n.view
                     ? 'bg-sky-500/10 text-sky-400'
                     : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
               >
                 {n.emoji} {n.label}
-                {(currentView === n.view || (currentView === undefined && n.view === 'dashboard')) && (
+                {currentView === n.view && (
                   <div className="absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-4 h-[3px] bg-sky-500 rounded-t-full" />
                 )}
               </button>
@@ -328,132 +215,65 @@ export default function Home() {
               </button>
             </div>
           )}
+
+          <button onClick={() => setShowSettings(true)} aria-label="Innstillinger" title="Innstillinger"
+            className="ml-1 px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:border-slate-500 transition min-h-[36px] shadow-sm">
+            ⚙️
+          </button>
         </header>
 
         <main className="flex flex-1 overflow-hidden relative">
-          {(currentView === 'dashboard' || currentView === undefined) && (
-            <DashboardView
-              homeTeamName={homeTeamName} sport={sport}
-              setView={setView}
-              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
-            />
-          )}
           {currentView === 'board' && (
-            <div className="flex-1 overflow-hidden relative animate-in fade-in">
-              <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-              <button onClick={() => setShowFullscreenBoard(true)}
-                className="absolute bottom-4 left-4 h-10 w-10 flex items-center justify-center bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl text-white hover:border-sky-500 transition-colors shadow-lg z-10"
-                title="Fullskjerm (F)">⛶</button>
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden animate-in fade-in">
+              <TacticTabs />
+              <Controls />
+              <div className="flex-1 min-h-0 overflow-hidden relative">
+                <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
+                <button onClick={() => setShowFullscreenBoard(true)}
+                  className="absolute top-2 right-2 h-10 w-10 flex items-center justify-center bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl text-white hover:border-sky-500 transition-colors shadow-lg z-10"
+                  title="Fullskjerm (F)">⛶</button>
+              </div>
             </div>
           )}
-          {currentView === 'calendar' && (
-            <div className="flex-1 overflow-hidden">
-              <CalendarView onGoToTraining={(t) => { setSelectedTraining(t); setView('training'); }} />
-            </div>
-          )}
-          {currentView === 'training' && (
-            <div className="flex-1 overflow-hidden">
-              <TrainingView initialTraining={selectedTraining || undefined}
-                onBack={() => { setSelectedTraining(null); setView('calendar'); }} />
-            </div>
-          )}
+          {currentView === 'calendar' && <div className="flex-1 overflow-hidden">{calendarView}</div>}
+          {currentView === 'training' && <div className="flex-1 overflow-hidden">{trainingView}</div>}
         </main>
       </div>
     );
-  }, [
-    currentView, homeTeamName, sport,
-    selectedPlayerId, selectedTraining,
-    setView,
-  ]);
+  }, [currentView, homeTeamName, selectedPlayerId, selectedTraining, setView]);
 
   // ─── MOBIL LAYOUT ────────────────────────────────────────────
   const MobileLayout = useMemo(() => {
-
-    // ── Brett: fullskjerm med sidebar som overlay ──────────────
-    if (mobileCoachTab === 'board') {
-      return (
-        <div className="flex sm:hidden flex-col h-[100dvh] landscape:h-screen overflow-hidden bg-[#060c18]">
-          <div
-            className="flex-shrink-0 flex items-center justify-between px-3 min-h-[48px] bg-[#08101e]/90 backdrop-blur border-b border-[#1a2d46]"
-            style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: '8px' }}
-          >
-            <span className="text-[11px] font-black text-sky-400 tracking-widest uppercase">📋 Taktikktavle</span>
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => setShowSmartCoach(true)}
-                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px]">
-                💡
-              </button>
-              <button onClick={() => setMobileCoachTab('dashboard')}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-700 text-slate-400 hover:text-white transition min-h-[36px]">
-                ✕
-              </button>
-            </div>
-          </div>
-
-          {/* touchAction none på wrapper – forhindrer scrolling under drag */}
-          <div className="flex flex-1 overflow-hidden relative" style={{ touchAction: 'none' }}>
-            <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-          </div>
-        </div>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // renderPageWithBackButton
-    //
-    // SCROLL-MODELL:
-    //   • Ytterste wrapper: overflow-y-auto  → selve scroll-containeren
-    //   • Tilbake-header:   sticky top-0     → klistret til toppen ved scroll
-    //   • Innholds-div:     flex-1 (ingen overflow) → strekker seg naturlig
-    // ─────────────────────────────────────────────────────────────
-    const renderPageWithBackButton = (children: React.ReactNode, title?: string) => {
-      if (mobileCoachTab === 'dashboard') return children;
-      return (
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          {/* Tilbake-knapp – sticky så den alltid er synlig */}
-          <div className="flex-shrink-0 flex items-center px-3 py-2 bg-[#0c1525] border-b border-[#1e3050] sticky top-0 z-10">
-            <button
-              onClick={() => setMobileCoachTab('dashboard')}
-              className="flex items-center gap-1 text-[12px] text-sky-400 min-h-[44px]"
-            >
-              ‹ Tilbake til dashboard
-            </button>
-            {title && <span className="ml-2 text-[11px] font-bold text-slate-300 truncate">{title}</span>}
-          </div>
-          {/* Ingen overflow-hidden her – innholdet flyter naturlig og kan scrolles */}
-          <div className="flex-1">
-            {children}
-          </div>
-        </div>
-      );
-    };
-
     return (
-      <div className="flex sm:hidden flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
-        {/* Toppmeny-header */}
+      <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
         <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/95 backdrop-blur-md border-b border-slate-800 h-14 z-40">
           <span className="text-[13px] font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
             {homeTeamName || 'TAKTIKKBOARD'}
           </span>
           <div className="flex-1" />
-          <button onClick={() => setShowSettings(true)}
+          {currentView === 'board' && (
+            <button onClick={() => setShowSmartCoach(true)} aria-label="Smart Coach"
+              className="px-2.5 py-1.5 rounded-xl text-[14px] border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px]">
+              💡
+            </button>
+          )}
+          <button onClick={() => setShowSettings(true)} aria-label="Innstillinger"
             className="px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-300 transition min-h-[36px] shadow-sm">
             ⚙️
           </button>
         </header>
 
-        {/* Navigasjonsfaner */}
         <nav className="flex-shrink-0 flex border-b border-slate-800 bg-[#08101e]/95 backdrop-blur-md relative z-40">
-          {COACH_MOBILE_TABS.map(t => {
-            const isActive = mobileCoachTab === t.id;
+          {NAV.map(n => {
+            const isActive = currentView === n.view;
             return (
-              <button key={t.id} onClick={() => setMobileCoachTab(t.id)}
+              <button key={n.view} onClick={() => setView(n.view)}
                 className={`flex-1 flex flex-col items-center justify-center py-2 relative min-h-[52px] transition-all
                   ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
                 <span className={`text-[18px] leading-none mb-0.5 transition-transform ${isActive ? 'scale-110' : ''}`}>
-                  {t.emoji}
+                  {n.emoji}
                 </span>
-                <span className="text-[8px] font-bold tracking-widest uppercase">{t.label}</span>
+                <span className="text-[8px] font-bold tracking-widest uppercase">{n.label}</span>
                 {isActive && (
                   <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-sky-400 rounded-t-full shadow-[0_-2px_8px_rgba(56,189,248,0.5)]" />
                 )}
@@ -462,40 +282,27 @@ export default function Home() {
           })}
         </nav>
 
-        {/* Sideinnhold */}
         <div className="flex-1 min-h-0 overflow-hidden relative">
-          {mobileCoachTab === 'dashboard' && (
-            <DashboardView
-              homeTeamName={homeTeamName} sport={sport}
-              setView={(v: AppView) => setMobileCoachTab(v as CoachTab)}
-              setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
-            />
+          {currentView === 'board' && (
+            <div className="flex flex-col h-full">
+              {/* Faner og kontroller ligger utenfor touch-action:none-wrapperen, slik at fanene kan rulles. */}
+              <TacticTabs />
+              <Controls />
+              {/* touchAction none på wrapper – forhindrer scrolling under drag */}
+              <div className="flex flex-1 min-h-0 overflow-hidden relative" style={{ touchAction: 'none' }}>
+                <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
+              </div>
+            </div>
           )}
-
-          {mobileCoachTab === 'calendar' && renderPageWithBackButton(
-            <CalendarView onGoToTraining={(t) => { setSelectedTraining(t); setMobileCoachTab('training'); }} />,
-            'Kalender',
-          )}
-
-          {mobileCoachTab === 'training' && renderPageWithBackButton(
-            <TrainingView
-              initialTraining={selectedTraining || undefined}
-              onBack={() => { setSelectedTraining(null); setMobileCoachTab('calendar'); }}
-            />,
-            'Trening',
-          )}
+          {currentView === 'calendar' && <div className="h-full overflow-y-auto">{calendarView}</div>}
+          {currentView === 'training' && <div className="h-full overflow-y-auto">{trainingView}</div>}
         </div>
       </div>
     );
-  }, [
-    homeTeamName, sport,
-    selectedPlayerId, selectedTraining, mobileCoachTab,
-    setMobileCoachTab, setSelectedTraining, setSelectedPlayerId,
-    setShowSmartCoach, setShowMatchReport, setShowSettings, setShowDrillLibrary,
-  ]);
+  }, [currentView, homeTeamName, selectedPlayerId, selectedTraining, setView]);
 
   // ─── BETINGEDE RETURNS ─────────────────────────────────────────
-  if (!isMounted) return null;
+  if (isDesktop === null) return null;
 
   return (
     <>
@@ -507,13 +314,11 @@ export default function Home() {
           <button onClick={() => setStorageError(null)} aria-label="Lukk varsel" className="px-2 min-h-[32px]">✕</button>
         </div>
       )}
-      {DesktopLayout}
-      {MobileLayout}
+      {isDesktop ? DesktopLayout : MobileLayout}
 
       {showSmartCoach  && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
       {showMatchReport && <MatchReportModal onClose={() => setShowMatchReport(false)} />}
       {showSettings    && <SettingsModal onClose={() => setShowSettings(false)} />}
-      {showDrillLibrary && <DrillLibraryModal onClose={() => setShowDrillLibrary(false)} />}
       {showFullscreenBoard && (
         <FullscreenBoard onClose={() => setShowFullscreenBoard(false)} interactive />
       )}

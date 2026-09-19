@@ -1,116 +1,82 @@
 'use client';
-
-import React from 'react';
-import { motion } from 'framer-motion';
-import {
-  Play, Pause, SkipForward, SkipBack,
-  Plus, Trash2, Zap, Trophy, Pencil
-} from 'lucide-react';
+import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { useActiveTactic } from '@/store/selectors';
+import { useActiveTactic, getSportChangeMessage, SPORT_LABELS } from '@/store/selectors';
+import { getFormations } from '@/data/formations';
 import { Sport } from '@/types';
+import { RoleExplanations } from './RoleExplanations';
 
-const SPORTS: { id: Sport; name: string; icon: React.ReactNode }[] = [
-  { id: 'football',  name: 'Fotball',   icon: <Trophy className="w-3.5 h-3.5" /> },
-];
+// ═══════════════════════════════════════════════════════════════
+//  KONTROLLER FOR AKTIV TAKTIKK: sport (5/7/9/11), formasjon og roller.
+// ═══════════════════════════════════════════════════════════════
+
+const SPORT_ORDER: Sport[] = ['football5', 'football7', 'football9', 'football'];
 
 export const Controls: React.FC = () => {
-  const { setSport, addPhase, removePhase, setActivePhaseIdx } = useAppStore();
-  const { sport: currentSport, phases, activePhaseIdx } = useActiveTactic();
+  const tactic       = useActiveTactic();
+  const setSport     = useAppStore(s => s.setSport);
+  const setFormation = useAppStore(s => s.setFormation);
+  const [showRoles, setShowRoles] = useState(false);
 
-  const currentIndex = activePhaseIdx;
-
-  const nextPhase = () => {
-    if (currentIndex < phases.length - 1) setActivePhaseIdx(currentIndex + 1);
-  };
-
-  const previousPhase = () => {
-    if (currentIndex > 0) setActivePhaseIdx(currentIndex - 1);
+  // Sportbytte fjerner eller legger til spillere i alle faser, så vi spør når det finnes flere faser.
+  const changeSport = (next: Sport) => {
+    if (next === tactic.sport) return;
+    const warning = getSportChangeMessage(tactic, next);
+    if (warning && !window.confirm(warning)) return;
+    setSport(next);
   };
 
   return (
-    <motion.div
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="bg-slate-900/95 backdrop-blur-xl rounded-xl border border-slate-800 p-3 shadow-xl"
-    >
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Idrett-velger */}
-        <div className="flex gap-1 bg-slate-800/70 rounded-lg p-1">
-          {SPORTS.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSport(s.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                currentSport === s.id
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'
-              }`}
-            >
-              {s.icon}
-              {s.name}
-            </button>
-          ))}
+    <>
+      <div
+        style={{ background: 'rgba(5,10,25,0.82)', borderBottom: '1px solid rgba(56,189,248,0.1)' }}
+        className="flex-shrink-0 flex flex-wrap items-center gap-2 px-2 py-1.5"
+      >
+        <div
+          role="group"
+          aria-label="Antall spillere"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+          className="flex items-center gap-0.5 rounded-lg p-0.5 flex-shrink-0"
+        >
+          <span className="pl-2 pr-1 text-[13px]" aria-hidden>⚽</span>
+          {SPORT_ORDER.map(s => {
+            const active = tactic.sport === s;
+            return (
+              <button
+                key={s}
+                onClick={() => changeSport(s)}
+                aria-pressed={active}
+                className={`px-2.5 rounded-md min-h-[36px] text-[11px] font-bold transition-colors
+                  ${active ? 'bg-sky-500/20 text-sky-400' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                {SPORT_LABELS[s]}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="h-6 w-px bg-slate-700" />
-
-        {/* Fase-navigasjon */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={previousPhase}
-            disabled={currentIndex <= 0}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition"
+        <label className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
+          <select
+            value={tactic.formation}
+            onChange={e => setFormation(e.target.value)}
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            className="rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px]"
           >
-            <SkipBack className="w-4 h-4" />
-          </button>
+            {getFormations(tactic.sport).map(f => (
+              <option key={f.name} value={f.name} style={{ background: '#0c1525' }}>{f.name}</option>
+            ))}
+          </select>
+        </label>
 
-          <button
-            onClick={nextPhase}
-            disabled={currentIndex >= phases.length - 1}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition"
-          >
-            <SkipForward className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="h-6 w-px bg-slate-700" />
-
-        {/* Fase-tabs */}
-        <div className="flex gap-1.5 overflow-x-auto max-w-xs">
-          {phases.map((p, idx) => (
-            <button
-              key={p.id}
-              onClick={() => setActivePhaseIdx(idx)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                idx === activePhaseIdx
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-              }`}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Handlinger */}
-        <div className="flex gap-1.5 ml-auto">
-          <button
-            onClick={() => addPhase()}
-            className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 hover:bg-emerald-600/30 transition"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => phases.length > 1 && removePhase(activePhaseIdx)}
-            disabled={phases.length <= 1}
-            className="p-2 rounded-lg bg-red-600/10 text-red-400 border border-red-600/20 hover:bg-red-600/25 disabled:opacity-30 transition"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          onClick={() => setShowRoles(true)}
+          style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)' }}
+          className="px-3 rounded-lg min-h-[40px] text-[11px] font-bold text-violet-300 hover:bg-violet-500/15 flex-shrink-0"
+        >🎓 Roller</button>
       </div>
-    </motion.div>
+
+      {showRoles && <RoleExplanations onClose={() => setShowRoles(false)} />}
+    </>
   );
 };

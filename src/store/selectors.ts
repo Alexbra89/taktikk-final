@@ -25,6 +25,23 @@ export function getSlot(tactic: Tactic, slotIdx: number): { role: PlayerRole; po
   return { role: slot.role, position: slot.position, label: getSlotLabel(slot.role, slot.position) };
 }
 
+export const SPORT_LABELS: Record<Sport, string> = {
+  football: '11er', football5: '5er', football7: '7er', football9: '9er',
+};
+
+/**
+ * Bekreftelsestekst for sportbytte, eller null når ingen bekreftelse trengs
+ * (taktikken har bare én fase). «Bytte til 5er fjerner 6 spillere fra 3 faser. Fortsette?»
+ */
+export function getSportChangeMessage(tactic: Tactic, next: Sport): string | null {
+  if (tactic.phases.length <= 1) return null;
+  const { phases, added, removed } = getSportChangeImpact(tactic, next);
+  const effect = removed > 0
+    ? `fjerner ${removed} spillere fra ${phases} faser`
+    : `legger til ${added} spillere i ${phases} faser`;
+  return `Bytte til ${SPORT_LABELS[next]} ${effect} og nullstiller posisjonene i aktiv fase. Fortsette?`;
+}
+
 /** Hva et sportbytte betyr for taktikken, brukt til bekreftelsesdialogen. */
 export function getSportChangeImpact(tactic: Tactic, sport: Sport): {
   phases: number; added: number; removed: number;

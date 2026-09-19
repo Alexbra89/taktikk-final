@@ -5,7 +5,7 @@ import React, {
 import { useAppStore } from '../../store/useAppStore';
 import { useActiveTactic, getSlot } from '../../store/selectors';
 import { Player } from '../../types';
-import { VW, VH, getFormations, getFormationSlots } from '../../data/formations';
+import { VW, VH, getFormationSlots } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { Ball, DrawingCanvas } from './BoardElements';
 import { ROLE_INFO } from '../../data/roleInfo';
@@ -17,6 +17,7 @@ import { NameLabel } from './svg/NameLabel';
 import { DragGhost } from './svg/DragGhost';
 import { SnapIndicator } from './svg/SnapIndicator';
 import { SvgDefs } from './svg/SvgDefs';
+import { PlayerNameBar } from './PlayerNameBar';
 import { useViewport } from '../../hooks/useViewport';
 
 // ══════════════════════════════════════════════════════════════
@@ -101,16 +102,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     setActivePhaseIdx, addPhase, removePhase,
     movePlayer, moveBall,
     addDrawing, clearDrawings, updateStickyNote,
-    setFormation,
   } = useAppStore();
 
   const tactic = useActiveTactic();
   const { sport, formation, phases, activePhaseIdx } = tactic;
   const phase = phases[activePhaseIdx] ?? null;
 
-  const { isMobile, isLandscape } = useViewport();
+  const { isMobile } = useViewport();
 
-  const availableFormations = useMemo(() => getFormations(sport), [sport]);
 
   const clamp = useCallback((v:number,lo:number,hi:number) => Math.max(lo,Math.min(hi,v)), []);
   const clampToPitch = useCallback((x:number, y:number): SvgPos => ({
@@ -163,6 +162,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   useEffect(() => {
     const h = (e:KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
       if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey) { e.preventDefault(); doUndo(); }
       if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))) { e.preventDefault(); doRedo(); }
     };
@@ -196,6 +197,19 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     setIsPlaying(false); setInterpT(0);
   }, []);
 
+  // Angre/gjør om gjelder bare fasen spilleren ble flyttet i: nullstilles når taktikk, fase,
+  // formasjon eller sport byttes, slik at «angre» aldri flytter en spiller i feil fase.
+  useEffect(() => {
+    undoStack.current = [];
+    redoStack.current = [];
+  }, [tactic.id, activePhaseIdx, formation, sport]);
+
+  // Formasjon, sport eller taktikk kan byttes utenfra (Controls/faner) mens avspilling pågår.
+  useEffect(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setIsPlaying(false); setInterpT(0);
+  }, [tactic.id, formation, sport]);
+
   const getDisplayPlayers = useCallback((): Player[] => {
     if (!phase) return [];
     if (!isPlaying || interpT===0) return phase.players;
@@ -221,11 +235,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     };
   }, [phase, phases, interpFrom, interpT, isPlaying]);
 
-  // ─── toSVG med letter-box/crop-korreksjon ─────────────────────
-  // Må speile <svg preserveAspectRatio> nøyaktig: "meet" (letterbox,
-  // tomme kanter, skala=min) i portrett, "slice" (fyller/beskjærer,
-  // skala=max) i landskap. Feil skala her ga feil dra-posisjon i
-  // liggende mobilvisning.
+  // ─── toSVG med letter-box-korreksjon ──────────────────────────
+  // Må speile <svg preserveAspectRatio="xMidYMid meet"> nøyaktig (letterbox, skala=min).
+  // Banen vises alltid i sin helhet: med faner, kontroller og verktøylinje rundt blir
+  // brettet lavt i liggende format, og "slice" (skala=max) ville beskåret vinger og backer.
   const toSVG = useCallback((cx: number, cy: number): SvgPos => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
@@ -236,12 +249,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
     const scaleX = rectW / VW;
     const scaleY = rectH / VH;
-    const scale  = isLandscape ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+    const scale  = Math.min(scaleX, scaleY);
 
     const renderedW = VW * scale;
     const renderedH = VH * scale;
 
-    // Sentrert offset (xMidYMid) – negativ ved "slice" (beskjæring)
+    // Sentrert offset (xMidYMid)
     const offsetX = (rectW - renderedW) / 2;
     const offsetY = (rectH - renderedH) / 2;
 
@@ -250,7 +263,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const localY = cy - rect.top  - offsetY;
 
     return clampToPitch((localX / renderedW) * VW, (localY / renderedH) * VH);
-  }, [clampToPitch, isLandscape]);
+  }, [clampToPitch]);
 
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
@@ -425,9 +438,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
   const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
-  const getDisplayName = useCallback((player: Player): string => {
-    return player.name || `#${player.num}`;
-  }, []);
+  // Kallenavn er valgfritt: tomt navn betyr at brikken bare viser nummer.
+  const getDisplayName = useCallback((player: Player): string => player.name.trim(), []);
+  const selectedPlayer = selectedPlayerId ? phase?.players.find(p => p.id === selectedPlayerId) ?? null : null;
 
   const isOutOfPos = useCallback((player:Player):boolean => {
     const fam = ROLE_INFO[getSlot(tactic, player.slotIdx).role].family;
@@ -461,13 +474,181 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       className="flex flex-col h-full select-none"
       style={{ ...glassStyle, touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
     >
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div
+          className="flex-1 min-w-0 h-full flex flex-col items-stretch"
+          style={{ padding: '4px', overflow: 'hidden' }}
+        >
+          {formation&&(
+            <div className="flex-shrink-0 flex items-center justify-center py-1">
+              <div style={{
+                background:'rgba(5,10,28,0.7)',backdropFilter:'blur(12px)',
+                border:'1px solid rgba(56,189,248,0.12)',boxShadow:'0 0 20px rgba(56,189,248,0.05)',
+              }} className="flex items-center gap-2 px-4 py-1.5 rounded-xl">
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
+                <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{formation}</span>
+              </div>
+            </div>
+          )}
+
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${VW} ${VH}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{
+              flex: 1, width: '100%', height: '100%', display: 'block',
+              boxShadow: '0 0 80px rgba(0,0,0,0.95)',
+              cursor: drawMode ? 'crosshair' : 'default',
+              touchAction: 'pan-x pan-y pinch-zoom',
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            onPointerDown={onSvgPtrDown}
+            onPointerMove={onSvgPtrMove}
+            onPointerUp={onSvgPtrUp}
+            onPointerLeave={onSvgPtrUp}
+          >
+            <SvgDefs/>
+            <rect width={VW} height={VH} fill="url(#grass)"/>
+            <rect width={VW} height={VH} fill="url(#vignette)"/>
+
+            <FootballPitch/>
+            {phase.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
+            {liveDrawPts.length>1&&(
+              <polyline points={liveDrawPts.map(p=>`${p.x},${p.y}`).join(' ')}
+                stroke={drawColor} strokeWidth={4} fill="none"
+                strokeLinecap="round" strokeLinejoin="round" opacity={0.85}/>
+            )}
+            {phase&&(
+              <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
+                onPositionChange={pos=>moveBall(pos)}/>
+            )}
+
+            {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
+
+            {allDisplay.map(player => {
+              const slot       = getSlot(tactic, player.slotIdx);
+              const color      = ROLE_INFO[slot.role].color;
+              const name       = getDisplayName(player);
+              const isTarget   = dragOverId===player.id;
+              const isSrc      = draggingPlayerId===player.id;
+              const isBouncing = bounceId===player.id;
+              const outOfPos   = isOutOfPos(player);
+              const {x,y}      = player.position;
+              const showHover  = isTarget;
+
+              return (
+                <g key={player.id} data-player="true"
+                  onPointerDown={e=>startDrag(e, player.id)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                  style={{
+                    cursor: !isPlaying&&!drawMode ? 'grab' : 'default',
+                    // FIX 4: none her er nødvendig kun for selve spillerne
+                    // for å forhindre at dragging scrolller siden.
+                    touchAction: 'none',
+                    transformOrigin: `${x}px ${y}px`,
+                    transform: isBouncing?'scale(1.15)':'scale(1)',
+                    transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
+                  }}
+                >
+                  {showHover&&(
+                    <circle cx={x} cy={y} r={32} fill="none"
+                      stroke="rgba(56,189,248,0.6)" strokeWidth={2} strokeDasharray="6,4"/>
+                  )}
+                  <JerseyIcon x={x} y={y} num={player.num} color={color}
+                    selected={selectedPlayerId===player.id} isDragging={!!isSrc}
+                    isTarget={isTarget} isOutOfPos={outOfPos}/>
+                  <RoleBadge x={x} y={y+23} role={slot.role} label={slot.label}/>
+                  {name&&<NameLabel x={x} y={y+47} name={name}/>}
+                </g>
+              );
+            })}
+
+            {ghostPos&&ghostPlayer&&ghostSlot&&(
+              <DragGhost x={ghostPos.x} y={ghostPos.y}
+                color={ROLE_INFO[ghostSlot.role].color}
+                num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
+                role={ghostSlot.role} label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
+            )}
+
+            {isPlaying&&(
+              <rect x={32} y={VH-14} rx={3} height={5}
+                width={progressFrac*(VW-64)} fill="#38bdf8" opacity={0.8}/>
+            )}
+          </svg>
+        </div>
+
+      </div>
+
+      {showSticky&&phase&&(
+        <div style={{background:'rgba(251,191,36,0.05)',backdropFilter:'blur(12px)',borderTop:'1px solid rgba(251,191,36,0.15)'}}
+          className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
+          <span className="text-amber-400 text-[13px]">📌</span>
+          <input value={localStickyNote} onChange={e=>handleStickyChange(e.target.value)}
+            placeholder={`Notat for ${phase.name}…`}
+            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/35 focus:outline-none min-h-[40px]"/>
+        </div>
+      )}
+
+      {showMoments&&(
+        <div style={{background:'rgba(5,8,22,0.88)',backdropFilter:'blur(16px)',borderTop:'1px solid rgba(167,139,250,0.15)'}}
+          className="flex-shrink-0 px-3 py-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">📸 Taktiske Øyeblikk</span>
+          </div>
+          <div className="flex gap-2 mb-2">
+            <input value={momentLabel} onChange={e=>setMomentLabel(e.target.value)}
+              onKeyDown={e=>{
+                if (e.key==='Enter'&&momentLabel.trim()&&phase) {
+                  setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
+                  setMomentLabel('');
+                }
+              }}
+              placeholder="Navn på øyeblikk…"
+              style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(167,139,250,0.2)'}}
+              className="flex-1 rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none min-h-[36px]"/>
+            <button onClick={()=>{
+              if (!momentLabel.trim()||!phase) return;
+              setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
+              setMomentLabel('');
+            }} disabled={!momentLabel.trim()}
+              style={{background:'rgba(167,139,250,0.12)',border:'1px solid rgba(167,139,250,0.3)'}}
+              className="px-3 py-1.5 rounded-lg text-violet-400 text-[11px] font-bold disabled:opacity-40">Lagre</button>
+          </div>
+          {moments.length>0&&(
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {moments.map(m=>(
+                <div key={m.id}
+                  style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(167,139,250,0.15)',backdropFilter:'blur(8px)'}}
+                  className="flex-shrink-0 rounded-xl px-3 py-2 min-w-[120px]">
+                  <div className="text-[10px] font-bold text-violet-300">{m.label}</div>
+                  <div className="text-[8px] text-slate-500 mt-0.5">
+                    {new Date(m.at).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}
+                  </div>
+                  <button onClick={()=>setMoments(ms=>ms.filter(x=>x.id!==m.id))}
+                    className="text-[8px] text-red-400 mt-1 hover:text-red-300">Slett</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedPlayer&&(
+        <PlayerNameBar key={selectedPlayer.id} player={selectedPlayer}
+          label={getSlot(tactic, selectedPlayer.slotIdx).label}
+          onClose={()=>stableOnSelectPlayer(null)}/>
+      )}
+
       <div style={{
         background:'rgba(5,10,25,0.82)',
         backdropFilter:'blur(16px) saturate(1.4)',
         WebkitBackdropFilter:'blur(16px) saturate(1.4)',
-        borderBottom:'1px solid rgba(56,189,248,0.1)',
+        borderTop:'1px solid rgba(56,189,248,0.1)',
         boxShadow:'0 1px 0 rgba(255,255,255,0.04)',
-      }} className="flex-shrink-0 flex flex-wrap items-center gap-1 px-2 py-1.5">
+      }} className="relative flex-shrink-0 flex flex-wrap items-center gap-1 px-2 py-1.5">
 
         {isMobile ? (
           <select
@@ -511,14 +692,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 text-base disabled:opacity-40 flex-shrink-0">🗑️</button>
         )}
 
-        {availableFormations.length>0&&(
-          <select value={formation} onChange={e=>setFormation(e.target.value)} disabled={isPlaying}
-            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',backdropFilter:'blur(8px)'}}
-            className="ml-1 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px] flex-shrink-0">
-            {availableFormations.map(f=><option key={f.name} value={f.name} style={{background:'#0c1525'}}>{f.name}</option>)}
-          </select>
-        )}
-
         <div className="flex-1 min-w-[4px]"/>
 
         {[{fn:doUndo,icon:'↩',title:'Angre (Ctrl+Z)'},{fn:doRedo,icon:'↪',title:'Gjør om (Ctrl+Y)'}].map(({fn,icon,title})=>(
@@ -537,7 +710,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               ⋮ Mer
             </button>
             {showMoreMenu && (
-              <div className="absolute top-12 right-2 z-50 mt-1 p-2 rounded-xl shadow-2xl"
+              <div className="absolute bottom-full right-2 z-50 mb-1 p-2 rounded-xl shadow-2xl"
                 style={{background:'rgba(5,10,28,0.96)',backdropFilter:'blur(16px)',border:'1px solid rgba(56,189,248,0.15)'}}>
                 <div className="flex flex-col gap-1">
                   <button onClick={()=>{setShowMoments(!showMoments);setShowMoreMenu(false);}}
@@ -633,167 +806,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
       </div>
 
-      {showSticky&&phase&&(
-        <div style={{background:'rgba(251,191,36,0.05)',backdropFilter:'blur(12px)',borderBottom:'1px solid rgba(251,191,36,0.15)'}}
-          className="flex-shrink-0 flex items-center gap-2 px-3 py-2">
-          <span className="text-amber-400 text-[13px]">📌</span>
-          <input value={localStickyNote} onChange={e=>handleStickyChange(e.target.value)}
-            placeholder={`Notat for ${phase.name}…`}
-            className="flex-1 bg-transparent border-none text-amber-100 text-[13px] placeholder-amber-500/35 focus:outline-none min-h-[40px]"/>
-        </div>
-      )}
-
-      {showMoments&&(
-        <div style={{background:'rgba(5,8,22,0.88)',backdropFilter:'blur(16px)',borderBottom:'1px solid rgba(167,139,250,0.15)'}}
-          className="flex-shrink-0 px-3 py-2">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">📸 Taktiske Øyeblikk</span>
-          </div>
-          <div className="flex gap-2 mb-2">
-            <input value={momentLabel} onChange={e=>setMomentLabel(e.target.value)}
-              onKeyDown={e=>{
-                if (e.key==='Enter'&&momentLabel.trim()&&phase) {
-                  setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
-                  setMomentLabel('');
-                }
-              }}
-              placeholder="Navn på øyeblikk…"
-              style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(167,139,250,0.2)'}}
-              className="flex-1 rounded-lg px-3 py-1.5 text-[11px] text-slate-200 focus:outline-none min-h-[36px]"/>
-            <button onClick={()=>{
-              if (!momentLabel.trim()||!phase) return;
-              setMoments(m=>[...m,{id:`${Date.now()}`,label:momentLabel.trim(),snapshot:JSON.stringify(phase),at:new Date().toISOString()}]);
-              setMomentLabel('');
-            }} disabled={!momentLabel.trim()}
-              style={{background:'rgba(167,139,250,0.12)',border:'1px solid rgba(167,139,250,0.3)'}}
-              className="px-3 py-1.5 rounded-lg text-violet-400 text-[11px] font-bold disabled:opacity-40">Lagre</button>
-          </div>
-          {moments.length>0&&(
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {moments.map(m=>(
-                <div key={m.id}
-                  style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(167,139,250,0.15)',backdropFilter:'blur(8px)'}}
-                  className="flex-shrink-0 rounded-xl px-3 py-2 min-w-[120px]">
-                  <div className="text-[10px] font-bold text-violet-300">{m.label}</div>
-                  <div className="text-[8px] text-slate-500 mt-0.5">
-                    {new Date(m.at).toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'})}
-                  </div>
-                  <button onClick={()=>setMoments(ms=>ms.filter(x=>x.id!==m.id))}
-                    className="text-[8px] text-red-400 mt-1 hover:text-red-300">Slett</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div
-          className="flex-1 min-w-0 h-full flex flex-col items-stretch"
-          style={{ padding: '4px', overflow: 'hidden' }}
-        >
-          {formation&&(
-            <div className="flex-shrink-0 flex items-center justify-center py-1">
-              <div style={{
-                background:'rgba(5,10,28,0.7)',backdropFilter:'blur(12px)',
-                border:'1px solid rgba(56,189,248,0.12)',boxShadow:'0 0 20px rgba(56,189,248,0.05)',
-              }} className="flex items-center gap-2 px-4 py-1.5 rounded-xl">
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
-                <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{formation}</span>
-              </div>
-            </div>
-          )}
-
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${VW} ${VH}`}
-            preserveAspectRatio={isLandscape ? 'xMidYMid slice' : 'xMidYMid meet'}
-            style={{
-              flex: 1, width: '100%', height: '100%', display: 'block',
-              boxShadow: '0 0 80px rgba(0,0,0,0.95)',
-              cursor: drawMode ? 'crosshair' : 'default',
-              touchAction: 'pan-x pan-y pinch-zoom',
-              userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            onPointerDown={onSvgPtrDown}
-            onPointerMove={onSvgPtrMove}
-            onPointerUp={onSvgPtrUp}
-            onPointerLeave={onSvgPtrUp}
-          >
-            <SvgDefs/>
-            <rect width={VW} height={VH} fill="url(#grass)"/>
-            <rect width={VW} height={VH} fill="url(#vignette)"/>
-
-            <FootballPitch/>
-            {phase.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
-            {liveDrawPts.length>1&&(
-              <polyline points={liveDrawPts.map(p=>`${p.x},${p.y}`).join(' ')}
-                stroke={drawColor} strokeWidth={4} fill="none"
-                strokeLinecap="round" strokeLinejoin="round" opacity={0.85}/>
-            )}
-            {phase&&(
-              <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
-                onPositionChange={pos=>moveBall(pos)}/>
-            )}
-
-            {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
-
-            {allDisplay.map(player => {
-              const slot       = getSlot(tactic, player.slotIdx);
-              const color      = ROLE_INFO[slot.role].color;
-              const name       = getDisplayName(player);
-              const isTarget   = dragOverId===player.id;
-              const isSrc      = draggingPlayerId===player.id;
-              const isBouncing = bounceId===player.id;
-              const outOfPos   = isOutOfPos(player);
-              const {x,y}      = player.position;
-              const showHover  = isTarget;
-
-              return (
-                <g key={player.id} data-player="true"
-                  onPointerDown={e=>startDrag(e, player.id)}
-                  onPointerMove={moveDrag}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
-                  style={{
-                    cursor: !isPlaying&&!drawMode ? 'grab' : 'default',
-                    // FIX 4: none her er nødvendig kun for selve spillerne
-                    // for å forhindre at dragging scrolller siden.
-                    touchAction: 'none',
-                    transformOrigin: `${x}px ${y}px`,
-                    transform: isBouncing?'scale(1.15)':'scale(1)',
-                    transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
-                  }}
-                >
-                  {showHover&&(
-                    <circle cx={x} cy={y} r={32} fill="none"
-                      stroke="rgba(56,189,248,0.6)" strokeWidth={2} strokeDasharray="6,4"/>
-                  )}
-                  <JerseyIcon x={x} y={y} num={player.num} color={color}
-                    selected={selectedPlayerId===player.id} isDragging={!!isSrc}
-                    isTarget={isTarget} isOutOfPos={outOfPos}/>
-                  <RoleBadge x={x} y={y+23} role={slot.role} label={slot.label}/>
-                  <NameLabel x={x} y={y+47} name={name}/>
-                </g>
-              );
-            })}
-
-            {ghostPos&&ghostPlayer&&ghostSlot&&(
-              <DragGhost x={ghostPos.x} y={ghostPos.y}
-                color={ROLE_INFO[ghostSlot.role].color}
-                num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
-                role={ghostSlot.role} label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
-            )}
-
-            {isPlaying&&(
-              <rect x={32} y={VH-14} rx={3} height={5}
-                width={progressFrac*(VW-64)} fill="#38bdf8" opacity={0.8}/>
-            )}
-          </svg>
-        </div>
-
-      </div>
 
     </div>
   );
