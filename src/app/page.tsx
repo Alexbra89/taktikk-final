@@ -18,11 +18,12 @@ const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod =
 const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
 const TrainingView = dynamic(() => import('@/components/ui/TrainingView').then(mod => mod.TrainingView), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(mod => mod.CalendarView), { ssr: false });
+const DrillsView = dynamic(() => import('@/components/ui/DrillsView').then(mod => mod.DrillsView), { ssr: false });
 
 // ─── NAVIGASJON ──────────────────────────────────────────────
-// Øvelser-fanen kommer sammen med det nye øvelsesbiblioteket.
 const NAV: { view: AppView; label: string; emoji: string }[] = [
   { view: 'board',    label: 'Brett',    emoji: '📋' },
+  { view: 'drills',   label: 'Øvelser',  emoji: '📚' },
   { view: 'calendar', label: 'Kalender', emoji: '📅' },
   { view: 'training', label: 'Trening',  emoji: '🏃' },
 ];
@@ -235,6 +236,7 @@ export default function Home() {
               </div>
             </div>
           )}
+          {currentView === 'drills' && <div className="flex-1 min-w-0 overflow-hidden"><DrillsView /></div>}
           {currentView === 'calendar' && <div className="flex-1 overflow-hidden">{calendarView}</div>}
           {currentView === 'training' && <div className="flex-1 overflow-hidden">{trainingView}</div>}
         </main>
@@ -294,6 +296,8 @@ export default function Home() {
               </div>
             </div>
           )}
+          {/* DrillsView scroller selv (egen filterrad + liste), så ingen overflow-y her. */}
+          {currentView === 'drills' && <div className="h-full overflow-hidden"><DrillsView /></div>}
           {currentView === 'calendar' && <div className="h-full overflow-y-auto">{calendarView}</div>}
           {currentView === 'training' && <div className="h-full overflow-y-auto">{trainingView}</div>}
         </div>

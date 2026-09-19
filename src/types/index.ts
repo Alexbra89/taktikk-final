@@ -139,7 +139,7 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'board' | 'calendar' | 'training';
+export type AppView = 'board' | 'drills' | 'calendar' | 'training';
 
 export interface AppState {
   tactics: Tactic[];         // minst én
