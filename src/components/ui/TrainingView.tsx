@@ -1,10 +1,19 @@
 'use client';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { useActiveTactic } from '@/store/selectors';
-import { getDrillsBySport, toDrillSport, DrillExercise, CATEGORY_LABELS } from '@/data/drills';
-import { CalendarEvent } from '@/types';
+import { ALL_DRILLS, getDrillsByCategory, CATEGORY_LABELS } from '@/data/drills';
+import type { CalendarEvent, DrillExercise, DrillCategory, DrillDifficulty } from '@/types';
 import { DrillDetailModal } from './DrillDetailModal';
+
+const DRILL_CATEGORIES: DrillCategory[] = ['keeper', 'forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
+
+/** Gul advarselsboks for øvelser med `warning`. */
+const DrillWarning: React.FC<{ text: string; compact?: boolean }> = ({ text, compact }) => (
+  <div className={`flex gap-2 bg-yellow-500/10 border border-yellow-500/40 rounded-lg ${compact ? 'p-2' : 'p-2.5 sm:p-3'}`}>
+    <span className="text-yellow-400 leading-none flex-shrink-0">⚠️</span>
+    <p className="text-[9px] sm:text-[10.5px] text-yellow-100/90 leading-relaxed">{text}</p>
+  </div>
+);
 
 // ═══════════════════════════════════════════════════════════════
 //  TRENING-VISNING (RESPONSIV OPPDATERT)
@@ -22,7 +31,6 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
     rosterNames, setRosterNames,
     ageGroup,
   } = useAppStore();
-  const { sport } = useActiveTactic();
 
   const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialTraining?.id || null);
@@ -49,7 +57,6 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
       <NewTrainingForm
         onSave={(ev) => { addEvent(ev); setShowNewTraining(false); }}
         onCancel={() => setShowNewTraining(false)}
-        sport={sport}
         ageGroup={ageGroup}
       />
     );
@@ -60,7 +67,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
       <TrainingDetail
         event={selectedEvent}
         rosterNames={rosterNames}
-        sport={sport}
+        ageGroup={ageGroup}
         onBack={() => {
           setSelectedEventId(null);
           if (initialTraining && onBack) onBack();
@@ -170,9 +177,8 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
 const NewTrainingForm: React.FC<{
   onSave: (ev: Omit<any, 'id'>) => void;
   onCancel: () => void;
-  sport: string;
   ageGroup: 'youth' | 'adult';
-}> = ({ onSave, onCancel, sport, ageGroup }) => {
+}> = ({ onSave, onCancel, ageGroup }) => {
   const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle]       = useState('');
   const [date, setDate]         = useState(today);
@@ -183,22 +189,17 @@ const NewTrainingForm: React.FC<{
   const [selectedDrills, setSelectedDrills] = useState<DrillExercise[]>([]);
   const [showDrillPicker, setShowDrillPicker] = useState(false);
   const [drillSearch, setDrillSearch]         = useState('');
-  const [drillCategory, setDrillCategory]     = useState<string>('alle');
-  const [drillDifficulty, setDrillDifficulty] = useState<string>('alle');
+  const [drillCategory, setDrillCategory]     = useState<DrillCategory | 'alle'>('alle');
+  const [drillDifficulty, setDrillDifficulty] = useState<DrillDifficulty | 'alle'>('alle');
   const [saving, setSaving] = useState(false);
   const [customDrillName, setCustomDrillName] = useState('');
   const [customDrillDesc, setCustomDrillDesc] = useState('');
   const [customDrillDuration, setCustomDrillDuration] = useState(10);
   const [showCustomDrill, setShowCustomDrill] = useState(false);
 
-  const allDrills = getDrillsBySport(toDrillSport(sport));
-  const categories = useMemo(() => {
-    return Array.from(new Set(allDrills.map(d => d.category)));
-  }, [allDrills]);
-
   const filteredDrills = useMemo(() => {
-    let drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
-    if (drillCategory !== 'alle') drills = drills.filter(d => d.category === drillCategory);
+    let drills = (drillCategory === 'alle' ? ALL_DRILLS : getDrillsByCategory(drillCategory))
+      .filter(d => d.ageGroup === ageGroup);
     if (drillDifficulty !== 'alle') drills = drills.filter(d => d.difficulty === drillDifficulty);
     if (drillSearch.trim()) {
       const q = drillSearch.toLowerCase();
@@ -207,7 +208,7 @@ const NewTrainingForm: React.FC<{
       );
     }
     return drills;
-  }, [allDrills, ageGroup, drillCategory, drillDifficulty, drillSearch]);
+  }, [ageGroup, drillCategory, drillDifficulty, drillSearch]);
 
   const addDrill = (drill: DrillExercise) => {
     if (!selectedDrills.some(d => d.id === drill.id)) {
@@ -223,17 +224,20 @@ const NewTrainingForm: React.FC<{
     }
     const newDrill: DrillExercise = {
       id: `custom-${Date.now()}`,
-      sport: toDrillSport(sport),
-      category: 'offensivt',
+      category: 'angrep',
       name: customDrillName.trim(),
       duration: customDrillDuration,
       players: 'alle',
       difficulty: 'enkel',
       description: customDrillDesc.trim() || 'Egendefinert øvelse',
+      why: '',
       steps: [{ id: 's1', name: 'Øvelse', description: customDrillDesc.trim() || 'Gjenta øvelsen etter instruksjoner' }],
-      tips: [],
+      coachingPoints: [],
+      commonMistakes: [],
+      variations: [],
       equipment: [],
       ageGroup: ageGroup,
+      ageBand: ageGroup === 'youth' ? ['6-7', '8-9', '10-12', '13-16'] : ['17+'],
     };
     setSelectedDrills(prev => [...prev, newDrill]);
     setCustomDrillName('');
@@ -251,7 +255,7 @@ const NewTrainingForm: React.FC<{
     setSaving(true);
 
     const drillNotes = selectedDrills.map(d =>
-      `\n📋 ${d.name}\n${d.description}\nVarighet: ${d.duration} min`
+      `\n📋 ${d.name}\n${d.description}\nVarighet: ${d.duration} min${d.warning ? `\n⚠️ ${d.warning}` : ''}`
     ).join('');
 
     const focusNote = focusTags.length > 0 ? `Fokus: ${focusTags.join(', ')}` : '';
@@ -349,6 +353,7 @@ const NewTrainingForm: React.FC<{
                   <div className="flex-1">
                     <div className="text-[11px] sm:text-[11px] font-semibold text-slate-200">{drill.name}</div>
                     <div className="text-[9px] sm:text-[9px] text-[#4a6080]">{drill.duration} min · {drill.players} spillere</div>
+                    {drill.warning && <div className="mt-1"><DrillWarning text={drill.warning} compact /></div>}
                   </div>
                   <button type="button" onClick={() => removeDrill(drill.id)}
                     className="text-red-400/70 hover:text-red-400 text-[11px] px-2 min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
@@ -422,11 +427,11 @@ const NewTrainingForm: React.FC<{
                       ${drillCategory === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                     Alle
                   </button>
-                  {categories.map(cat => (
+                  {DRILL_CATEGORIES.map(cat => (
                     <button key={cat} onClick={() => setDrillCategory(cat)}
                       className={`px-2 py-1.5 sm:py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                         ${drillCategory === cat ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
-                      {CATEGORY_LABELS[cat]?.split(' ')[1] || cat}
+                      {CATEGORY_LABELS[cat]}
                     </button>
                   ))}
                 </div>
@@ -436,7 +441,7 @@ const NewTrainingForm: React.FC<{
                       ${drillDifficulty === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                     Alle
                   </button>
-                  {['enkel', 'middels', 'avansert'].map(level => (
+                  {(['enkel', 'middels', 'avansert'] as const).map(level => (
                     <button key={level} onClick={() => setDrillDifficulty(level)}
                       className={`px-2 py-1.5 sm:py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                         ${drillDifficulty === level
@@ -619,13 +624,13 @@ const Stopwatch: React.FC<{
 
 const TrainingDetail: React.FC<{
   event: any;
-  rosterNames: string[]; sport: string;
+  rosterNames: string[]; ageGroup: 'youth' | 'adult';
   onBack: () => void;
   onUpdate: (fields: any) => void;
   onAddNote: (note: any) => void;
   onDeleteNote: (nid: string) => void;
   onSaveRoster: (names: string[]) => void;
-}> = ({ event, rosterNames, sport, onBack, onUpdate, onAddNote, onDeleteNote, onSaveRoster }) => {
+}> = ({ event, rosterNames, ageGroup, onBack, onUpdate, onAddNote, onDeleteNote, onSaveRoster }) => {
   const [showAttendance, setShowAttendance] = useState(false);
   const [showAddNote, setShowAddNote]       = useState(false);
   const [noteTitle, setNoteTitle]           = useState('');
@@ -636,7 +641,7 @@ const TrainingDetail: React.FC<{
   const [completedDrills, setCompletedDrills] = useState<Set<string>>(new Set());
   const [selectedDrillForModal, setSelectedDrillForModal] = useState<DrillExercise | null>(null);
 
-  const drills = getDrillsBySport(toDrillSport(sport));
+  const drills = useMemo(() => ALL_DRILLS.filter(d => d.ageGroup === ageGroup), [ageGroup]);
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
@@ -679,7 +684,9 @@ const TrainingDetail: React.FC<{
 
   const findDrillByName = (title: string) => {
     const searchTitle = title.trim().toLowerCase();
-    return drills.find(d => d.name.trim().toLowerCase() === searchTitle);
+    const matches = (d: DrillExercise) => d.name.trim().toLowerCase() === searchTitle;
+    // Aldersgruppen først; øktene kan være laget for den andre gruppen.
+    return drills.find(matches) ?? ALL_DRILLS.find(matches);
   };
 
   return (
@@ -789,11 +796,11 @@ const TrainingDetail: React.FC<{
                     className="w-full text-left px-3 py-2.5 text-[11px] text-[#4a6080] hover:bg-[#1a2a40] border-b border-[#1e3050] min-h-[44px]">
                     – Ingen øvelse –
                   </button>
-                  {drills.slice(0, 30).map(d => (
+                  {drills.map(d => (
                     <button key={d.id} onClick={() => { setSelectedDrill(d); setShowDrillPicker(false); setNoteTitle(d.name); }}
                       className="w-full text-left px-3 py-2.5 text-[11.5px] text-slate-300 hover:bg-[#1a2a40] border-b border-[#1e3050]/50 min-h-[44px]">
-                      <div className="font-semibold">{d.name}</div>
-                      <div className="text-[9.5px] text-[#4a6080]">{d.duration} min · {d.difficulty}</div>
+                      <div className="font-semibold">{d.warning && <span title="Har advarsel">⚠️ </span>}{d.name}</div>
+                      <div className="text-[9.5px] text-[#4a6080]">{CATEGORY_LABELS[d.category]} · {d.duration} min · {d.difficulty}</div>
                     </button>
                   ))}
                 </div>
@@ -864,15 +871,17 @@ const TrainingDetail: React.FC<{
 
                   {fullDrill && (
                     <div className="mt-3 pt-3 border-t border-[#1e3050] space-y-2">
-                      
-                      {fullDrill.steps && fullDrill.steps.length > 0 && (
+
+                      {fullDrill.warning && <DrillWarning text={fullDrill.warning} />}
+
+                      {fullDrill.steps.length > 0 && (
                         <div>
                           <div className="text-[8px] sm:text-[9px] font-bold text-sky-400 uppercase tracking-wider mb-1.5">📝 Steg</div>
                           <div className="space-y-1">
                             {fullDrill.steps.slice(0, 3).map((step, idx) => (
                               <div key={step.id} className="flex gap-2 text-[9px] sm:text-[10.5px] text-slate-300">
                                 <span className="text-sky-400 font-bold">{idx + 1}.</span>
-                                <span>{step.name}</span>
+                                <span>{step.name || step.description}</span>
                               </div>
                             ))}
                             {fullDrill.steps.length > 3 && (
@@ -887,28 +896,28 @@ const TrainingDetail: React.FC<{
                         </div>
                       )}
 
-                      {fullDrill.tips && fullDrill.tips.length > 0 && (
+                      {fullDrill.coachingPoints.length > 0 && (
                         <div>
-                          <div className="text-[8px] sm:text-[9px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">💡 Tips</div>
+                          <div className="text-[8px] sm:text-[9px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">💡 Coachingpunkter</div>
                           <div className="flex flex-wrap gap-1">
-                            {fullDrill.tips.slice(0, 2).map((tip, idx) => (
+                            {fullDrill.coachingPoints.slice(0, 2).map((tip, idx) => (
                               <span key={idx} className="text-[9px] sm:text-[10px] text-slate-300 bg-amber-500/5 px-2 py-0.5 rounded-full">
                                 {tip.length > 30 ? tip.slice(0, 30) + '…' : tip}
                               </span>
                             ))}
-                            {fullDrill.tips.length > 2 && (
+                            {fullDrill.coachingPoints.length > 2 && (
                               <button
                                 onClick={() => setSelectedDrillForModal(fullDrill)}
                                 className="text-[8px] sm:text-[9px] text-amber-400 hover:underline min-h-[32px]"
                               >
-                                +{fullDrill.tips.length - 2} til
+                                +{fullDrill.coachingPoints.length - 2} til
                               </button>
                             )}
                           </div>
                         </div>
                       )}
 
-                      {fullDrill.equipment && fullDrill.equipment.length > 0 && (
+                      {fullDrill.equipment.length > 0 && (
                         <div>
                           <div className="text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-1.5">🛠 Utstyr</div>
                           <div className="flex flex-wrap gap-1">
@@ -933,7 +942,7 @@ const TrainingDetail: React.FC<{
                         onClick={() => setSelectedDrillForModal(fullDrill)}
                         className="w-full mt-2 py-2 sm:py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[9px] sm:text-[10px] font-semibold hover:bg-sky-500/20 transition flex items-center justify-center gap-1 min-h-[44px]"
                       >
-                        📖 Vis full detalj (steg, tips, utstyr)
+                        📖 Vis full detalj (steg, coachingpunkter, utstyr)
                       </button>
                     </div>
                   )}
