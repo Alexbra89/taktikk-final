@@ -72,7 +72,7 @@ function stepText(step: DrillExercise['steps'][number]): string {
 }
 
 const Section: React.FC<{ title: string; tone?: string; children: React.ReactNode }> = ({
-  title, tone = 'text-fg-subtle', children,
+  title, tone = 'text-ink-subtle', children,
 }) => (
   <section>
     <SectionLabel tone={tone} className="mb-2.5">{title}</SectionLabel>
@@ -87,7 +87,7 @@ const BulletList: React.FC<{ items: string[]; bullet: string; bulletColor: strin
     {items.map((item, i) => (
       <Card key={i} variant="sunken" padding="sm" className="flex gap-3">
         <span className={`${bulletColor} flex-shrink-0 leading-5`}>{bullet}</span>
-        <p className="text-body text-fg-muted">{item}</p>
+        <p className="text-body text-ink-muted">{item}</p>
       </Card>
     ))}
   </div>
@@ -96,7 +96,7 @@ const BulletList: React.FC<{ items: string[]; bullet: string; bulletColor: strin
 const SourceLink: React.FC<{ value: string }> = ({ value }) =>
   isUrl(value) ? (
     <a href={value} target="_blank" rel="noopener noreferrer"
-      className="text-brand-300 hover:text-brand-200 underline break-all">
+      className="text-signal hover:text-signal underline break-all">
       {value.replace(/^https?:\/\//i, '')}
     </a>
   ) : (
@@ -120,7 +120,7 @@ const DrillRow: React.FC<{
     <div className="flex items-start gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-lead font-bold text-fg leading-snug">
+          <h3 className="text-lead font-bold text-ink leading-snug">
             {drill.warning && <span className="mr-1" title="Har advarsel">⚠️</span>}
             {drill.name}
           </h3>
@@ -129,13 +129,13 @@ const DrillRow: React.FC<{
           </Badge>
         </div>
 
-        <p className="text-caption text-fg-subtle clamp-2 mt-1">{drill.description}</p>
+        <p className="text-caption text-ink-subtle clamp-2 mt-1">{drill.description}</p>
 
         <div className="flex items-center gap-3 mt-2.5 flex-wrap">
           <Meta icon="⏱">{drill.duration} min</Meta>
           <Meta icon="👥">{drill.players}</Meta>
           <Meta icon="🎂">{drill.ageBand.join(', ')}</Meta>
-          <Meta className="ml-auto text-fg-faint">
+          <Meta className="ml-auto text-ink-faint">
             <span aria-hidden>{CAT_ICON[drill.category]}</span> {CATEGORY_LABELS[drill.category]}
           </Meta>
         </div>
@@ -306,8 +306,8 @@ export const DrillsView: React.FC = () => {
     <div
       role="status"
       className="absolute top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none
-                 glass border border-ok-500/40 text-ok-300 text-body font-bold
-                 px-4 py-2.5 rounded-pill shadow-float animate-rise"
+                 bg-canvas-panel border border-ok-500/40 text-ok-300 text-body font-bold
+                 px-4 py-2.5 rounded-pill shadow-pop animate-rise"
     >
       {toast}
     </div>
@@ -319,10 +319,10 @@ export const DrillsView: React.FC = () => {
     const isScheduled = scheduledId === drill.id;
 
     return (
-      <div className="flex flex-col h-full overflow-hidden relative bg-surface-base">
+      <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
         {toastEl}
 
-        <header className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-line bg-surface-panel bg-panel-grad">
+        <header className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-rule bg-canvas-sunken bg-panel-grad">
           <Button
             variant="ghost"
             size="sm"
@@ -339,7 +339,7 @@ export const DrillsView: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto">
           {/* Tittelblokk – eneste sted på skjermen med stor typografi */}
-          <div className="px-5 pt-5 pb-4 border-b border-line-soft">
+          <div className="px-5 pt-5 pb-4 border-b border-rule">
             <div className="flex items-center gap-2 mb-2">
               <Badge tone="neutral" dot={CAT_COLOR[drill.category]}>
                 {CATEGORY_LABELS[drill.category]}
@@ -349,7 +349,7 @@ export const DrillsView: React.FC = () => {
               </Badge>
             </div>
 
-            <h1 className="text-h1 text-fg mb-2">{drill.name}</h1>
+            <h1 className="text-h1 text-ink mb-2">{drill.name}</h1>
 
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <Meta icon="⏱">{drill.duration} min</Meta>
@@ -361,7 +361,7 @@ export const DrillsView: React.FC = () => {
 
           <div className="p-5 space-y-6">
             {drill.warning && (
-              <div className="flex gap-3 rounded-card border border-warn-500/40 bg-warn-500/10 p-4">
+              <div className="flex gap-3 rounded-panel border border-warn-500/40 bg-warn-500/10 p-4">
                 <span aria-hidden className="text-warn-400 leading-5 flex-shrink-0">⚠️</span>
                 <div>
                   <SectionLabel tone="text-warn-400" className="mb-1">Advarsel</SectionLabel>
@@ -371,13 +371,13 @@ export const DrillsView: React.FC = () => {
             )}
 
             <Card variant="sunken">
-              <p className="text-lead text-fg-muted">{drill.description}</p>
+              <p className="text-lead text-ink-muted">{drill.description}</p>
             </Card>
 
             {drill.why && (
-              <Section title="🎯 Hvorfor denne øvelsen" tone="text-fg-subtle">
+              <Section title="🎯 Hvorfor denne øvelsen" tone="text-ink-subtle">
                 <Card variant="sunken">
-                  <p className="text-body text-fg-muted">{drill.why}</p>
+                  <p className="text-body text-ink-muted">{drill.why}</p>
                 </Card>
               </Section>
             )}
@@ -385,22 +385,22 @@ export const DrillsView: React.FC = () => {
             {drill.sketch && (
               <Section title="✏️ Skisse / oppsett">
                 <Card variant="outline">
-                  <p className="text-body text-fg-muted whitespace-pre-line">{drill.sketch}</p>
+                  <p className="text-body text-ink-muted whitespace-pre-line">{drill.sketch}</p>
                 </Card>
               </Section>
             )}
 
-            <Section title="📝 Slik gjøres det" tone="text-brand-300">
+            <Section title="📝 Slik gjøres det" tone="text-signal">
               <ol className="space-y-2">
                 {drill.steps.map((step, i) => (
                   <Card as="li" key={step.id ?? i} variant="sunken" padding="sm" className="flex gap-3">
-                    <span className="h-6 w-6 flex-shrink-0 rounded-full bg-brand-500/15 border border-brand-500/35
-                                     flex items-center justify-center text-label text-brand-300 tabular-nums">
+                    <span className="h-6 w-6 flex-shrink-0 rounded-full bg-signal/15 border border-signal/35
+                                     flex items-center justify-center text-label text-signal tabular-nums">
                       {i + 1}
                     </span>
                     <div className="min-w-0">
-                      {step.name && <div className="text-body font-bold text-fg mb-0.5">{step.name}</div>}
-                      <p className="text-body text-fg-muted">{step.description}</p>
+                      {step.name && <div className="text-body font-bold text-ink mb-0.5">{step.name}</div>}
+                      <p className="text-body text-ink-muted">{step.description}</p>
                     </div>
                   </Card>
                 ))}
@@ -427,12 +427,12 @@ export const DrillsView: React.FC = () => {
 
             {drill.background && (
               <Section title="📚 Bakgrunn">
-                <p className="text-body text-fg-subtle">{drill.background}</p>
+                <p className="text-body text-ink-subtle">{drill.background}</p>
               </Section>
             )}
 
             {(drill.source || drill.unverifiedSource) && (
-              <div className="text-meta text-fg-faint space-y-1 pt-2 border-t border-line-soft">
+              <div className="text-meta text-ink-faint space-y-1 pt-2 border-t border-rule">
                 {drill.source && (
                   <div><span className="text-label uppercase">Kilde:</span> <SourceLink value={drill.source} /></div>
                 )}
@@ -445,7 +445,7 @@ export const DrillsView: React.FC = () => {
         </div>
 
         {/* Handlingslinje – alltid innen rekkevidde nederst, også på mobil */}
-        <div className="flex-shrink-0 border-t border-line glass px-4 py-3 sheet-safe sm:pb-3">
+        <div className="flex-shrink-0 border-t border-rule bg-canvas-sunken px-4 py-3 sheet-safe sm:pb-3">
           {isScheduled ? (
             <Button variant="success" size="lg" fullWidth icon="✓" disabled>
               Lagt til i kalender
@@ -461,7 +461,7 @@ export const DrillsView: React.FC = () => {
           open={scheduleOpen}
           onClose={() => setScheduleOpen(false)}
           title="Legg i kalenderen"
-          subtitle={<p className="text-meta text-fg-subtle">{drill.name}</p>}
+          subtitle={<p className="text-meta text-ink-subtle">{drill.name}</p>}
           size="sm"
           footer={
             <Button
@@ -478,32 +478,32 @@ export const DrillsView: React.FC = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-label uppercase text-fg-faint">Dato *</span>
+                <span className="text-label uppercase text-ink-faint">Dato *</span>
                 <input
                   type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
-                  className="mt-1.5 w-full bg-surface-card border border-line rounded-xl px-3 py-2.5
-                             text-body text-fg focus:outline-none focus:border-brand-500/60"
+                  className="mt-1.5 w-full bg-canvas-panel border border-rule rounded-xl px-3 py-2.5
+                             text-body text-ink focus:outline-none focus:border-signal/60"
                 />
               </label>
               <label className="block">
-                <span className="text-label uppercase text-fg-faint">Tid</span>
+                <span className="text-label uppercase text-ink-faint">Tid</span>
                 <input
                   type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}
-                  className="mt-1.5 w-full bg-surface-card border border-line rounded-xl px-3 py-2.5
-                             text-body text-fg focus:outline-none focus:border-brand-500/60"
+                  className="mt-1.5 w-full bg-canvas-panel border border-rule rounded-xl px-3 py-2.5
+                             text-body text-ink focus:outline-none focus:border-signal/60"
                 />
               </label>
             </div>
             <label className="block">
-              <span className="text-label uppercase text-fg-faint">Notat (valgfritt)</span>
+              <span className="text-label uppercase text-ink-faint">Notat (valgfritt)</span>
               <input
                 value={scheduleNote} onChange={e => setScheduleNote(e.target.value)}
                 placeholder="F.eks. fokus på førstetouch"
-                className="mt-1.5 w-full bg-surface-card border border-line rounded-xl px-3 py-2.5
-                           text-body text-fg placeholder:text-fg-faint focus:outline-none focus:border-brand-500/60"
+                className="mt-1.5 w-full bg-canvas-panel border border-rule rounded-xl px-3 py-2.5
+                           text-body text-ink placeholder:text-ink-faint focus:outline-none focus:border-signal/60"
               />
             </label>
-            <p className="text-meta text-fg-faint">
+            <p className="text-meta text-ink-faint">
               Hele øvelsen – steg, coachingpunkter og advarsler – følger med som lagnotat.
             </p>
           </div>
@@ -516,7 +516,7 @@ export const DrillsView: React.FC = () => {
   const showWeekly = !hasFilters;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative bg-surface-base">
+    <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
       {toastEl}
 
       <FilterBar>
@@ -528,7 +528,6 @@ export const DrillsView: React.FC = () => {
               <FilterChip
                 key={g}
                 active={ageGroup === g}
-                accent={g === 'youth' ? 'ok' : 'brand'}
                 onClick={() => changeAgeGroup(g)}
               >
                 {g === 'youth' ? '🧒 Barn' : '🧑 Voksne'}
@@ -536,7 +535,7 @@ export const DrillsView: React.FC = () => {
             ))}
           </div>
           <div className="flex-1" />
-          <span className="text-meta text-fg-faint tabular-nums">
+          <span className="text-meta text-ink-faint tabular-nums">
             {filteredDrills.length} øvelser
           </span>
         </div>
@@ -601,11 +600,11 @@ export const DrillsView: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
         {/* Ukens anbefalte øvelser */}
         {showWeekly && weeklyDrills.length > 0 && (
-          <Card variant="solid" className="border-brand-500/25">
+          <Card variant="solid" className="border-signal/25">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">
-                <h2 className="text-h4 text-brand-300">⭐ Ukens anbefalte</h2>
-                <p className="text-meta text-fg-subtle mt-0.5">Roterer automatisk hver uke</p>
+                <h2 className="text-h4 text-signal">⭐ Ukens anbefalte</h2>
+                <p className="text-meta text-ink-subtle mt-0.5">Roterer automatisk hver uke</p>
               </div>
               <Button size="sm" variant="secondary" icon="📅" onClick={scheduleWeekPlan}>
                 Legg alle i kalender
@@ -622,8 +621,8 @@ export const DrillsView: React.FC = () => {
                   onClick={() => openDrill(drill)}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrill(drill); } }}
                 >
-                  <div className="text-body font-bold text-fg leading-snug">{drill.name}</div>
-                  <div className="text-meta text-fg-faint mt-1">
+                  <div className="text-body font-bold text-ink leading-snug">{drill.name}</div>
+                  <div className="text-meta text-ink-faint mt-1">
                     {CATEGORY_LABELS[drill.category]} · {drill.duration} min
                   </div>
                 </Card>

@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn';
 import { IconButton } from './Button';
 
 /* ────────────────────────────────────────────────────────────
-   Modal – ett flytende lag med glass, brukt til dialoger.
+   Modal – ett flytende lag, brukt til dialoger.
 
    På mobil (<640px) glir den opp fra bunnen som en bunn-sheet:
    nærmere tommelen, og kjent mønster fra native apper.
@@ -87,24 +87,24 @@ export const Modal: React.FC<ModalProps> = ({
         tabIndex={-1}
         className={cn(
           'w-full flex flex-col outline-none',
-          'glass-strong border border-line shadow-float',
+          'bg-canvas-panel border border-rule shadow-pop',
           SIZES[size],
           centerOnMobile
-            ? 'rounded-card max-h-[85vh] animate-pop'
-            : 'rounded-t-3xl sm:rounded-card max-h-[92vh] sm:max-h-[85vh] animate-sheet-up sm:animate-pop',
+            ? 'rounded-panel max-h-[85vh] animate-pop'
+            : 'rounded-t-panel sm:rounded-panel max-h-[92vh] sm:max-h-[85vh] animate-sheet-up sm:animate-pop',
         )}
       >
         {/* Draghåndtak – visuell bekreftelse på at dette er en sheet */}
         {!centerOnMobile && (
           <div aria-hidden className="sm:hidden flex justify-center pt-2.5 pb-1">
-            <span className="h-1 w-9 rounded-full bg-line-strong" />
+            <span className="h-1 w-9 rounded-full bg-rule-strong" />
           </div>
         )}
 
         {(title || subtitle) && (
-          <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3 border-b border-line-soft flex-shrink-0">
+          <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3 border-b border-rule flex-shrink-0">
             <div className="min-w-0">
-              {title && <h2 className="text-h3 text-fg">{title}</h2>}
+              {title && <h2 className="text-h3 text-ink">{title}</h2>}
               {subtitle && <div className="mt-1">{subtitle}</div>}
             </div>
             <IconButton aria-label="Lukk" onClick={onClose} size="sm" className="mt-0.5">✕</IconButton>
@@ -114,7 +114,7 @@ export const Modal: React.FC<ModalProps> = ({
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
         {footer && (
-          <div className="flex-shrink-0 border-t border-line-soft px-5 py-3 sheet-safe sm:pb-3">
+          <div className="flex-shrink-0 border-t border-rule px-5 py-3 sheet-safe sm:pb-3">
             {footer}
           </div>
         )}

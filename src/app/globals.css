@@ -416,7 +416,7 @@ button:active,
 /* Synlig fokusring for tastatur – appen hadde ingen */
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #05090f, 0 0 0 4px rgba(56, 189, 248, 0.7);
+  box-shadow: 0 0 0 2px rgb(var(--k-canvas)), 0 0 0 4px rgb(var(--k-signal) / 0.8);
 }
 
 /* Bunn-sheet på mobil respekterer hjemindikatoren */
@@ -440,32 +440,4 @@ button:active,
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-/* ============================================================
-   OVERSKRIFTSFONT (Barlow)
-   ------------------------------------------------------------
-   Skalatrinnene for overskrifter og etiketter henter Barlow
-   automatisk, slik at hver enkelt overskrift slipper en egen
-   font-display-klasse. Brødtekst (body/lead/caption/meta) blir
-   bevisst stående på systemfonten – den er raskest og mest
-   lesbar i småstørrelser på mobil.
-   Ligger etter @tailwind utilities, så den vinner over dem.
-   ============================================================ */
-
-.text-display,
-.text-h1,
-.text-h2,
-.text-h3,
-.text-h4,
-.text-label {
-  font-family: var(--font-barlow), 'Barlow', 'Segoe UI', Roboto, sans-serif;
-}
-
-/* Barlow er smalere enn systemfonten og tåler tettere tracking
-   i store størrelser uten å bli trang. */
-.text-display,
-.text-h1,
-.text-h2 {
-  letter-spacing: -0.02em;
 }

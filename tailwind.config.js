@@ -116,8 +116,6 @@ module.exports = {
         serif: ['var(--font-serif)', 'Georgia', 'serif'],
         // IBM Plex Mono – tall, tider, draktnumre, snarveier.
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-        // FASE 1: Barlow på text-h1…h4/display/label. Fjernes sammen med Fase 1-tokens.
-        display: ['var(--font-barlow)', 'Barlow', 'Segoe UI', 'Roboto', 'sans-serif'],
         num: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {

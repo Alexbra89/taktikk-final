@@ -8,18 +8,18 @@ import { cn } from '@/lib/cn';
    variant:
      solid   standardkort på mørk bakgrunn
      sunken  innfelt/rolig (bakgrunnsseksjoner, tomtilstander)
-     glass   kun for flytende lag (modal, popover) – ikke i lister
+     float   flytende lag (modal, popover) – ikke i lister
      outline stiplet ramme, brukes til «legg til»-flater
    accent: valgfri venstrestripe (kategori-identitet)
    ──────────────────────────────────────────────────────────── */
 
-export type CardVariant = 'solid' | 'sunken' | 'glass' | 'outline';
+export type CardVariant = 'solid' | 'sunken' | 'float' | 'outline';
 
 const VARIANTS: Record<CardVariant, string> = {
-  solid:   'bg-surface-card border border-line shadow-card',
-  sunken:  'bg-surface-sunken border border-line-soft',
-  glass:   'glass border border-line shadow-float',
-  outline: 'bg-surface-sunken/60 border border-dashed border-line',
+  solid:   'bg-canvas-panel border border-rule shadow-hair',
+  sunken:  'bg-canvas-sunken border border-rule',
+  float:   'bg-canvas-panel border border-rule shadow-pop',
+  outline: 'bg-canvas-sunken/60 border border-dashed border-rule',
 };
 
 export interface CardProps extends React.HTMLAttributes<HTMLElement> {
@@ -48,12 +48,12 @@ export const Card: React.FC<CardProps> = ({
   return (
   <Tag
     className={cn(
-      'relative rounded-card overflow-hidden transition-all duration-150',
+      'relative rounded-panel overflow-hidden transition-all duration-150',
       VARIANTS[variant],
       PADDING[padding],
       accent && 'pl-[calc(theme(spacing.4)+3px)]',
       interactive &&
-        'cursor-pointer hover:border-line-strong hover:bg-surface-raised ' +
+        'cursor-pointer hover:border-rule-strong hover:bg-canvas-raised ' +
         'active:scale-[0.995] focus-ring',
       className,
     )}
@@ -81,8 +81,8 @@ export const CardHeader: React.FC<{
 }> = ({ title, subtitle, action, className }) => (
   <div className={cn('flex items-start justify-between gap-3', className)}>
     <div className="min-w-0">
-      <h3 className="text-h4 text-fg truncate">{title}</h3>
-      {subtitle && <p className="text-meta text-fg-subtle mt-0.5">{subtitle}</p>}
+      <h3 className="text-h4 text-ink truncate">{title}</h3>
+      {subtitle && <p className="text-meta text-ink-subtle mt-0.5">{subtitle}</p>}
     </div>
     {action && <div className="flex-shrink-0">{action}</div>}
   </div>
@@ -93,6 +93,6 @@ export const SectionLabel: React.FC<{
   children: React.ReactNode;
   tone?: string;
   className?: string;
-}> = ({ children, tone = 'text-fg-subtle', className }) => (
+}> = ({ children, tone = 'text-ink-subtle', className }) => (
   <div className={cn('text-label uppercase', tone, className)}>{children}</div>
 );

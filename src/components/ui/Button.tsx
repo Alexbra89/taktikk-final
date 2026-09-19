@@ -20,13 +20,13 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-grad text-white shadow-raised hover:brightness-110 ' +
-    'disabled:bg-none disabled:bg-surface-raised disabled:text-fg-faint disabled:shadow-none',
+    'bg-signal text-signal-fg hover:brightness-110 ' +
+    'disabled:bg-canvas-raised disabled:text-ink-faint',
   secondary:
-    'bg-surface-raised text-fg-muted border border-line ' +
-    'hover:border-line-strong hover:text-fg',
+    'bg-canvas-raised text-ink-muted border border-rule ' +
+    'hover:border-rule-strong hover:text-ink',
   ghost:
-    'text-fg-subtle hover:text-fg hover:bg-white/5',
+    'text-ink-subtle hover:text-ink hover:bg-canvas-hover',
   danger:
     'bg-bad-500/15 text-bad-300 border border-bad-500/40 hover:bg-bad-500/25',
   success:

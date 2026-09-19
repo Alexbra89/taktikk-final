@@ -10,12 +10,12 @@ export type BadgeTone =
   | 'neutral' | 'brand' | 'ok' | 'warn' | 'bad' | 'info';
 
 const TONES: Record<BadgeTone, string> = {
-  neutral: 'bg-surface-raised text-fg-muted border-line',
-  brand:   'bg-brand-500/15 text-brand-300 border-brand-500/35',
+  neutral: 'bg-canvas-raised text-ink-muted border-rule',
+  brand:   'bg-signal/15 text-signal border-signal/35',
   ok:      'bg-ok-500/15  text-ok-300  border-ok-500/35',
   warn:    'bg-warn-500/15 text-warn-300 border-warn-500/35',
   bad:     'bg-bad-500/15  text-bad-300  border-bad-500/35',
-  info:    'bg-brand-500/10 text-fg-muted border-line',
+  info:    'bg-canvas-raised text-ink-muted border-rule',
 };
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -53,7 +53,7 @@ export const Badge: React.FC<BadgeProps> = ({
 export const Meta: React.FC<{ icon?: string; children: React.ReactNode; className?: string }> = ({
   icon, children, className,
 }) => (
-  <span className={cn('inline-flex items-center gap-1 text-meta text-fg-subtle', className)}>
+  <span className={cn('inline-flex items-center gap-1 text-meta text-ink-subtle', className)}>
     {icon && <span aria-hidden>{icon}</span>}
     {children}
   </span>

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Barlow, Schibsted_Grotesk, Instrument_Serif, IBM_Plex_Mono } from 'next/font/google';
+import { Schibsted_Grotesk, Instrument_Serif, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
 // Kalk-typografi. next/font selvhoster filene, så PWA-en fungerer offline.
@@ -7,14 +7,6 @@ import './globals.css';
 const sans = Schibsted_Grotesk({ subsets: ['latin'], display: 'swap', variable: '--font-sans' });
 const serif = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], display: 'swap', variable: '--font-serif' });
 const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], display: 'swap', variable: '--font-mono' });
-
-// FASE 1: Barlow på text-h1…h4/display/label. Fjernes når skjermene er over på Kalk.
-const barlow = Barlow({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-  display: 'swap',
-  variable: '--font-barlow',
-});
 
 // 1. Metadata - themeColor er FJERNET herfra (flyttet til viewport)
 export const metadata: Metadata = {
@@ -55,7 +47,7 @@ export default function RootLayout({
     <html
       lang="no"
       data-theme="dark"
-      className={`${sans.variable} ${serif.variable} ${mono.variable} ${barlow.variable}`}
+      className={`${sans.variable} ${serif.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
       <head>
