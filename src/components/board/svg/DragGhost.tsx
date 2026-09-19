@@ -10,9 +10,10 @@ export const DragGhost = React.memo<{x:number;y:number;num:number;name:string;la
     <circle r={26} fill="none" strokeWidth={1.5} strokeDasharray="4,5"
       style={{ stroke:'rgb(var(--k-ink))' }} opacity={0.45}/>
     <circle r={18} style={{ fill:'rgb(var(--k-signal))' }}/>
-    <text textAnchor="middle" dominantBaseline="middle" fill="#FFFFFF"
+    <text textAnchor="middle" dominantBaseline="middle"
       fontSize={13} fontWeight="600"
-      fontFamily="var(--font-mono), ui-monospace, monospace">{num}</text>
+      fontFamily="var(--font-mono), ui-monospace, monospace"
+      style={{ fill:'rgb(var(--k-signal-fg))' }}>{num}</text>
     <text x={0} y={37} textAnchor="middle" dominantBaseline="middle"
       fontSize={8} fontWeight="500" letterSpacing="0.09em"
       fontFamily="var(--font-mono), ui-monospace, monospace"

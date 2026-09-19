@@ -1,11 +1,14 @@
 import React from 'react';
 
-// Kalk: eget lag er fylte signal-sirkler med hvite tall. Rollen leses av
+// Kalk: eget lag er fylte signal-sirkler. Rollen leses av
 // etiketten under brikken, ikke av fargen – brettet har én farge.
 // Fargene settes med CSS-variabler i style, slik at dagslys følger med.
 
-const INK      = 'rgb(var(--k-ink))';
-const SIGNAL   = 'rgb(var(--k-signal))';
+const INK       = 'rgb(var(--k-ink))';
+const SIGNAL    = 'rgb(var(--k-signal))';
+// Tallet står på signalflaten, så det følger --k-signal-fg: mørkt i kveld,
+// hvitt i dagslys. Hvit tekst på signal gir bare 2,9:1 i kveldsmodus.
+const SIGNAL_FG = 'rgb(var(--k-signal-fg))';
 const R        = 17;
 
 export const PlayerChip = React.memo<{
@@ -31,9 +34,9 @@ export const PlayerChip = React.memo<{
     )}
     <circle cx={x} cy={y} r={R} style={{ fill: SIGNAL }}/>
     <text x={x} y={y + 0.5} textAnchor="middle" dominantBaseline="middle"
-      fill="#FFFFFF" fontSize={13} fontWeight="600"
+      fontSize={13} fontWeight="600"
       fontFamily="var(--font-mono), ui-monospace, monospace"
-      style={{ pointerEvents:'none' }}>{num}</text>
+      style={{ pointerEvents:'none', fill: SIGNAL_FG }}>{num}</text>
   </g>
 ));
 PlayerChip.displayName = 'PlayerChip';

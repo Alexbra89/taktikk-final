@@ -214,9 +214,9 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
               <g key={player.id}>
                 <circle cx={x} cy={y} r={17} style={{ fill: 'rgb(var(--k-signal))' }}/>
                 <text x={x} y={y + 0.5} textAnchor="middle" dominantBaseline="middle"
-                  fill="#FFFFFF" fontSize={13} fontWeight="600"
+                  fontSize={13} fontWeight="600"
                   fontFamily="var(--font-mono), ui-monospace, monospace"
-                  style={{ pointerEvents: 'none' }}>
+                  style={{ pointerEvents: 'none', fill: 'rgb(var(--k-signal-fg))' }}>
                   {player.num}
                 </text>
                 <text x={x} y={y + 29} textAnchor="middle" dominantBaseline="middle"
