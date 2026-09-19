@@ -1,643 +1,692 @@
-Her er Del 1 FORSVAR – BARN (6–12 ÅR) med 15.txt
-Her er **Del 1: FORSVAR – BARN (6–12 ÅR)** med 15 aldersadekvate øvelser.
+Forstått: ett åpne-forsøk per URL, ingen nye søk, og «Faglig bakgrunn» bare der jeg allerede har en relevant NFF-artikkel. Filen har 6 URL-er (nr. 4, 7, 8, 10, 12, 14). De to første fra fotball-nettstedene er sjekket først, og alle seks åpnes nå én gang hver.Samme feil for tredje URL. Jeg prøver de tre siste, siden regelen din er ett forsøk per URL.Alle seks URL-er ble avvist på samme måte, så resultatet er entydig i praksis: **ingen av dem kunne verifiseres**. Ett viktig forbehold: avvisningen sier at URL-en ikke har vært i et søk eller en tidligere åpning. Den sier ikke at siden ikke finnes. Jeg kan derfor ikke påstå at Geminis URL-er er oppdiktede, bare at jeg ikke fikk bekreftet dem.
 
-Kildene følger de nye, strenge kravene: Kun faktiske URL-er som er bekreftet virker, direkte henvisning til YouTube-kanaler (uten falske video-ID-er), og merking som *«Allment kjent øvelse»* eller papirmanualer der en direkte nettadresse ikke kan garanteres.
+Etter regelen din (fungerer den ikke → «Allment kjent øvelse», og «Utgiver» fjernes) blir dermed alle 15 øvelser «Allment kjent». For sporbarheten beholder jeg det Gemini oppga som opplysning, så en trener kan sjekke selv. Jeg innfører derfor feltet **Opprinnelig kilde (uverifisert)** der Gemini oppga en tittel eller URL. Det er ikke «Kilde» og ikke «Faglig bakgrunn». Si fra hvis du heller vil ha det fjernet helt.
+
+**Faglig bakgrunn** er bare fylt ut der jeg allerede har åpnet en relevant NFF-side tidligere i samtalen. Jeg har ikke søkt etter nye.
+
+**Andre endringer utover skrivefeil:**
+- **Nr. 8** het «NFF 2v2 Kompakt», men kilden var The FA. Tittelen la NFF-navn på en ikke-NFF-kilde, så jeg fjerner «NFF» fra tittelen.
+- **Nr. 15** «Offside-Fellen» handler om linjeorganisering, og tittelen er misvisende. Jeg endrer den til «Linjeforsvar 4 mot 4».
+- **Nr. 9** hadde «jafs» og «flokke» (uklart). Jeg har ryddet ordlyden.
+- **Nr. 13** er en taklingsøvelse. Gemini beskriver tilnærmet «blokktakling» for barn. NFF har i mine åpnede kilder ingen taklingsteknikk for 6-12 år, så jeg har lagt inn en merknad om at trener bør vurdere den.
+- **Nr. 10** har hodespill for barn («nikke ballen»). Jeg har flagget den og satt aldersgruppen til 10-12. Bruk gjerne lettvektsball.
+
+Aldersgruppene er min vurdering av vanskelighet, ikke NFFs. Jeg har ikke NFF-materiale for forsvar 6-7 (de fleste øvelser er 8-9 eller 10-12).
 
 ---
 
-## FORSVAR – BARN (6–12 ÅR)
+## FORSVAR – BARN (15 øvelser)
 
-### 1. Skyggen min (Sidestilling og reaksjon)
-
-**Kilde:** Allment kjent øvelse (Grasrottrener-metodikk)
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Lett | **Varighet:** 8–10 min | **Antall spillere:** 2 og 2
+### 1. Skyggen min (sidestilling og reaksjon)
+**Kilde:** Allment kjent øvelse
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-8-9-ar (NFF nevner «kroppskontroll», «korte raske steg» og at 1F kommer «tett i press med rett fart»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 8-9
+**Vanskelighetsgrad:** Lett
+**Varighet:** 8
+**Antall spillere:** 2 og 2
 
 **HVA**
-
-To spillere står overfor hverandre på en linje uten ball. Angriper gjør sideveis bevegelse og finter, mens forsvarsspilleren skal "skygge" angriperen ved å holde riktig avstand og lavt tyngdepunkt utan å bli lurt.
+To spillere står overfor hverandre på en linje uten ball. Angriperen gjør sidelengs bevegelser og finter, mens forsvareren skal «skygge» angriperen ved å holde riktig avstand og lavt tyngdepunkt uten å bli lurt.
 
 **HVORFOR**
-
-Lærer barnet grunnleggende forsvarsstilling (sidelengs, bøyde knær, tåballer) uten stresset fra å måtte takle en ball.
+Lærer barnet grunnleggende forsvarsstilling (sidestilt, bøyde knær, på tåballene) uten stresset fra en ball.
 
 **HVORDAN**
-
-1. Marker en linje på 5–8 meter med to kjegler.
-2. Angriper beveger seg sidelengs langs linjen med retningsforandringer og finter.
-3. Forsvarer står 1–2 meter unna og må holde seg rett foran angriperen hele tiden.
-4. Etter 30 sekunder roper treneren "BYTT!", og rollebytte skjer.
+1. Marker en linje på 5-8 m med to kjegler.
+2. Angriperen beveger seg sidelengs langs linjen med retningsendringer og finter.
+3. Forsvareren står 1-2 m unna og holder seg rett foran angriperen.
+4. Etter 30 sekunder roper treneren «BYTT!».
 
 **COACHING-PUNKTER**
-
-* «Bøy i knærne og vær lett på tåballene!»
-* «Stå sidelengs, ikke flat med kroppen mot angriper!»
-* «Se på magen/hofta til angriperen, ikke på beina!»
+- Bøy i knærne og vær lett på tåballene
+- Stå sidelengs, ikke flat mot angriperen
+- Se på magen eller hoften til angriperen, ikke på beina
 
 **VANLIGE FEIL**
-
-* Forsvareren krysse beina i forflytningen og mister balansen.
-* Blir stående på hælene og reagerer for seint.
+- Krysser beina i forflytningen og mister balansen
+- Blir stående på hælene og reagerer for sent
 
 **VARIASJONER**
+- *Lettere:* Angriperen går i stedet for å løpe
+- *Vanskeligere:* Angriperen dribler en ball langs linjen
 
-* **Lettere:** Angriper må gå i stedet for å løpe.
-* **Vanskeligere:** Angriper har en ball på foten og dribler langs linjen.
+**UTSTYR**
+2 kjegler per par
 
-**UTSTYR:** 2 kjegler per par.
+**SKISSE**
+To kjegler 5-8 m fra hverandre. Angriper og forsvarer står vendt mot hverandre midt mellom dem, og beveger seg sidelengs langs linjen.
 
 ---
 
-### 2. Kjeglefangeren (1v1 Skjerme og lede)
-
-**Kilde:** YouTube-kanal: @SoccerCoachWeekly
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Lett | **Varighet:** 10–12 min | **Antall spillere:** 4–6
+### 2. Kjeglefangeren (1 mot 1: lede og skjerme)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «YouTube-kanal: @SoccerCoachWeekly», uten videolenke
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-8-9-ar (NFF: «stresse ballfører», «lede vekk», «komme tett i press med rett fart»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 8-9
+**Vanskelighetsgrad:** Lett
+**Varighet:** 10
+**Antall spillere:** 4-6
 
 **HVA**
-
-Angriper prøver å føre ballen over og berøre en av to kjegler i bakkant av banen, mens forsvarer prøver å lede angriperen vekk fra kjeglene og kapre ballen.
+Angriperen prøver å føre ballen over og berøre en av to kjegler i bakkant av banen, mens forsvareren prøver å lede angriperen bort fra kjeglene og vinne ballen.
 
 **HVORFOR**
-
-Lærer forsvarsspilleren å "lede" angriperen ut mot sidene eller vekk fra farlig område i stedet for å stupe stivt inn i taklingen.
+Lærer forsvareren å «lede» angriperen ut mot sidene eller bort fra farlig område i stedet for å stupe inn i en takling.
 
 **HVORDAN**
-
-1. Lag en sone på 10x10 meter med to kjeglemål på bakkantlinjen.
-2. Forsvarer sentrer ballen over til angriper og rykker ut for å presse.
-3. Angriper skal finne en luke og stoppe ballen ved en av kjeglene.
-4. Forsvarer må vri kroppen slik at hen nekter tilgang til den nærmeste kjeglen og tvinger angriperen ut på kanten.
+1. Lag en sone på 10×10 m med to kjeglemål på bakkantlinjen.
+2. Forsvareren spiller ballen til angriperen og rykker ut for å presse.
+3. Angriperen prøver å finne en luke og stoppe ballen ved en av kjeglene.
+4. Forsvareren vrir kroppen slik at nærmeste kjegle nektes, og tvinger angriperen ut mot kanten.
 
 **COACHING-PUNKTER**
-
-* «Brems opp før du når helt fram til angriperen!»
-* «Vis angriperen vei ut mot sidelinja!»
-* «Ikke kaste deg fram, vent til angriperen tar et for langt touch!»
+- Brems opp før du kommer helt frem til angriperen
+- Vis angriperen veien ut mot sidelinjen
+- Ikke kast deg frem, vent til angriperen tar et for langt touch (kilde: NFF «utnytte dårlige, lange touch», se Faglig bakgrunn)
 
 **VANLIGE FEIL**
-
-* Ruser for hardt inn og blir enkelt forbiløpt.
-* Står helt rett overfor angriper slik at begge sider er åpne.
+- Løper for hardt inn og blir enkelt forbiløpt
+- Står rett foran angriperen, slik at begge sider er åpne
 
 **VARIASJONER**
+- *Lettere:* Smalere bane gjør det enklere å dekke rommet
+- *Vanskeligere:* Tredje kjegle gir angriperen flere alternativer
 
-* **Lettere:** Smalere bane gjør det enklere for forsvarer å dekke rommet.
-* **Vanskeligere:** Legg til en tredje kjegle for å gi angriper flere alternativer.
+**UTSTYR**
+4 kjegler per bane, 1 ball
 
-**UTSTYR:** 4 kjegler per bane, 1 ball.
+**SKISSE**
+Sone 10×10 m. To kjegler på bakkantlinjen (ca. 4 m fra hverandre). Angriper starter foran, forsvarer 3 m foran angriperen og presser mot dem.
 
 ---
 
-### 3. Nappe Haler (Nærduell og balanse)
-
-**Kilde:** Allment kjent lekeøvelse i barnefotball
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Lett | **Varighet:** 8–10 min | **Antall spillere:** 6–12
+### 3. Nappe haler (nærduell og balanse)
+**Kilde:** Allment kjent øvelse
+**Faglig bakgrunn:** https://tiim.no/ovelse/kontroll-pa-egen-ball-jakte-motstanderens (NFF-leken der spillerne verner om egen ball mens de jakter andres)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 6-7 / 8-9
+**Vanskelighetsgrad:** Lett
+**Varighet:** 8
+**Antall spillere:** 6-12
 
 **HVA**
-
-Alle spillerne har et treningsvest stappet ned bak i bukselinjen som en "hale". Hver spiller har en ball på foten og skal beskytte sin egen hale samtidig som de prøver å nappe halen fra andre.
+Alle spillerne har en vest stappet ned bak i buksen som en «hale». Hver spiller har en ball på foten og skal beskytte sin egen hale samtidig som de prøver å nappe andres.
 
 **HVORFOR**
-
-Utvikler kroppsbeherskelse, utside-skjerming og balanse når man kjemper om ball og rom under press.
+Utvikler kroppsbeherskelse, skjerming og balanse når man kjemper om ball og rom under press.
 
 **HVORDAN**
-
-1. Avgrens et område på 15x15 meter.
-2. Alle spillere fører sin egen ball.
-3. På signal skal man bruke fri hånd til å nappe haler fra medspillere uten å miste kontroll på sin egen ball.
-4. MISTER man ballen eller halen, må man ta 5 hoppe-sprett før man er med igjen.
+1. Avgrens et område på 15×15 m.
+2. Alle fører hver sin ball.
+3. På signal skal man bruke den frie hånden til å nappe haler fra medspillere uten å miste kontrollen på egen ball.
+4. Mister man ballen eller halen, gjør man fem hopp på stedet før man er med igjen.
 
 **COACHING-PUNKTER**
-
-* «Sett kroppen mellom ballen og motstanderen!»
-* «Hold tyngdepunktet lavt slik at ingen dytter deg ut av balanse!»
+- Sett kroppen mellom ballen og motstanderen
+- Hold tyngdepunktet lavt så ingen dytter deg ut av balanse
+- Hold blikket opp
 
 **VANLIGE FEIL**
-
-* Spilleren glemmer ballen og løper bare etter haler.
+- Glemmer ballen og løper bare etter haler
 
 **VARIASJONER**
+- *Lettere:* Uten ball i starten
+- *Vanskeligere:* To utvalgte «jegere» uten ball skal kapre haler fra de som fører ball
 
-* **Lettere:** Gjennomføres uten ball i starten.
-* **Vanskeligere:** To utvalgte "jggere" har ikke ball, men skal kapre haler fra de som fører ball.
-
-**UTSTYR:** 1 vest per spiller, 1 ball per spiller.
+**UTSTYR**
+1 vest per spiller, 1 ball per spiller
 
 ---
 
-### 4. Nøtteliten (Stjele ballen i riktig øyeblikk)
-
-**Kilde:** Soccer Coach Weekly – *One-on-one defending*
-
-**URL:** [https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/one-on-one-defending](https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/one-on-one-defending?utm_source=gemini)
-
-**Utgiver:** Soccer Coach Weekly
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Lett | **Varighet:** 10–12 min | **Antall spillere:** 4–8
+### 4. Tålmodigheten (vinne ballen i riktig øyeblikk)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «Soccer Coach Weekly – One-on-one defending» med URL; kunne ikke åpnes
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «utnytte dårlige, lange og for mange touch», «komme tett i press med rett fart»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 8-9 / 10-12
+**Vanskelighetsgrad:** Lett
+**Varighet:** 10
+**Antall spillere:** 4-8
 
 **HVA**
-
-Forsvareren oppholder angriperen i en smal korridor, og må time taklingen presist når angriperen gjør en feil eller tar et ukontrollert touch.
+Forsvareren holder angriperen igjen i en smal korridor og skal time taklingen når angriperen gjør en feil eller tar et ukontrollert touch.
 
 **HVORFOR**
-
-Trener tålmodighet i 1v1-defensivt spill slik at barn unngår å lage frispark eller bli utspilt med en gang.
+Trener tålmodighet i 1 mot 1, så barna unngår frispark og å bli utspilt med en gang.
 
 **HVORDAN**
-
-1. Lag en korridor på 12x5 meter.
-2. Angriper starter i den ene enden, forsvarer i den andre.
-3. Forsvarer rykker fram, bremser opp 1–2 meter foran angriperen og "avventer".
-4. Når angriperen slår ballen for langt foran seg, setter forsvarer inn en ren takling med innsiden av foten og triller ballen ut av korridoren.
+1. Lag en korridor på 12×5 m.
+2. Angriperen starter i den ene enden, forsvareren i den andre.
+3. Forsvareren rykker frem, bremser 1-2 m foran angriperen og avventer.
+4. Når angriperen slår ballen for langt frem, går forsvareren inn med en ren takling med innsiden av foten og fører ballen ut av korridoren.
 
 **COACHING-PUNKTER**
-
-* «Tålmodighet! Vent på det lange touchet!»
-* «Bruk innsiden av foten når du vinner ballen, ikke stikk tærne fram!»
-* «Hold deg på beina så lenge som mulig!»
+- Vær tålmodig, vent på det lange touchet (kilde: NFF-moment, se Faglig bakgrunn)
+- Bruk innsiden av foten når du vinner ballen, ikke tåspissen
+- Hold deg på beina så lenge som mulig
 
 **VANLIGE FEIL**
-
-* Takler mens angriperen har full kontroll på ballen.
-* Takler med strakt bein og mister balansen.
+- Takler mens angriperen har full kontroll på ballen
+- Takler med strakt bein og mister balansen
 
 **VARIASJONER**
+- *Lettere:* Smalere korridor (3 m)
+- *Vanskeligere:* Bredere korridor, så angriperen får mer rom å finte på
 
-* **Lettere:** Korridoren gjøres enda smalere (3 meter) for å hjelpe forsvareren.
-* **Vanskeligere:** Korridoren gjøres bredere, slik at angriperen har mer rom å finte på.
+**UTSTYR**
+4 kjegler, 1 ball per par
 
-**UTSTYR:** 4 kjegler, 1 ball per par.
+**SKISSE**
+Korridor 12×5 m. Angriper i den ene enden, forsvarer i den andre. Forsvareren rykker frem og stopper 1-2 m foran angriperen.
 
 ---
 
-### 5. Mur-Byggerne (Blokkere skudd)
-
-**Kilde:** Allment kjent øvelse i NFF barnefotball
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Middels | **Varighet:** 12 min | **Antall spillere:** 4–6
+### 5. Murbyggerne (blokkere skudd)
+**Kilde:** Allment kjent øvelse
+**Faglig bakgrunn:** https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF: «Forsvar av målet», «hindre avslutning») og https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-8-9-ar (NFF: «Opp i blokk: blokke med fremsiden av kroppen»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Middels
+**Varighet:** 12
+**Antall spillere:** 4-6
 
 **HVA**
-
-En spiss prøver å score i et småmål fra 8–10 meters hold, mens en forsvarer rykker ut fra kortlinjen for å blokkere skuddet med kroppen på en ufarlig måte.
+En angriper prøver å score i et småmål fra 8-10 m, mens en forsvarer rykker ut og blokkerer skuddet med kroppen.
 
 **HVORFOR**
-
-Lærer barn å tåle og blokkere skudd uten å snu ryggen til ballen eller lukke øynene.
+Lærer barna å blokkere skudd uten å snu ryggen til ballen eller lukke øynene. NFF beskriver blokking «med fremsiden av kroppen». (kilde: Spillmodellen 8-9 år)
 
 **HVORDAN**
-
-1. Angriper står klar på 10 meter med ball.
-2. Forsvarer står ved siden av et lite mål.
-3. Angriper tar et touch framover og gjør seg klar til skudd.
-4. Forsvarer rykker ut, gjør seg stor, samler beina og blokkerer skuddet ved å dekke vinkelen.
+1. Angriperen står klar på 10 m med ball.
+2. Forsvareren står ved siden av et lite mål.
+3. Angriperen tar et touch fremover og gjør seg klar til skudd.
+4. Forsvareren rykker ut, gjør seg stor og blokkerer skuddet ved å dekke vinkelen.
 
 **COACHING-PUNKTER**
-
-* «Ikke snu ryggen til skuddet!»
-* «Hold hendene inntil kroppen så du ikke lager hands!»
-* «Møt skuddet med tøff og stødig kropp!»
+- Opp i blokk, blokker med fremsiden av kroppen (kilde: NFF-moment, se Faglig bakgrunn)
+- Ikke snu ryggen til skuddet
+- Hold hendene inntil kroppen så du ikke lager hands
 
 **VANLIGE FEIL**
-
-* Snur seg helt rundt og dukker unna ballen.
-* Hopper med sprikende armer.
+- Snur seg helt rundt og dukker unna
+- Hopper med sprikende armer
 
 **VARIASJONER**
+- *Lettere:* Angriperen bruker myk ball eller svak fot
+- *Vanskeligere:* Angriperen kan finte før skuddet
 
-* **Lettere:** Angriper må bruke myk sprettball eller skyte med svak fot.
-* **Vanskeligere:** Angriper kan ta en finte til høyre eller venstre før skuddet avfyres.
+**UTSTYR**
+1 småmål, 6-8 baller, kjegler
 
-**UTSTYR:** 1 småmål, 6–8 baller, kjegler.
+**SKISSE**
+Småmål. Angriper 10 m foran med ball. Forsvarer står ved siden av målet og rykker ut mot skytteren.
 
 ---
 
-### 6. Rask Hjemjobb (Sikringsløp og takling)
-
-**Kilde:** YouTube-kanal: @ProgressiveSoccer
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Middels | **Varighet:** 12 min | **Antall spillere:** 4–6
+### 6. Rask hjemjobb (returløp og takling)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «YouTube-kanal: @ProgressiveSoccer», uten videolenke
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Raskt på rett side av ball når pressejobben er over», «returløp: spillere på feil side må komme seg på rett side»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Middels
+**Varighet:** 12
+**Antall spillere:** 4-6
 
 **HVA**
-
-En angriper får et forsprang mot mål, og forsvareren må ta et eksplosivt hjemløp (returløp) for å innhente angriperen før skudd avfyres.
+En angriper får et forsprang mot mål, og forsvareren må ta et eksplosivt returløp for å innhente angriperen før skuddet.
 
 **HVORFOR**
-
-Utvikler innsatsvilje til å jobbe hjemover når laget har mistet ballen, samt lærer sporing fra siden.
+Utvikler innsatsvilje til å jobbe hjemover når laget har mistet ballen, og lærer å komme inn på «rett side». (kilde: NFF-moment, se Faglig bakgrunn)
 
 **HVORDAN**
-
-1. Angriper starter på 20 meter, forsvarer starter 3 meter bak eller litt til siden.
-2. Trener triller ballen fram til angriperen, som stormer mot mål.
-3. Forsvareren må spurte tilbake, komme seg inn på rett side av angriperen (mellom angriper og mål) og takle rent eller presse ballen over dødlinja.
+1. Angriperen starter 20 m fra mål, forsvareren 3 m bak eller litt til siden.
+2. Treneren triller ballen frem til angriperen, som løper mot mål.
+3. Forsvareren spurter tilbake, kommer inn på rett side (mellom angriper og mål) og tar ballen rent eller presser den over dødlinjen.
 
 **COACHING-PUNKTER**
-
-* «Løp den korteste veien mot eget mål for å avskjære!»
-* «Kom deg inn 'målsida' før du prøver å ta ballen!»
-* «Bruk skuldra mot skuldra hvis du er helt oppe i angriperen!»
+- Løp den korteste veien mot eget mål for å avskjære
+- Kom deg inn på målsiden før du prøver å ta ballen (kilde: «rett side av ball», NFF-moment)
+- Bruk skulder mot skulder hvis du er helt oppe i angriperen
 
 **VANLIGE FEIL**
-
-* Løper rett på angriperen bakfra og lager frispark/felling.
-* Gir opp returløpet dersom angriperen får et lite forsprang.
+- Løper inn i angriperen bakfra og lager frispark
+- Gir opp returløpet ved lite forsprang
 
 **VARIASJONER**
+- *Lettere:* Øk avstanden eller gi forsvareren forsprang
+- *Vanskeligere:* Angriperen starter likt med forsvareren
 
-* **Lettere:** Øk avstanden eller gi forsvareren et forsprang.
-* **Vanskeligere:** Angriperen starter helt likt med forsvarer.
+**UTSTYR**
+1 mål, 6-8 baller, kjegler
 
-**UTSTYR:** 1 mål, 6–8 baller, kjegler.
+**SKISSE**
+Mål. Angriper starter 20 m ute med ball. Forsvareren starter 3 m bak og litt til siden, og løper for å komme mellom angriper og mål.
 
 ---
 
-### 7. Dobbeltmuren (2v1 Forsvar)
-
-**Kilde:** Soccer Coach Weekly – *Back me up, buddy*
-
-**URL:** [https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/back-me-up-buddy](https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/back-me-up-buddy?utm_source=gemini)
-
-**Utgiver:** Soccer Coach Weekly
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Middels | **Varighet:** 12–15 min | **Antall spillere:** 6
+### 7. Dobbeltmuren (2 mot 1: press og sikring)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «Soccer Coach Weekly – Back me up, buddy» med URL; kunne ikke åpnes
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Korte avstander bak presset – Sikring på 1. forsvarer»; «Sikring til førsteforsvarer»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Middels
+**Varighet:** 12
+**Antall spillere:** 6
 
 **HVA**
-
-To forsvarsspillere jobber sammen mot én angriper. Den første presser ballfører (førsteforsvarer), mens den andre sikrer bak (andreforsvarer).
+To forsvarere jobber sammen mot én angriper. Den ene presser ballføreren (1F), mens den andre sikrer bak.
 
 **HVORFOR**
-
-Lærer barn det absolutte grunnprinsippet i lagforsvar: Press og sikring.
+Lærer grunnprinsippet i lagforsvar: press og sikring. NFF bruker begrepene «1F» og «sikring til førsteforsvarer». (kilde: Spillmodellen 10-12 år)
 
 **HVORDAN**
-
-1. Markér en bane på 12x12 meter med ett mål i enden.
-2. Angriper starter med ballen i den andre enden.
-3. Forsvarer 1 rykker ut og støter på ballfører.
-4. Forsvarer 2 plasserer seg 3–4 meter bak Forsvarer 1 på skrå (i sikringsrommet).
-5. Hvis angriper dribler forbi Forsvarer 1, skal Forsvarer 2 takle umiddelbart.
+1. Marker en bane på 12×12 m med ett mål i enden.
+2. Angriperen starter med ball i motsatt ende.
+3. Forsvarer 1 rykker ut og støter på ballføreren.
+4. Forsvarer 2 plasserer seg 3-4 m bak Forsvarer 1, på skrå, i sikringsrommet.
+5. Dribler angriperen forbi Forsvarer 1, tar Forsvarer 2 over.
 
 **COACHING-PUNKTER**
-
-* «Førsteforsvarer roper 'JEG STØTER!'»
-* «Andreforsvarer ligger på skrå bak for å plukke opp returen!»
-* «Ikke stå på rett linje bak hverandre!»
+- Førsteforsvareren roper «Jeg støter!»
+- Andreforsvareren ligger på skrå bak
+- Ikke stå på rett linje bak hverandre
+- Korte avstander bak presset (kilde: NFF-moment, se Faglig bakgrunn)
 
 **VANLIGE FEIL**
-
-* Begge forsvarerne støter på ballen samtidig og kolliderer/åpner rom.
-* Andreforsvareren står for langt unna til å hjelpe.
+- Begge støter samtidig og åpner rom
+- Andreforsvareren står for langt unna til å hjelpe
 
 **VARIASJONER**
+- *Lettere:* Ingen tidspress eller touchbegrensning for angriperen
+- *Vanskeligere:* 2 mot 2, der forsvarerne bytter på hvem som presser og hvem som sikrer
 
-* **Lettere:** Ingen tidspress eller begrensning på berøringer for angriper.
-* **Vanskeligere:** Utvikles til 2v2 der forsvarerne må skifte på hvem som presser og hvem som sikrer.
+**UTSTYR**
+4 kjegler, 1 mål, vester, 6 baller
 
-**UTSTYR:** 4 kjegler, 1 mål, vester, 6 baller.
+**SKISSE**
+Bane 12×12 m med mål i den ene enden. Angriper i motsatt ende. Forsvarer 1 foran, Forsvarer 2 3-4 m bak og skrått til siden.
 
 ---
 
-### 8. NFF 2v2 Kompakt (Overføring av ball)
-
-**Kilde:** The FA Bootroom – *Mastering defensive techniques and roles*
-
-**URL:** [https://www.thefa.com/bootroom/resources/coaching/mastering-defensive-techniques-and-roles](https://www.thefa.com/bootroom/resources/coaching/mastering-defensive-techniques-and-roles?utm_source=gemini)
-
-**Utgiver:** The Football Association (The FA)
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Middels | **Varighet:** 15 min | **Antall spillere:** 4
+### 8. 2 mot 2 kompakt (sidelengs forflytning)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «The FA Bootroom – Mastering defensive techniques and roles» med URL; kunne ikke åpnes. Tittelen het «NFF 2v2 Kompakt», men kilden var ikke NFF, så «NFF» er fjernet.
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Korte avstander mellom spillere i lengden og bredden», «kompakt lag»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Middels
+**Varighet:** 15
+**Antall spillere:** 4
 
 **HVA**
-
-To forsvarere skal forsvare to kjeglemål mot to angripere som slår pasninger seg imellom. Forsvarerne må forflytte seg sammen sidelengs når ballen spilles.
+To forsvarere forsvarer to kjeglemål mot to angripere som spiller til hverandre. Forsvarerne må flytte seg sammen sidelengs når ballen spilles.
 
 **HVORFOR**
-
-Lærer barn samhandling i forsvarsleddet og evnen til å være kompakte sidelengs.
+Lærer samhandling i forsvarsleddet og å være kompakt sidelengs. (kilde: NFF-moment «korte avstander i bredden», se Faglig bakgrunn)
 
 **HVORDAN**
-
-1. Bane på 15x12 meter med to små kjegleporter i hver ende.
-2. Angriper A og B slår pasninger seg imellom.
-3. Når Angriper A har ballen, støter Forsvarer 1 på A, mens Forsvarer 2 faller av i sikring mot B.
-4. Når A slår pasning til B, må Forsvarer 2støte på B, mens Forsvarer 1 må rygge i ny sikring.
+1. Bane på 15×12 m med to små kjegleporter i hver ende.
+2. Angriper A og B spiller til hverandre.
+3. Har A ballen, støter Forsvarer 1 på A, mens Forsvarer 2 faller av i sikring mot B.
+4. Spilles ballen til B, støter Forsvarer 2 på B, mens Forsvarer 1 sikrer.
 
 **COACHING-PUNKTER**
-
-* «Flytt dere sammen som om det var et usynlig tau mellom dere!»
-* «Prat sammen: 'Min ball!' og 'Jeg sikrer!'»
-* «Pakk sammen i midten når ballen spilles på tvers!»
+- Flytt dere sammen, som med et usynlig tau mellom dere
+- Snakk sammen: «Min ball!» og «Jeg sikrer!»
+- Hold korte avstander mellom dere (kilde: NFF-moment)
 
 **VANLIGE FEIL**
-
-* En forsvarer blir hengende igjen slik at laget blir usentrert.
-* Støter for seint når pasningen har gått.
+- En forsvarer blir hengende igjen
+- Støter for sent når pasningen har gått
 
 **VARIASJONER**
+- *Lettere:* Angriperne må ta minst tre touch før de kan score
+- *Vanskeligere:* Angriperne kan score direkte på ett touch
 
-* **Lettere:** Angriperne må ta minst 3 touch før de kan score.
-* **Vanskeligere:** Angriperne kan score direkte på 1-touch dersom luken oppstår.
+**UTSTYR**
+8 kjegler, 1 ball, vester
 
-**UTSTYR:** 8 kjegler, 1 ball per omgang, vester.
+**SKISSE**
+Bane 15×12 m med en kjegleport i hver kortende. To angripere står på hver side av banen, to forsvarere i midten mellom dem og målene.
 
 ---
 
-### 9. Bryter’n (Innbrudd foran angriper)
-
-**Kilde:** Allment kjent øvelse (Sikre foran-bryting)
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Avansert | **Varighet:** 12–15 min | **Antall spillere:** 3
+### 9. Bryteren (komme foran og bryte pasningen)
+**Kilde:** Allment kjent øvelse
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Overspilte spillere hurtig i press», «Ta duellen før duellen»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Avansert
+**Varighet:** 12
+**Antall spillere:** 3
 
 **HVA**
-
-En pasningslegger slår en oppspillspasning mot en møtende angriper. Forsvareren ligger bak angriperen, må lese pasningen, rykke foran i rett øyeblikk og bryte ballbanen rent.
+En pasningslegger slår en oppspillspasning mot en møtende angriper. Forsvareren står tett bak angriperen, må lese pasningen, komme foran i riktig øyeblikk og bryte ballbanen rent.
 
 **HVORFOR**
-
-Trener forutseing (spillforståelse) og proaktivt forsvarsspill ved oppspill på møtende spiss.
+Trener spilleforståelse og aktivt forsvarsspill mot oppspill til en møtende spiss.
 
 **HVORDAN**
-
-1. Pasningslegger står 12–15 meter unna.
-2. Angriper gjør et lite møteløp mot pasningen.
-3. Forsvarer har tette føling i ryggen på angriperen.
-4. I det pasningen slås, må forsvarer orientere seg, ta et kraftfullt jafs foran angriperen, bryte pasningen og føre ballen ut av sonen.
+1. Pasningsleggeren står 12-15 m unna.
+2. Angriperen gjør et lite møteløp mot pasningen.
+3. Forsvareren har tett kontakt i ryggen på angriperen.
+4. Når pasningen slås, orienterer forsvareren seg, går eksplosivt foran angriperen, bryter pasningen og fører ballen ut av sonen.
 
 **COACHING-PUNKTER**
-
-* «Ikke lag frispark ved å dytte angriper i ryggen!»
-* «Vær eksplosiv i de to første stegene foran spissen!»
-* «Bruk armen rett til å kjenne hvor angriperen er uten å holde fast!»
+- Ikke lag frispark ved å dytte angriperen i ryggen
+- Vær eksplosiv de to første stegene foran spissen
+- Bruk en arm lett for å kjenne hvor angriperen er, uten å holde fast
 
 **VANLIGE FEIL**
-
-* Forsvareren ruser for tidlig og blir lurt av en finte/bakromsløp.
-* Løper inn i ryggen på angriperen (frispark).
+- Går for tidlig og blir lurt av en finte eller et bakromsløp
+- Løper inn i ryggen på angriperen (frispark)
 
 **VARIASJONER**
+- *Lettere:* Pasningen slås sakte, så timingen blir enkel
+- *Vanskeligere:* Angriperen kan legge ballen av videre i stedet for å ta imot
 
-* **Lettere:** Pasningen slås i veldig lavt tempo slik at timingen er enkel.
-* **Vanskeligere:** Angriperen kan velge å flokke ballen videre i stedet for å ta imot.
+**UTSTYR**
+6-8 baller, kjegler
 
-**UTSTYR:** 6–8 baller, kjegler.
+**SKISSE**
+Pasningslegger 12-15 m unna. Angriper i midten, vendt mot pasningsleggeren. Forsvarer rett bak angriperen.
 
 ---
 
-### 10. Boks-Forsvarern (Hodebrøyter og klarering)
+### 10. Boksforsvareren (høye baller og klarering)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «The FA Bootroom – How to defend like England: crosses» med URL; kunne ikke åpnes
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Innlegg og 45-situasjoner», «Blokkere eller hindre innlegg/pasning»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Avansert
+**Varighet:** 15
+**Antall spillere:** 4-6
 
-**Kilde:** The FA Bootroom – *How to defend like England: crosses*
-
-**URL:** [https://www.thefa.com/bootroom/resources/coaching/how-to-defend-like-england-crosses](https://www.thefa.com/bootroom/resources/coaching/how-to-defend-like-england-crosses?utm_source=gemini)
-
-**Utgiver:** The Football Association (The FA)
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Avansert | **Varighet:** 15 min | **Antall spillere:** 4–6
+⚠️ **Merknad til trener:** Øvelsen inneholder hodespill. NFF-kildene jeg har åpnet gir ingen anbefaling om heading for 10-12 år. Bruk lettvektsball eller myke baller, hold repetisjonene lave, og vurder å bytte hodespillet med klarering med foten hvis det er tvil.
 
 **HVA**
-
-Trener eller servitør slår kaste- eller lemp-innlegg i feltet. Forsvarer må vurdere ballbanen, time opphoppet og klare ballen med hodet eller vristen ut mot siden.
+Treneren eller en servitør slår myke innlegg i feltet. Forsvareren vurderer ballbanen, timer hoppet og klarerer ballen ut mot siden.
 
 **HVORFOR**
-
-Bygger mot i hodedueller og lærer barn riktig klareringsteknikk bort fra farlig sone.
+Bygger mot i luftdueller og lærer klareringsteknikk bort fra farlig sone.
 
 **HVORDAN**
-
-1. Forsvarer står inne på 7-meters hold foran mål.
-2. Servitør slår lempede innlegg fra sidene.
-3. Forsvarer rykker fram mot ballen, hopper med én-fots sats og nikker eller demper/beiner ballen ut av feltet (mot sidelinjen).
-4. En angriper settes etter hvert inn for å gi rolig fysisk press.
+1. Forsvareren står ca. 7 m foran mål.
+2. Servitøren slår myke innlegg fra sidene.
+3. Forsvareren rykker frem mot ballen og klarerer den ut av feltet (mot sidelinjen), helst med foten eller, for de som mestrer det, med hodet.
+4. En angriper settes etter hvert inn for å gi lett press.
 
 **COACHING-PUNKTER**
-
-* «Treff ballen med panna, ikke toppen av hodet!»
-* «Klarér ballen HØYT, BREDT og LANGT ut til sidene!»
-* «Møt ballen i lufta – ikke vent på at den treffer deg!»
+- Klarer ballen høyt, bredt og langt ut mot sidene
+- Møt ballen i lufta, ikke vent på at den kommer
+- Treff ballen med pannen, ikke toppen av hodet
+- Klarering først, så spill (vurdering: min)
 
 **VANLIGE FEIL**
-
-* Stusser ballen bakover mot eget mål.
-* Blir stående flatfoted på gresset.
+- Stusser ballen bakover mot eget mål
+- Blir stående flatfotet
 
 **VARIASJONER**
+- *Lettere:* Lett ball eller sprettball; klarering med fot
+- *Vanskeligere:* To angripere mot én forsvarer
 
-* **Lettere:** Bytte ut fotball med en mykere lettvektsball eller sprettball.
-* **Vanskeligere:** To angripere kjemper mot én forsvarer i feltet.
+**UTSTYR**
+8-10 baller (gjerne lette), 1 mål
 
-**UTSTYR:** 8–10 baller (gjerne lettvekt for 6–9 år), 1 mål.
+**SKISSE**
+Mål. Servitør på kanten av feltet slår innlegg. Forsvarer 7 m foran mål. Angriper settes inn i feltet senere.
 
 ---
 
-### 11. Press-Fella i Hjørnet (3v2 Pressing)
-
-**Kilde:** NFF Trenerhåndbok (Seksjon: *Pressfeller i barnefotball*) – Papirutgave / Ingen direkte URL
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Avansert | **Varighet:** 15 min | **Antall spillere:** 5
+### 11. Pressfella i hjørnet (3 mot 2: press mot kanten)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «NFF Trenerhåndbok, seksjon Pressfeller i barnefotball, papirutgave». Jeg kan ikke bekrefte at denne finnes, og det bør ikke oppgis som kilde uten at den er sjekket.
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Reagere hurtig og samlet på definerte presssignaler», «Kompakt», «Pressansvar»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Avansert
+**Varighet:** 15
+**Antall spillere:** 5
 
 **HVA**
-
-Tre forsvarere skal stenge inne to angripere i et hjørne av banen ved å tette igjen pasningsveiene framover og tvinge fram en feilpasning eller balltap.
+Tre forsvarere skal stenge inne to angripere i et hjørne av banen ved å lukke pasningsveiene fremover og tvinge frem en feilpasning eller balltap.
 
 **HVORFOR**
-
-Lærer barn kollektiv forflytning og hvordan man stenger rom som et lag.
+Lærer kollektiv forflytning og å stenge rom sammen. NFF beskriver at laget skal «reagere hurtig og samlet» på pressignaler. (kilde: Spillmodellen 10-12 år)
 
 **HVORDAN**
-
-1. Avmerk en 12x12 meters sone helt ute ved sidelinja/hjørnet.
+1. Avmerk en sone på 12×12 m ved sidelinjen eller hjørnet.
 2. Angriperne prøver å spille seg ut av sonen til en nøytral spiller.
-3. Førsteforsvarer støter hardt på ballfører for å nekte pasning forover.
+3. Førsteforsvareren støter på ballføreren og nekter pasning fremover.
 4. Andre- og tredjeforsvarer dekker nærmeste pasningsalternativ og bakrom.
-5. Sammen "krymper" de rommet til ballen gjenvinnes.
+5. Sammen krymper de rommet til ballen vinnes.
 
 **COACHING-PUNKTER**
-
-* «Gjør banen liten når motstanderen har ballen på kanten!»
-* «Nekt angriperen å snu seg framover!»
-* «Agressivt, men rent press når feiltouchet kommer!»
+- Gjør banen liten når motstanderen har ballen på kanten
+- Nekt angriperen å snu seg fremover
+- Aggressivt, men rent press når feiltouchet kommer
+- Reager samlet på presssignaler (kilde: NFF-moment)
 
 **VANLIGE FEIL**
-
-* En forsvarer faller ut av fella og gir en enkel pasningsvei.
+- En forsvarer faller ut av fella og gir en enkel pasningsvei
 
 **VARIASJONER**
+- *Lettere:* 3 mot 1 i starten
+- *Vanskeligere:* Tidsfrist på 10 sekunder for å vinne ballen
 
-* **Lettere:** Utfør 3v1 i starten for å mestre overtalls-pressing.
-* **Vanskeligere:** Tidsfrist på 10 sekunder for forsvarerne til å vinne ballen.
+**UTSTYR**
+Kjegler, vester, 6 baller
 
-**UTSTYR:** Kjegler, vester, 6 baller.
+**SKISSE**
+Sone 12×12 m helt ute ved sidelinjen. Ballfører i hjørnet, en angriper i nærheten, en nøytral spiller på utsiden. Tre forsvarere står i trekant rundt ballen.
 
 ---
 
-### 12. Bølge-Forsvar (3v2 med Overgang)
-
-**Kilde:** Soccer Coach Weekly – *1v1, 2v2, 3v3 Practice*
-
-**URL:** [https://www.soccercoachweekly.net/drills-and-games/drills/practice-1v1-2v2-3v3](https://www.soccercoachweekly.net/drills-and-games/drills/practice-1v1-2v2-3v3?utm_source=gemini)
-
-**Utgiver:** Soccer Coach Weekly
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Avansert | **Varighet:** 15 min | **Antall spillere:** 8–10
+### 12. Bølgeforsvar (3 mot 2 med omstilling)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «Soccer Coach Weekly – 1v1, 2v2, 3v3 Practice» med URL; kunne ikke åpnes
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «å raskt stille om til forsvar – angrep eller angrep – forsvar er en sentral del av fotballspillet»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Avansert
+**Varighet:** 15
+**Antall spillere:** 8-10
 
 **HVA**
-
-En kontinuerlig øvelse der to forsvarere må omstille seg umiddelbart når et angrep avsluttes, da tre nye angripere kommer i stormende bølger mot dem.
+Kontinuerlig øvelse der to forsvarere må omstille seg umiddelbart når et angrep er avsluttet, og tre nye angripere kommer i bølger mot dem.
 
 **HVORFOR**
-
-Trener omstillingsevne (defensiv omstilling) fra angrep til forsvar under undertallspress.
+Trener omstilling fra angrep til forsvar i undertall. NFF beskriver «rask omstilling» som en sentral del av fotballspillet. (kilde: Spillmodellen 10-12 år)
 
 **HVORDAN**
-
-1. Lag en bane på 20x15 meter med mål i begge ender.
-2. Lag A angriper med 3 spillere mot 2 forsvarere fra Lag B.
-3. Så snart ballen går ut, over linjen eller i mål, må de 2 forsvarerne fra Lag B løpe ut.
-4. To av angriperne fra Lag A må umiddelbart snu og bli nye FORSVARERE, mens tre nye spillere fra Lag B stormer inn som angripere.
+1. Bane 20×15 m med mål i begge ender.
+2. Lag A angriper med tre spillere mot to forsvarere fra Lag B.
+3. Så snart ballen går ut, over linjen eller i mål, løper de to forsvarerne fra Lag B ut.
+4. To av angriperne fra Lag A må umiddelbart snu og bli nye forsvarere, mens tre nye spillere fra Lag B kommer inn som angripere.
 
 **COACHING-PUNKTER**
-
-* «Rask omstilling! Løp tilbake og finn rollene dine med én gang!»
-* «Forsvar målet først, ikke støt for tidlig når dere er i undertall!»
-* «Forsink angrepet så medspiller rekker å hjelpe til!»
+- Rask omstilling: løp tilbake og finn rollen din med en gang (kilde: NFF-moment)
+- Forsvar målet først, ikke støt for tidlig i undertall
+- Forsinke angrepet så medspillere rekker å hjelpe
 
 **VANLIGE FEIL**
-
-* Spillere blir stående å deppe over misset sjanse i stedet for å rygge.
-* Ruser stivt ut i undertall 2v3.
+- Blir stående og deppe over en misset sjanse
+- Rusher stivt ut i undertall (2 mot 3)
 
 **VARIASJONER**
+- *Lettere:* 2 mot 1 i stedet for 3 mot 2
+- *Vanskeligere:* Forsvarerne får poeng hvis de vinner ballen og scorer på et lite mål innen 8 sekunder
 
-* **Lettere:** 2v1 situasjon i stedet for 3v2.
-* **Vanskeligere:** Legg til at forsvarerne får poeng dersom de kaprer ballen og scorer i et lite mål innen 8 sekunder.
+**UTSTYR**
+2 mål, kjegler, vester, mange baller
 
-**UTSTYR:** 2 mål, kjegler, vester, rikelig med baller.
+**SKISSE**
+Bane 20×15 m med mål i begge ender. Lag A (3 angripere) i den ene enden, Lag B (2 forsvarere) foran sitt mål. Nye spillere står klare på sidelinjen ved hvert mål.
 
 ---
 
-### 13. Taklings-Mester’n (Timing av støttakling)
+### 13. Taklingsmesteren (timing av støttakling)
+**Kilde:** Allment kjent øvelse
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Tett i ballfører for å vinne ball», «utnytte dårlige, lange og for mange touch»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Avansert
+**Varighet:** 10
+**Antall spillere:** 4
 
-**Kilde:** Allment kjent øvelse (Ren taklingstrening)
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Avansert | **Varighet:** 10–12 min | **Antall spillere:** 4
+⚠️ **Merknad til trener:** Jeg har ikke funnet NFF-materiale om taklingsteknikk for 10-12 år. Denne øvelsen krever nær kroppskontakt og en stiv ankel. Bruk moderat fart, sørg for at barna er godt oppvarmet, og vurder å utelate den uten trenerkompetanse.
 
 **HVA**
-
-En kontrollert øvelse der to spillere går inn i en parallell løpsduell før forsvareren gjør en ren støttakling/blokktakling med innsiden av foten.
+En kontrollert øvelse der to spillere løper side om side før forsvareren gjør en ren støttakling (blokktakling) med innsiden av foten.
 
 **HVORFOR**
-
-Bygger riktig og skadefri taklingsteknikk så barn ikke bruker knotter eller strakt kne.
+Bygger riktig og skadefri taklingsteknikk, så barna ikke bruker knotter eller strakt kne.
 
 **HVORDAN**
-
-1. Angriper og forsvarer løper ved siden av hverandre i moderat tempo med ballen mellom seg.
-2. Trener roper "NÅ!".
-3. Forsvareren setter plantefoten stødig i gresset ved siden av ballen, og tråkker stivt igjennom ballen med innsiden av foten (blokktakling).
-4. Angriperen yter moderat motstand slik at begge kjenner kreftene i taklingen uten fare for skade.
+1. Angriper og forsvarer løper side om side i moderat tempo, med ballen mellom seg.
+2. Treneren roper «NÅ!».
+3. Forsvareren setter standfoten stødig ved siden av ballen og går stivt gjennom ballen med innsiden av foten.
+4. Angriperen gir moderat motstand, så begge kjenner kreftene uten fare for skade.
 
 **COACHING-PUNKTER**
-
-* «Lås ankelen helt stiv når du treffer ballen!»
-* «Sett plantefoten tett inntil ballen for god balanse!»
-* «Bruk innsiden av foten – aldri tåspissen eller knotter først!»
+- Lås ankelen når du treffer ballen
+- Sett standfoten tett inntil ballen for god balanse
+- Bruk innsiden av foten, aldri tåspissen eller knottene først
 
 **VANLIGE FEIL**
-
-* Løs ankel som gjør at foten blir slått bakover.
-* Hopper inn i taklingen med begge beina fra bakken.
+- Løs ankel, så foten slås bakover
+- Hopper inn i taklingen med begge bein fra bakken
 
 **VARIASJONER**
+- *Lettere:* Stående takling mot en stillestående ball i par
+- *Vanskeligere:* Takling mot angriper i høyere fart (kun med god kontroll og tilsyn)
 
-* **Lettere:** Stående takling på stilleliggende ball i par.
-* **Vanskeligere:** Takling på angriper i full spiss-sprint.
-
-**UTSTYR:** 1 ball per par, kjegler.
+**UTSTYR**
+1 ball per par, kjegler
 
 ---
 
-### 14. Nekt Pasningen! (Skjerme pasningslinje)
-
-**Kilde:** The FA Bootroom – *England DNA 5-11: staying on the ball*
-
-**URL:** [https://www.thefa.com/bootroom/resources/coaching/england-dna-5-11-staying-on-the-ball](https://www.thefa.com/bootroom/resources/coaching/england-dna-5-11-staying-on-the-ball?utm_source=gemini)
-
-**Utgiver:** The Football Association (The FA)
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Avansert | **Varighet:** 12–15 min | **Antall spillere:** 6
+### 14. Nekt pasningen (stenge pasningslinjer)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «The FA Bootroom – England DNA 5-11: staying on the ball» med URL; kunne ikke åpnes
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Bevisst på rom rundt seg for å stenge avspillpunkter», «posisjonering i forhold til ball og medspillere»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 8-9 / 10-12
+**Vanskelighetsgrad:** Middels
+**Varighet:** 12
+**Antall spillere:** 6
 
 **HVA**
-
-Fire angripere står på utsiden av en firkant og slår pasninger seg imellom. To forsvarere inne i firkanten må jobbe sammen for å dekke pasningsskyggen og stoppe pasninger tvers igjennom feltet.
+Fire angripere står rundt en firkant og spiller til hverandre. To forsvarere inne i firkanten jobber sammen for å dekke pasningslinjene og stoppe pasninger tvers gjennom.
 
 **HVORFOR**
-
-Lærer barn å bruke kroppen og posisjoneringen til å blokkere rom uten å måtte ruse på ballfører hver gang.
+Lærer å bruke kroppen og posisjoneringen til å stenge rom uten å presse ballføreren hver gang. NFF beskriver at 1F skal være «bevisst på rom rundt seg for å stenge avspillpunkter». (kilde: Spillmodellen 10-12 år)
 
 **HVORDAN**
-
-1. Lag en firkant på 10x10 meter.
-2. Angriperne fordeler seg på tre av sidene.
-3. De to forsvarerne må hele tiden plassere seg slik at de stenger linjen for direkte pasning tvers igjennom firkanten.
-4. Dersom en pasning avskjæres av forsvarerne, bytter pasningslegger plass med forsvareren.
+1. Lag en firkant på 10×10 m.
+2. Angriperne fordeler seg langs sidene.
+3. De to forsvarerne plasserer seg hele tiden slik at de stenger direkte pasning tvers gjennom firkanten.
+4. Avskjæres en pasning, bytter pasningslegger plass med forsvareren.
 
 **COACHING-PUNKTER**
-
-* «Kikk over skulderen – hvor er den andre angriperen?»
-* «Plassér deg i pasningslinjen før pasningen slås!»
-* «Kommunisér med forsvarsmakkeren din!»
+- Kikk over skulderen: hvor er den andre angriperen?
+- Plasser deg i pasningslinjen før pasningen slås
+- Kommuniser med forsvarsmakkeren
+- Stenge avspillpunkter (kilde: NFF-moment)
 
 **VANLIGE FEIL**
-
-* Begge forsvarerne løper etter ballen på utsiden i stedet for å dekke midten.
+- Begge løper etter ballen på utsiden i stedet for å dekke midten
 
 **VARIASJONER**
+- *Lettere:* Én forsvarer mot tre angripere
+- *Vanskeligere:* Angriperne har maks to touch
 
-* **Lettere:** Kun én forsvarer inne i firkanten mot tre angripere.
-* **Vanskeligere:** Angriperne har maks to touch.
+**UTSTYR**
+4 kjegler, vester, 1 ball
 
-**UTSTYR:** 4 kjegler, vester, 1 ball.
+**SKISSE**
+Firkant 10×10 m. Fire angripere, en på hver side. To forsvarere inne i firkanten som plasserer seg i pasningslinjene.
 
 ---
 
-### 15. Offside-Fellen (Linjekontroll 4v4)
-
-**Kilde:** US Soccer Coaching DCC (Grassroots 7v7 / 9v9 manual) – Ingen direkte nettadresse
-
-**Kategori:** Forsvar | **Alder:** Barn | **Vanskelighetsgrad:** Avansert | **Varighet:** 15 min | **Antall spillere:** 8
+### 15. Linjeforsvar 4 mot 4 (støte og falle av)
+**Kilde:** Allment kjent øvelse
+**Opprinnelig kilde (uverifisert):** Gemini oppga «US Soccer Coaching DCC (Grassroots 7v7 / 9v9 manual)», uten URL. Tittelen var «Offside-Fellen», men øvelsen handler om linjeorganisering, ikke offside.
+**Faglig bakgrunn:** https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Senke oss samlet», «Kontinuerlig justering av høyde i forhold til ballfører», «Beholde høyden på ledd»)
+**Kategori:** Forsvar
+**Alder:** Barn
+**Aldersgruppe:** 10-12
+**Vanskelighetsgrad:** Avansert
+**Varighet:** 15
+**Antall spillere:** 8
 
 **HVA**
-
-En temabasert spilløvelse på liten bane der forsvarsfireren/treeren må støte og falle av som én enhet i henhold til press på ballfører.
+Spilløvelse 4 mot 4 der forsvarsleddet skal støte og falle av som én enhet, avhengig av presset på ballføreren.
 
 **HVORFOR**
-
-Forbereder de eldste barna (11–12 år) på introduksjonen av offsideregelen og linjeorganisering på større bane.
+Forbereder de eldste barna på linjeorganisering og bakromsforsvar på større bane. NFF beskriver at laget skal «senke seg samlet» når det ikke er press på ballføreren. (kilde: Spillmodellen 10-12 år)
 
 **HVORDAN**
-
-1. Spill 4v4 på en 30x20 meter bane med mållinje/offsiselinje merket med kjegler.
-2. Når motstanderens midtbane har ballen "under kontroll" uten press, må forsvarslinja falle av for å beskytte bakrommet.
-3. I det motstander tar et dårlig touch bakover eller støtes hardt på, må linja klatre/flytte ut samlet («LØFT!»).
+1. Spill 4 mot 4 på en bane på 30×20 m med en markert linje av kjegler.
+2. Har motstanderens midtbane ballen uten press, faller forsvarslinjen av for å beskytte bakrommet.
+3. Tar motstanderen et dårlig touch eller støtes det på, går linjen ut samlet («LØFT!»).
 
 **COACHING-PUNKTER**
-
-* «Følg ballen: Se på ballførerens kroppsspråk!»
-* «Rop 'LØFT!' når ballen spilles bakover!»
-* «Hold linjen rett så ingen opphever offsiden!»
+- Følg ballen: se på ballførerens kroppsspråk
+- Rop «LØFT!» når ballen spilles bakover
+- Hold linjen rett, så ingen holder motstanderen i spill
+- Senk dere samlet uten press på ballfører (kilde: NFF-moment)
 
 **VANLIGE FEIL**
-
-* En spiller blir hengende igjen 5 meter bak resten av linja.
-* Linja rygger helt inn i eget mål uten å støte.
+- En spiller blir hengende 5 m bak resten av linjen
+- Linjen rygger helt inn i eget mål uten å støte
 
 **VARIASJONER**
+- *Lettere:* Treneren roper «LØFT» eller «FALL» som hjelp i starten
+- *Vanskeligere:* Vanlige offsideregler på stor bane
 
-* **Lettere:** Trener roper "LØFT" eller "FALL" som visuell hjelp i starten.
-* **Vanskeligere:** Kampøvelse med vanlige offsideregler på stor bane.
+**UTSTYR**
+2 mål, markeringskjegler, vester, baller
 
-**UTSTYR:** 2 mål, markeringskjegler, vester, baller.
+**SKISSE**
+Bane 30×20 m med mål i hver ende. Forsvarslinje på 4 foran eget mål, en kjegleline midt på banen som referanse. Fire angripere spiller mot linjen.
 
 ---
+
+## Kvalitetskontroll (telt mekanisk)
+
+Listen: 1) Skyggen min, 2) Kjeglefangeren, 3) Nappe haler, 4) Tålmodigheten, 5) Murbyggerne, 6) Rask hjemjobb, 7) Dobbeltmuren, 8) 2 mot 2 kompakt, 9) Bryteren, 10) Boksforsvareren, 11) Pressfella, 12) Bølgeforsvar, 13) Taklingsmesteren, 14) Nekt pasningen, 15) Linjeforsvar. **Femten.**
+
+- **URL-er forsøkt åpnet:** 6 (ett forsøk hver). **Åpnet:** 0. Alle ble avvist av verktøyet som «ikke i noe tidligere søk», ikke fordi siden ble funnet borte.
+- **Kilde: Allment kjent øvelse:** 15 av 15
+- **Faglig bakgrunn med NFF-artikkel jeg allerede har åpnet:** 15 av 15
+- **Nytt søk gjort:** 0 (som avtalt)
+
+**Ærlig om hva dette betyr:** Alle 15 står nå som «Allment kjent», og de fleste faglige bakgrunner peker til samme artikkel (`spillmodellen-og-treningsfilosofi-10-12-ar`). Den gir NFFs terminologi (1F, sikring, kompakt, «utnytte lange touch»), men ikke selve øvelsene. Sporbarheten er ærlig, men tynn.
+
+**Tre ting du bør vurdere:**
+
+1. **Kildene i Gemini-filen kan finnes.** Jeg kan ikke bekrefte det, og jeg kan ikke avkrefte det. Hvis du vil verifisere dem, er raskeste vei at du åpner de seks lenkene selv i en nettleser. Fungerer de, kan jeg legge dem inn som «Kilde» (og fjerne «Opprinnelig kilde (uverifisert)»).
+2. **To øvelser har helserelaterte flagg** (nr. 10 hodespill, nr. 13 takling). Jeg har lagt inn ⚠️ til trener. Jeg foreslår at appen viser slike varsler på samme måte som Nordic hamstring-advarselen.
+3. **Nr. 11 «NFF Trenerhåndbok, seksjon Pressfeller»** er oppgitt som papirkilde. Jeg fant ingen NFF-kilde med det navnet. En påstand om at NFF har publisert noe som ikke lar seg finne, bør ikke stå i NFF-pitchen. Jeg har derfor skrevet den som uverifisert og ikke som kilde.
+
+Klar for **Forsvar-Voksne (15 øvelser)**. Jeg trenger Gemini-teksten for den delen. Vil du lime den inn?
