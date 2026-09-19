@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 /* ────────────────────────────────────────────────────────────
@@ -98,8 +99,8 @@ export const SearchInput: React.FC<{
   className?: string;
 }> = ({ value, onChange, placeholder = 'Søk…', className }) => (
   <div className={cn('relative', className)}>
-    <span aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-body pointer-events-none">
-      🔍
+    <span aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none">
+      <Search size={15} strokeWidth={1.75} />
     </span>
     <input
       value={value}
@@ -118,9 +119,10 @@ export const SearchInput: React.FC<{
         aria-label="Tøm søk"
         onClick={() => onChange('')}
         className="tap-auto absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg
-                   text-ink-faint hover:text-ink hover:bg-canvas-hover transition-colors"
+                   text-ink-faint hover:text-ink hover:bg-canvas-hover transition-colors
+                   flex items-center justify-center"
       >
-        ✕
+        <X size={14} strokeWidth={1.75} />
       </button>
     )}
   </div>
@@ -128,13 +130,15 @@ export const SearchInput: React.FC<{
 
 /** Tomtilstand for filtrerte lister. */
 export const EmptyState: React.FC<{
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   hint?: string;
   action?: React.ReactNode;
-}> = ({ icon = '🔍', title, hint, action }) => (
+}> = ({ icon, title, hint, action }) => (
   <div className="flex flex-col items-center text-center py-14 px-6">
-    <div aria-hidden className="text-3xl mb-3 opacity-60">{icon}</div>
+    <div aria-hidden className="mb-3 text-ink-faint">
+      {icon ?? <Search size={26} strokeWidth={1.5} />}
+    </div>
     <p className="text-lead font-bold text-ink-muted">{title}</p>
     {hint && <p className="text-meta text-ink-faint mt-1.5 max-w-[34ch]">{hint}</p>}
     {action && <div className="mt-4">{action}</div>}

@@ -10,6 +10,11 @@ import {
 } from '@/data/drills';
 import type { DrillExercise, DrillCategory, DrillAgeBand, DrillDifficulty } from '@/types';
 import {
+  Hand, Shield, Shuffle, Zap, HeartPulse, Dumbbell,
+  Clock, Users, Cake, Package, Calendar, Check, ChevronLeft,
+  AlertTriangle, CircleDot, X, type LucideIcon,
+} from 'lucide-react';
+import {
   Card, SectionLabel, Button, IconButton, Badge, Meta,
   Modal, FilterBar, FilterRow, FilterChip, SearchInput, EmptyState,
 } from '@/components/ui';
@@ -44,13 +49,19 @@ const CAT_COLOR: Record<DrillCategory, string> = {
   styrke:   '#34D399',
 };
 
-const CAT_ICON: Record<DrillCategory, string> = {
-  keeper:   '🧤',
-  forsvar:  '🛡',
-  midtbane: '🎛',
-  angrep:   '⚡',
-  cardio:   '🫀',
-  styrke:   '💪',
+/** Kategoriikon – monokromt, som resten av Kalk. Fargen ligger i stripen. */
+const CAT_ICON: Record<DrillCategory, LucideIcon> = {
+  keeper:   Hand,
+  forsvar:  Shield,
+  midtbane: Shuffle,
+  angrep:   Zap,
+  cardio:   HeartPulse,
+  styrke:   Dumbbell,
+};
+
+const CatIcon: React.FC<{ category: DrillCategory }> = ({ category }) => {
+  const Icon = CAT_ICON[category];
+  return <Icon size={13} strokeWidth={1.75} aria-hidden />;
 };
 
 /** ISO-ukenummer, brukes til å rotere ukens anbefalte øvelser. */
@@ -121,7 +132,10 @@ const DrillRow: React.FC<{
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <h3 className="text-lead font-bold text-ink leading-snug">
-            {drill.warning && <span className="mr-1" title="Har advarsel">⚠️</span>}
+            {drill.warning && (
+              <AlertTriangle size={14} strokeWidth={1.75} aria-hidden
+                className="inline-block mr-1 -mt-0.5 text-warn-400" />
+            )}
             {drill.name}
           </h3>
           <Badge tone={DIFFICULTY_TONE[drill.difficulty]} className="mt-0.5">
@@ -132,11 +146,11 @@ const DrillRow: React.FC<{
         <p className="text-caption text-ink-subtle clamp-2 mt-1">{drill.description}</p>
 
         <div className="flex items-center gap-3 mt-2.5 flex-wrap">
-          <Meta icon="⏱">{drill.duration} min</Meta>
-          <Meta icon="👥">{drill.players}</Meta>
-          <Meta icon="🎂">{drill.ageBand.join(', ')}</Meta>
-          <Meta className="ml-auto text-ink-faint">
-            <span aria-hidden>{CAT_ICON[drill.category]}</span> {CATEGORY_LABELS[drill.category]}
+          <Meta icon={<Clock size={13} strokeWidth={1.75} />}>{drill.duration} min</Meta>
+          <Meta icon={<Users size={13} strokeWidth={1.75} />}>{drill.players}</Meta>
+          <Meta icon={<Cake size={13} strokeWidth={1.75} />}>{drill.ageBand.join(', ')}</Meta>
+          <Meta className="ml-auto text-ink-faint" icon={<CatIcon category={drill.category} />}>
+            {CATEGORY_LABELS[drill.category]}
           </Meta>
         </div>
       </div>
@@ -150,7 +164,7 @@ const DrillRow: React.FC<{
         className="sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 transition-opacity"
         onClick={e => { e.stopPropagation(); onQuickAdd(); }}
       >
-        📅
+        <Calendar size={15} strokeWidth={1.75} />
       </IconButton>
     </div>
   </Card>
@@ -257,13 +271,13 @@ export const DrillsView: React.FC = () => {
 
   function buildTeamNote(drill: DrillExercise, extra?: string): string {
     const parts = [
-      `📋 ${drill.description}`,
-      `📝 Slik gjøres det:\n${drill.steps.map((s, i) => `${i + 1}. ${stepText(s)}`).join('\n')}`,
+      drill.description,
+      `Slik gjøres det:\n${drill.steps.map((s, i) => `${i + 1}. ${stepText(s)}`).join('\n')}`,
     ];
     if (drill.coachingPoints.length > 0) {
-      parts.push(`💡 Coachingpunkter:\n${drill.coachingPoints.map(t => `• ${t}`).join('\n')}`);
+      parts.push(`Coachingpunkter:\n${drill.coachingPoints.map(t => `• ${t}`).join('\n')}`);
     }
-    if (drill.warning) parts.push(`⚠️ ${drill.warning}`);
+    if (drill.warning) parts.push(`Advarsel: ${drill.warning}`);
     const base = parts.join('\n\n');
     return extra ? `${extra}\n\n${base}` : base;
   }
@@ -273,7 +287,7 @@ export const DrillsView: React.FC = () => {
     if (!d) return;
     addEvent({
       type: 'training',
-      title: `🏋️ ${drill.name}`,
+      title: drill.name,
       date: d,
       time: scheduleTime,
       location: '',
@@ -285,7 +299,7 @@ export const DrillsView: React.FC = () => {
     });
     setScheduledId(drill.id);
     setScheduleOpen(false);
-    showToast(`✅ «${drill.name}» lagt til i kalender`);
+    showToast(`«${drill.name}» lagt til i kalender`);
   }
 
   function scheduleWeekPlan() {
@@ -298,7 +312,7 @@ export const DrillsView: React.FC = () => {
       date.setDate(today.getDate() + daysUntilMonday + offsets[idx]);
       scheduleDrill(drill, date.toISOString().slice(0, 10));
     });
-    showToast(`✅ Ukens ${weeklyDrills.length} øvelser lagt til i kalender`);
+    showToast(`Ukens ${weeklyDrills.length} øvelser lagt til i kalender`);
   }
 
   // ── Toast ────────────────────────────────────────────────
@@ -326,7 +340,7 @@ export const DrillsView: React.FC = () => {
           <Button
             variant="ghost"
             size="sm"
-            icon="‹"
+            icon={<ChevronLeft size={15} strokeWidth={1.75} />}
             onClick={() => { setViewMode('browse'); setScheduledId(null); }}
           >
             Tilbake
@@ -344,25 +358,28 @@ export const DrillsView: React.FC = () => {
               <Badge tone="neutral" dot={CAT_COLOR[drill.category]}>
                 {CATEGORY_LABELS[drill.category]}
               </Badge>
-              <Badge tone={drill.ageGroup === 'youth' ? 'ok' : 'brand'}>
-                {drill.ageGroup === 'youth' ? '🧒 Barn' : '🧑 Voksne'}
+              <Badge tone="neutral">
+                {drill.ageGroup === 'youth' ? 'Barn' : 'Voksne'}
               </Badge>
             </div>
 
             <h1 className="text-h1 text-ink mb-2">{drill.name}</h1>
 
             <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <Meta icon="⏱">{drill.duration} min</Meta>
-              <Meta icon="👥">{drill.players}</Meta>
-              <Meta icon="🎂">{drill.ageBand.join(', ')} år</Meta>
-              {drill.equipment.length > 0 && <Meta icon="🎯">{drill.equipment.join(', ')}</Meta>}
+              <Meta icon={<Clock size={13} strokeWidth={1.75} />}>{drill.duration} min</Meta>
+              <Meta icon={<Users size={13} strokeWidth={1.75} />}>{drill.players}</Meta>
+              <Meta icon={<Cake size={13} strokeWidth={1.75} />}>{drill.ageBand.join(', ')} år</Meta>
+              {drill.equipment.length > 0 && (
+                <Meta icon={<Package size={13} strokeWidth={1.75} />}>{drill.equipment.join(', ')}</Meta>
+              )}
             </div>
           </div>
 
           <div className="p-5 space-y-6">
             {drill.warning && (
               <div className="flex gap-3 rounded-panel border border-warn-500/40 bg-warn-500/10 p-4">
-                <span aria-hidden className="text-warn-400 leading-5 flex-shrink-0">⚠️</span>
+                <AlertTriangle size={16} strokeWidth={1.75} aria-hidden
+                  className="text-warn-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <SectionLabel tone="text-warn-400" className="mb-1">Advarsel</SectionLabel>
                   <p className="text-body text-warn-300">{drill.warning}</p>
@@ -375,7 +392,7 @@ export const DrillsView: React.FC = () => {
             </Card>
 
             {drill.why && (
-              <Section title="🎯 Hvorfor denne øvelsen" tone="text-ink-subtle">
+              <Section title="Hvorfor denne øvelsen" tone="text-ink-subtle">
                 <Card variant="sunken">
                   <p className="text-body text-ink-muted">{drill.why}</p>
                 </Card>
@@ -383,14 +400,14 @@ export const DrillsView: React.FC = () => {
             )}
 
             {drill.sketch && (
-              <Section title="✏️ Skisse / oppsett">
+              <Section title="Skisse / oppsett">
                 <Card variant="outline">
                   <p className="text-body text-ink-muted whitespace-pre-line">{drill.sketch}</p>
                 </Card>
               </Section>
             )}
 
-            <Section title="📝 Slik gjøres det" tone="text-signal">
+            <Section title="Slik gjøres det" tone="text-signal">
               <ol className="space-y-2">
                 {drill.steps.map((step, i) => (
                   <Card as="li" key={step.id ?? i} variant="sunken" padding="sm" className="flex gap-3">
@@ -408,25 +425,25 @@ export const DrillsView: React.FC = () => {
             </Section>
 
             {drill.coachingPoints.length > 0 && (
-              <Section title="💡 Coachingpunkter" tone="text-ok-300">
+              <Section title="Coachingpunkter" tone="text-ok-300">
                 <BulletList items={drill.coachingPoints} bullet="✦" bulletColor="text-ok-400" />
               </Section>
             )}
 
             {drill.commonMistakes.length > 0 && (
-              <Section title="🚫 Vanlige feil" tone="text-bad-300">
+              <Section title="Vanlige feil" tone="text-bad-300">
                 <BulletList items={drill.commonMistakes} bullet="✕" bulletColor="text-bad-400" />
               </Section>
             )}
 
             {drill.variations.length > 0 && (
-              <Section title="🔀 Variasjoner" tone="text-warn-300">
+              <Section title="Variasjoner" tone="text-warn-300">
                 <BulletList items={drill.variations} bullet="↳" bulletColor="text-warn-400" />
               </Section>
             )}
 
             {drill.background && (
-              <Section title="📚 Bakgrunn">
+              <Section title="Bakgrunn">
                 <p className="text-body text-ink-subtle">{drill.background}</p>
               </Section>
             )}
@@ -447,11 +464,13 @@ export const DrillsView: React.FC = () => {
         {/* Handlingslinje – alltid innen rekkevidde nederst, også på mobil */}
         <div className="flex-shrink-0 border-t border-rule bg-canvas-sunken px-4 py-3 sheet-safe sm:pb-3">
           {isScheduled ? (
-            <Button variant="success" size="lg" fullWidth icon="✓" disabled>
+            <Button variant="success" size="lg" fullWidth
+              icon={<Check size={16} strokeWidth={2} />} disabled>
               Lagt til i kalender
             </Button>
           ) : (
-            <Button variant="primary" size="lg" fullWidth icon="📅" onClick={() => setScheduleOpen(true)}>
+            <Button variant="primary" size="lg" fullWidth
+              icon={<Calendar size={16} strokeWidth={1.75} />} onClick={() => setScheduleOpen(true)}>
               Legg i kalenderen
             </Button>
           )}
@@ -522,7 +541,7 @@ export const DrillsView: React.FC = () => {
       <FilterBar>
         {/* Rad 1: aldersgruppe + treffantall */}
         <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-          <span aria-hidden className="text-lead">⚽</span>
+          <CircleDot size={15} strokeWidth={1.75} aria-hidden className="text-ink-faint" />
           <div className="flex gap-1.5">
             {(['youth', 'adult'] as const).map(g => (
               <FilterChip
@@ -530,7 +549,7 @@ export const DrillsView: React.FC = () => {
                 active={ageGroup === g}
                 onClick={() => changeAgeGroup(g)}
               >
-                {g === 'youth' ? '🧒 Barn' : '🧑 Voksne'}
+                {g === 'youth' ? 'Barn' : 'Voksne'}
               </FilterChip>
             ))}
           </div>
@@ -548,7 +567,7 @@ export const DrillsView: React.FC = () => {
         {/* Rad 3: kategori */}
         <FilterRow>
           <FilterChip active={activeCategory === 'alle'} accent="neutral" onClick={() => setActiveCategory('alle')}>
-            🗂 Alle
+            Alle
           </FilterChip>
           {CATEGORIES.map(cat => (
             <FilterChip
@@ -557,7 +576,7 @@ export const DrillsView: React.FC = () => {
               count={categoryCounts[cat]}
               onClick={() => setActiveCategory(cat)}
             >
-              <span aria-hidden>{CAT_ICON[cat]}</span> {CATEGORY_LABELS[cat]}
+              <CatIcon category={cat} /> {CATEGORY_LABELS[cat]}
             </FilterChip>
           ))}
         </FilterRow>
@@ -591,7 +610,7 @@ export const DrillsView: React.FC = () => {
           ))}
           {hasFilters && (
             <FilterChip accent="neutral" onClick={resetFilters} className="ml-1">
-              ✕ Nullstill
+              <X size={12} strokeWidth={2} aria-hidden /> Nullstill
             </FilterChip>
           )}
         </FilterRow>
@@ -603,10 +622,11 @@ export const DrillsView: React.FC = () => {
           <Card variant="solid" className="border-signal/25">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">
-                <h2 className="text-h4 text-signal">⭐ Ukens anbefalte</h2>
+                <h2 className="text-h4 text-signal">Ukens anbefalte</h2>
                 <p className="text-meta text-ink-subtle mt-0.5">Roterer automatisk hver uke</p>
               </div>
-              <Button size="sm" variant="secondary" icon="📅" onClick={scheduleWeekPlan}>
+              <Button size="sm" variant="secondary"
+                icon={<Calendar size={13} strokeWidth={1.75} />} onClick={scheduleWeekPlan}>
                 Legg alle i kalender
               </Button>
             </div>

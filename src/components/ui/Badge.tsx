@@ -49,12 +49,13 @@ export const Badge: React.FC<BadgeProps> = ({
   </span>
 );
 
-/** Nøkkeltall-rad: «⏱ 20 min · 👥 8 spillere». Ett ledd per Meta. */
-export const Meta: React.FC<{ icon?: string; children: React.ReactNode; className?: string }> = ({
+/** Nøkkeltall-rad: «20 min · 8 spillere». Ett ledd per Meta.
+ *  icon er et lucide-ikon, ikke emoji – Kalk holder ikonene monokrome. */
+export const Meta: React.FC<{ icon?: React.ReactNode; children: React.ReactNode; className?: string }> = ({
   icon, children, className,
 }) => (
   <span className={cn('inline-flex items-center gap-1 text-meta text-ink-subtle', className)}>
-    {icon && <span aria-hidden>{icon}</span>}
+    {icon && <span aria-hidden className="flex-shrink-0 text-ink-faint">{icon}</span>}
     {children}
   </span>
 );
