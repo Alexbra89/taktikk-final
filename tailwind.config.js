@@ -68,6 +68,9 @@ module.exports = {
           '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto',
           'Helvetica Neue', 'Arial', 'sans-serif',
         ],
+        // Barlow – kun overskrifter og etiketter. Lastes i layout.tsx.
+        // Knyttes automatisk til text-h1…h4/display/label, se globals.css.
+        display: ['var(--font-barlow)', 'Barlow', 'Segoe UI', 'Roboto', 'sans-serif'],
         num: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {

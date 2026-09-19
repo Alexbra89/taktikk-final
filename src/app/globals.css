@@ -386,3 +386,31 @@ button:active,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   OVERSKRIFTSFONT (Barlow)
+   ------------------------------------------------------------
+   Skalatrinnene for overskrifter og etiketter henter Barlow
+   automatisk, slik at hver enkelt overskrift slipper en egen
+   font-display-klasse. Brødtekst (body/lead/caption/meta) blir
+   bevisst stående på systemfonten – den er raskest og mest
+   lesbar i småstørrelser på mobil.
+   Ligger etter @tailwind utilities, så den vinner over dem.
+   ============================================================ */
+
+.text-display,
+.text-h1,
+.text-h2,
+.text-h3,
+.text-h4,
+.text-label {
+  font-family: var(--font-barlow), 'Barlow', 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Barlow er smalere enn systemfonten og tåler tettere tracking
+   i store størrelser uten å bli trang. */
+.text-display,
+.text-h1,
+.text-h2 {
+  letter-spacing: -0.02em;
+}

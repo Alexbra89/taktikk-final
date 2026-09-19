@@ -1,5 +1,17 @@
 import type { Metadata, Viewport } from 'next';
+import { Barlow } from 'next/font/google';
 import './globals.css';
+
+// Barlow brukes kun til overskrifter og etiketter – brødtekst blir stående
+// på systemfonten. Da lastes én font i tre vekter, og teksten trenere faktisk
+// leser på banen rendres uten å vente på nettverk.
+// next/font selvhoster filene, så PWA-en fungerer offline.
+const barlow = Barlow({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  display: 'swap',
+  variable: '--font-barlow',
+});
 
 // 1. Metadata - themeColor er FJERNET herfra (flyttet til viewport)
 export const metadata: Metadata = {
@@ -37,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="no" suppressHydrationWarning>
+    <html lang="no" className={barlow.variable} suppressHydrationWarning>
       <head>
         {/* PWA / Mobile optimalisering - beholdes for eldre nettlesere */}
         <link rel="manifest" href="/manifest.json" />
