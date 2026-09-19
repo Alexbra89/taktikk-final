@@ -2,9 +2,12 @@
 import React, { useState, useMemo } from 'react';
 import type { CalendarEvent } from '@/types';
 import { getDrillsByCategory } from '@/data/drills';
-import { AUTOGEN_CATEGORIES, FOCUS_OPTIONS, CalStyle } from './shared';
+import { Modal } from '@/components/ui';
+import {
+  AUTOGEN_CATEGORIES, FOCUS_OPTIONS, INPUT_CLASS, LABEL_CLASS, toggleClass, formatDateShort,
+} from './shared';
 
-// ═══ AUTOGENERER TRENINGSPLAN (RESPONSIV OPPDATERT) ═══════════════════════
+// ═══ AUTOGENERER TRENINGSPLAN – i Modal, som Nytt arrangement ═══
 
 export const AutoGenForm: React.FC<{
   ageGroup: 'youth' | 'adult';
@@ -60,10 +63,9 @@ export const AutoGenForm: React.FC<{
       const drill = pool ? pool[Math.floor(idx / pools.length) % pool.length] : undefined;
       const focusLine = focusTags.length > 0 ? `\nFokus: ${focusTags.join(', ')}` : '';
       const drillDesc = drill
-        ? `\n\n📋 Øvelse: ${drill.name}\n${drill.description}`
+        ? `\n\nØvelse: ${drill.name}\n${drill.description}`
         : '';
 
-      const eventId = `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
       const noteId = `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`;
 
       events.push({
@@ -89,70 +91,80 @@ export const AutoGenForm: React.FC<{
     onGenerate(events);
   }
 
-  const sportEmoji = '⚽';
-  const sportName  = 'Fotball';
-
   return (
-    <div className="bg-[#0f1a2a] rounded-2xl border border-[#1e3050] p-4 sm:p-5 mb-5 max-w-2xl">
-      <div className="flex items-center gap-2 mb-4 sm:mb-5">
-        <span className="text-2xl">✨</span>
-        <div>
-          <h3 className="text-sm font-bold text-slate-200">Autogenerer treningsplan</h3>
-          <p className="text-[10px] sm:text-[11px] text-[#4a6080]">
-            {sportEmoji} {sportName} · {ageGroup === 'youth' ? '🧒 Barneøvelser' : '🧑 Voksenøvelser'}
-          </p>
+    <Modal
+      onClose={onCancel}
+      title="Autogenerer treningsplan"
+      subtitle={
+        <p className="text-meta text-ink-subtle">
+          Fotball · {ageGroup === 'youth' ? 'Barneøvelser' : 'Voksenøvelser'}
+        </p>
+      }
+      size="md"
+      footer={
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button onClick={generate} disabled={selectedDays.length === 0}
+            className="flex-1 min-h-[44px] rounded-ctl bg-signal text-signal-fg text-body font-bold
+                       hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+            Generer {previewDates.length} treningsøkter
+          </button>
+          <button onClick={onCancel}
+            className="px-4 min-h-[44px] rounded-ctl text-body font-bold text-ink-muted
+                       hover:text-ink shadow-hair transition-colors">
+            Avbryt
+          </button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        <div>
-          <label className="label-cal">Startdato</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="inp-cal" />
-        </div>
-        <div>
-          <label className="label-cal">Treningstid</label>
-          <input type="time" value={time} onChange={e => setTime(e.target.value)} className="inp-cal" />
-        </div>
-        <div>
-          <label className="label-cal">Sted</label>
+      }
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label className="block">
+          <span className={LABEL_CLASS}>Startdato</span>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={INPUT_CLASS} />
+        </label>
+        <label className="block">
+          <span className={LABEL_CLASS}>Treningstid</span>
+          <input type="time" value={time} onChange={e => setTime(e.target.value)} className={INPUT_CLASS} />
+        </label>
+        <label className="block">
+          <span className={LABEL_CLASS}>Sted</span>
           <input value={location} onChange={e => setLocation(e.target.value)}
-            placeholder="Stadion / hall" className="inp-cal" />
-        </div>
-        <div>
-          <label className="label-cal">Antall uker</label>
-          <select value={weeks} onChange={e => setWeeks(Number(e.target.value))} className="inp-cal">
+            placeholder="Stadion / hall" className={INPUT_CLASS} />
+        </label>
+        <label className="block">
+          <span className={LABEL_CLASS}>Antall uker</span>
+          <select value={weeks} onChange={e => setWeeks(Number(e.target.value))} className={INPUT_CLASS}>
             {[2, 3, 4, 6, 8, 12].map(w => <option key={w} value={w}>{w} uker</option>)}
           </select>
-        </div>
+        </label>
       </div>
 
-      <div className="mb-4">
-        <label className="label-cal">Treningsdager per uke</label>
-        <div className="flex gap-1.5 sm:gap-2 mt-2 flex-wrap">
+      <div className="mt-4">
+        <span className={LABEL_CLASS}>Treningsdager per uke</span>
+        <div className="flex gap-1.5 mt-2 flex-wrap">
           {WEEKDAYS.map((d, i) => (
             <button key={i} onClick={() => toggleDay(i)}
-              className={`min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-10 sm:h-10 rounded-lg text-[11px] font-bold border transition-all flex items-center justify-center
-                ${selectedDays.includes(i)
-                  ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400'
-                  : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
+              aria-pressed={selectedDays.includes(i)}
+              className={`w-11 h-11 rounded-ctl text-meta font-bold transition-colors
+                ${toggleClass(selectedDays.includes(i))}`}>
               {d}
             </button>
           ))}
         </div>
-        <p className="text-[10px] text-[#3a5070] mt-1">{selectedDays.length} dager valgt → {selectedDays.length * weeks} treningsøkter totalt</p>
+        <p className="font-mono text-meta text-ink-subtle mt-2">
+          {selectedDays.length} dager valgt → {selectedDays.length * weeks} treningsøkter totalt
+        </p>
       </div>
 
-      <div className="mb-5">
-        <label className="label-cal">Fokusområder (valgfritt)</label>
+      <div className="mt-4">
+        <span className={LABEL_CLASS}>Fokusområder (valgfritt)</span>
         <div className="flex flex-wrap gap-1.5 mt-2">
           {FOCUS_OPTIONS.map(f => (
             <button key={f} onClick={() => setFocusTags(prev =>
               prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
             )}
-              className={`px-2.5 py-1.5 sm:py-1 rounded-full text-[10.5px] font-semibold border transition-all min-h-[36px] sm:min-h-0
-                ${focusTags.includes(f)
-                  ? 'border-sky-500/60 bg-sky-500/15 text-sky-400'
-                  : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
+              aria-pressed={focusTags.includes(f)}
+              className={`tap-auto min-h-[32px] px-2.5 rounded-pill text-meta font-bold transition-colors
+                ${toggleClass(focusTags.includes(f))}`}>
               {f}
             </button>
           ))}
@@ -160,32 +172,20 @@ export const AutoGenForm: React.FC<{
       </div>
 
       {previewDates.length > 0 && (
-        <div className="bg-[#0c1525] rounded-xl border border-[#1e3050] p-3 mb-4">
-          <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">
+        <div className="mt-4 rounded-panel bg-canvas-sunken shadow-hair p-3">
+          <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mb-2">
             Forhåndsvisning — {previewDates.length} økter
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto">
-            {previewDates.map((d) => (
-              <div key={d} className="text-[10.5px] text-slate-300 bg-[#111c30] rounded-lg px-2 py-1.5 border border-[#1e3050] min-h-[36px] flex items-center">
-                {new Date(d + 'T12:00:00').toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
+            {previewDates.map(d => (
+              <div key={d} className="rounded-ctl bg-canvas-raised px-2 py-1.5 min-h-[32px] flex items-center
+                                      font-mono text-meta text-ink-muted shadow-hair">
+                {formatDateShort(d)}
               </div>
             ))}
           </div>
         </div>
       )}
-
-      <div className="flex flex-col sm:flex-row gap-2">
-        <button onClick={generate} disabled={selectedDays.length === 0}
-          className="flex-1 py-3 sm:py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12.5px] hover:bg-emerald-500/25 disabled:opacity-40 min-h-[44px]">
-          ✨ Generer {previewDates.length} treningsøkter
-        </button>
-        <button onClick={onCancel}
-          className="px-4 py-3 sm:py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] font-bold text-[12.5px] hover:text-slate-300 min-h-[44px]">
-          Avbryt
-        </button>
-      </div>
-
-      <CalStyle />
-    </div>
+    </Modal>
   );
 };

@@ -1,9 +1,10 @@
 'use client';
-import React from 'react';
+import { Swords, Activity, type LucideIcon } from 'lucide-react';
 import type { CalendarEvent, EventType, DrillCategory } from '@/types';
 
-// Felles for kalenderfilene: oppsett, visuell metadata og skjemastilene.
-// Delt ut av CalendarView.tsx da den ble splittet opp.
+// Felles for kalenderfilene: oppsett, visuell metadata og skjemaklasser.
+// Kalk: kamp er signal (dagens viktigste), trening er blekk. To hendelsestyper
+// trenger ikke to farger – formen og etiketten skiller dem.
 
 export const DRILL_CATEGORIES: DrillCategory[] = ['keeper', 'forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
 // Autogenerert økt er for hele laget, så keeperøvelser tas ikke med i rotasjonen.
@@ -13,10 +14,19 @@ export const MONTHS = ['Januar','Februar','Mars','April','Mai','Juni',
                 'Juli','August','September','Oktober','November','Desember'];
 export const DAYS   = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
 
-// Visuell metadata per hendelsestype – felles kilde for ikon/farge.
-export const EVENT_META: Record<EventType, { icon: string; label: string; dot: string; text: string; bg: string; border: string }> = {
-  match:    { icon: '⚽', label: 'Kamp',       dot: 'bg-red-400',     text: 'text-red-400',     bg: 'bg-red-500/15',     border: 'border-red-500/30' },
-  training: { icon: '🏃', label: 'Trening',    dot: 'bg-emerald-400', text: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30' },
+export interface EventMeta {
+  Icon:  LucideIcon;
+  label: string;
+  /** Prikken i rutenettet og stripa på kortet. */
+  dot:   string;
+  /** Tekst- og flatefarge der typen skal leses. */
+  text:  string;
+  bg:    string;
+}
+
+export const EVENT_META: Record<EventType, EventMeta> = {
+  match:    { Icon: Swords,   label: 'Kamp',    dot: 'bg-signal',    text: 'text-signal',    bg: 'bg-signal/10' },
+  training: { Icon: Activity, label: 'Trening', dot: 'bg-ink-muted', text: 'text-ink-muted', bg: 'bg-canvas-raised' },
 };
 
 export function isEventOnDate(event: CalendarEvent, date: string): boolean {
@@ -28,15 +38,41 @@ export const FOCUS_OPTIONS = [
   'Innlegg','Dødball','Keepertrening','Kondisjon','Styrke','Taktikk','Individuell teknikk',
 ];
 
-// ═══ STYLES (URØRT) ═══════════════════════════════════════════
+// ═══ SKJEMAKLASSER ════════════════════════════════════════════
+// Erstatter CalStyle (styled-jsx med hardkodede hex-verdier).
 
-export const CalStyle = () => (
-  <style>{`
-    .inp-cal { width:100%; background:#111c30; border:1px solid #1e3050;
-      border-radius:8px; padding:10px 12px; color:#e2e8f0; font-size:12.5px;
-      margin-top:4px; box-sizing:border-box; min-height:44px; }
-    .inp-cal:focus { outline:none; border-color:#38bdf8; }
-    .label-cal { font-size:9.5px; font-weight:700; color:#3a5070;
-      text-transform:uppercase; letter-spacing:0.08em; display:block; }
-  `}</style>
-);
+export const INPUT_CLASS =
+  'w-full mt-1.5 rounded-ctl px-3 min-h-[44px] bg-canvas-raised text-body text-ink ' +
+  'placeholder:text-ink-faint shadow-hair focus:outline-none focus:shadow-hair-signal';
+
+export const TEXTAREA_CLASS =
+  'w-full mt-1.5 rounded-ctl px-3 py-2.5 bg-canvas-raised text-body text-ink leading-relaxed resize-y ' +
+  'placeholder:text-ink-faint shadow-hair focus:outline-none focus:shadow-hair-signal';
+
+export const LABEL_CLASS =
+  'block font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle';
+
+/** Valgknapp som ikke er en handling: ukedag, fokusområde, omgang. */
+export function toggleClass(active: boolean): string {
+  return active
+    ? 'bg-signal/10 text-signal shadow-hair-signal'
+    : 'bg-canvas-raised text-ink-muted hover:text-ink shadow-hair';
+}
+
+// ═══ DATOHJELPERE ═════════════════════════════════════════════
+// Datoene lagres som ISO (YYYY-MM-DD); T12:00 unngår tidssonehopp.
+
+export const atNoon = (iso: string) => new Date(iso + 'T12:00:00');
+
+/** «Tirsdag 22.» – brukes som sidetittel i serif. */
+export const formatDayTitle = (iso: string) => {
+  const d = atNoon(iso);
+  const weekday = d.toLocaleDateString('nb-NO', { weekday: 'long' });
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${d.getDate()}.`;
+};
+
+export const formatDateLong = (iso: string) =>
+  atNoon(iso).toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' });
+
+export const formatDateShort = (iso: string) =>
+  atNoon(iso).toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' });

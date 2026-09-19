@@ -1,10 +1,18 @@
 'use client';
 import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, Clock, MapPin, Trash2, Plus } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import type { CalendarEvent } from '@/types';
-import { EVENT_META, FOCUS_OPTIONS } from './shared';
+import {
+  EVENT_META, FOCUS_OPTIONS, INPUT_CLASS, TEXTAREA_CLASS, LABEL_CLASS,
+  toggleClass, formatDayTitle, formatDateLong,
+} from './shared';
 
-// ═══ EVENT DETAIL (RESPONSIV OPPDATERT) ══════════════════════════
+// ═══ EVENT DETAIL – én hendelse med notater ══════════════════════
+
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mb-2">{children}</div>
+);
 
 export const EventDetail: React.FC<{
   event: CalendarEvent;
@@ -20,94 +28,116 @@ export const EventDetail: React.FC<{
   const [newMatchTitle, setNewMatchTitle]     = useState('');
   const [focusTags, setFocusTags]             = useState<string[]>([]);
 
+  const meta = EVENT_META[event.type] ?? EVENT_META.training;
+  const { Icon } = meta;
+
   return (
     <div className="max-w-2xl">
-      <button onClick={onBack} className="text-[#4a6080] hover:text-sky-400 text-[12px] mb-4 flex items-center gap-1 min-h-[44px]">
-        ‹ Tilbake
+      <button onClick={onBack}
+        className="tap-auto inline-flex items-center gap-1 min-h-[36px] pr-2 mb-4 rounded-ctl
+                   text-body text-ink-muted hover:text-ink transition-colors">
+        <ChevronLeft size={15} strokeWidth={1.75} aria-hidden /> Tilbake
       </button>
 
-      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold mb-3
-        ${EVENT_META[event.type]?.bg ?? 'bg-emerald-500/15'} ${EVENT_META[event.type]?.text ?? 'text-emerald-400'}`}>
-        {EVENT_META[event.type] ? `${EVENT_META[event.type].icon} ${EVENT_META[event.type].label}` : event.title}
+      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-meta font-bold mb-3
+        ${meta.bg} ${meta.text}`}>
+        <Icon size={12} strokeWidth={1.75} aria-hidden /> {meta.label}
       </div>
 
-      <h2 className="text-xl font-black text-slate-100 mb-1">{event.title}</h2>
-      <div className="text-[12px] text-[#4a6080] mb-4">
-        📅 {new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', { weekday: 'long', day: 'numeric', month: 'long' })}
-        {event.time && ` · ⏰ ${event.time}`}
-        {event.location && ` · 📍 ${event.location}`}
-        {event.opponent && ` · vs. ${event.opponent}`}
+      {/* Sidetittel i serif – dagen er det man leter etter. */}
+      <h1 className="font-serif text-title text-ink">{formatDayTitle(event.date)}</h1>
+      <p className="text-lead text-ink mt-1">{event.title}</p>
+
+      <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2 text-meta text-ink-subtle">
+        <span>{formatDateLong(event.date)}</span>
+        {event.time && (
+          <span className="inline-flex items-center gap-1">
+            <Clock size={12} strokeWidth={1.75} aria-hidden />
+            <span className="font-mono">{event.time}</span>
+          </span>
+        )}
+        {event.location && (
+          <span className="inline-flex items-center gap-1">
+            <MapPin size={12} strokeWidth={1.75} aria-hidden /> {event.location}
+          </span>
+        )}
+        {event.opponent && <span>mot {event.opponent}</span>}
       </div>
 
       {event.type === 'training' && onGoToTraining && (
         <button
           onClick={() => onGoToTraining(event)}
-          className="mb-4 w-full py-3 sm:py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[12px] font-semibold hover:bg-sky-500/25 transition flex items-center justify-center gap-2 min-h-[44px]"
+          className="mt-4 w-full min-h-[44px] rounded-ctl bg-signal text-signal-fg text-body font-bold
+                     hover:brightness-110 transition-all flex items-center justify-center gap-1.5"
         >
-          🏃 Gå til treningssiden (stoppeklokke og fullfør)
+          Gå til treningssiden
+          <ChevronRight size={15} strokeWidth={2} aria-hidden />
         </button>
       )}
 
       {event.type === 'match' && (
-        <div className="mb-4 flex items-center gap-3">
-          <span className="text-[11px] text-[#4a6080] font-bold uppercase tracking-wider">Resultat:</span>
+        <div className="mt-4 flex items-center gap-3">
+          <span className={LABEL_CLASS}>Resultat</span>
           <input value={event.result || ''} onChange={e => onUpdate({ result: e.target.value })}
-            placeholder="f.eks. 2-1"
-            className="bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-slate-200 text-[13px] w-28 focus:outline-none focus:border-sky-500 min-h-[44px]" />
+            placeholder="2–1" aria-label="Resultat"
+            className="w-24 rounded-ctl px-3 min-h-[44px] bg-canvas-raised font-mono text-body text-ink
+                       placeholder:text-ink-faint shadow-hair focus:outline-none focus:shadow-hair-signal" />
         </div>
       )}
 
-      <div className="mb-5">
-        <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Generelt notat</div>
+      <div className="mt-5">
+        <SectionTitle>Generelt notat</SectionTitle>
         <textarea value={event.teamNote}
           onChange={e => onUpdate({ teamNote: e.target.value })}
-          rows={3} placeholder="Skriv her..."
-          className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-3 sm:py-2.5 text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
+          rows={3} placeholder="Skriv her …"
+          className={TEXTAREA_CLASS} />
       </div>
 
       {event.type === 'training' && (
-        <section>
-          <h3 className="text-sm font-bold text-emerald-400 mb-3">🏃 Treningsnotater</h3>
+        <section className="mt-6">
+          <SectionTitle>Treningsnotater</SectionTitle>
 
           {event.trainingNotes.map(tn => (
-            <div key={tn.id} className="bg-[#0f1a2a] border border-[#1e3050] rounded-xl p-4 mb-2">
-              <div className="flex justify-between items-start mb-1">
-                <div>
-                  <span className="text-[13px] font-bold text-slate-200">{tn.title}</span>
-                </div>
+            <div key={tn.id} className="rounded-panel bg-canvas-panel shadow-hair p-4 mb-2">
+              <div className="flex justify-between items-start gap-2 mb-1">
+                <span className="text-body font-bold text-ink">{tn.title}</span>
                 <button onClick={() => deleteTrainingNote(event.id, tn.id)}
-                  className="text-red-400/50 hover:text-red-400 text-xs min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
+                  aria-label={`Slett notatet ${tn.title}`}
+                  className="tap-auto w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-ctl
+                             text-ink-faint hover:text-ink hover:bg-canvas-hover transition-colors">
+                  <Trash2 size={14} strokeWidth={1.75} />
+                </button>
               </div>
-              <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap">{tn.content}</p>
+              <p className="text-body text-ink-muted leading-relaxed whitespace-pre-wrap">{tn.content}</p>
               {tn.focus.length > 0 && (
                 <div className="flex gap-1.5 mt-2 flex-wrap">
                   {tn.focus.map((f, i) => (
-                    <span key={i} className="bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20">{f}</span>
+                    <span key={i} className="rounded-pill bg-canvas-raised px-2 py-0.5 text-meta text-ink-muted shadow-hair">{f}</span>
                   ))}
                 </div>
               )}
             </div>
           ))}
 
-          <div className="bg-[#0c1525] border border-dashed border-[#1e3050] rounded-xl p-4 mt-2">
-            <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">Nytt treningsnotat</div>
+          <div className="rounded-panel bg-canvas-sunken shadow-hair p-4 mt-2">
+            <SectionTitle>Nytt treningsnotat</SectionTitle>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {FOCUS_OPTIONS.slice(0, 6).map(f => (
                 <button key={f} onClick={() => setFocusTags(prev =>
                   prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
                 )}
-                  className={`px-2 py-1.5 sm:py-1 rounded-full text-[10px] font-semibold border transition-all min-h-[36px] sm:min-h-0
-                    ${focusTags.includes(f) ? 'border-sky-500/60 bg-sky-500/15 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
+                  aria-pressed={focusTags.includes(f)}
+                  className={`tap-auto min-h-[32px] px-2.5 rounded-pill text-meta font-bold transition-colors
+                    ${toggleClass(focusTags.includes(f))}`}>
                   {f}
                 </button>
               ))}
             </div>
             <input value={newTrainTitle} onChange={e => setNewTrainTitle(e.target.value)}
-              placeholder="Tittel"
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 mb-2 focus:outline-none focus:border-sky-500 min-h-[44px]" />
+              placeholder="Tittel" aria-label="Tittel på treningsnotat" className={INPUT_CLASS} />
             <textarea value={newTrainContent} onChange={e => setNewTrainContent(e.target.value)}
-              rows={3} placeholder="Innhold / observasjoner..."
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-3 sm:py-2 text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 mb-2 leading-relaxed" />
+              rows={3} placeholder="Innhold / observasjoner …"
+              aria-label="Innhold i treningsnotat" className={TEXTAREA_CLASS} />
             <button onClick={() => {
               if (!newTrainContent.trim()) return;
               addTrainingNote(event.id, {
@@ -116,55 +146,63 @@ export const EventDetail: React.FC<{
                 focus: focusTags,
               });
               setNewTrainTitle(''); setNewTrainContent(''); setFocusTags([]);
-            }} className="px-4 py-3 sm:py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[12px] hover:bg-emerald-500/25 min-h-[44px]">
-              Legg til notat
+            }}
+              className="mt-3 inline-flex items-center gap-1.5 px-4 min-h-[44px] rounded-ctl
+                         bg-signal text-signal-fg text-body font-bold hover:brightness-110 transition-all">
+              <Plus size={15} strokeWidth={2} aria-hidden /> Legg til notat
             </button>
           </div>
         </section>
       )}
 
       {event.type === 'match' && (
-        <section>
-          <h3 className="text-sm font-bold text-red-400 mb-3">⚽ Kampnotater</h3>
+        <section className="mt-6">
+          <SectionTitle>Kampnotater</SectionTitle>
           {event.matchNotes.map(mn => (
-            <div key={mn.id} className="bg-[#0f1a2a] border border-[#1e3050] rounded-xl p-4 mb-2">
-              <div className="flex justify-between items-start mb-1">
-                <div>
-                  <span className="text-[13px] font-bold text-slate-200">{mn.title}</span>
-                  <span className="ml-2 text-[10px] text-[#4a6080]">
+            <div key={mn.id} className="rounded-panel bg-canvas-panel shadow-hair p-4 mb-2">
+              <div className="flex justify-between items-start gap-2 mb-1">
+                <div className="min-w-0">
+                  <span className="text-body font-bold text-ink">{mn.title}</span>
+                  <span className="ml-2 font-mono text-meta text-ink-subtle">
                     {mn.half === 1 ? '1. omgang' : mn.half === 2 ? '2. omgang' : 'Heltid'}
                   </span>
                 </div>
                 <button onClick={() => deleteMatchNote(event.id, mn.id)}
-                  className="text-red-400/50 hover:text-red-400 text-xs min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
+                  aria-label={`Slett notatet ${mn.title}`}
+                  className="tap-auto w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-ctl
+                             text-ink-faint hover:text-ink hover:bg-canvas-hover transition-colors">
+                  <Trash2 size={14} strokeWidth={1.75} />
+                </button>
               </div>
-              <p className="text-[12px] text-[#7a9ab8] leading-relaxed whitespace-pre-wrap">{mn.content}</p>
+              <p className="text-body text-ink-muted leading-relaxed whitespace-pre-wrap">{mn.content}</p>
             </div>
           ))}
 
-          <div className="bg-[#0c1525] border border-dashed border-[#1e3050] rounded-xl p-4 mt-2">
-            <div className="text-[10px] font-bold text-[#3a5070] uppercase tracking-wider mb-2">Nytt kampnotat</div>
-            <div className="flex gap-2 mb-2">
+          <div className="rounded-panel bg-canvas-sunken shadow-hair p-4 mt-2">
+            <SectionTitle>Nytt kampnotat</SectionTitle>
+            <div className="flex gap-1.5 mb-2">
               {([1, 2, 3] as const).map(h => (
                 <button key={h} onClick={() => setNewMatchHalf(h)}
-                  className={`px-2.5 py-1.5 sm:py-1 rounded-md text-[11px] font-semibold border transition-all min-h-[36px] sm:min-h-0
-                    ${newMatchHalf === h ? 'border-red-500 bg-red-500/15 text-red-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
+                  aria-pressed={newMatchHalf === h}
+                  className={`tap-auto min-h-[32px] px-3 rounded-ctl text-meta font-bold transition-colors
+                    ${toggleClass(newMatchHalf === h)}`}>
                   {h === 1 ? '1. omgang' : h === 2 ? '2. omgang' : 'Heltid'}
                 </button>
               ))}
             </div>
             <input value={newMatchTitle} onChange={e => setNewMatchTitle(e.target.value)}
-              placeholder="Tittel"
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-[12.5px] text-slate-300 mb-2 focus:outline-none focus:border-sky-500 min-h-[44px]" />
+              placeholder="Tittel" aria-label="Tittel på kampnotat" className={INPUT_CLASS} />
             <textarea value={newMatchContent} onChange={e => setNewMatchContent(e.target.value)}
-              rows={3} placeholder="Observasjoner, taktikknyheter, spillerbidrag..."
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-3 sm:py-2 text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 mb-2 leading-relaxed" />
+              rows={3} placeholder="Observasjoner, taktikk, spillerbidrag …"
+              aria-label="Innhold i kampnotat" className={TEXTAREA_CLASS} />
             <button onClick={() => {
               if (!newMatchContent.trim()) return;
               addMatchNote(event.id, { half: newMatchHalf, title: newMatchTitle || 'Kampnotat', content: newMatchContent });
               setNewMatchTitle(''); setNewMatchContent('');
-            }} className="px-4 py-3 sm:py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-[12px] hover:bg-red-500/25 min-h-[44px]">
-              Legg til notat
+            }}
+              className="mt-3 inline-flex items-center gap-1.5 px-4 min-h-[44px] rounded-ctl
+                         bg-signal text-signal-fg text-body font-bold hover:brightness-110 transition-all">
+              <Plus size={15} strokeWidth={2} aria-hidden /> Legg til notat
             </button>
           </div>
         </section>
