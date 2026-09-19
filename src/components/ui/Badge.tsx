@@ -1,0 +1,60 @@
+'use client';
+import React from 'react';
+import { cn } from '@/lib/cn';
+
+/* ────────────────────────────────────────────────────────────
+   Badge – leser status, ikke handling. Aldri klikkbar.
+   ──────────────────────────────────────────────────────────── */
+
+export type BadgeTone =
+  | 'neutral' | 'brand' | 'ok' | 'warn' | 'bad' | 'info';
+
+const TONES: Record<BadgeTone, string> = {
+  neutral: 'bg-surface-raised text-fg-muted border-line',
+  brand:   'bg-brand-500/15 text-brand-300 border-brand-500/35',
+  ok:      'bg-ok-500/15  text-ok-300  border-ok-500/35',
+  warn:    'bg-warn-500/15 text-warn-300 border-warn-500/35',
+  bad:     'bg-bad-500/15  text-bad-300  border-bad-500/35',
+  info:    'bg-brand-500/10 text-fg-muted border-line',
+};
+
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  tone?: BadgeTone;
+  size?: 'sm' | 'md';
+  /** Farget prikk foran teksten, f.eks. kategorifarge. */
+  dot?: string;
+}
+
+export const Badge: React.FC<BadgeProps> = ({
+  tone = 'neutral',
+  size = 'sm',
+  dot,
+  className,
+  children,
+  ...rest
+}) => (
+  <span
+    className={cn(
+      'inline-flex items-center gap-1.5 rounded-pill border font-bold whitespace-nowrap',
+      size === 'sm' ? 'px-2 py-0.5 text-label' : 'px-2.5 py-1 text-meta',
+      TONES[tone],
+      className,
+    )}
+    {...rest}
+  >
+    {dot && (
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: dot }} />
+    )}
+    {children}
+  </span>
+);
+
+/** Nøkkeltall-rad: «⏱ 20 min · 👥 8 spillere». Ett ledd per Meta. */
+export const Meta: React.FC<{ icon?: string; children: React.ReactNode; className?: string }> = ({
+  icon, children, className,
+}) => (
+  <span className={cn('inline-flex items-center gap-1 text-meta text-fg-subtle', className)}>
+    {icon && <span aria-hidden>{icon}</span>}
+    {children}
+  </span>
+);

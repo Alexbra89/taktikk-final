@@ -318,3 +318,71 @@ button:active,
     font-size: 13px;
   }
 }
+/* ============================================================
+   DESIGNSYSTEM v2 – felles utilities (Fase 1)
+   Brukes av Card / Button / Badge / Modal / FilterBar.
+   Ligger sist slik at de vinner over eldre regler over.
+   ============================================================ */
+
+/* Globalt settes min-height: 44px på alle knapper lenger oppe i fila.
+   Kompakte kontroller (filter-chips, ikonknapper i lister) trenger å
+   kunne være mindre. Klassen har høyere spesifisitet enn elementregelen. */
+.tap-auto {
+  min-height: 0;
+}
+
+/* Glass – kun for flytende lag (modal, header, toast). Aldri bak brødtekst. */
+.glass {
+  background: rgba(10, 18, 32, 0.82);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+.glass-strong {
+  background: rgba(7, 13, 24, 0.94);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+}
+
+/* Horisontalt rullende filterrader skal ikke vise scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Kantmaskering på rullende rader – antyder mer innhold uten pil-knapper */
+.fade-edge-x {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+
+/* Synlig fokusring for tastatur – appen hadde ingen */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #05090f, 0 0 0 4px rgba(56, 189, 248, 0.7);
+}
+
+/* Bunn-sheet på mobil respekterer hjemindikatoren */
+.sheet-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+/* Linjeklamping brukt i kortlister */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

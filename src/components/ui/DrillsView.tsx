@@ -9,6 +9,10 @@ import {
   CATEGORY_LABELS,
 } from '@/data/drills';
 import type { DrillExercise, DrillCategory, DrillAgeBand, DrillDifficulty } from '@/types';
+import {
+  Card, SectionLabel, Button, IconButton, Badge, Meta,
+  Modal, FilterBar, FilterRow, FilterChip, SearchInput, EmptyState,
+} from '@/components/ui';
 
 type ViewMode = 'browse' | 'detail';
 type AgeGroup = 'youth' | 'adult';
@@ -18,42 +22,42 @@ const AGE_BANDS: DrillAgeBand[] = ['6-7', '8-9', '10-12', '13-16', '17+'];
 const DIFFICULTIES: DrillDifficulty[] = ['enkel', 'middels', 'avansert'];
 
 const DIFFICULTY_LABELS: Record<DrillDifficulty, string> = {
-  enkel:    '⭐ Lett',
-  middels:  '⭐⭐ Middels',
-  avansert: '⭐⭐⭐ Avansert',
+  enkel:    'Lett',
+  middels:  'Middels',
+  avansert: 'Avansert',
 };
 
-const DIFFICULTY_COLORS: Record<DrillDifficulty, string> = {
-  enkel:    'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  middels:  'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
-  avansert: 'bg-red-500/15 text-red-400 border-red-500/30',
+/** Vanskelighetsgrad er status, ikke identitet – derfor Badge-toner. */
+const DIFFICULTY_TONE = {
+  enkel:    'ok',
+  middels:  'warn',
+  avansert: 'bad',
+} as const;
+
+/** Kategorifarge brukes kun som identitet: venstrestripe og prikk. */
+const CAT_COLOR: Record<DrillCategory, string> = {
+  keeper:   '#FBBF24',
+  forsvar:  '#60A5FA',
+  midtbane: '#A78BFA',
+  angrep:   '#FB923C',
+  cardio:   '#F472B6',
+  styrke:   '#34D399',
 };
 
-const DIFFICULTY_ACTIVE: Record<DrillDifficulty, string> = {
-  enkel:    'border-emerald-500 bg-emerald-500/15 text-emerald-400',
-  middels:  'border-yellow-500 bg-yellow-500/15 text-yellow-400',
-  avansert: 'border-red-500 bg-red-500/15 text-red-400',
+const CAT_ICON: Record<DrillCategory, string> = {
+  keeper:   '🧤',
+  forsvar:  '🛡',
+  midtbane: '🎛',
+  angrep:   '⚡',
+  cardio:   '🫀',
+  styrke:   '💪',
 };
-
-const CAT_STRIPE: Record<DrillCategory, string> = {
-  keeper:   'bg-yellow-400',
-  forsvar:  'bg-blue-400',
-  midtbane: 'bg-purple-400',
-  angrep:   'bg-orange-400',
-  cardio:   'bg-rose-400',
-  styrke:   'bg-emerald-400',
-};
-
-const CHIP_BASE = 'px-2.5 py-1 rounded-md text-[10px] font-semibold border transition-all';
-const CHIP_IDLE = 'border-[#1e3050] text-[#4a6080] hover:text-slate-300';
-const CHIP_ALL_ACTIVE = 'border-slate-500/50 bg-slate-500/15 text-slate-300';
-const CHIP_ACTIVE = 'border-sky-500/50 bg-sky-500/15 text-sky-400';
 
 /** ISO-ukenummer, brukes til å rotere ukens anbefalte øvelser. */
 function isoWeek(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
@@ -67,20 +71,24 @@ function stepText(step: DrillExercise['steps'][number]): string {
   return step.name ? `${step.name}: ${step.description}` : step.description;
 }
 
-const Section: React.FC<{ title: string; color: string; children: React.ReactNode }> = ({ title, color, children }) => (
-  <div>
-    <h3 className={`text-[11px] font-bold ${color} uppercase tracking-wider mb-3`}>{title}</h3>
+const Section: React.FC<{ title: string; tone?: string; children: React.ReactNode }> = ({
+  title, tone = 'text-fg-subtle', children,
+}) => (
+  <section>
+    <SectionLabel tone={tone} className="mb-2.5">{title}</SectionLabel>
     {children}
-  </div>
+  </section>
 );
 
-const BulletList: React.FC<{ items: string[]; bullet: string; bulletColor: string }> = ({ items, bullet, bulletColor }) => (
+const BulletList: React.FC<{ items: string[]; bullet: string; bulletColor: string }> = ({
+  items, bullet, bulletColor,
+}) => (
   <div className="space-y-2">
     {items.map((item, i) => (
-      <div key={i} className="flex gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
-        <span className={`${bulletColor} flex-shrink-0`}>{bullet}</span>
-        <p className="text-[12.5px] text-slate-300 leading-relaxed">{item}</p>
-      </div>
+      <Card key={i} variant="sunken" padding="sm" className="flex gap-3">
+        <span className={`${bulletColor} flex-shrink-0 leading-5`}>{bullet}</span>
+        <p className="text-body text-fg-muted">{item}</p>
+      </Card>
     ))}
   </div>
 );
@@ -88,29 +96,83 @@ const BulletList: React.FC<{ items: string[]; bullet: string; bulletColor: strin
 const SourceLink: React.FC<{ value: string }> = ({ value }) =>
   isUrl(value) ? (
     <a href={value} target="_blank" rel="noopener noreferrer"
-      className="text-sky-400 hover:text-sky-300 underline break-all">
+      className="text-brand-300 hover:text-brand-200 underline break-all">
       {value.replace(/^https?:\/\//i, '')}
     </a>
   ) : (
     <span>{value}</span>
   );
 
+/** Radkort i øvelseslista. */
+const DrillRow: React.FC<{
+  drill: DrillExercise;
+  onOpen: () => void;
+  onQuickAdd: () => void;
+}> = ({ drill, onOpen, onQuickAdd }) => (
+  <Card
+    interactive
+    accent={CAT_COLOR[drill.category]}
+    padding="sm"
+    className="group"
+    onClick={onOpen}
+    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+  >
+    <div className="flex items-start gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-lead font-bold text-fg leading-snug">
+            {drill.warning && <span className="mr-1" title="Har advarsel">⚠️</span>}
+            {drill.name}
+          </h3>
+          <Badge tone={DIFFICULTY_TONE[drill.difficulty]} className="mt-0.5">
+            {DIFFICULTY_LABELS[drill.difficulty]}
+          </Badge>
+        </div>
+
+        <p className="text-caption text-fg-subtle clamp-2 mt-1">{drill.description}</p>
+
+        <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+          <Meta icon="⏱">{drill.duration} min</Meta>
+          <Meta icon="👥">{drill.players}</Meta>
+          <Meta icon="🎂">{drill.ageBand.join(', ')}</Meta>
+          <Meta className="ml-auto text-fg-faint">
+            <span aria-hidden>{CAT_ICON[drill.category]}</span> {CATEGORY_LABELS[drill.category]}
+          </Meta>
+        </div>
+      </div>
+
+      {/* Alltid synlig på touch, framhevet på hover på desktop. */}
+      <IconButton
+        aria-label={`Legg ${drill.name} i kalenderen i dag`}
+        title="Legg til i dag"
+        size="sm"
+        variant="secondary"
+        className="sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 transition-opacity"
+        onClick={e => { e.stopPropagation(); onQuickAdd(); }}
+      >
+        📅
+      </IconButton>
+    </div>
+  </Card>
+);
+
 export const DrillsView: React.FC = () => {
   const { addEvent, ageGroup: storeAgeGroup } = useAppStore();
 
   // Starter på appens aldersgruppe, men kan byttes lokalt i biblioteket.
-  const [ageGroup, setAgeGroup]           = useState<AgeGroup>(storeAgeGroup);
-  const [activeCategory, setActiveCategory] = useState<DrillCategory | 'alle'>('alle');
-  const [ageBand, setAgeBand]             = useState<DrillAgeBand | 'alle'>('alle');
+  const [ageGroup, setAgeGroup]                 = useState<AgeGroup>(storeAgeGroup);
+  const [activeCategory, setActiveCategory]     = useState<DrillCategory | 'alle'>('alle');
+  const [ageBand, setAgeBand]                   = useState<DrillAgeBand | 'alle'>('alle');
   const [difficultyFilter, setDifficultyFilter] = useState<DrillDifficulty | 'alle'>('alle');
-  const [searchQuery, setSearchQuery]     = useState('');
-  const [selectedDrill, setSelectedDrill] = useState<DrillExercise | null>(null);
-  const [viewMode, setViewMode]           = useState<ViewMode>('browse');
-  const [scheduleDate, setScheduleDate]   = useState('');
-  const [scheduleTime, setScheduleTime]   = useState('18:00');
-  const [scheduleNote, setScheduleNote]   = useState('');
-  const [scheduledId, setScheduledId]     = useState<string | null>(null);
-  const [toast, setToast]                 = useState<string | null>(null);
+  const [searchQuery, setSearchQuery]           = useState('');
+  const [selectedDrill, setSelectedDrill]       = useState<DrillExercise | null>(null);
+  const [viewMode, setViewMode]                 = useState<ViewMode>('browse');
+  const [scheduleOpen, setScheduleOpen]         = useState(false);
+  const [scheduleDate, setScheduleDate]         = useState('');
+  const [scheduleTime, setScheduleTime]         = useState('18:00');
+  const [scheduleNote, setScheduleNote]         = useState('');
+  const [scheduledId, setScheduledId]           = useState<string | null>(null);
+  const [toast, setToast]                       = useState<string | null>(null);
 
   function changeAgeGroup(next: AgeGroup) {
     setAgeGroup(next);
@@ -171,6 +233,16 @@ export const DrillsView: React.FC = () => {
     return drills;
   }, [activeCategory, ageGroup, ageBand, difficultyFilter, searchQuery]);
 
+  const hasFilters = activeCategory !== 'alle' || ageBand !== 'alle'
+    || difficultyFilter !== 'alle' || searchQuery.trim() !== '';
+
+  function resetFilters() {
+    setActiveCategory('alle');
+    setAgeBand('alle');
+    setDifficultyFilter('alle');
+    setSearchQuery('');
+  }
+
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
@@ -212,7 +284,8 @@ export const DrillsView: React.FC = () => {
       matchNotes: [],
     });
     setScheduledId(drill.id);
-    showToast(`✅ "${drill.name}" lagt til i kalender!`);
+    setScheduleOpen(false);
+    showToast(`✅ «${drill.name}» lagt til i kalender`);
   }
 
   function scheduleWeekPlan() {
@@ -225,312 +298,356 @@ export const DrillsView: React.FC = () => {
       date.setDate(today.getDate() + daysUntilMonday + offsets[idx]);
       scheduleDrill(drill, date.toISOString().slice(0, 10));
     });
-    showToast(`✅ Ukens ${weeklyDrills.length} øvelser lagt til i kalender!`);
+    showToast(`✅ Ukens ${weeklyDrills.length} øvelser lagt til i kalender`);
   }
 
-  // ── Detail View ──────────────────────────────────────────
+  // ── Toast ────────────────────────────────────────────────
+  const toastEl = toast && (
+    <div
+      role="status"
+      className="absolute top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none
+                 glass border border-ok-500/40 text-ok-300 text-body font-bold
+                 px-4 py-2.5 rounded-pill shadow-float animate-rise"
+    >
+      {toast}
+    </div>
+  );
+
+  // ── Detaljvisning ────────────────────────────────────────
   if (viewMode === 'detail' && selectedDrill) {
     const drill = selectedDrill;
+    const isScheduled = scheduledId === drill.id;
+
     return (
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-[#1e3050] bg-[#0c1525] flex-shrink-0">
-          <button onClick={() => { setViewMode('browse'); setScheduledId(null); }}
-            className="text-[#4a6080] hover:text-sky-400 text-[12px]">
-            ‹ Tilbake
-          </button>
+      <div className="flex flex-col h-full overflow-hidden relative bg-surface-base">
+        {toastEl}
+
+        <header className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-line bg-surface-panel bg-panel-grad">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon="‹"
+            onClick={() => { setViewMode('browse'); setScheduledId(null); }}
+          >
+            Tilbake
+          </Button>
           <div className="flex-1" />
-          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${DIFFICULTY_COLORS[drill.difficulty]}`}>
+          <Badge tone={DIFFICULTY_TONE[drill.difficulty]} size="md">
             {DIFFICULTY_LABELS[drill.difficulty]}
-          </span>
-        </div>
+          </Badge>
+        </header>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          <div>
-            <div className="text-[10px] text-[#4a6080] font-bold uppercase tracking-wider mb-1">
-              {CATEGORY_LABELS[drill.category]} · ⚽ Fotball
-              <span className={`ml-2 ${drill.ageGroup === 'youth' ? 'text-emerald-400' : 'text-sky-400'}`}>
+        <div className="flex-1 overflow-y-auto">
+          {/* Tittelblokk – eneste sted på skjermen med stor typografi */}
+          <div className="px-5 pt-5 pb-4 border-b border-line-soft">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge tone="neutral" dot={CAT_COLOR[drill.category]}>
+                {CATEGORY_LABELS[drill.category]}
+              </Badge>
+              <Badge tone={drill.ageGroup === 'youth' ? 'ok' : 'brand'}>
                 {drill.ageGroup === 'youth' ? '🧒 Barn' : '🧑 Voksne'}
-              </span>
-              <span className="ml-2 normal-case tracking-normal font-semibold">{drill.ageBand.join(', ')} år</span>
+              </Badge>
             </div>
-            <h2 className="text-2xl font-black text-slate-100 mb-1">{drill.name}</h2>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#4a6080]">
-              <span>⏱ {drill.duration} min</span>
-              <span>👥 {drill.players}</span>
-              {drill.equipment.length > 0 && <span>🎯 {drill.equipment.join(', ')}</span>}
+
+            <h1 className="text-h1 text-fg mb-2">{drill.name}</h1>
+
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <Meta icon="⏱">{drill.duration} min</Meta>
+              <Meta icon="👥">{drill.players}</Meta>
+              <Meta icon="🎂">{drill.ageBand.join(', ')} år</Meta>
+              {drill.equipment.length > 0 && <Meta icon="🎯">{drill.equipment.join(', ')}</Meta>}
             </div>
           </div>
 
-          {drill.warning && (
-            <div className="flex gap-3 bg-yellow-500/10 border border-yellow-500/40 rounded-xl p-4">
-              <span className="text-yellow-400 text-[16px] leading-none flex-shrink-0">⚠️</span>
-              <div>
-                <div className="text-[10px] font-bold text-yellow-400 uppercase tracking-wider mb-1">Advarsel</div>
-                <p className="text-[12.5px] text-yellow-100/90 leading-relaxed">{drill.warning}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-4">
-            <p className="text-[13px] text-slate-300 leading-relaxed">{drill.description}</p>
-          </div>
-
-          {drill.why && (
-            <Section title="🎯 Hvorfor denne øvelsen" color="text-purple-400">
-              <div className="bg-purple-500/5 rounded-xl border border-purple-500/20 p-4">
-                <p className="text-[12.5px] text-slate-300 leading-relaxed">{drill.why}</p>
-              </div>
-            </Section>
-          )}
-
-          {drill.sketch && (
-            <Section title="✏️ Skisse / oppsett" color="text-slate-400">
-              <div className="bg-[#0c1525] rounded-xl border border-dashed border-[#1e3050] p-4">
-                <p className="text-[12.5px] text-slate-300 leading-relaxed whitespace-pre-line">{drill.sketch}</p>
-              </div>
-            </Section>
-          )}
-
-          <Section title="📝 Slik gjøres det" color="text-sky-400">
-            <div className="space-y-2">
-              {drill.steps.map((step, i) => (
-                <div key={step.id ?? i} className="flex gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] p-3">
-                  <div className="w-6 h-6 rounded-full bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-[11px] font-bold text-sky-400 flex-shrink-0">
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0">
-                    {step.name && <div className="text-[12.5px] font-bold text-slate-200 mb-0.5">{step.name}</div>}
-                    <p className="text-[12.5px] text-slate-300 leading-relaxed">{step.description}</p>
-                  </div>
+          <div className="p-5 space-y-6">
+            {drill.warning && (
+              <div className="flex gap-3 rounded-card border border-warn-500/40 bg-warn-500/10 p-4">
+                <span aria-hidden className="text-warn-400 leading-5 flex-shrink-0">⚠️</span>
+                <div>
+                  <SectionLabel tone="text-warn-400" className="mb-1">Advarsel</SectionLabel>
+                  <p className="text-body text-warn-300">{drill.warning}</p>
                 </div>
-              ))}
-            </div>
-          </Section>
+              </div>
+            )}
 
-          {drill.coachingPoints.length > 0 && (
-            <Section title="💡 Coachingpunkter" color="text-emerald-400">
-              <BulletList items={drill.coachingPoints} bullet="✦" bulletColor="text-emerald-400" />
+            <Card variant="sunken">
+              <p className="text-lead text-fg-muted">{drill.description}</p>
+            </Card>
+
+            {drill.why && (
+              <Section title="🎯 Hvorfor denne øvelsen" tone="text-fg-subtle">
+                <Card variant="sunken">
+                  <p className="text-body text-fg-muted">{drill.why}</p>
+                </Card>
+              </Section>
+            )}
+
+            {drill.sketch && (
+              <Section title="✏️ Skisse / oppsett">
+                <Card variant="outline">
+                  <p className="text-body text-fg-muted whitespace-pre-line">{drill.sketch}</p>
+                </Card>
+              </Section>
+            )}
+
+            <Section title="📝 Slik gjøres det" tone="text-brand-300">
+              <ol className="space-y-2">
+                {drill.steps.map((step, i) => (
+                  <Card as="li" key={step.id ?? i} variant="sunken" padding="sm" className="flex gap-3">
+                    <span className="h-6 w-6 flex-shrink-0 rounded-full bg-brand-500/15 border border-brand-500/35
+                                     flex items-center justify-center text-label text-brand-300 tabular-nums">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      {step.name && <div className="text-body font-bold text-fg mb-0.5">{step.name}</div>}
+                      <p className="text-body text-fg-muted">{step.description}</p>
+                    </div>
+                  </Card>
+                ))}
+              </ol>
             </Section>
-          )}
 
-          {drill.commonMistakes.length > 0 && (
-            <Section title="🚫 Vanlige feil" color="text-red-400">
-              <BulletList items={drill.commonMistakes} bullet="✕" bulletColor="text-red-400" />
-            </Section>
-          )}
+            {drill.coachingPoints.length > 0 && (
+              <Section title="💡 Coachingpunkter" tone="text-ok-300">
+                <BulletList items={drill.coachingPoints} bullet="✦" bulletColor="text-ok-400" />
+              </Section>
+            )}
 
-          {drill.variations.length > 0 && (
-            <Section title="🔀 Variasjoner" color="text-orange-400">
-              <BulletList items={drill.variations} bullet="↳" bulletColor="text-orange-400" />
-            </Section>
-          )}
+            {drill.commonMistakes.length > 0 && (
+              <Section title="🚫 Vanlige feil" tone="text-bad-300">
+                <BulletList items={drill.commonMistakes} bullet="✕" bulletColor="text-bad-400" />
+              </Section>
+            )}
 
-          {drill.background && (
-            <Section title="📚 Bakgrunn" color="text-slate-400">
-              <p className="text-[12.5px] text-slate-400 leading-relaxed">{drill.background}</p>
-            </Section>
-          )}
+            {drill.variations.length > 0 && (
+              <Section title="🔀 Variasjoner" tone="text-warn-300">
+                <BulletList items={drill.variations} bullet="↳" bulletColor="text-warn-400" />
+              </Section>
+            )}
 
-          {(drill.source || drill.unverifiedSource) && (
-            <div className="text-[11px] text-[#4a6080] space-y-1">
-              {drill.source && (
-                <div><span className="font-bold uppercase tracking-wider text-[10px]">Kilde:</span> <SourceLink value={drill.source} /></div>
-              )}
-              {drill.unverifiedSource && (
-                <div><span className="font-bold uppercase tracking-wider text-[10px]">Uverifisert kilde:</span> <SourceLink value={drill.unverifiedSource} /></div>
-              )}
-            </div>
-          )}
+            {drill.background && (
+              <Section title="📚 Bakgrunn">
+                <p className="text-body text-fg-subtle">{drill.background}</p>
+              </Section>
+            )}
 
-          <div className="bg-[#0c1525] rounded-xl border border-dashed border-[#1e3050] p-4">
-            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">📅 Legg til i kalender</h3>
-            {scheduledId === drill.id ? (
-              <div className="text-emerald-400 text-[13px] font-bold text-center py-2">✅ Lagt til i kalender!</div>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider">Dato *</label>
-                    <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
-                      className="mt-1 w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-slate-200 text-[12.5px] focus:outline-none focus:border-sky-500" />
-                  </div>
-                  <div>
-                    <label className="text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider">Tid</label>
-                    <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}
-                      className="mt-1 w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-slate-200 text-[12.5px] focus:outline-none focus:border-sky-500" />
-                  </div>
-                </div>
-                <input value={scheduleNote} onChange={e => setScheduleNote(e.target.value)}
-                  placeholder="Ekstra notat (valgfritt)"
-                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-slate-200 text-[12.5px] focus:outline-none focus:border-sky-500" />
-                <button onClick={() => scheduleDrill(drill)} disabled={!scheduleDate}
-                  className="w-full py-2.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12.5px] hover:bg-sky-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                  Legg til i kalender
-                </button>
+            {(drill.source || drill.unverifiedSource) && (
+              <div className="text-meta text-fg-faint space-y-1 pt-2 border-t border-line-soft">
+                {drill.source && (
+                  <div><span className="text-label uppercase">Kilde:</span> <SourceLink value={drill.source} /></div>
+                )}
+                {drill.unverifiedSource && (
+                  <div><span className="text-label uppercase">Uverifisert kilde:</span> <SourceLink value={drill.unverifiedSource} /></div>
+                )}
               </div>
             )}
           </div>
         </div>
+
+        {/* Handlingslinje – alltid innen rekkevidde nederst, også på mobil */}
+        <div className="flex-shrink-0 border-t border-line glass px-4 py-3 sheet-safe sm:pb-3">
+          {isScheduled ? (
+            <Button variant="success" size="lg" fullWidth icon="✓" disabled>
+              Lagt til i kalender
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" fullWidth icon="📅" onClick={() => setScheduleOpen(true)}>
+              Legg i kalenderen
+            </Button>
+          )}
+        </div>
+
+        <Modal
+          open={scheduleOpen}
+          onClose={() => setScheduleOpen(false)}
+          title="Legg i kalenderen"
+          subtitle={<p className="text-meta text-fg-subtle">{drill.name}</p>}
+          size="sm"
+          footer={
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={!scheduleDate}
+              onClick={() => scheduleDrill(drill)}
+            >
+              {scheduleDate ? 'Legg til' : 'Velg en dato først'}
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-label uppercase text-fg-faint">Dato *</span>
+                <input
+                  type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
+                  className="mt-1.5 w-full bg-surface-card border border-line rounded-xl px-3 py-2.5
+                             text-body text-fg focus:outline-none focus:border-brand-500/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-label uppercase text-fg-faint">Tid</span>
+                <input
+                  type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}
+                  className="mt-1.5 w-full bg-surface-card border border-line rounded-xl px-3 py-2.5
+                             text-body text-fg focus:outline-none focus:border-brand-500/60"
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="text-label uppercase text-fg-faint">Notat (valgfritt)</span>
+              <input
+                value={scheduleNote} onChange={e => setScheduleNote(e.target.value)}
+                placeholder="F.eks. fokus på førstetouch"
+                className="mt-1.5 w-full bg-surface-card border border-line rounded-xl px-3 py-2.5
+                           text-body text-fg placeholder:text-fg-faint focus:outline-none focus:border-brand-500/60"
+              />
+            </label>
+            <p className="text-meta text-fg-faint">
+              Hele øvelsen – steg, coachingpunkter og advarsler – følger med som lagnotat.
+            </p>
+          </div>
+        </Modal>
       </div>
     );
   }
 
-  // ── Browse View ──────────────────────────────────────────
-  const showWeekly = activeCategory === 'alle' && ageBand === 'alle' && difficultyFilter === 'alle' && !searchQuery;
+  // ── Oversikt ─────────────────────────────────────────────
+  const showWeekly = !hasFilters;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative">
-      {toast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[12px] font-bold px-4 py-2.5 rounded-xl shadow-xl pointer-events-none">
-          {toast}
-        </div>
-      )}
+    <div className="flex flex-col h-full overflow-hidden relative bg-surface-base">
+      {toastEl}
 
-      <div className="flex-shrink-0 border-b border-[#1e3050] bg-[#0c1525]">
-        {/* Header: Barn/Voksne + antall */}
-        <div className="flex px-4 pt-3 pb-2 gap-2 items-center flex-wrap">
-          <span className="text-[13px] font-bold text-slate-200">⚽ Fotball</span>
-          <div className="flex gap-1">
+      <FilterBar>
+        {/* Rad 1: aldersgruppe + treffantall */}
+        <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+          <span aria-hidden className="text-lead">⚽</span>
+          <div className="flex gap-1.5">
             {(['youth', 'adult'] as const).map(g => (
-              <button key={g} onClick={() => changeAgeGroup(g)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${
-                  ageGroup === g
-                    ? (g === 'youth'
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                        : 'bg-sky-500/20 text-sky-400 border-sky-500/30')
-                    : CHIP_IDLE
-                }`}>
+              <FilterChip
+                key={g}
+                active={ageGroup === g}
+                accent={g === 'youth' ? 'ok' : 'brand'}
+                onClick={() => changeAgeGroup(g)}
+              >
                 {g === 'youth' ? '🧒 Barn' : '🧑 Voksne'}
-              </button>
+              </FilterChip>
             ))}
           </div>
           <div className="flex-1" />
-          <span className="text-[11px] text-[#3a5070]">{filteredDrills.length} øvelser</span>
+          <span className="text-meta text-fg-faint tabular-nums">
+            {filteredDrills.length} øvelser
+          </span>
         </div>
 
-        {/* Søk */}
+        {/* Rad 2: søk */}
         <div className="px-4 py-2">
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            placeholder="🔍 Søk etter øvelse..."
-            className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2 text-slate-200 text-[12.5px] focus:outline-none focus:border-sky-500" />
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Søk etter øvelse…" />
         </div>
 
-        {/* Kategorifaner */}
-        <div className="px-4 pb-2 flex flex-wrap gap-1.5">
-          <button onClick={() => setActiveCategory('alle')}
-            className={`${CHIP_BASE} ${activeCategory === 'alle' ? CHIP_ALL_ACTIVE : CHIP_IDLE}`}>
+        {/* Rad 3: kategori */}
+        <FilterRow>
+          <FilterChip active={activeCategory === 'alle'} accent="neutral" onClick={() => setActiveCategory('alle')}>
             🗂 Alle
-          </button>
+          </FilterChip>
           {CATEGORIES.map(cat => (
-            <button key={cat} onClick={() => setActiveCategory(cat)}
-              className={`${CHIP_BASE} ${activeCategory === cat ? CHIP_ACTIVE : CHIP_IDLE}`}>
-              {CATEGORY_LABELS[cat]} <span className="opacity-60">{categoryCounts[cat]}</span>
-            </button>
+            <FilterChip
+              key={cat}
+              active={activeCategory === cat}
+              count={categoryCounts[cat]}
+              onClick={() => setActiveCategory(cat)}
+            >
+              <span aria-hidden>{CAT_ICON[cat]}</span> {CATEGORY_LABELS[cat]}
+            </FilterChip>
           ))}
-        </div>
+        </FilterRow>
 
-        {/* Aldersbånd + vanskelighetsgrad */}
-        <div className="px-4 pb-2 flex flex-wrap gap-x-4 gap-y-2 items-center border-b border-[#1e3050]">
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mr-1">Alder</span>
-            <button onClick={() => setAgeBand('alle')}
-              className={`px-2 py-1 rounded-md text-[9px] font-semibold border transition-all ${ageBand === 'alle' ? CHIP_ALL_ACTIVE : CHIP_IDLE}`}>
-              Alle
-            </button>
-            {availableBands.map(band => (
-              <button key={band} onClick={() => setAgeBand(band)}
-                className={`px-2 py-1 rounded-md text-[9px] font-semibold border transition-all ${ageBand === band ? CHIP_ACTIVE : CHIP_IDLE}`}>
-                {band}
-              </button>
-            ))}
-          </div>
+        {/* Rad 4: alder */}
+        <FilterRow label="Alder">
+          <FilterChip active={ageBand === 'alle'} accent="neutral" onClick={() => setAgeBand('alle')}>
+            Alle
+          </FilterChip>
+          {availableBands.map(band => (
+            <FilterChip key={band} active={ageBand === band} onClick={() => setAgeBand(band)}>
+              {band}
+            </FilterChip>
+          ))}
+        </FilterRow>
 
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mr-1">Nivå</span>
-            <button onClick={() => setDifficultyFilter('alle')}
-              className={`px-2 py-1 rounded-md text-[9px] font-semibold border transition-all ${difficultyFilter === 'alle' ? CHIP_ALL_ACTIVE : CHIP_IDLE}`}>
-              Alle
-            </button>
-            {DIFFICULTIES.map(level => (
-              <button key={level} onClick={() => setDifficultyFilter(level)}
-                className={`px-2 py-1 rounded-md text-[9px] font-semibold border transition-all ${
-                  difficultyFilter === level ? DIFFICULTY_ACTIVE[level] : CHIP_IDLE
-                }`}>
-                {level === 'enkel' ? 'Lett' : level === 'middels' ? 'Middels' : 'Avansert'}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+        {/* Rad 5: nivå + nullstill */}
+        <FilterRow label="Nivå" className="pb-1.5">
+          <FilterChip active={difficultyFilter === 'alle'} accent="neutral" onClick={() => setDifficultyFilter('alle')}>
+            Alle
+          </FilterChip>
+          {DIFFICULTIES.map(level => (
+            <FilterChip
+              key={level}
+              active={difficultyFilter === level}
+              accent={DIFFICULTY_TONE[level]}
+              onClick={() => setDifficultyFilter(level)}
+            >
+              {DIFFICULTY_LABELS[level]}
+            </FilterChip>
+          ))}
+          {hasFilters && (
+            <FilterChip accent="neutral" onClick={resetFilters} className="ml-1">
+              ✕ Nullstill
+            </FilterChip>
+          )}
+        </FilterRow>
+      </FilterBar>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
         {/* Ukens anbefalte øvelser */}
         {showWeekly && weeklyDrills.length > 0 && (
-          <div className="bg-[#0c1525] rounded-2xl border border-sky-500/20 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-[12px] font-bold text-sky-400">⭐ Ukens anbefalte øvelser</h3>
-                <p className="text-[10px] text-[#4a6080] mt-0.5">Roterer automatisk hver uke</p>
+          <Card variant="solid" className="border-brand-500/25">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <h2 className="text-h4 text-brand-300">⭐ Ukens anbefalte</h2>
+                <p className="text-meta text-fg-subtle mt-0.5">Roterer automatisk hver uke</p>
               </div>
-              <button onClick={scheduleWeekPlan}
-                className="px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[11px] font-bold hover:bg-sky-500/25 transition whitespace-nowrap">
-                📅 Legg alle i kalender
-              </button>
+              <Button size="sm" variant="secondary" icon="📅" onClick={scheduleWeekPlan}>
+                Legg alle i kalender
+              </Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {weeklyDrills.map(drill => (
-                <div key={drill.id} onClick={() => openDrill(drill)}
-                  className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] hover:border-sky-500/30 p-3 cursor-pointer transition-all">
-                  <div className="text-[12px] font-bold text-slate-200 mb-1 leading-tight">{drill.name}</div>
-                  <div className="text-[10px] text-[#4a6080]">{CATEGORY_LABELS[drill.category]} · {drill.duration} min</div>
-                </div>
+                <Card
+                  key={drill.id}
+                  variant="sunken"
+                  padding="sm"
+                  interactive
+                  accent={CAT_COLOR[drill.category]}
+                  onClick={() => openDrill(drill)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDrill(drill); } }}
+                >
+                  <div className="text-body font-bold text-fg leading-snug">{drill.name}</div>
+                  <div className="text-meta text-fg-faint mt-1">
+                    {CATEGORY_LABELS[drill.category]} · {drill.duration} min
+                  </div>
+                </Card>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Øvelsesliste */}
         <div className="space-y-2">
           {filteredDrills.map(drill => (
-            <div key={drill.id}
-              className="flex items-start gap-3 bg-[#0f1a2a] rounded-xl border border-[#1e3050] hover:border-[#2e4060] p-3.5 cursor-pointer transition-all group"
-              onClick={() => openDrill(drill)}>
-              <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${CAT_STRIPE[drill.category]}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <span className="text-[13px] font-bold text-slate-200 leading-tight">
-                    {drill.warning && <span className="mr-1" title="Har advarsel">⚠️</span>}
-                    {drill.name}
-                  </span>
-                  <span className={`flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full border font-semibold ${DIFFICULTY_COLORS[drill.difficulty]}`}>
-                    {DIFFICULTY_LABELS[drill.difficulty]}
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#5a7090] leading-relaxed line-clamp-2 mb-2">{drill.description}</p>
-                <div className="flex items-center gap-3 text-[10px] text-[#3a5070]">
-                  <span>⏱ {drill.duration} min</span>
-                  <span>👥 {drill.players}</span>
-                  <span>🎂 {drill.ageBand.join(', ')}</span>
-                  <span className="ml-auto">{CATEGORY_LABELS[drill.category]}</span>
-                </div>
-              </div>
-              <button
-                onClick={e => {
-                  e.stopPropagation();
-                  scheduleDrill(drill, new Date().toISOString().slice(0, 10));
-                }}
-                className="opacity-0 group-hover:opacity-100 flex-shrink-0 w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 hover:bg-sky-500/25 transition"
-                title="Legg til i dag">
-                📅
-              </button>
-            </div>
+            <DrillRow
+              key={drill.id}
+              drill={drill}
+              onOpen={() => openDrill(drill)}
+              onQuickAdd={() => scheduleDrill(drill, new Date().toISOString().slice(0, 10))}
+            />
           ))}
           {filteredDrills.length === 0 && (
-            <div className="text-center py-12 text-[#4a6080]">
-              <div className="text-3xl mb-2">🔍</div>
-              <p className="text-[13px]">Ingen øvelser funnet</p>
-              <p className="text-[11px] mt-1">Prøv å endre filter eller søk</p>
-            </div>
+            <EmptyState
+              title="Ingen øvelser funnet"
+              hint="Prøv et annet søkeord, eller nullstill filtrene for å se hele biblioteket."
+              action={<Button variant="secondary" onClick={resetFilters}>Nullstill filtre</Button>}
+            />
           )}
         </div>
       </div>
