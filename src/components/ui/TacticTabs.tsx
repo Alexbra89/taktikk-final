@@ -1,13 +1,23 @@
 'use client';
 import React, { useRef, useState } from 'react';
+import { Plus, Pencil, X } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
+import { cn } from '@/lib/cn';
 
 // ═══════════════════════════════════════════════════════════════
-//  TAKTIKK-FANER – én fane per taktikk, rulles horisontalt på mobil.
+//  TAKTIKK-FANER – én fane per taktikk.
+//  bar:  vannrett rad som rulles (mobil).
+//  list: loddrett liste i sidefeltet (desktop).
 //  Dobbeltklikk (eller ✎ på aktiv fane) gir nytt navn. × ber om bekreftelse.
 // ═══════════════════════════════════════════════════════════════
 
-export const TacticTabs: React.FC = () => {
+interface TacticTabsProps {
+  variant?: 'bar' | 'list';
+  /** Kalles når en taktikk velges eller opprettes – sidefeltet bruker den til å åpne brettet. */
+  onActivate?: () => void;
+}
+
+export const TacticTabs: React.FC<TacticTabsProps> = ({ variant = 'bar', onActivate }) => {
   const tactics         = useAppStore(s => s.tactics);
   const activeTacticId  = useAppStore(s => s.activeTacticId);
   const addTactic       = useAppStore(s => s.addTactic);
@@ -36,13 +46,16 @@ export const TacticTabs: React.FC = () => {
   };
 
   const onlyOne = tactics.length <= 1;
+  const isList  = variant === 'list';
 
   return (
     <div
       role="tablist"
       aria-label="Taktikker"
-      style={{ background: 'rgba(5,10,25,0.82)', borderBottom: '1px solid rgba(56,189,248,0.1)' }}
-      className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto whitespace-nowrap"
+      aria-orientation={isList ? 'vertical' : 'horizontal'}
+      className={isList
+        ? 'flex flex-col gap-px'
+        : 'flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto whitespace-nowrap no-scrollbar bg-canvas-sunken border-b border-rule'}
     >
       {tactics.map(t => {
         const active = t.id === activeTacticId;
@@ -51,15 +64,19 @@ export const TacticTabs: React.FC = () => {
             key={t.id}
             role="tab"
             aria-selected={active}
-            onClick={() => setActiveTactic(t.id)}
+            onClick={() => { setActiveTactic(t.id); onActivate?.(); }}
             onDoubleClick={() => startEdit(t.id, t.name)}
-            style={{
-              background: active ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
-              border: active ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.07)',
-            }}
-            className={`flex-shrink-0 flex items-center gap-1 rounded-lg pl-3 pr-1 min-h-[40px] cursor-pointer select-none
-              ${active ? 'text-sky-400' : 'text-slate-500 hover:text-slate-300'}`}
+            className={cn(
+              'group relative flex items-center gap-1 rounded-ctl pr-1 cursor-pointer select-none transition-colors',
+              isList ? 'pl-3 min-h-[36px]' : 'flex-shrink-0 pl-3 min-h-[40px] shadow-hair',
+              active
+                ? 'bg-canvas-raised text-ink'
+                : 'text-ink-muted hover:text-ink hover:bg-canvas-hover',
+            )}
           >
+            {isList && active && (
+              <span aria-hidden className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-signal" />
+            )}
             {editingId === t.id ? (
               <input
                 autoFocus
@@ -74,10 +91,16 @@ export const TacticTabs: React.FC = () => {
                   if (e.key === 'Escape') { cancelled.current = true; finishEdit(); }
                 }}
                 aria-label="Nytt navn på taktikk"
-                className="w-32 bg-transparent border-b border-sky-500/60 text-[12px] font-semibold text-slate-100 focus:outline-none"
+                className={cn(
+                  'bg-transparent border-b border-signal-line text-body text-ink focus:outline-none',
+                  isList ? 'tap-auto flex-1 min-w-0' : 'w-32',
+                )}
               />
             ) : (
-              <span className="text-[12px] font-semibold max-w-[160px] truncate" title="Dobbeltklikk for å endre navn">
+              <span
+                className={cn('text-body truncate', isList ? 'flex-1 min-w-0' : 'max-w-[160px]')}
+                title="Dobbeltklikk for å endre navn"
+              >
                 {t.name}
               </span>
             )}
@@ -86,25 +109,33 @@ export const TacticTabs: React.FC = () => {
                 onClick={e => { e.stopPropagation(); startEdit(t.id, t.name); }}
                 title="Endre navn"
                 aria-label={`Endre navn på ${t.name}`}
-                className="w-7 h-7 flex items-center justify-center rounded text-[11px] text-slate-500 hover:text-sky-300"
-              >✎</button>
+                className={cn('w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink', isList && 'tap-auto')}
+              ><Pencil size={13} strokeWidth={1.75} /></button>
             )}
             <button
               onClick={e => { e.stopPropagation(); askRemove(t.id, t.name); }}
               disabled={onlyOne}
               title={onlyOne ? 'Den siste taktikken kan ikke slettes' : 'Slett taktikk'}
               aria-label={`Slett ${t.name}`}
-              className="w-7 h-7 flex items-center justify-center rounded text-[14px] text-slate-500 hover:text-red-400 disabled:opacity-25 disabled:hover:text-slate-500 disabled:cursor-not-allowed"
-            >×</button>
+              className={cn(
+                'w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink',
+                'disabled:opacity-30 disabled:hover:text-ink-subtle disabled:cursor-not-allowed',
+                // I lista vises × bare på den aktive raden og ved hover, så den ikke støyer.
+                isList && 'tap-auto',
+                isList && !active && 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+              )}
+            ><X size={14} strokeWidth={1.75} /></button>
           </div>
         );
       })}
 
       <button
-        onClick={() => addTactic()}
-        style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)' }}
-        className="flex-shrink-0 px-3 rounded-lg min-h-[40px] text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/15"
-      >＋ Lag taktikk</button>
+        onClick={() => { addTactic(); onActivate?.(); }}
+        className={cn(
+          'flex items-center gap-2 rounded-ctl text-body text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors',
+          isList ? 'tap-auto min-h-[36px] px-3' : 'flex-shrink-0 min-h-[40px] px-3',
+        )}
+      ><Plus size={14} strokeWidth={1.75} /> Ny taktikk</button>
     </div>
   );
 };

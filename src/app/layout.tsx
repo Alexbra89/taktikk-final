@@ -65,6 +65,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="apple-touch-icon" content="/icon-192.png" />
+        {/* Kalk-tema settes før første maling, så dagslys ikke blinker mørkt. Nøkkel: useTheme.ts */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('taktikk:theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}`,
+          }}
+        />
       </head>
 
       <body
