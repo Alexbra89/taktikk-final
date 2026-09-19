@@ -5,13 +5,17 @@ import { useAppStore } from '@/store/useAppStore';
 import type { CalendarEvent, AppView } from '@/types';
 import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
+import { Lightbulb, Settings, Sun, Moon, Maximize2 } from 'lucide-react';
+import { Sidebar, NAV_ITEMS } from '@/components/ui/Sidebar';
+import { TacticTabs } from '@/components/ui/TacticTabs';
+import { useTheme } from '@/hooks/useTheme';
+import { cn } from '@/lib/cn';
 
 // ─── ALLE DYNAMISKE IMPORTER ─────────────────────────────────
 const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(mod => mod.TacticBoard), {
   ssr: false,
-  loading: () => <div className="flex-1 bg-[#060c18]" />,
+  loading: () => <div className="flex-1 bg-canvas" />,
 });
-const TacticTabs = dynamic(() => import('@/components/ui/TacticTabs').then(mod => mod.TacticTabs), { ssr: false });
 const Controls = dynamic(() => import('@/components/ui/Controls').then(mod => mod.Controls), { ssr: false });
 const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
 const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
@@ -21,13 +25,8 @@ const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').
 const DrillsView = dynamic(() => import('@/components/ui/DrillsView').then(mod => mod.DrillsView), { ssr: false });
 
 // ─── NAVIGASJON ──────────────────────────────────────────────
-const NAV: { view: AppView; label: string; emoji: string }[] = [
-  { view: 'board',    label: 'Brett',    emoji: '📋' },
-  { view: 'drills',   label: 'Øvelser',  emoji: '📚' },
-  { view: 'calendar', label: 'Kalender', emoji: '📅' },
-  { view: 'training', label: 'Trening',  emoji: '🏃' },
-];
-const VALID_VIEWS: AppView[] = NAV.map(n => n.view);
+// Menypunktene bor i Sidebar.tsx; mobilmenyen bruker de samme.
+const VALID_VIEWS: AppView[] = NAV_ITEMS.map(n => n.view);
 
 // ─── INNSTILLINGER MODAL ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -122,6 +121,7 @@ export default function Home() {
   const [selectedTraining,    setSelectedTraining]    = useState<CalendarEvent | null>(null);
 
   const { currentView, setView, homeTeamName } = useAppStore();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 640px)');
@@ -165,68 +165,30 @@ export default function Home() {
   );
 
   // ─── DESKTOP LAYOUT ──────────────────────────────────────────
+  // Kalk: sidefelt til venstre i stedet for toppmeny. Taktikkene ligger i sidefeltet.
   const DesktopLayout = useMemo(() => {
     return (
-      <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
-        <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/90 backdrop-blur-md border-b border-slate-800 h-14 z-40">
-          <div
-            className="mr-2 text-base font-black tracking-tighter whitespace-nowrap cursor-pointer"
-            onClick={() => setView('board')}
-          >
-            <span className="bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
-              ⚽ {homeTeamName || 'TAKTIKKBOARD'}
-            </span>
-          </div>
+      <div className="flex h-[100dvh] overflow-hidden bg-canvas text-ink">
+        <Sidebar
+          currentView={currentView}
+          onNavigate={setView}
+          teamName={homeTeamName}
+          onOpenSmartCoach={() => setShowSmartCoach(true)}
+          onOpenReport={() => setShowMatchReport(true)}
+          onOpenSettings={() => setShowSettings(true)}
+        />
 
-          <nav className="flex gap-1 ml-4">
-            {NAV.map(n => (
-              <button
-                key={n.view}
-                onClick={() => setView(n.view)}
-                className={`relative px-3 py-2 rounded-xl text-[11.5px] font-bold transition-all min-h-[40px]
-                  ${currentView === n.view
-                    ? 'bg-sky-500/10 text-sky-400'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
-              >
-                {n.emoji} {n.label}
-                {currentView === n.view && (
-                  <div className="absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-4 h-[3px] bg-sky-500 rounded-t-full" />
-                )}
-              </button>
-            ))}
-          </nav>
-
-          <div className="flex-1" />
-
-          {currentView === 'board' && (
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => setShowSmartCoach(true)}
-                className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px] backdrop-blur">
-                💡 Smart Coach
-              </button>
-              <button onClick={() => setShowMatchReport(true)}
-                className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition min-h-[36px] backdrop-blur">
-                📊 Rapport
-              </button>
-            </div>
-          )}
-
-          <button onClick={() => setShowSettings(true)} aria-label="Innstillinger" title="Innstillinger"
-            className="ml-1 px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-200 hover:border-slate-500 transition min-h-[36px] shadow-sm">
-            ⚙️
-          </button>
-        </header>
-
-        <main className="flex flex-1 overflow-hidden relative">
+        <main className="flex flex-1 min-w-0 overflow-hidden relative">
           {currentView === 'board' && (
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden animate-in fade-in">
-              <TacticTabs />
               <Controls />
               <div className="flex-1 min-h-0 overflow-hidden relative">
                 <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
                 <button onClick={() => setShowFullscreenBoard(true)}
-                  className="absolute top-2 right-2 h-10 w-10 flex items-center justify-center bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl text-white hover:border-sky-500 transition-colors shadow-lg z-10"
-                  title="Fullskjerm (F)">⛶</button>
+                  className="tap-auto absolute top-2 right-2 h-9 w-9 flex items-center justify-center rounded-ctl bg-canvas-panel/80 backdrop-blur text-ink-muted shadow-hair-strong hover:text-ink transition-colors z-10"
+                  aria-label="Fullskjerm" title="Fullskjerm (F)">
+                  <Maximize2 size={15} strokeWidth={1.75} />
+                </button>
               </div>
             </div>
           )}
@@ -240,38 +202,40 @@ export default function Home() {
 
   // ─── MOBIL LAYOUT ────────────────────────────────────────────
   const MobileLayout = useMemo(() => {
+    const headerBtn = 'tap-auto w-9 h-9 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors';
     return (
-      <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
-        <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/95 backdrop-blur-md border-b border-slate-800 h-14 z-40">
-          <span className="text-[13px] font-black bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
-            {homeTeamName || 'TAKTIKKBOARD'}
+      <div className="flex flex-col h-[100dvh] overflow-hidden bg-canvas text-ink">
+        <header className="flex-shrink-0 flex items-center gap-1 pl-4 pr-2 bg-canvas-sunken border-b border-rule h-14 z-40">
+          <span className="font-serif text-[1.375rem] leading-none text-ink truncate">
+            {homeTeamName || 'Taktikkboard'}
           </span>
           <div className="flex-1" />
           {currentView === 'board' && (
-            <button onClick={() => setShowSmartCoach(true)} aria-label="Smart Coach"
-              className="px-2.5 py-1.5 rounded-xl text-[14px] border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px]">
-              💡
+            <button onClick={() => setShowSmartCoach(true)} aria-label="Smart Coach" className={headerBtn}>
+              <Lightbulb size={17} strokeWidth={1.75} />
             </button>
           )}
-          <button onClick={() => setShowSettings(true)} aria-label="Innstillinger"
-            className="px-2.5 py-1.5 rounded-xl text-[14px] border border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-300 transition min-h-[36px] shadow-sm">
-            ⚙️
+          <button onClick={toggleTheme} aria-label={theme === 'light' ? 'Bytt til kveld' : 'Bytt til dagslys'} className={headerBtn}>
+            {theme === 'light' ? <Moon size={17} strokeWidth={1.75} /> : <Sun size={17} strokeWidth={1.75} />}
+          </button>
+          <button onClick={() => setShowSettings(true)} aria-label="Innstillinger" className={headerBtn}>
+            <Settings size={17} strokeWidth={1.75} />
           </button>
         </header>
 
-        <nav className="flex-shrink-0 flex border-b border-slate-800 bg-[#08101e]/95 backdrop-blur-md relative z-40">
-          {NAV.map(n => {
-            const isActive = currentView === n.view;
+        <nav aria-label="Hovedmeny" className="flex-shrink-0 flex border-b border-rule bg-canvas-sunken relative z-40">
+          {NAV_ITEMS.map(({ view, label, icon: Icon }) => {
+            const isActive = currentView === view;
             return (
-              <button key={n.view} onClick={() => setView(n.view)}
-                className={`flex-1 flex flex-col items-center justify-center py-2 relative min-h-[52px] transition-all
-                  ${isActive ? 'text-sky-400' : 'text-slate-500 hover:text-slate-400'}`}>
-                <span className={`text-[18px] leading-none mb-0.5 transition-transform ${isActive ? 'scale-110' : ''}`}>
-                  {n.emoji}
-                </span>
-                <span className="text-[8px] font-bold tracking-widest uppercase">{n.label}</span>
+              <button key={view} onClick={() => setView(view)} aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center gap-1 py-2 relative min-h-[52px] transition-colors',
+                  isActive ? 'text-ink' : 'text-ink-subtle hover:text-ink-muted',
+                )}>
+                <Icon size={18} strokeWidth={1.75} />
+                <span className="font-mono text-[9px] uppercase tracking-[0.08em]">{label}</span>
                 {isActive && (
-                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-sky-400 rounded-t-full shadow-[0_-2px_8px_rgba(56,189,248,0.5)]" />
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-signal rounded-full" />
                 )}
               </button>
             );
@@ -297,7 +261,7 @@ export default function Home() {
         </div>
       </div>
     );
-  }, [currentView, homeTeamName, selectedPlayerId, selectedTraining, setView]);
+  }, [currentView, homeTeamName, selectedPlayerId, selectedTraining, setView, theme, toggleTheme]);
 
   // ─── BETINGEDE RETURNS ─────────────────────────────────────────
   if (isDesktop === null) return null;
