@@ -104,10 +104,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   })();
 
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
-  // Samme kriterium som den interaktive TacticBoard: kun isStarter
-  // avgjør bane/benk (isOnField er en egen live kamptid-markering).
-  const homePlayers = (displayPlayers as any[]).filter((p: any) => p.team === 'home' && p.isStarter === true);
-  const bench = (phase.players as any[]).filter((p: any) => p.team === 'home' && p.isStarter !== true);
+  const homePlayers = (displayPlayers as any[]).filter((p: any) => p.team === 'home');
 
   return (
     <div
@@ -221,9 +218,6 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
                   <circle cx={x} cy={y} r={38} fill="transparent" />
                   <circle cx={x} cy={y} r={21} fill="rgba(255,255,255,0.9)"/>
                   <circle cx={x} cy={y} r={18} fill={fill} stroke={fill} strokeWidth={1.5}/>
-                  {(player.specialRoles ?? []).includes('captain') && (
-                    <text x={x - 13} y={y - 13} fontSize={13} style={{ pointerEvents: 'none' }}>🪖</text>
-                  )}
                   <text x={x} y={y + 1} textAnchor="middle" dominantBaseline="middle"
                     fill="white" fontSize={12} fontWeight="800"
                     fontFamily="system-ui, sans-serif" style={{ pointerEvents: 'none' }}>
@@ -256,31 +250,6 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         <div className={`flex-shrink-0 px-4 py-2 bg-amber-500/10 border-t border-amber-500/20
           transition-all duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
           <p className="text-[11px] text-amber-300">📌 {phase.stickyNote}</p>
-        </div>
-      )}
-
-      {/* Innbyttere */}
-      {bench.length > 0 && (
-        <div className={`flex-shrink-0 px-3 py-2 bg-[#08101e] border-t border-[#1a2d46]
-          transition-all duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex-shrink-0">
-              🪑 Innbyttere
-            </span>
-            {bench.map((p: any) => {
-              const meta = getMeta(p.role);
-              return (
-                <div key={p.id} className="flex items-center gap-1.5 bg-[#0f1a2a] border border-amber-500/20
-                  rounded-lg px-2 py-1 flex-shrink-0">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white"
-                    style={{ background: meta?.color ?? '#555' }}>
-                    {getNum(p)}
-                  </div>
-                  <span className="text-[10px] text-slate-300">{p.name || `#${getNum(p)}`}</span>
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 

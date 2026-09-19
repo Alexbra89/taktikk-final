@@ -2,9 +2,9 @@ import React from 'react';
 
 export const JerseyIcon = React.memo<{
   x:number; y:number; num:number; color:string;
-  selected:boolean; specialRoles:string[];
+  selected:boolean;
   isDragging:boolean; isTarget:boolean; isOutOfPos:boolean;
-}>(({ x,y,num,color,selected,specialRoles,isDragging,isTarget,isOutOfPos }) => {
+}>(({ x,y,num,color,selected,isDragging,isTarget,isOutOfPos }) => {
   const w=38, h=34, sh=9, nw=10, nh=5, tx=x-w/2, ty=y-h/2;
   return (
     <g opacity={isDragging ? 0.32 : 1} style={{ transition:'opacity 0.1s' }}>
@@ -39,11 +39,6 @@ export const JerseyIcon = React.memo<{
         fill="white" fontSize={13} fontWeight="900" fontFamily="system-ui,sans-serif"
         paintOrder="stroke" stroke="rgba(0,0,0,0.6)" strokeWidth={2.5}
         style={{pointerEvents:'none'}}>{num}</text>
-      {specialRoles.includes('captain') && <text x={x-20} y={y-13} fontSize={11} style={{pointerEvents:'none'}}>🪖</text>}
-      {specialRoles.includes('penalty') && <text x={x+16} y={y-13} fontSize={10} style={{pointerEvents:'none'}}>🎯</text>}
-      {specialRoles.includes('freekick') && !specialRoles.includes('penalty') &&
-        <text x={x+16} y={y-13} fontSize={10} style={{pointerEvents:'none'}}>⚡</text>}
-      {specialRoles.includes('corner') && <text x={x+16} y={y-1} fontSize={9} style={{pointerEvents:'none'}}>📍</text>}
     </g>
   );
 });

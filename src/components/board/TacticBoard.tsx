@@ -15,13 +15,9 @@ import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
 import { JerseyIcon } from './svg/JerseyIcon';
 import { RoleBadge } from './svg/RoleBadge';
 import { NameLabel } from './svg/NameLabel';
-import { ConditionDot } from './svg/ConditionDot';
-import { SwapOverlay } from './svg/SwapOverlay';
 import { DragGhost } from './svg/DragGhost';
 import { SnapIndicator } from './svg/SnapIndicator';
-import { LoanBadge } from './svg/LoanBadge';
 import { SvgDefs } from './svg/SvgDefs';
-import { SubRow } from './panels/SubRow';
 import { useViewport } from '../../hooks/useViewport';
 
 // ══════════════════════════════════════════════════════════════
@@ -31,13 +27,10 @@ import { useViewport } from '../../hooks/useViewport';
 interface TacticBoardProps {
   selectedPlayerId: string | null;
   onSelectPlayer:   (id: string | null) => void;
-  isTrainingMatch?: boolean;
-  maxSubstitutions?: number;
 }
 
 interface ActiveDrag {
   playerId:       string;
-  fromSub:        boolean;
   pointerId:      number;
   startClientX:   number;
   startClientY:   number;
@@ -51,7 +44,6 @@ interface GhostPos { x: number; y: number; scaleIn: boolean }
 interface UndoEntry {
   playerId:      string;
   prevPos:       { x: number; y: number };
-  prevIsStarter: boolean | undefined;
   prevRole:      string;
 }
 
@@ -63,8 +55,6 @@ interface TacticMoment { id: string; label: string; snapshot: string; at: string
 export const TacticBoard: React.FC<TacticBoardProps> = ({
   selectedPlayerId,
   onSelectPlayer: onSelectPlayerProp,
-  isTrainingMatch = false,
-  maxSubstitutions = 5,
 }) => {
   const onSelectPlayerRef = useRef(onSelectPlayerProp);
   useEffect(() => { onSelectPlayerRef.current = onSelectPlayerProp; }, [onSelectPlayerProp]);
@@ -93,9 +83,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [ghostPos,         setGhostPos]         = useState<GhostPos|null>(null);
   const [snapTarget,       setSnapTarget]        = useState<SvgPos|null>(null);
   const [dragOverId,       setDragOverId]        = useState<string|null>(null);
-  const [dragOverEmptyIdx, setDragOverEmptyIdx]  = useState<number|null>(null);
   const [draggingPlayerId, setDraggingPlayerId]  = useState<string|null>(null);
-  const [dragFromSub,      setDragFromSub]       = useState(false);
   const [bounceId,         setBounceId]          = useState<string|null>(null);
   const [localStickyNote,  setLocalStickyNote]   = useState('');
   const [drawMode,         setDrawMode]          = useState(false);
@@ -107,9 +95,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [liveDrawPts,      setLiveDrawPts]       = useState<SvgPos[]>([]);
   const [showSticky,       setShowSticky]        = useState(false);
   const [selectedFormation,setSelectedFormation] = useState('');
-  const [subPanelOpen,     setSubPanelOpen]      = useState(true);
-  const [showBottomSheet,  setShowBottomSheet]   = useState(false);
-  const [substitutions,    setSubstitutions]     = useState(0);
   const [moments,          setMoments]           = useState<TacticMoment[]>([]);
   const [showMoments,      setShowMoments]       = useState(false);
   const [momentLabel,      setMomentLabel]       = useState('');
@@ -120,7 +105,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     setActivePhaseIdx, addPhase, removePhase,
     updatePlayerPosition, updateBallPosition,
     addDrawing, clearDrawings, updateStickyNote,
-    updatePlayerField, addPlayer, playerAccounts,
+    updatePlayerField, addPlayer,
   } = useAppStore();
 
   const phase = phases[activePhaseIdx] ?? null;
@@ -174,20 +159,18 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const doUndo = useCallback(() => {
     const e = undoStack.current.pop(); if (!e||!phase) return;
     const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
-    redoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
+    redoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevRole:p.role });
     updatePlayerField(activePhaseIdx, e.playerId, {
-      position:e.prevPos, isStarter:e.prevIsStarter,
-      isOnField:e.prevIsStarter, role:e.prevRole as PlayerRole,
+      position:e.prevPos, role:e.prevRole as PlayerRole,
     });
   }, [phase, activePhaseIdx, updatePlayerField]);
 
   const doRedo = useCallback(() => {
     const e = redoStack.current.pop(); if (!e||!phase) return;
     const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
-    undoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
+    undoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevRole:p.role });
     updatePlayerField(activePhaseIdx, e.playerId, {
-      position:e.prevPos, isStarter:e.prevIsStarter,
-      isOnField:e.prevIsStarter, role:e.prevRole as PlayerRole,
+      position:e.prevPos, role:e.prevRole as PlayerRole,
     });
   }, [phase, activePhaseIdx, updatePlayerField]);
 
@@ -205,7 +188,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const formation = availableFormations.find(f => f.name === name);
     if (!formation) return;
     const currentStarters = phase.players
-      .filter(p => p.team === 'home' && p.isStarter === true)
+      .filter(p => p.team === 'home')
       .sort((a, b) => (a.num || 0) - (b.num || 0));
     formation.homePlayers.forEach((slot, index) => {
       const player = currentStarters[index];
@@ -303,10 +286,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
     for (const p of (phase?.players??[])) {
-      // Kun spillere som faktisk vises på banen kan være mål for en
-      // posisjons-basert treff – ellers kan en benkespiller med en
-      // gammel/tilfeldig posisjon feilaktig "treffes" og byttes inn.
-      if (p.id===excludeId||p.team!=='home'||p.isStarter!==true) continue;
+      if (p.id===excludeId||p.team!=='home') continue;
       const d = Math.hypot(p.position.x - sx, p.position.y - sy);
       if (d<bestD) { bestD=d; best=p; }
     }
@@ -317,7 +297,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
     spacingDebRef.current = setTimeout(() => {
       if (!phase) return;
-      const others = phase.players.filter(p=>p.team==='home'&&p.isStarter!==false&&p.id!==movedId);
+      const others = phase.players.filter(p=>p.team==='home'&&p.id!==movedId);
       const pts    = others.map(p=>({x:p.position.x,y:p.position.y}));
       const sep    = separatePlayers(pts);
       sep.forEach((sp,i) => {
@@ -328,59 +308,28 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     }, 200);
   }, [phase, activePhaseIdx, updatePlayerPosition]);
 
-  const canSub = useCallback((fromBench:boolean) =>
-    isTrainingMatch||!fromBench||substitutions<maxSubstitutions,
-    [isTrainingMatch, substitutions, maxSubstitutions]);
-
   const swapPlayers = useCallback((aId:string, bId:string) => {
     if (!phase) return;
     const a=phase.players.find(p=>p.id===aId), b=phase.players.find(p=>p.id===bId);
     if (!a||!b) return;
-    pushUndo({ playerId:aId, prevPos:{...a.position}, prevIsStarter:a.isStarter, prevRole:a.role });
-    const [ap,bp,ar,br,as_,bs] = [{...a.position},{...b.position},a.role,b.role,a.isStarter,b.isStarter];
-    updatePlayerField(activePhaseIdx, aId, { position:bp, role:br as PlayerRole, isStarter:bs,  isOnField:bs  });
-    updatePlayerField(activePhaseIdx, bId, { position:ap, role:ar as PlayerRole, isStarter:as_, isOnField:as_ });
-    if ((as_===false)!==(bs===false)) setSubstitutions(s=>s+1);
+    pushUndo({ playerId:aId, prevPos:{...a.position}, prevRole:a.role });
+    const [ap,bp,ar,br] = [{...a.position},{...b.position},a.role,b.role];
+    updatePlayerField(activePhaseIdx, aId, { position:bp, role:br as PlayerRole });
+    updatePlayerField(activePhaseIdx, bId, { position:ap, role:ar as PlayerRole });
     setBounceId(bId); setTimeout(()=>setBounceId(null),400);
   }, [phase, activePhaseIdx, updatePlayerField, pushUndo]);
 
-  const moveToBench = useCallback((id:string) => {
-    if (!phase) return;
-    const p=phase.players.find(pl=>pl.id===id); if (!p) return;
-    pushUndo({ playerId:id, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
-    updatePlayerField(activePhaseIdx, id, { isStarter:false, isOnField:false });
-    setSubstitutions(s=>s+1);
-  }, [phase, activePhaseIdx, updatePlayerField, pushUndo]);
-
-  const moveToField = useCallback((id:string, pos:SvgPos) => {
-    if (!phase) return;
-    const p=phase.players.find(pl=>pl.id===id); if (!p) return;
-    pushUndo({ playerId:id, prevPos:{...p.position}, prevIsStarter:p.isStarter, prevRole:p.role });
-    updatePlayerField(activePhaseIdx, id, { isStarter:true, isOnField:true, position:pos });
-    setSubstitutions(s=>s+1);
-  }, [phase, activePhaseIdx, updatePlayerField, pushUndo]);
-
   const resolveDrop = useCallback((
-    draggedId:string, fromSub:boolean,
+    draggedId:string,
     targetId:string|undefined,
     svgX:number, svgY:number,
-    droppedOnEmptyBench:boolean,
   ) => {
     if (!phase) return;
     const dragged = phase.players.find(p=>p.id===draggedId); if (!dragged) return;
     const target  = targetId ? phase.players.find(p=>p.id===targetId) : null;
 
     if (target && target.id !== dragged.id) {
-      if (!canSub(dragged.isStarter===false || target.isStarter===false)) return;
       swapPlayers(dragged.id, target.id);
-      return;
-    }
-
-    // Dratt fra bane og sluppet på en tom benkerad → sett på benken (FM-stil).
-    if (droppedOnEmptyBench && !fromSub && dragged.isStarter !== false) {
-      if (!canSub(true)) return;
-      moveToBench(dragged.id);
-      setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
       return;
     }
 
@@ -388,19 +337,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const snap = nearestSlotPos(pos, currentHomePlayers);
     if (snap) pos = snap;
 
-    if (dragged.isStarter===false||fromSub) {
-      if (!canSub(true)) return;
-      moveToField(dragged.id, pos);
-    } else {
-      pushUndo({ playerId:dragged.id, prevPos:{...dragged.position}, prevIsStarter:dragged.isStarter, prevRole:dragged.role });
-      updatePlayerPosition(activePhaseIdx, dragged.id, pos);
-      scheduleSpacing(dragged.id);
-    }
+    pushUndo({ playerId:dragged.id, prevPos:{...dragged.position}, prevRole:dragged.role });
+    updatePlayerPosition(activePhaseIdx, dragged.id, pos);
+    scheduleSpacing(dragged.id);
     setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
-  }, [phase, canSub, swapPlayers, currentHomePlayers, moveToField, moveToBench, pushUndo, updatePlayerPosition, activePhaseIdx, scheduleSpacing, clampToPitch]);
+  }, [phase, swapPlayers, currentHomePlayers, pushUndo, updatePlayerPosition, activePhaseIdx, scheduleSpacing, clampToPitch]);
 
   const startDrag = useCallback((
-    e: React.PointerEvent, playerId:string, fromSub:boolean,
+    e: React.PointerEvent, playerId:string,
   ) => {
     if (isPlaying||drawMode) return;
     e.preventDefault();
@@ -410,7 +354,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
     const isTouch = e.pointerType !== 'mouse';
     activeDragRef.current = {
-      playerId, fromSub, pointerId:e.pointerId,
+      playerId, pointerId:e.pointerId,
       startClientX:e.clientX, startClientY:e.clientY,
       started:false, longPressReady:!isTouch,
       isTouch,
@@ -440,7 +384,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       if (moved > DRAG_THRESH && ad.longPressReady) {
         ad.started = true;
         setDraggingPlayerId(ad.playerId);
-        setDragFromSub(ad.fromSub);
         const sp = toSVG(e.clientX, e.clientY);
         setGhostPos({ x:sp.x, y:sp.y, scaleIn:true });
         setTimeout(()=>setGhostPos(s=>s?{...s,scaleIn:false}:null), 160);
@@ -451,23 +394,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     const cx = e.clientX, cy = e.clientY;
     rafRef.current = requestAnimationFrame(() => {
-      // Sjekk først om pekeren er over en benkerad (kun relevant når vi
-      // drar en spiller FRA banen – pointer capture gjør at vanlige
-      // pointer-events på benkeradene aldri fyres, så vi må slå opp
-      // elementet under pekeren direkte via elementFromPoint.
-      if (!ad.fromSub) {
-        const overEl  = document.elementFromPoint(cx, cy) as HTMLElement | null;
-        const benchEl = overEl?.closest('[data-bench-row]') as HTMLElement | null;
-        if (benchEl) {
-          const pid = benchEl.dataset.playerId || '';
-          const idxAttr = benchEl.dataset.benchIdx;
-          setDragOverId(pid || null);
-          setDragOverEmptyIdx(pid ? null : (idxAttr ? parseInt(idxAttr, 10) : null));
-          setSnapTarget(null);
-          return;
-        }
-      }
-      setDragOverEmptyIdx(null);
       const sp   = toSVG(cx, cy);
       const snap = nearestSlotPos(sp, currentHomePlayers);
       setSnapTarget(snap);
@@ -485,16 +411,13 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (longPressRef.current) clearTimeout(longPressRef.current);
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current=null; }
 
-    const wasDragging          = ad.started;
-    const targetId              = dragOverId;
-    const droppedOnEmptyBench   = dragOverEmptyIdx !== null;
+    const wasDragging = ad.started;
+    const targetId    = dragOverId;
 
     activeDragRef.current = null;
     setGhostPos(null);
     setDragOverId(null);
-    setDragOverEmptyIdx(null);
     setDraggingPlayerId(null);
-    setDragFromSub(false);
     setSnapTarget(null);
 
     if (!wasDragging) {
@@ -504,8 +427,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (!phase) return;
 
     const finalPos = toSVG(lastClientRef.current.x, lastClientRef.current.y);
-    resolveDrop(ad.playerId, ad.fromSub, targetId ?? undefined, finalPos.x, finalPos.y, droppedOnEmptyBench);
-  }, [dragOverId, dragOverEmptyIdx, phase, selectedPlayerId, resolveDrop, stableOnSelectPlayer, toSVG]);
+    resolveDrop(ad.playerId, targetId ?? undefined, finalPos.x, finalPos.y);
+  }, [dragOverId, phase, selectedPlayerId, resolveDrop, stableOnSelectPlayer, toSVG]);
 
   const onSvgPtrDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (isPlaying||!drawMode) return;
@@ -531,31 +454,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const allDisplay   = useMemo(()=>getDisplayPlayers(),  [getDisplayPlayers]);
 
   const onField = useMemo(
-    () => allDisplay.filter(p => p.team === 'home' && p.isStarter === true),
-    [allDisplay]
-  );
-  const benchPlayers = useMemo(
-    () => allDisplay.filter(p => p.team === 'home' && p.isStarter !== true),
+    () => allDisplay.filter(p => p.team === 'home'),
     [allDisplay]
   );
   const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
   const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
-  const maxSubs = isTrainingMatch?30:getSquadCapacity(sport).maxSubs;
-  const subSlots = useMemo(()=>
-    [...benchPlayers,...Array(Math.max(0,maxSubs-benchPlayers.length)).fill(null)] as (Player|null)[],
-    [benchPlayers, maxSubs]);
-
-  // Navn skal kun kunne endres via PlayerProfile.tsx (som skriver til
-  // PlayerAccount.name) – ikke inline på brettet. player.playerAccountId
-  // settes aldri noe sted i appen, så vi matcher på playerId (samme
-  // oppslag som PlayerHome/PlayerPortal bruker) for at navneendringer
-  // faktisk vises her.
   const getDisplayName = useCallback((player: Player): string => {
-    const acc = playerAccounts.find(a => a.id === player.playerAccountId)
-      ?? playerAccounts.find(a => a.playerId === player.id);
-    return acc?.name || player.name || `#${player.num}`;
-  }, [playerAccounts]);
+    return player.name || `#${player.num}`;
+  }, []);
 
   const isOutOfPos = useCallback((player:Player):boolean => {
     const fam = ROLE_FAMILY[player.role]; if (!fam) return false;
@@ -568,44 +475,20 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
   const ghostMeta   = ghostPlayer ? (ROLE_META[ghostPlayer.role as keyof typeof ROLE_META]??null) : null;
 
-  const subLimitReached = !isTrainingMatch&&substitutions>=maxSubstitutions;
   const DRAW_COLORS     = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
   const glassStyle      = { '--glass-bg': GLASS.panel, '--glass-border': GLASS.border, '--glass-hover': GLASS.hover } as React.CSSProperties;
 
-  const hasEnsuredStarters  = useRef(false);
-  const isAddingPlayersRef  = useRef(false);
+  const hasEnsuredPlayers = useRef(false);
 
+  // Fyller opp fasen fra formasjonen hvis den har færre spillere enn sporten krever.
   useEffect(() => {
-    if (!phase) return;
-    if (hasEnsuredStarters.current) return;
-    if (isAddingPlayersRef.current) return;
+    if (!phase || hasEnsuredPlayers.current) return;
+    hasEnsuredPlayers.current = true;
 
     const teamSize = getSquadCapacity(sport).teamSize;
     const homePlayers = phase.players.filter(p => p.team === 'home');
+    if (homePlayers.length >= teamSize) return;
 
-    if (homePlayers.length >= teamSize) {
-      const starters = homePlayers.filter(p => p.isStarter === true);
-      if (starters.length < teamSize) {
-        const candidates = homePlayers
-          .filter(p => p.isStarter !== true)
-          .sort((a, b) => (a.num || 999) - (b.num || 999));
-        const needed = teamSize - starters.length;
-        candidates.slice(0, needed).forEach((player, idx) => {
-          const formation = availableFormations.find(f => f.name === selectedFormation);
-          const slot = formation?.homePlayers[starters.length + idx];
-          const pos = slot?.position ?? { x: 200 + player.num * 30, y: 280 };
-          updatePlayerField(activePhaseIdx, player.id, {
-            isStarter: true,
-            isOnField: true,
-            position: clampToPitch(pos.x, pos.y),
-          });
-        });
-      }
-      hasEnsuredStarters.current = true;
-      return;
-    }
-
-    isAddingPlayersRef.current = true;
     const formation = availableFormations.find(f => f.name === selectedFormation);
     const defaultPositions = formation?.homePlayers.map(slot => slot.position) ?? [];
     const existingNums = homePlayers.map(p => p.num);
@@ -620,17 +503,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         id: `gen-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
         num: newNum, name: `Spiller ${newNum}`, role: 'midfielder',
         position: clampToPitch(pos.x, pos.y),
-        team: 'home', notes: '', isStarter: true, isOnField: true, minutesPlayed: 0, specialRoles: [],
+        team: 'home', notes: '',
       });
     }
-    hasEnsuredStarters.current = true;
-    isAddingPlayersRef.current = false;
-  }, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, updatePlayerField, addPlayer, clampToPitch]);
-
-  // Teststall seedes ikke lenger automatisk her – phase.players-only
-  // seeding var årsaken til at testspillere manglet i Spillerstall
-  // (ingen PlayerAccount ble opprettet). Bruk "🧪 Seed testspillere"
-  // i PlayerManager, som oppretter begge deler via seedTestSquad().
+  }, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, addPlayer, clampToPitch]);
 
   if (!phase || !isMounted) {
     return (
@@ -717,21 +593,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             {icon}
           </button>
         ))}
-
-        {!isTrainingMatch&&(
-          <span style={{
-            background: subLimitReached?'rgba(248,113,113,0.1)':'rgba(255,255,255,0.04)',
-            border: subLimitReached?'1px solid rgba(248,113,113,0.3)':'1px solid rgba(255,255,255,0.07)',
-            backdropFilter:'blur(8px)',
-          }} className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0
-            ${subLimitReached?'text-red-400':'text-slate-400'}`}>
-            🔄 {substitutions}/{maxSubstitutions}
-          </span>
-        )}
-        {isTrainingMatch&&(
-          <span style={{background:'rgba(52,211,153,0.08)',border:'1px solid rgba(52,211,153,0.2)',backdropFilter:'blur(8px)'}}
-            className="text-[9px] font-bold text-emerald-400 px-2 py-0.5 rounded-full flex-shrink-0">🏃 Trening</span>
-        )}
 
         {isMobile ? (
           <>
@@ -835,13 +696,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           </div>
         </div>
 
-        {isMobile&&(
-          <button onClick={()=>setShowBottomSheet(true)}
-            style={{background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.2)',backdropFilter:'blur(8px)'}}
-            className="px-2 py-1 rounded-lg text-[10px] font-bold text-amber-400 min-h-[40px] flex-shrink-0 ml-auto">
-            🪑 {benchPlayers.length}
-          </button>
-        )}
       </div>
 
       {showSticky&&phase&&(
@@ -955,17 +809,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               const name       = getDisplayName(player);
               const isTarget   = dragOverId===player.id;
               const isSrc      = draggingPlayerId===player.id;
-              const isOnLoan   = (player as any).onLoan === true;
-              const condition  = typeof (player as any).condition === 'number' ? (player as any).condition : 90;
               const isBouncing = bounceId===player.id;
               const outOfPos   = isOutOfPos(player);
               const {x,y}      = player.position;
-              const showSwap   = isTarget&&dragFromSub;
-              const showHover  = isTarget&&!showSwap;
+              const showHover  = isTarget;
 
               return (
                 <g key={player.id} data-player="true"
-                  onPointerDown={e=>startDrag(e, player.id, false)}
+                  onPointerDown={e=>startDrag(e, player.id)}
                   onPointerMove={moveDrag}
                   onPointerUp={endDrag}
                   onPointerCancel={endDrag}
@@ -979,24 +830,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                     transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
                   }}
                 >
-                  {showSwap&&<SwapOverlay x={x} y={y}/>}
                   {showHover&&(
                     <circle cx={x} cy={y} r={32} fill="none"
                       stroke="rgba(56,189,248,0.6)" strokeWidth={2} strokeDasharray="6,4"/>
                   )}
                   <JerseyIcon x={x} y={y} num={player.num} color={(meta as {color:string}).color}
-                    selected={selectedPlayerId===player.id}
-                    specialRoles={player.specialRoles??[]} isDragging={!!isSrc}
+                    selected={selectedPlayerId===player.id} isDragging={!!isSrc}
                     isTarget={isTarget} isOutOfPos={outOfPos}/>
                   <RoleBadge x={x} y={y+23} role={player.role}/>
                   <NameLabel x={x} y={y+47} name={name}/>
-                  {isOnLoan&&<LoanBadge x={x} y={y+58}/>}
-                  <ConditionDot x={x} y={y} condition={condition}/>
-                  {(player.minutesPlayed??0)>0&&(
-                    <circle cx={x} cy={y} r={29} fill="none"
-                      stroke={(player.minutesPlayed??0)>60?'#ef4444':(player.minutesPlayed??0)>30?'#f59e0b':'#22c55e'}
-                      strokeWidth={1.5} opacity={0.3} strokeDasharray="3 2"/>
-                  )}
                 </g>
               );
             })}
@@ -1015,112 +857,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           </svg>
         </div>
 
-        {!isMobile&&(
-          <div style={{
-            width: subPanelOpen?176:38,
-            background:'rgba(5,10,25,0.78)',
-            backdropFilter:'blur(20px) saturate(1.3)',
-            WebkitBackdropFilter:'blur(20px) saturate(1.3)',
-            borderLeft:'1px solid rgba(56,189,248,0.08)',
-            transition:'width 0.2s ease',
-          }} className="flex-shrink-0 flex flex-col overflow-hidden">
-            <div style={{background:'rgba(255,255,255,0.03)',borderBottom:'1px solid rgba(56,189,248,0.08)'}}
-              className="flex-shrink-0 flex items-center justify-between px-2 py-2 min-h-[48px]">
-              {subPanelOpen&&(
-                <div>
-                  <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                    {isTrainingMatch?'Spillere':'Innbyttere'}
-                  </div>
-                  <div className={`text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
-                    {benchPlayers.length}<span className="text-slate-600 font-normal">/{maxSubs}</span>
-                  </div>
-                </div>
-              )}
-              <button onClick={()=>setSubPanelOpen(!subPanelOpen)}
-                style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.07)'}}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 text-sm flex-shrink-0">
-                {subPanelOpen?'›':'‹'}
-              </button>
-            </div>
-
-            {subPanelOpen&&(
-              <div className="flex-1 overflow-y-auto py-0.5">
-                {subSlots.map((player,idx)=>(
-                  <SubRow key={player?.id??`empty-${idx}`}
-                    player={player} idx={idx}
-                    isSelected={!!player&&selectedPlayerId===player.id}
-                    isDragOver={player ? dragOverId===player.id : dragOverEmptyIdx===idx}
-                    displayName={player?getDisplayName(player):''}
-                    isLimited={subLimitReached}
-                    onSelect={()=>player&&stableOnSelectPlayer(selectedPlayerId===player.id?null:player.id)}
-                    onPointerDown={e=>player&&startDrag(e as React.PointerEvent, player.id, true)}
-                    onPointerMove={moveDrag}
-                    onPointerUp={endDrag}
-                    onPointerCancel={endDrag}
-                    isDraggable={!!player&&!isPlaying}/>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {isMobile&&draggingPlayerId&&!dragFromSub&&!showBottomSheet&&(
-        <div data-bench-row data-bench-idx={-1} data-player-id=""
-          style={{
-            background: dragOverEmptyIdx===-1?'rgba(52,211,153,0.22)':'rgba(251,191,36,0.14)',
-            border: dragOverEmptyIdx===-1?'2px dashed #34d399':'2px dashed rgba(251,191,36,0.5)',
-            backdropFilter:'blur(12px)',
-            transition:'background 0.15s, border-color 0.15s',
-          }}
-          className="fixed left-2 right-2 bottom-2 z-[60] rounded-xl py-3 flex items-center justify-center gap-2 pointer-events-auto">
-          <span className="text-[13px]">🪑</span>
-          <span className={`text-[11px] font-bold ${dragOverEmptyIdx===-1?'text-emerald-300':'text-amber-300'}`}>
-            {dragOverEmptyIdx===-1?'Slipp her for å sette på benken':'Dra hit for å bytte ut'}
-          </span>
-        </div>
-      )}
-
-      {isMobile&&showBottomSheet&&(
-        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={()=>setShowBottomSheet(false)}>
-          <div className="absolute inset-0" style={{background:'rgba(0,0,0,0.65)',backdropFilter:'blur(4px)'}}/>
-          <div style={{
-            background:'rgba(5,10,28,0.92)',backdropFilter:'blur(24px) saturate(1.4)',
-            borderTop:'1px solid rgba(56,189,248,0.12)',borderRadius:'20px 20px 0 0',maxHeight:'65vh',
-          }} className="relative flex flex-col" onClick={e=>e.stopPropagation()}>
-            <div className="flex-shrink-0 flex flex-col items-center pt-2 pb-1">
-              <div className="w-10 h-1 rounded-full mb-2" style={{background:'rgba(255,255,255,0.15)'}}/>
-              <div className="flex items-center justify-between w-full px-4">
-                <div>
-                  <span className="text-[11px] font-black text-slate-200">{isTrainingMatch?'Spillere':'Innbyttere'}</span>
-                  <span className={`ml-2 text-[10px] font-bold ${subLimitReached?'text-red-400':'text-amber-400'}`}>
-                    {benchPlayers.length}/{maxSubs}
-                  </span>
-                </div>
-                <button onClick={()=>setShowBottomSheet(false)}
-                  style={{background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.1)'}}
-                  className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 text-sm">✕</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {subSlots.map((player,idx)=>(
-                <SubRow key={player?.id??`empty-${idx}`}
-                  player={player} idx={idx}
-                  isSelected={!!player&&selectedPlayerId===player.id}
-                  isDragOver={player ? dragOverId===player.id : dragOverEmptyIdx===idx}
-                  displayName={player?getDisplayName(player):''}
-                  isLimited={subLimitReached}
-                  onSelect={()=>player&&stableOnSelectPlayer(selectedPlayerId===player.id?null:player.id)}
-                  onPointerDown={e=>player&&startDrag(e as React.PointerEvent, player.id, true)}
-                  onPointerMove={moveDrag}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
-                  isDraggable={!!player&&!isPlaying}/>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

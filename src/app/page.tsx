@@ -11,13 +11,11 @@ const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(
   ssr: false,
   loading: () => <div className="flex-1 bg-[#060c18]" />,
 });
-const PlayerEditor = dynamic(() => import('@/components/ui/PlayerEditor').then(mod => mod.PlayerEditor), { ssr: false });
 const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
 const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
 const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
 const TrainingView = dynamic(() => import('@/components/ui/TrainingView').then(mod => mod.TrainingView), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(mod => mod.CalendarView), { ssr: false });
-const Sidebar = dynamic(() => import('@/components/ui/Sidebar').then(mod => mod.Sidebar), { ssr: false });
 const DrillLibraryModal = dynamic(() => import('@/components/ui/DrillLibraryModal').then(mod => mod.DrillLibraryModal), { ssr: false });
 
 // ─── TYPER ───────────────────────────────────────────────────
@@ -67,20 +65,18 @@ const BentoCard: React.FC<BentoCardProps> = ({ title, subtitle, icon, color, onC
 
 // ─── DASHBOARD VIEW ──────────────────────────────────────────
 const DashboardView: React.FC<{
-  currentUser: { name: string };
   homeTeamName: string;
   sport: string;
   setView: (view: AppView) => void;
   setShowSmartCoach: (show: boolean) => void;
   setShowMatchReport: (show: boolean) => void;
   setShowDrillLibrary: (show: boolean) => void;
-}> = ({ currentUser, homeTeamName, sport, setView, setShowDrillLibrary }) => {
-  const firstName = currentUser.name.split(' ')[0];
+}> = ({ homeTeamName, sport, setView, setShowDrillLibrary }) => {
   return (
     <div className="p-6 lg:p-12 max-w-5xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto h-full">
       <header className="mb-8">
         <h1 className="text-3xl md:text-4xl font-black text-white mb-2 tracking-tight">
-          Velkommen, {firstName} 👋
+          Velkommen 👋
         </h1>
         <p className="text-slate-400 font-medium">
           {homeTeamName || 'TAKTIKKBOARD'} ·{' '}
@@ -227,13 +223,11 @@ export default function Home() {
   const [showFullscreenBoard, setShowFullscreenBoard] = useState(false);
   const [showDrillLibrary,    setShowDrillLibrary]    = useState(false);
   const [mobileCoachTab,      setMobileCoachTab]      = useState<CoachTab>('dashboard');
-  const [showMobileSidebar,   setShowMobileSidebar]   = useState(false);
   const [storageError,        setStorageError]        = useState<string | null>(null);
   const [selectedTraining,    setSelectedTraining]    = useState<CalendarEvent | null>(null);
 
   const {
-    currentView, setView, currentUser, activePhaseIdx,
-    homeTeamName, sport,
+    currentView, setView, homeTeamName, sport,
   } = useAppStore();
 
   useEffect(() => { setIsMounted(true); }, []);
@@ -251,10 +245,6 @@ export default function Home() {
   }, [currentView, setView]);
 
   useEffect(() => {
-    if (mobileCoachTab !== 'board') setShowMobileSidebar(false);
-  }, [mobileCoachTab]);
-
-  useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
@@ -268,7 +258,6 @@ export default function Home() {
 
   // ─── DESKTOP LAYOUT ──────────────────────────────────────────
   const DesktopLayout = useMemo(() => {
-    if (!currentUser) return null;
     return (
       <div className="hidden sm:flex flex-col h-[100dvh] overflow-hidden bg-[#060c18]">
         <header className="flex-shrink-0 flex items-center gap-2 px-4 bg-[#08101e]/90 backdrop-blur-md border-b border-slate-800 h-14 z-40">
@@ -323,21 +312,18 @@ export default function Home() {
         <main className="flex flex-1 overflow-hidden relative">
           {(currentView === 'dashboard' || currentView === undefined) && (
             <DashboardView
-              currentUser={currentUser} homeTeamName={homeTeamName} sport={sport}
+              homeTeamName={homeTeamName} sport={sport}
               setView={setView}
               setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
             />
           )}
           {currentView === 'board' && (
-            <>
-              <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-              <div className="flex-1 overflow-hidden relative animate-in fade-in">
-                <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-                <button onClick={() => setShowFullscreenBoard(true)}
-                  className="absolute bottom-4 left-4 h-10 w-10 flex items-center justify-center bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl text-white hover:border-sky-500 transition-colors shadow-lg z-10"
-                  title="Fullskjerm (F)">⛶</button>
-              </div>
-            </>
+            <div className="flex-1 overflow-hidden relative animate-in fade-in">
+              <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
+              <button onClick={() => setShowFullscreenBoard(true)}
+                className="absolute bottom-4 left-4 h-10 w-10 flex items-center justify-center bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl text-white hover:border-sky-500 transition-colors shadow-lg z-10"
+                title="Fullskjerm (F)">⛶</button>
+            </div>
           )}
           {currentView === 'calendar' && (
             <div className="flex-1 overflow-hidden">
@@ -354,14 +340,13 @@ export default function Home() {
       </div>
     );
   }, [
-    currentView, currentUser, homeTeamName, sport,
+    currentView, homeTeamName, sport,
     selectedPlayerId, selectedTraining,
     setView,
   ]);
 
   // ─── MOBIL LAYOUT ────────────────────────────────────────────
   const MobileLayout = useMemo(() => {
-    if (!currentUser) return null;
 
     // ── Brett: fullskjerm med sidebar som overlay ──────────────
     if (mobileCoachTab === 'board') {
@@ -377,12 +362,6 @@ export default function Home() {
                 className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10 transition min-h-[36px]">
                 💡
               </button>
-              <button
-                onClick={() => setShowMobileSidebar(s => !s)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition min-h-[36px]
-                  ${showMobileSidebar ? 'border-sky-500 bg-sky-500/10 text-sky-400' : 'border-sky-700/60 text-sky-500 hover:bg-sky-500/10'}`}>
-                👥 Tropp
-              </button>
               <button onClick={() => setMobileCoachTab('dashboard')}
                 className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-700 text-slate-400 hover:text-white transition min-h-[36px]">
                 ✕
@@ -393,20 +372,7 @@ export default function Home() {
           {/* touchAction none på wrapper – forhindrer scrolling under drag */}
           <div className="flex flex-1 overflow-hidden relative" style={{ touchAction: 'none' }}>
             <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-            {showMobileSidebar && (
-              <>
-                <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm"
-                  onClick={() => setShowMobileSidebar(false)} />
-                <div className="absolute right-0 top-0 h-full z-50 w-[260px] shadow-2xl animate-in slide-in-from-right duration-200">
-                  <Sidebar selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-                </div>
-              </>
-            )}
           </div>
-
-          {selectedPlayerId && (
-            <PlayerEditor playerId={selectedPlayerId} phaseIdx={activePhaseIdx} onClose={() => setSelectedPlayerId(null)} />
-          )}
         </div>
       );
     }
@@ -479,7 +445,7 @@ export default function Home() {
         <div className="flex-1 min-h-0 overflow-hidden relative">
           {mobileCoachTab === 'dashboard' && (
             <DashboardView
-              currentUser={currentUser} homeTeamName={homeTeamName} sport={sport}
+              homeTeamName={homeTeamName} sport={sport}
               setView={(v: AppView) => setMobileCoachTab(v as CoachTab)}
               setShowSmartCoach={setShowSmartCoach} setShowMatchReport={setShowMatchReport} setShowDrillLibrary={setShowDrillLibrary}
             />
@@ -501,9 +467,8 @@ export default function Home() {
       </div>
     );
   }, [
-    currentUser, homeTeamName, sport,
-    selectedPlayerId, selectedTraining, mobileCoachTab, activePhaseIdx,
-    showMobileSidebar,
+    homeTeamName, sport,
+    selectedPlayerId, selectedTraining, mobileCoachTab,
     setMobileCoachTab, setSelectedTraining, setSelectedPlayerId,
     setShowSmartCoach, setShowMatchReport, setShowSettings, setShowDrillLibrary,
   ]);
@@ -523,10 +488,6 @@ export default function Home() {
       )}
       {DesktopLayout}
       {MobileLayout}
-
-      {selectedPlayerId && mobileCoachTab !== 'board' && (
-        <PlayerEditor playerId={selectedPlayerId} phaseIdx={activePhaseIdx} onClose={() => setSelectedPlayerId(null)} />
-      )}
 
       {showSmartCoach  && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
       {showMatchReport && <MatchReportModal onClose={() => setShowMatchReport(false)} />}

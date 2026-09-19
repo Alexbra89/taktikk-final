@@ -9,35 +9,16 @@ export type PlayerRole =
   | 'winger' | 'false9' | 'libero' | 'playmaker'
   | 'sweeper' | 'wingback' | 'box2box' | 'trequartista' | 'targetman' | 'pressforward';
 
-export type UserRole = 'coach' | 'player' | 'referee';
-
 export interface Position { x: number; y: number; }
-
-export type SpecialRole =
-  | 'captain'
-  | 'freekick'
-  | 'penalty'
-  | 'corner'
-  | 'throwin'
-  | 'goalkeeper_kicks';
 
 export interface Player {
   id: string;
   num: number;
   name: string;
   role: PlayerRole;
-  secondaryRoles?: PlayerRole[]; // NYTT: sekundære posisjoner
   position: Position;
   team: 'home' | 'away';
   notes: string;
-  playerReply?: string;
-  minutesPlayed?: number;
-  isOnField?: boolean;
-  isStarter?: boolean;
-  specialRoles?: SpecialRole[];
-  individualTraining?: string;
-  currentSlotId?: string;  // ← LEGG TIL DENNE
-  playerAccountId?: string; // ✅ Knytter spilleren til en PlayerAccount
 }
 
 export interface Drawing {
@@ -72,7 +53,7 @@ export interface CalendarEvent {
   teamNote: string;
   trainingNotes: TrainingNote[];
   matchNotes: MatchNote[];
-  lineupLockedAt?: string;
+  attendance?: string[]; // navn fra rosterNames som møtte (kun treninger)
 }
 
 export interface TrainingNote {
@@ -81,7 +62,6 @@ export interface TrainingNote {
   title: string;
   content: string;
   focus: string[];
-  targetPlayerIds: string[];
 }
 
 export interface MatchNote {
@@ -90,56 +70,6 @@ export interface MatchNote {
   half: 1 | 2 | 3;
   title: string;
   content: string;
-  targetPlayerIds: string[];
-}
-
-export interface PlayerAccount {
-  id: string;
-  name: string;
-  playerId: string;
-  pin: string;
-  email?: string;
-  password?: string;
-  team: 'home' | 'away';
-  individualTrainingNote?: string;
-  birthDate?: string;
-  height?: number;
-  weight?: number;
-  positionPreferences?: string; // Primær posisjon
-  secondaryPositions?: string;  // NYTT: sekundære posisjoner (komma-separert)
-  experience?: string;
-  profileImage?: string;
-  preferredFoot?: string;
-  strongFoot?: string;
-  preferredLanguage?: string;
-}
-
-export interface CoachMessage {
-  id: string;
-  fromCoach: true;
-  playerId: string;
-  eventId?: string;
-  content: string;
-  createdAt: string;
-  replies: PlayerReply[];
-  fromCaptain?: boolean;
-}
-
-export interface ChatMessage {
-  id: string;
-  fromRole: 'coach' | 'player';
-  fromName: string;      // ← riktig navn (matcher storen)
-  content: string;
-  createdAt: string;
-  toPlayerId?: string;
-  fromCaptain?: boolean; // valgfritt, men finnes i storen
-}
-
-export interface PlayerReply {
-  id: string;
-  playerId: string;
-  content: string;
-  createdAt: string;
 }
 
 export interface DrillStep {
@@ -156,13 +86,6 @@ export interface Drill {
   description: string;
   steps: DrillStep[];
   weekNumber?: number;
-}
-
-export interface SubstitutionSuggestion {
-  outPlayerId: string;
-  inPlayerId: string;
-  atMinute: number;
-  reason: string;
 }
 
 export interface MatchTimer {
@@ -196,22 +119,13 @@ export interface AppState {
   phases: TacticPhase[];
   activePhaseIdx: number;
   events: CalendarEvent[];
-  playerAccounts: PlayerAccount[];
-  coachMessages: CoachMessage[];
+  rosterNames: string[];
   currentView: AppView;
-  currentUser: { role: UserRole; playerId?: string; name: string; accountId?: string } | null;
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  FM PRO TILLEGG – FORMASJONSSLOT & TAKTISKE MOMENTER
+//  TAKTISKE MOMENTER
 // ═══════════════════════════════════════════════════════════════
-
-export interface FormationSlot {
-  id: string;
-  x: number;
-  y: number;
-  role: PlayerRole;
-}
 
 export interface TacticMoment {
   id: string;

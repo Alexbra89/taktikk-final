@@ -5,18 +5,14 @@ import { DRILL_LIBRARY, getDrillsForContext, getWeeklyDrills, getISOWeek, toDril
 import { Drill } from '@/types';
 
 // ═══════════════════════════════════════════════════════════════
-//  SMART COACH – Kampklokke · Bytteplan · Ukentlige øvelser (RESPONSIV)
+//  SMART COACH – Kampklokke · Ukentlige øvelser (RESPONSIV)
 // ═══════════════════════════════════════════════════════════════
 
 export const SmartCoach: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { sport } = useAppStore();
-  const [tab, setTab] = useState<'timer' | 'subs' | 'drills'>('timer');
-  
-  const showSubsTab = sport === 'football5' || sport === 'football7';
-  
+  const [tab, setTab] = useState<'timer' | 'drills'>('timer');
+
   const allTabs = [
     { id: 'timer' as const, label: '⏱ Klokke' },
-    ...(showSubsTab ? [{ id: 'subs' as const, label: '🔄 Bytteplan' }] : []),
     { id: 'drills' as const, label: '📚 Øvelser' },
   ];
 
@@ -48,7 +44,6 @@ export const SmartCoach: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-5">
           {tab === 'timer'  && <TimerTab />}
-          {tab === 'subs'   && showSubsTab && <SubsTab />}
           {tab === 'drills' && <DrillsTab />}
         </div>
       </div>
@@ -59,13 +54,10 @@ export const SmartCoach: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 // ═══ KAMPKLOKKE ══════════════════════════════════════════════
 
 const TimerTab: React.FC = () => {
-  const { matchTimer, startTimer, stopTimer, resetTimer,
-    phases, activePhaseIdx, togglePlayerOnField, addMinutesPlayed, playerAccounts } = useAppStore();
+  const { matchTimer, startTimer, stopTimer, resetTimer } = useAppStore();
 
   const [display, setDisplay] = useState(matchTimer.elapsed);
   const rafRef = useRef<number | null>(null);
-  const [subAlert, setSubAlert] = useState<string | null>(null);
-  const prevMinuteRef = useRef(Math.floor(matchTimer.elapsed / 60));
 
   useEffect(() => {
     const tick = () => {
@@ -74,14 +66,6 @@ const TimerTab: React.FC = () => {
         ? mt.elapsed + Math.floor((Date.now() - mt.startedAt) / 1000)
         : mt.elapsed;
       setDisplay(elapsed);
-      const minute = Math.floor(elapsed / 60);
-      if (minute !== prevMinuteRef.current) {
-        prevMinuteRef.current = minute;
-        if (minute > 0 && minute % 10 === 0) {
-          setSubAlert(`⏱ ${minute}. minutt – vurder bytte!`);
-          setTimeout(() => setSubAlert(null), 6000);
-        }
-      }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -91,23 +75,8 @@ const TimerTab: React.FC = () => {
   const fmt = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
-  const phase   = phases[activePhaseIdx];
-  const players = phase?.players.filter(p => p.team === 'home') ?? [];
-
-  const getPlayerName = (player: any) => {
-    const account = playerAccounts.find((a: any) => a.playerId === player.id);
-    return account?.name || player.name || `#${player.num}`;
-  };
-
   return (
     <div>
-      {subAlert && (
-        <div className="mb-4 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl bg-amber-500/15 border border-amber-500/40
-          text-amber-400 text-[11px] sm:text-[12.5px] font-bold text-center animate-pulse">
-          {subAlert}
-        </div>
-      )}
-
       <div className="text-center mb-5">
         <div className={`text-[44px] sm:text-[52px] font-black tabular-nums tracking-tight
           ${matchTimer.running ? 'text-emerald-400' : display > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
@@ -118,7 +87,7 @@ const TimerTab: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2">
         <button onClick={matchTimer.running ? stopTimer : startTimer}
           className={`flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-[12px] sm:text-[13px] border transition-all min-h-[44px] sm:min-h-[48px]
             ${matchTimer.running
@@ -132,196 +101,6 @@ const TimerTab: React.FC = () => {
           ↺ Reset
         </button>
       </div>
-
-      <div className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-3">
-        Spilletid per spiller
-      </div>
-      <div className="space-y-2">
-        {players.map(p => {
-          const min = p.minutesPlayed ?? 0;
-          const barColor = min > 60 ? '#ef4444' : min > 30 ? '#f59e0b' : '#22c55e';
-          const playerName = getPlayerName(p);
-          return (
-            <div key={p.id} className="flex items-center gap-1.5 sm:gap-2.5">
-              <div className="w-20 sm:w-24 truncate text-[10px] sm:text-[11.5px] text-slate-300">
-                #{p.num} {playerName}
-              </div>
-              <div className="flex-1 h-2 bg-[#1e3050] rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (min / 90) * 100)}%`, background: barColor }} />
-              </div>
-              <div className="text-[10px] sm:text-[11px] font-bold w-8 sm:w-10 text-right shrink-0"
-                style={{ color: barColor }}>{min}m</div>
-              <button onClick={() => addMinutesPlayed(activePhaseIdx, p.id, 10)}
-                className="text-[10px] px-1.5 py-1 rounded bg-[#1e3050] text-[#4a6080]
-                  hover:text-sky-400 transition min-w-[36px] sm:min-w-[44px] text-center min-h-[36px] sm:min-h-[44px] flex items-center justify-center">
-                +10
-              </button>
-              <button onClick={() => togglePlayerOnField(activePhaseIdx, p.id)}
-                className={`text-[10px] px-1.5 py-1 rounded border transition shrink-0 min-h-[36px] sm:min-h-[44px] min-w-[36px] sm:min-w-[44px] flex items-center justify-center
-                  ${p.isOnField !== false
-                    ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
-                    : 'border-[#1e3050] text-[#4a6080]'}`}>
-                {p.isOnField !== false ? '✅' : '🪑'}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// ═══ BYTTEPLAN – KUN FOR 5ER OG 7ER ═══════════════════════
-
-const SubsTab: React.FC = () => {
-  const { phases, activePhaseIdx, getSubstitutionSuggestions,
-    updatePlayerField, togglePlayerOnField, matchTimer, playerAccounts } = useAppStore();
-
-  const [intervalVal, setIntervalVal] = useState(10);
-  const phase    = phases[activePhaseIdx];
-  const players  = phase?.players.filter(p => p.team === 'home') ?? [];
-  const onField  = players.filter(p => p.isOnField !== false);
-  const onBench  = players.filter(p => p.isOnField === false);
-  const elapsed  = matchTimer.elapsed + (
-    matchTimer.running && matchTimer.startedAt
-      ? Math.floor((Date.now() - matchTimer.startedAt) / 1000) : 0
-  );
-  const minute = Math.floor(elapsed / 60);
-  const suggestions = getSubstitutionSuggestions(activePhaseIdx, intervalVal);
-
-  const getPlayerName = (player: any) => {
-    const account = playerAccounts.find((a: any) => a.playerId === player.id);
-    return account?.name || player.name || `#${player.num}`;
-  };
-
-  const doSwap = (outId: string, inId: string) => {
-    togglePlayerOnField(activePhaseIdx, outId);
-    togglePlayerOnField(activePhaseIdx, inId);
-  };
-
-  return (
-    <div>
-      <div className="flex items-center gap-2 sm:gap-3 mb-5 bg-[#0f1a2a] rounded-xl p-2.5 sm:p-3 border border-[#1e3050] flex-wrap">
-        <span className="text-[10px] sm:text-[11px] text-[#4a6080]">Varsle hvert</span>
-        {([5, 10, 15, 20] as const).map(n => (
-          <button key={n} onClick={() => setIntervalVal(n)}
-            className={`px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all min-h-[36px] sm:min-h-[44px] min-w-[44px] sm:min-w-[48px]
-              ${intervalVal === n ? 'bg-sky-500/20 border-sky-500 text-sky-400' : 'border-[#1e3050] text-[#4a6080]'}`}>
-            {n}m
-          </button>
-        ))}
-        <span className="text-[10px] sm:text-[11px] text-[#3a5070] ml-auto">Min: {minute}</span>
-      </div>
-
-      {suggestions.length > 0 && (
-        <div className="mb-5">
-          <div className="text-[9px] sm:text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">
-            💡 Anbefalte bytter
-          </div>
-          <div className="space-y-2">
-            {suggestions.map((s, i) => {
-              const out = players.find(p => p.id === s.outPlayerId);
-              const inn = players.find(p => p.id === s.inPlayerId);
-              if (!out || !inn) return null;
-              const outName = getPlayerName(out);
-              const innName = getPlayerName(inn);
-              return (
-                <div key={i}
-                  className="flex items-center gap-2 p-2.5 sm:p-3 bg-[#0f1a2a] rounded-xl border border-amber-500/20">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] sm:text-[11.5px] text-slate-300">
-                      <span className="text-red-400 font-bold">Ut: #{out.num} {outName}</span>
-                      {' → '}
-                      <span className="text-emerald-400 font-bold">Inn: #{inn.num} {innName}</span>
-                    </div>
-                    <div className="text-[9px] sm:text-[10px] text-[#4a6080] mt-0.5">
-                      Min {s.atMinute} · {s.reason}
-                    </div>
-                  </div>
-                  <button onClick={() => doSwap(s.outPlayerId, s.inPlayerId)}
-                    className="px-2.5 sm:px-3 py-1.5 sm:py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30
-                      text-sky-400 text-[10px] sm:text-[11px] font-bold hover:bg-sky-500/25 shrink-0 min-h-[44px] min-w-[44px]">
-                    Byt
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-widest mb-2">
-        Manuelt bytte
-      </div>
-      <ManualSwap onField={onField} onBench={onBench} onSwap={doSwap} getPlayerName={getPlayerName} />
-
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <div>
-          <div className="text-[8px] sm:text-[9.5px] text-emerald-400 font-bold mb-1.5">På banen ({onField.length})</div>
-          {onField.map(p => {
-            const playerName = getPlayerName(p);
-            return (
-              <div key={p.id} className="text-[10px] sm:text-[11px] text-slate-300 py-0.5">
-                #{p.num} {playerName}
-                <span className="text-[8px] sm:text-[9px] text-[#4a6080] ml-1">{p.minutesPlayed ?? 0}m</span>
-              </div>
-            );
-          })}
-        </div>
-        <div>
-          <div className="text-[8px] sm:text-[9.5px] text-amber-400 font-bold mb-1.5">Benken ({onBench.length})</div>
-          {onBench.map(p => {
-            const playerName = getPlayerName(p);
-            return (
-              <div key={p.id} className="text-[10px] sm:text-[11px] text-slate-400 py-0.5">
-                #{p.num} {playerName}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ManualSwap: React.FC<{
-  onField: any[]; onBench: any[];
-  onSwap: (outId: string, inId: string) => void;
-  getPlayerName: (player: any) => string;
-}> = ({ onField, onBench, onSwap, getPlayerName }) => {
-  const [outId, setOutId] = useState('');
-  const [inId, setInId]   = useState('');
-  return (
-    <div className="flex gap-2 items-end">
-      <div className="flex-1">
-        <div className="text-[8px] sm:text-[9px] text-[#3a5070] mb-1 uppercase font-bold">Ut</div>
-        <select value={outId} onChange={e => setOutId(e.target.value)}
-          className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-2 py-2
-            text-[10px] sm:text-[11.5px] text-slate-300 focus:outline-none min-h-[44px]">
-          <option value="">– velg –</option>
-          {onField.map(p => (
-            <option key={p.id} value={p.id}>#{p.num} {getPlayerName(p)}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex-1">
-        <div className="text-[8px] sm:text-[9px] text-[#3a5070] mb-1 uppercase font-bold">Inn</div>
-        <select value={inId} onChange={e => setInId(e.target.value)}
-          className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-2 py-2
-            text-[10px] sm:text-[11.5px] text-slate-300 focus:outline-none min-h-[44px]">
-          <option value="">– velg –</option>
-          {onBench.map(p => (
-            <option key={p.id} value={p.id}>#{p.num} {getPlayerName(p)}</option>
-          ))}
-        </select>
-      </div>
-      <button onClick={() => { if (outId && inId) { onSwap(outId, inId); setOutId(''); setInId(''); } }}
-        disabled={!outId || !inId}
-        className="px-3 py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400
-          text-[11px] font-bold hover:bg-sky-500/25 disabled:opacity-40 min-h-[44px] min-w-[44px]">
-        Byt
-      </button>
     </div>
   );
 };

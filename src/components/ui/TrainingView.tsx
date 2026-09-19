@@ -6,7 +6,7 @@ import { CalendarEvent } from '@/types';
 import { DrillDetailModal } from './DrillDetailModal';
 
 // ═══════════════════════════════════════════════════════════════
-//  TRENING-VISNING — trener og spiller (RESPONSIV OPPDATERT)
+//  TRENING-VISNING (RESPONSIV OPPDATERT)
 // ═══════════════════════════════════════════════════════════════
 
 interface TrainingViewProps {
@@ -15,20 +15,14 @@ interface TrainingViewProps {
 }
 
 export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onBack }) => {
-  const store = useAppStore();
   const {
-    currentUser, events, playerAccounts, phases, activePhaseIdx,
-    sport, addEvent, updateEvent, deleteEvent,
-    addTrainingNote, deleteTrainingNote, updatePlayerAccount,
-    ageGroup: storeAgeGroup,
-  } = store;
+    events, sport, addEvent, updateEvent,
+    addTrainingNote, deleteTrainingNote,
+    rosterNames, setRosterNames,
+    ageGroup,
+  } = useAppStore();
 
-  const isCoach    = currentUser?.role === 'coach';
-  const myAccId    = currentUser?.accountId;
-  const myPlayerId = currentUser?.playerId;
-  const myAcc      = (playerAccounts as any[]).find((a: any) => a.id === myAccId);
-
-  const [tab, setTab] = useState<'upcoming' | 'history' | 'individual'>('upcoming');
+  const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialTraining?.id || null);
   const [showNewTraining, setShowNewTraining] = useState(false);
 
@@ -47,19 +41,14 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
   const past     = trainings.filter(e => e.date < today).reverse();
 
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
-  const ageGroup = storeAgeGroup;
 
-  const sportKey = toDrillSport(sport);
-  const allDrills = getDrillsBySport(sportKey);
-
-  if (showNewTraining && isCoach) {
+  if (showNewTraining) {
     return (
       <NewTrainingForm
         onSave={(ev) => { addEvent(ev); setShowNewTraining(false); }}
         onCancel={() => setShowNewTraining(false)}
         sport={sport}
         ageGroup={ageGroup}
-        playerAccounts={playerAccounts as any[]}
       />
     );
   }
@@ -68,9 +57,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
     return (
       <TrainingDetail
         event={selectedEvent}
-        isCoach={isCoach}
-        myPlayerId={myPlayerId}
-        playerAccounts={playerAccounts as any[]}
+        rosterNames={rosterNames}
         sport={sport}
         onBack={() => {
           setSelectedEventId(null);
@@ -79,6 +66,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
         onUpdate={(fields) => updateEvent(selectedEvent.id, fields)}
         onAddNote={(note) => addTrainingNote(selectedEvent.id, note)}
         onDeleteNote={(nid) => deleteTrainingNote(selectedEvent.id, nid)}
+        onSaveRoster={setRosterNames}
       />
     );
   }
@@ -99,20 +87,17 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
             <div>
               <h2 className="text-xs sm:text-sm font-black text-slate-100">🏃 Trening</h2>
               <p className="text-[9px] sm:text-[10px] text-[#4a6080] mt-0.5 hidden sm:block">
-                {isCoach ? 'Alle treninger — marker fremmøte og legg til øvelser'
-                         : 'Dine treninger og individuell plan'}
+                Alle treninger — marker fremmøte og legg til øvelser
               </p>
             </div>
           </div>
-          {isCoach && (
-            <button
-              onClick={() => setShowNewTraining(true)}
-              className="px-2.5 sm:px-3 py-2 sm:py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
-                text-emerald-400 text-[11px] sm:text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[44px] whitespace-nowrap"
-            >
-              ✨ Ny trening
-            </button>
-          )}
+          <button
+            onClick={() => setShowNewTraining(true)}
+            className="px-2.5 sm:px-3 py-2 sm:py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
+              text-emerald-400 text-[11px] sm:text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[44px] whitespace-nowrap"
+          >
+            ✨ Ny trening
+          </button>
         </div>
       </div>
 
@@ -120,12 +105,11 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
         {([
           ['upcoming', `📅 Kommende`, upcoming.length],
           ['history',  `📋 Historikk`, past.length],
-          ['individual', '🎯 Individuell', 0],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex-1 py-2.5 sm:py-3 text-[9px] sm:text-[10.5px] font-semibold transition-all min-h-[44px] leading-tight px-1
               ${tab === id ? 'text-sky-400 border-b-2 border-sky-400' : 'text-[#3a5070]'}`}>
-            {label} {count > 0 && id !== 'individual' ? `(${count})` : ''}
+            {label} {count > 0 ? `(${count})` : ''}
           </button>
         ))}
       </div>
@@ -138,21 +122,17 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
               <div className="text-center py-12">
                 <div className="text-3xl mb-2">📅</div>
                 <p className="text-[11px] sm:text-[12px] text-[#4a6080]">Ingen kommende treninger.</p>
-                {isCoach && (
-                  <button onClick={() => setShowNewTraining(true)}
-                    className="mt-4 px-4 py-2.5 sm:py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
-                      text-emerald-400 text-[11px] sm:text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[44px]">
-                    ✨ Opprett ny trening
-                  </button>
-                )}
+                <button onClick={() => setShowNewTraining(true)}
+                  className="mt-4 px-4 py-2.5 sm:py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
+                    text-emerald-400 text-[11px] sm:text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[44px]">
+                  ✨ Opprett ny trening
+                </button>
               </div>
             )}
             {upcoming.map(ev => (
-              <TrainingCard 
-                key={ev.id} 
-                event={ev} 
-                isCoach={isCoach}
-                myPlayerId={myPlayerId}
+              <TrainingCard
+                key={ev.id}
+                event={ev}
                 onClick={() => setSelectedEventId(ev.id)}
                 onStart={() => setSelectedEventId(ev.id)}
               />
@@ -169,28 +149,13 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
               </div>
             )}
             {past.map(ev => (
-              <TrainingCard 
-                key={ev.id} 
-                event={ev} 
-                isCoach={isCoach}
-                myPlayerId={myPlayerId} 
+              <TrainingCard
+                key={ev.id}
+                event={ev}
                 past
                 onClick={() => setSelectedEventId(ev.id)}
               />
             ))}
-          </div>
-        )}
-
-        {tab === 'individual' && (
-          <div className="max-w-2xl mx-auto">
-            {isCoach ? (
-              <CoachIndividualPanel
-                playerAccounts={playerAccounts as any[]}
-                onUpdate={(id, note) => updatePlayerAccount(id, { individualTrainingNote: note })}
-              />
-            ) : (
-              <PlayerIndividualPanel acc={myAcc} />
-            )}
           </div>
         )}
       </div>
@@ -205,8 +170,7 @@ const NewTrainingForm: React.FC<{
   onCancel: () => void;
   sport: string;
   ageGroup: 'youth' | 'adult';
-  playerAccounts: any[];
-}> = ({ onSave, onCancel, sport, ageGroup, playerAccounts }) => {
+}> = ({ onSave, onCancel, sport, ageGroup }) => {
   const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle]       = useState('');
   const [date, setDate]         = useState(today);
@@ -298,7 +262,6 @@ const NewTrainingForm: React.FC<{
       duration: drill.duration || 5,
       focus: focusTags,
       completed: false,
-      targetPlayerIds: [],
     }));
 
     onSave({
@@ -545,19 +508,14 @@ const NewTrainingForm: React.FC<{
 // ═══ TRAINING CARD (RESPONSIV OPPDATERT) ═══════════════════════
 
 const TrainingCard: React.FC<{
-  event: any; isCoach: boolean; myPlayerId?: string;
+  event: any;
   past?: boolean; onClick: () => void; onStart?: () => void;
-}> = ({ event, isCoach, myPlayerId, past, onClick, onStart }) => {
+}> = ({ event, past, onClick, onStart }) => {
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
     weekday: 'short', day: 'numeric', month: 'short',
   });
 
-  const iAttended = myPlayerId && event.trainingNotes?.some(
-    (tn: any) => tn.targetPlayerIds?.includes(myPlayerId)
-  );
-
-  const attendeeCount = event.trainingNotes?.reduce((acc: number, tn: any) =>
-    acc + (tn.targetPlayerIds?.length ?? 0), 0) ?? 0;
+  const attendeeCount: number = event.attendance?.length ?? 0;
 
   const isUpcoming = !past && new Date(event.date) >= new Date();
 
@@ -580,11 +538,8 @@ const TrainingCard: React.FC<{
             )}
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            {isCoach && attendeeCount > 0 && (
+            {attendeeCount > 0 && (
               <div className="text-[8px] sm:text-[9.5px] text-emerald-400 font-bold">✅ {attendeeCount} møtte</div>
-            )}
-            {!isCoach && iAttended && (
-              <div className="text-[8px] sm:text-[9.5px] text-emerald-400 font-bold">✅ Du møtte</div>
             )}
             <span className="text-[#3a5070] text-[11px]">›</span>
           </div>
@@ -661,13 +616,14 @@ const Stopwatch: React.FC<{
 // ═══ TRAINING DETAIL (RESPONSIV OPPDATERT) ═════════════════════
 
 const TrainingDetail: React.FC<{
-  event: any; isCoach: boolean; myPlayerId?: string;
-  playerAccounts: any[]; sport: string;
+  event: any;
+  rosterNames: string[]; sport: string;
   onBack: () => void;
   onUpdate: (fields: any) => void;
   onAddNote: (note: any) => void;
   onDeleteNote: (nid: string) => void;
-}> = ({ event, isCoach, myPlayerId, playerAccounts, sport, onBack, onUpdate, onAddNote, onDeleteNote }) => {
+  onSaveRoster: (names: string[]) => void;
+}> = ({ event, rosterNames, sport, onBack, onUpdate, onAddNote, onDeleteNote, onSaveRoster }) => {
   const [showAttendance, setShowAttendance] = useState(false);
   const [showAddNote, setShowAddNote]       = useState(false);
   const [noteTitle, setNoteTitle]           = useState('');
@@ -683,32 +639,15 @@ const TrainingDetail: React.FC<{
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  const attendedIds = new Set<string>(
-    event.trainingNotes?.flatMap((tn: any) => tn.targetPlayerIds ?? []) ?? []
-  );
+  const attendance: string[] = event.attendance ?? [];
+  const attendedCount = rosterNames.filter(n => attendance.includes(n)).length;
 
-  const toggleAttendance = (playerId: string) => {
-    const attNote = event.trainingNotes?.find((tn: any) => tn.title === '✅ Fremmøte');
-    if (attNote) {
-      const ids: string[] = attNote.targetPlayerIds ?? [];
-      const newIds = ids.includes(playerId)
-        ? ids.filter((id: string) => id !== playerId)
-        : [...ids, playerId];
-      onUpdate({
-        trainingNotes: event.trainingNotes.map((tn: any) =>
-          tn.id === attNote.id ? { ...tn, targetPlayerIds: newIds } : tn
-        ),
-      });
-    } else {
-      onAddNote({
-        title: '✅ Fremmøte',
-        content: 'Fremmøteregistrering',
-        focus: [],
-        duration: 0,
-        completed: false,
-        targetPlayerIds: [playerId],
-      });
-    }
+  const toggleAttendance = (name: string) => {
+    onUpdate({
+      attendance: attendance.includes(name)
+        ? attendance.filter(n => n !== name)
+        : [...attendance, name],
+    });
   };
 
   const saveNote = () => {
@@ -719,7 +658,6 @@ const TrainingDetail: React.FC<{
       duration: selectedDrill?.duration || 5,
       completed: false,
       focus: [],
-      targetPlayerIds: [],
     });
     setNoteTitle(''); setNoteContent(''); setSelectedDrill(null); setShowAddNote(false);
   };
@@ -732,12 +670,6 @@ const TrainingDetail: React.FC<{
     );
     onUpdate({ trainingNotes: updatedNotes });
   };
-
-  const myNotes = myPlayerId
-    ? event.trainingNotes?.filter((tn: any) =>
-        tn.targetPlayerIds?.includes(myPlayerId) || tn.targetPlayerIds?.length === 0
-      )
-    : event.trainingNotes ?? [];
 
   const handleTeamNoteChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onUpdate({ teamNote: e.target.value });
@@ -787,59 +719,61 @@ const TrainingDetail: React.FC<{
           </div>
         )}
 
-        {isCoach && (
-          <div>
-            <div className="text-[8px] sm:text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Generelt notat</div>
-            <textarea value={event.teamNote ?? ''} onChange={handleTeamNoteChange}
-              rows={3} placeholder="Mål for økten, beskjeder til spillerne..."
-              className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5 sm:py-2.5
-                text-slate-300 text-[11px] sm:text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
-          </div>
-        )}
+        <div>
+          <div className="text-[8px] sm:text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Generelt notat</div>
+          <textarea value={event.teamNote ?? ''} onChange={handleTeamNoteChange}
+            rows={3} placeholder="Mål for økten, beskjeder til spillerne..."
+            className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5 sm:py-2.5
+              text-slate-300 text-[11px] sm:text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
+        </div>
 
-        {isCoach && (
-          <div>
-            <button onClick={() => setShowAttendance(!showAttendance)}
-              className="flex items-center gap-2 w-full text-left mb-2 min-h-[44px]">
-              <span className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-wider">
-                ✅ Fremmøte ({attendedIds.size}/{playerAccounts.length})
-              </span>
-              <span className="text-[#3a5070] text-[9px]">{showAttendance ? '▲' : '▼'}</span>
-            </button>
-            {showAttendance && (
+        <div>
+          <button onClick={() => setShowAttendance(!showAttendance)}
+            className="flex items-center gap-2 w-full text-left mb-2 min-h-[44px]">
+            <span className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-wider">
+              ✅ Fremmøte ({attendedCount}/{rosterNames.length})
+            </span>
+            <span className="text-[#3a5070] text-[9px]">{showAttendance ? '▲' : '▼'}</span>
+          </button>
+          {showAttendance && (
+            <>
+              {rosterNames.length === 0 && (
+                <p className="text-[10px] sm:text-[11px] text-[#3a5070] italic mb-1">
+                  Ingen navn i listen ennå – legg dem til under for å registrere fremmøte.
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {playerAccounts.map((acc: any) => {
-                  const attended = attendedIds.has(acc.playerId);
+                {rosterNames.map(name => {
+                  const attended = attendance.includes(name);
                   return (
-                    <button key={acc.id} onClick={() => toggleAttendance(acc.playerId)}
+                    <button key={name} onClick={() => toggleAttendance(name)}
                       className={`flex items-center gap-2 p-2.5 sm:p-2.5 rounded-xl border transition-all text-left min-h-[44px]
                         ${attended
                           ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                           : 'bg-[#0f1a2a] border-[#1e3050] text-[#4a6080]'}`}>
                       <span className="text-[14px]">{attended ? '✅' : '⬜'}</span>
-                      <span className="text-[10px] sm:text-[11.5px] font-semibold truncate">{acc.name}</span>
+                      <span className="text-[10px] sm:text-[11.5px] font-semibold truncate">{name}</span>
                     </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-        )}
+              <RosterEditor rosterNames={rosterNames} onSave={onSaveRoster} />
+            </>
+          )}
+        </div>
 
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-wider">
               📋 Øvelser og notater
             </span>
-            {isCoach && (
-              <button onClick={() => setShowAddNote(!showAddNote)}
-                className="ml-auto text-[9px] sm:text-[10px] text-sky-400 hover:text-sky-300 font-semibold min-h-[44px] px-2">
-                ＋ Legg til
-              </button>
-            )}
+            <button onClick={() => setShowAddNote(!showAddNote)}
+              className="ml-auto text-[9px] sm:text-[10px] text-sky-400 hover:text-sky-300 font-semibold min-h-[44px] px-2">
+              ＋ Legg til
+            </button>
           </div>
 
-          {isCoach && showAddNote && (
+          {showAddNote && (
             <div className="bg-[#0c1525] border border-dashed border-[#1e3050] rounded-xl p-3 sm:p-4 mb-3">
               <button onClick={() => setShowDrillPicker(!showDrillPicker)}
                 className="w-full text-left py-2.5 sm:py-2 px-3 rounded-lg border border-[#1e3050]
@@ -886,9 +820,7 @@ const TrainingDetail: React.FC<{
             </div>
           )}
 
-          {(isCoach ? event.trainingNotes : myNotes)
-            ?.filter((tn: any) => tn.title !== '✅ Fremmøte')
-            .map((tn: any) => {
+          {event.trainingNotes?.map((tn: any) => {
               const isCompleted = completedDrills.has(tn.id) || tn.completed;
               const hasTimer = (tn.duration && tn.duration > 0) || tn.duration === undefined;
               const fullDrill = findDrillByName(tn.title);
@@ -922,10 +854,8 @@ const TrainingDetail: React.FC<{
                         )}
                       </div>
                     </div>
-                    {isCoach && (
-                      <button onClick={() => onDeleteNote(tn.id)}
-                        className="text-red-400/50 hover:text-red-400 text-xs ml-2 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
-                    )}
+                    <button onClick={() => onDeleteNote(tn.id)}
+                      className="text-red-400/50 hover:text-red-400 text-xs ml-2 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
                   </div>
 
                   <p className="text-[11px] sm:text-[12px] text-[#7a9ab8] leading-relaxed mb-3">{tn.content}</p>
@@ -1007,7 +937,7 @@ const TrainingDetail: React.FC<{
                   )}
 
                   <div className="mt-3 flex gap-2">
-                    {isCoach && hasTimer && !isCompleted && activeStopwatch !== tn.id && (
+                    {hasTimer && !isCompleted && activeStopwatch !== tn.id && (
                       <button 
                         onClick={() => {
                           console.log('Coach starting stopwatch for:', tn.id, 'Duration:', tn.duration || 5);
@@ -1019,7 +949,7 @@ const TrainingDetail: React.FC<{
                       </button>
                     )}
 
-                    {isCoach && !isCompleted && !hasTimer && (
+                    {!isCompleted && !hasTimer && (
                       <button 
                         onClick={() => handleCompleteDrill(tn.id)}
                         className="flex-1 py-2 sm:py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center justify-center gap-1 min-h-[44px]"
@@ -1036,7 +966,7 @@ const TrainingDetail: React.FC<{
               );
             })}
 
-          {(isCoach ? event.trainingNotes : myNotes)?.filter((tn: any) => tn.title !== '✅ Fremmøte').length === 0 && (
+          {(event.trainingNotes?.length ?? 0) === 0 && (
             <p className="text-[10px] sm:text-[11px] text-[#3a5070] italic">Ingen øvelser lagt til ennå.</p>
           )}
         </div>
@@ -1052,90 +982,45 @@ const TrainingDetail: React.FC<{
   );
 };
 
-// ═══ INDIVIDUELL PANEL (RESPONSIV OPPDATERT) ═══════════════════
+// ═══ NAVNELISTE (KUN FOR FREMMØTE) ═════════════════════════════
 
-const CoachIndividualPanel: React.FC<{
-  playerAccounts: any[];
-  onUpdate: (id: string, note: string) => void;
-}> = ({ playerAccounts, onUpdate }) => {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [note, setNote]         = useState('');
-  const [saved, setSaved]       = useState(false);
+const RosterEditor: React.FC<{
+  rosterNames: string[];
+  onSave: (names: string[]) => void;
+}> = ({ rosterNames, onSave }) => {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
 
-  const acc = playerAccounts.find((a: any) => a.id === selected);
+  const openEditor = () => { setText(rosterNames.join('\n')); setOpen(true); };
+  const save = () => { onSave(text.split('\n')); setOpen(false); };
 
-  return (
-    <div>
-      <h3 className="text-xs sm:text-sm font-bold text-slate-100 mb-2">🎯 Individuell treningsplan</h3>
-      <p className="text-[10px] sm:text-[11px] text-[#4a6080] mb-4 leading-relaxed">
-        Skriv individuelle treningsnotater per spiller. Spilleren ser kun sin egen plan.
-      </p>
-
-      <div className="mb-4">
-        <div className="text-[8px] sm:text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Velg spiller</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-          {playerAccounts.map((a: any) => (
-            <button key={a.id} onClick={() => { setSelected(a.id); setNote(a.individualTrainingNote ?? ''); setSaved(false); }}
-              className={`p-2.5 rounded-xl border text-left transition-all min-h-[44px]
-                ${selected === a.id
-                  ? 'bg-sky-500/10 border-sky-500/40 text-sky-300'
-                  : 'bg-[#0f1a2a] border-[#1e3050] text-slate-300 hover:border-[#2e4060]'}`}>
-              <div className="text-[11px] sm:text-[12px] font-bold truncate">{a.name}</div>
-              {a.individualTrainingNote && (
-                <div className="text-[8px] sm:text-[9.5px] text-emerald-400 mt-0.5">✓ Plan satt</div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {selected && acc && (
-        <div>
-          <div className="text-[8px] sm:text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">
-            Individuell plan for {acc.name}
-          </div>
-          <textarea value={note} onChange={e => { setNote(e.target.value); setSaved(false); }}
-            rows={6} placeholder="Skriv individuell treningsplan, mål og fokusområder for denne spilleren..."
-            className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-3
-              text-slate-300 text-[11px] sm:text-[12.5px] resize-y focus:outline-none focus:border-sky-500
-              leading-relaxed mb-3" />
-          <button onClick={() => { onUpdate(selected, note); setSaved(true); }}
-            className={`w-full py-3 rounded-xl font-bold text-[12px] sm:text-[13px] transition min-h-[48px]
-              ${saved
-                ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-400'
-                : 'bg-sky-500/15 border border-sky-500/30 text-sky-400 hover:bg-sky-500/25'}`}>
-            {saved ? '✓ Lagret!' : 'Lagre plan'}
-          </button>
-        </div>
-      )}
-
-      {playerAccounts.length === 0 && (
-        <p className="text-[11px] sm:text-[12px] text-[#4a6080] italic text-center py-8">
-          Ingen spillere registrert ennå. Legg til spillere via ⚙️ Spillere-fanen.
-        </p>
-      )}
-    </div>
-  );
-};
-
-const PlayerIndividualPanel: React.FC<{ acc: any }> = ({ acc }) => {
-  if (!acc?.individualTrainingNote) {
+  if (!open) {
     return (
-      <div className="text-center py-12">
-        <div className="text-3xl mb-2">🎯</div>
-        <p className="text-[11px] sm:text-[12px] text-[#4a6080]">
-          Treneren har ikke satt opp en individuell plan for deg ennå.
-        </p>
-      </div>
+      <button onClick={openEditor}
+        className="mt-2 text-[10px] sm:text-[11px] text-sky-400 hover:text-sky-300 font-semibold min-h-[44px]">
+        ✏️ Rediger navneliste
+      </button>
     );
   }
+
   return (
-    <div>
-      <h3 className="text-xs sm:text-sm font-bold text-slate-100 mb-4">🎯 Din individuelle treningsplan</h3>
-      <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl p-4 sm:p-5">
-        <p className="text-[12px] sm:text-[13px] text-slate-200 leading-relaxed whitespace-pre-wrap">
-          {acc.individualTrainingNote}
-        </p>
+    <div className="mt-3 bg-[#0c1525] border border-dashed border-[#1e3050] rounded-xl p-3">
+      <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">
+        Navneliste – ett navn per linje
+      </div>
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
+        placeholder={'Ola\nKari\nPer'}
+        className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2.5
+          text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
+      <div className="flex gap-2 mt-2">
+        <button onClick={save}
+          className="flex-1 py-2.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12px] hover:bg-sky-500/25 min-h-[44px]">
+          Lagre navneliste
+        </button>
+        <button onClick={() => setOpen(false)}
+          className="px-4 py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] text-[12px] min-h-[44px]">
+          Avbryt
+        </button>
       </div>
     </div>
   );
