@@ -6,18 +6,19 @@ export type Sport = 'football' | 'football5' | 'football7' | 'football9';
 
 export type PlayerRole =
   | 'keeper' | 'defender' | 'midfielder' | 'forward'
-  | 'winger' | 'false9' | 'libero' | 'playmaker'
-  | 'sweeper' | 'wingback' | 'box2box' | 'trequartista' | 'targetman' | 'pressforward';
+  | 'winger' | 'false9' | 'playmaker'
+  | 'sweeper' | 'wingback' | 'box2box' | 'trequartista' | 'targetman';
 
 export interface Position { x: number; y: number; }
 
+// Rollen lagres ikke på spilleren. Den utledes fra tactic.formation + slotIdx
+// (se getSlot i store/selectors.ts), slik at rolle og formasjon aldri kommer ut av synk.
 export interface Player {
   id: string;
   num: number;
-  name: string;
-  role: PlayerRole;
+  name: string;          // valgfritt visningsnavn, tom streng som standard
+  slotIdx: number;       // indeks i formasjonens homePlayers[]
   position: Position;
-  team: 'home' | 'away';
   notes: string;
 }
 
@@ -34,9 +35,17 @@ export interface TacticPhase {
   players: Player[];
   ball: Position;
   drawings: Drawing[];
-  description?: string;
   stickyNote?: string;
-  sort_order?: number;
+}
+
+export interface Tactic {
+  id: string;
+  name: string;              // «Høyt press», «Kontring»
+  sport: Sport;
+  formation: string;         // «4-4-2», må finnes i getFormations(sport)
+  phases: TacticPhase[];     // minst én
+  activePhaseIdx: number;
+  createdAt: string;
 }
 
 export type EventType = 'training' | 'match';
@@ -114,12 +123,18 @@ export interface MatchReport {
 export type AppView = 'dashboard' | 'board' | 'calendar' | 'training';
 
 export interface AppState {
-  sport: Sport;
-  ageGroup: 'youth' | 'adult';
-  phases: TacticPhase[];
-  activePhaseIdx: number;
+  tactics: Tactic[];         // minst én
+  activeTacticId: string;
+  // globale innstillinger
+  ageGroup: 'youth' | 'adult';   // standardfilter i øvelsesbiblioteket
+  homeTeamName: string;
+  awayTeamName: string;
+  awayTeamColor: string;
+  rosterNames: string[];         // bare for fremmøte
+  // øvrig
   events: CalendarEvent[];
-  rosterNames: string[];
+  matchReports: MatchReport[];
+  moments: TacticMoment[];
   currentView: AppView;
 }
 
@@ -131,5 +146,6 @@ export interface TacticMoment {
   id: string;
   name: string;
   timestamp: string;
+  tacticId?: string;
   snapshot: TacticPhase;
 }

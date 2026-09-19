@@ -1,7 +1,7 @@
 // src/data/formations.ts
 // LANDSCAPE PITCH: W=880 (left=own goal, right=opponent goal), H=560 (top/bottom=sidelines)
 
-import { TacticPhase, Player, Position, PlayerRole } from '../types';
+import { Position, PlayerRole } from '../types';
 
 export const VW = 880;
 export const VH = 560;
@@ -61,7 +61,7 @@ const POS = {
 export interface Formation {
   name: string;
   description: string;
-  homePlayers: { role: string; position: Position }[];
+  homePlayers: { role: PlayerRole; position: Position }[];
 }
 
 // ═══ 11er FOTBALL FORMASJONER ═════════════════════════════════
@@ -400,65 +400,16 @@ export const DEFAULT_FORMATION: Record<string, string> = {
   football9:  '3-4-1',
 };
 
-// ═══ STALLSTØRRELSE PER IDRETT ════════════════════════════════
-// Antall spillere på banen per idrett – brukt av TacticBoard til å fylle
-// opp en fase som har for få spillere.
-export function getSquadCapacity(sport: string): { teamSize: number } {
-  const teamSize = sport === 'football' ? 11 : sport === 'football5' ? 5 : sport === 'football7' ? 7 : sport === 'football9' ? 9 : 11;
-  return { teamSize };
-}
+// ═══ SLOTS FOR EN FORMASJON ══════════════════════════════════
+// Rollen og standardposisjonen til hver spiller utledes fra sloten med samme
+// indeks som Player.slotIdx. Faller tilbake til første formasjon i sporten.
+export const getFormationSlots = (sport: string, formation: string): Formation['homePlayers'] => {
+  const formations = getFormations(sport);
+  return (formations.find(f => f.name === formation) ?? formations[0]).homePlayers;
+};
 
 export const getFormationDescription = (formationName: string, sport: string): string => {
   const formations = getFormations(sport);
   const formation = formations.find(f => f.name === formationName);
   return formation?.description || 'Ingen beskrivelse tilgjengelig.';
-};
-
-// ══════════════════════════════════════════════════════════════
-//  FORBEDRET makePhase – EKSAKT KOPI UTEN ENDRING
-// ══════════════════════════════════════════════════════════════
-
-/**
- * Lager en ny taktisk fase.
- * @param name – navn på fasen
- * @param sport – sport ('football', 'football5', 'football7', 'football9')
- * @param existingPlayers – valgfri liste over eksisterende spillere (fra forrige fase)
- * @param existingBall – valgfri ballposisjon
- * @returns en fullstendig TacticPhase
- */
-export const makePhase = (
-  name: string,
-  sport: string,
-  existingPlayers?: Player[],
-  existingBall?: Position
-): TacticPhase => {
-  const formations = getFormations(sport);
-  const defaultFormation = DEFAULT_FORMATION[sport] ?? formations[0]?.name;
-  const formation = formations.find(f => f.name === defaultFormation) ?? formations[0];
-
-  let players: Player[];
-  if (existingPlayers && existingPlayers.length > 0) {
-    // 🔥 EKSAKT KOPI – ingen rollebasert matching, bare dyp kopi
-    players = existingPlayers.map(p => ({ ...p }));
-  } else {
-    // Første gang – opprett fra formasjonen
-    players = formation.homePlayers.map((p, idx) => ({
-      id: `p-${Date.now()}-${idx}`,
-      num: idx + 1,
-      name: '',
-      role: p.role as PlayerRole,
-      position: p.position,
-      team: 'home',
-      notes: '',
-    }));
-  }
-
-  return {
-    id: `phase-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    name,
-    players,
-    ball: existingBall ?? { x: VW / 2, y: VH / 2 },
-    drawings: [],
-    stickyNote: '',
-  };
 };

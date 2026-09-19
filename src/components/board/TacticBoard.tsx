@@ -3,13 +3,12 @@ import React, {
   useRef, useState, useEffect, useCallback, useMemo,
 } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Player, PlayerRole } from '../../types';
-import {
-  VW, VH, getFormations, DEFAULT_FORMATION, getSquadCapacity,
-} from '../../data/formations';
+import { useActiveTactic, getSlot } from '../../store/selectors';
+import { Player } from '../../types';
+import { VW, VH, getFormations, getFormationSlots } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { Ball, DrawingCanvas } from './BoardElements';
-import { ROLE_META, ROLE_FAMILY } from '../../data/roleInfo';
+import { ROLE_INFO } from '../../data/roleInfo';
 import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM, GLASS } from './constants';
 import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
 import { JerseyIcon } from './svg/JerseyIcon';
@@ -44,7 +43,6 @@ interface GhostPos { x: number; y: number; scaleIn: boolean }
 interface UndoEntry {
   playerId:      string;
   prevPos:       { x: number; y: number };
-  prevRole:      string;
 }
 
 interface TacticMoment { id: string; label: string; snapshot: string; at: string }
@@ -94,35 +92,25 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [interpT,          setInterpT]           = useState(0);
   const [liveDrawPts,      setLiveDrawPts]       = useState<SvgPos[]>([]);
   const [showSticky,       setShowSticky]        = useState(false);
-  const [selectedFormation,setSelectedFormation] = useState('');
   const [moments,          setMoments]           = useState<TacticMoment[]>([]);
   const [showMoments,      setShowMoments]       = useState(false);
   const [momentLabel,      setMomentLabel]       = useState('');
   const [showMoreMenu,     setShowMoreMenu]      = useState(false);
 
   const {
-    sport, phases, activePhaseIdx,
     setActivePhaseIdx, addPhase, removePhase,
-    updatePlayerPosition, updateBallPosition,
+    movePlayer, moveBall,
     addDrawing, clearDrawings, updateStickyNote,
-    updatePlayerField, addPlayer,
+    setFormation,
   } = useAppStore();
 
+  const tactic = useActiveTactic();
+  const { sport, formation, phases, activePhaseIdx } = tactic;
   const phase = phases[activePhaseIdx] ?? null;
 
   const { isMobile, isLandscape } = useViewport();
 
-  const availableFormations = useMemo(() =>
-    getFormations(sport), [sport]);
-  const defaultFormation = DEFAULT_FORMATION[
-    sport
-  ];
-
-  useEffect(() => {
-    if (availableFormations.length > 0 && !selectedFormation) {
-      setSelectedFormation(defaultFormation);
-    }
-  }, [sport, availableFormations, defaultFormation, selectedFormation]);
+  const availableFormations = useMemo(() => getFormations(sport), [sport]);
 
   const clamp = useCallback((v:number,lo:number,hi:number) => Math.max(lo,Math.min(hi,v)), []);
   const clampToPitch = useCallback((x:number, y:number): SvgPos => ({
@@ -130,9 +118,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     y: clamp(y, CLAMP_Y_TOP, VH - CLAMP_Y_BOTTOM),
   }), [clamp]);
 
-  const currentHomePlayers = useMemo(() =>
-    availableFormations.find(f=>f.name===selectedFormation)?.homePlayers ?? [],
-    [availableFormations, selectedFormation]);
+  // Slotene i aktiv formasjon: brukes til snapping når en spiller dras.
+  const currentHomePlayers = useMemo(() => getFormationSlots(sport, formation), [sport, formation]);
+
+  useEffect(() => {
+    if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
+  }, [tactic.id, activePhaseIdx]);
 
   useEffect(() => () => {
     if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
@@ -148,7 +139,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const handleStickyChange = useCallback((v:string) => {
     setLocalStickyNote(v);
     if (stickyDebRef.current) clearTimeout(stickyDebRef.current);
-    stickyDebRef.current = setTimeout(() => updateStickyNote(activePhaseIdx,v), 500);
+    stickyDebRef.current = setTimeout(() => updateStickyNote(v, activePhaseIdx), 500);
   }, [activePhaseIdx, updateStickyNote]);
 
   const pushUndo = useCallback((e:UndoEntry) => {
@@ -159,20 +150,16 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const doUndo = useCallback(() => {
     const e = undoStack.current.pop(); if (!e||!phase) return;
     const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
-    redoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevRole:p.role });
-    updatePlayerField(activePhaseIdx, e.playerId, {
-      position:e.prevPos, role:e.prevRole as PlayerRole,
-    });
-  }, [phase, activePhaseIdx, updatePlayerField]);
+    redoStack.current.push({ playerId:e.playerId, prevPos:{...p.position} });
+    movePlayer(e.playerId, e.prevPos);
+  }, [phase, movePlayer]);
 
   const doRedo = useCallback(() => {
     const e = redoStack.current.pop(); if (!e||!phase) return;
     const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
-    undoStack.current.push({ playerId:e.playerId, prevPos:{...p.position}, prevRole:p.role });
-    updatePlayerField(activePhaseIdx, e.playerId, {
-      position:e.prevPos, role:e.prevRole as PlayerRole,
-    });
-  }, [phase, activePhaseIdx, updatePlayerField]);
+    undoStack.current.push({ playerId:e.playerId, prevPos:{...p.position} });
+    movePlayer(e.playerId, e.prevPos);
+  }, [phase, movePlayer]);
 
   useEffect(() => {
     const h = (e:KeyboardEvent) => {
@@ -182,24 +169,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [doUndo, doRedo]);
-
-  const updateFormation = useCallback((name: string) => {
-    if (!phase) return;
-    const formation = availableFormations.find(f => f.name === name);
-    if (!formation) return;
-    const currentStarters = phase.players
-      .filter(p => p.team === 'home')
-      .sort((a, b) => (a.num || 0) - (b.num || 0));
-    formation.homePlayers.forEach((slot, index) => {
-      const player = currentStarters[index];
-      if (!player) return;
-      updatePlayerField(activePhaseIdx, player.id, {
-        position: clampToPitch(slot.position.x, slot.position.y),
-        role: slot.role as PlayerRole,
-      });
-    });
-    setSelectedFormation(name);
-  }, [phase, activePhaseIdx, availableFormations, updatePlayerField, clampToPitch]);
 
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
@@ -286,7 +255,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
     for (const p of (phase?.players??[])) {
-      if (p.id===excludeId||p.team!=='home') continue;
+      if (p.id===excludeId) continue;
       const d = Math.hypot(p.position.x - sx, p.position.y - sy);
       if (d<bestD) { bestD=d; best=p; }
     }
@@ -297,27 +266,27 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
     spacingDebRef.current = setTimeout(() => {
       if (!phase) return;
-      const others = phase.players.filter(p=>p.team==='home'&&p.id!==movedId);
+      const others = phase.players.filter(p=>p.id!==movedId);
       const pts    = others.map(p=>({x:p.position.x,y:p.position.y}));
       const sep    = separatePlayers(pts);
       sep.forEach((sp,i) => {
         const o=others[i]; if (!o) return;
         if (Math.abs(sp.x-o.position.x)>1||Math.abs(sp.y-o.position.y)>1)
-          updatePlayerPosition(activePhaseIdx, o.id, {x:sp.x,y:sp.y});
+          movePlayer(o.id, {x:sp.x,y:sp.y});
       });
     }, 200);
-  }, [phase, activePhaseIdx, updatePlayerPosition]);
+  }, [phase, movePlayer]);
 
   const swapPlayers = useCallback((aId:string, bId:string) => {
     if (!phase) return;
     const a=phase.players.find(p=>p.id===aId), b=phase.players.find(p=>p.id===bId);
     if (!a||!b) return;
-    pushUndo({ playerId:aId, prevPos:{...a.position}, prevRole:a.role });
-    const [ap,bp,ar,br] = [{...a.position},{...b.position},a.role,b.role];
-    updatePlayerField(activePhaseIdx, aId, { position:bp, role:br as PlayerRole });
-    updatePlayerField(activePhaseIdx, bId, { position:ap, role:ar as PlayerRole });
+    pushUndo({ playerId:aId, prevPos:{...a.position} });
+    const [ap,bp] = [{...a.position},{...b.position}];
+    movePlayer(aId, bp);
+    movePlayer(bId, ap);
     setBounceId(bId); setTimeout(()=>setBounceId(null),400);
-  }, [phase, activePhaseIdx, updatePlayerField, pushUndo]);
+  }, [phase, movePlayer, pushUndo]);
 
   const resolveDrop = useCallback((
     draggedId:string,
@@ -337,11 +306,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const snap = nearestSlotPos(pos, currentHomePlayers);
     if (snap) pos = snap;
 
-    pushUndo({ playerId:dragged.id, prevPos:{...dragged.position}, prevRole:dragged.role });
-    updatePlayerPosition(activePhaseIdx, dragged.id, pos);
+    pushUndo({ playerId:dragged.id, prevPos:{...dragged.position} });
+    movePlayer(dragged.id, pos);
     scheduleSpacing(dragged.id);
     setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
-  }, [phase, swapPlayers, currentHomePlayers, pushUndo, updatePlayerPosition, activePhaseIdx, scheduleSpacing, clampToPitch]);
+  }, [phase, swapPlayers, currentHomePlayers, pushUndo, movePlayer, scheduleSpacing, clampToPitch]);
 
   const startDrag = useCallback((
     e: React.PointerEvent, playerId:string,
@@ -447,16 +416,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   };
   const onSvgPtrUp = () => {
     if (drawMode&&isDrawingRef.current&&drawPts.current.length>2)
-      addDrawing(activePhaseIdx, {pts:[...drawPts.current], color:drawColor});
+      addDrawing({pts:[...drawPts.current], color:drawColor});
     isDrawingRef.current=false; drawPts.current=[]; setLiveDrawPts([]);
   };
 
   const allDisplay   = useMemo(()=>getDisplayPlayers(),  [getDisplayPlayers]);
 
-  const onField = useMemo(
-    () => allDisplay.filter(p => p.team === 'home'),
-    [allDisplay]
-  );
   const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
   const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
@@ -465,48 +430,18 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   }, []);
 
   const isOutOfPos = useCallback((player:Player):boolean => {
-    const fam = ROLE_FAMILY[player.role]; if (!fam) return false;
+    const fam = ROLE_INFO[getSlot(tactic, player.slotIdx).role].family;
     const yFrac = player.position.y / VH;
     if (fam==='gk'  && yFrac < 0.7) return true;
     if (fam==='att' && yFrac > 0.5) return true;
     return false;
-  }, []);
+  }, [tactic]);
 
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
-  const ghostMeta   = ghostPlayer ? (ROLE_META[ghostPlayer.role as keyof typeof ROLE_META]??null) : null;
+  const ghostSlot   = ghostPlayer ? getSlot(tactic, ghostPlayer.slotIdx) : null;
 
   const DRAW_COLORS     = ['#f87171','#60a5fa','#4ade80','#fbbf24','#ffffff'];
   const glassStyle      = { '--glass-bg': GLASS.panel, '--glass-border': GLASS.border, '--glass-hover': GLASS.hover } as React.CSSProperties;
-
-  const hasEnsuredPlayers = useRef(false);
-
-  // Fyller opp fasen fra formasjonen hvis den har færre spillere enn sporten krever.
-  useEffect(() => {
-    if (!phase || hasEnsuredPlayers.current) return;
-    hasEnsuredPlayers.current = true;
-
-    const teamSize = getSquadCapacity(sport).teamSize;
-    const homePlayers = phase.players.filter(p => p.team === 'home');
-    if (homePlayers.length >= teamSize) return;
-
-    const formation = availableFormations.find(f => f.name === selectedFormation);
-    const defaultPositions = formation?.homePlayers.map(slot => slot.position) ?? [];
-    const existingNums = homePlayers.map(p => p.num);
-    const needed = teamSize - homePlayers.length;
-
-    for (let i = 0; i < needed; i++) {
-      let newNum = 1;
-      while (existingNums.includes(newNum)) newNum++;
-      existingNums.push(newNum);
-      const pos = defaultPositions[homePlayers.length + i] ?? { x: 200 + (homePlayers.length + i) * 50, y: 280 };
-      addPlayer(activePhaseIdx, {
-        id: `gen-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
-        num: newNum, name: `Spiller ${newNum}`, role: 'midfielder',
-        position: clampToPitch(pos.x, pos.y),
-        team: 'home', notes: '',
-      });
-    }
-  }, [phase, sport, availableFormations, selectedFormation, activePhaseIdx, addPlayer, clampToPitch]);
 
   if (!phase || !isMounted) {
     return (
@@ -577,7 +512,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         )}
 
         {availableFormations.length>0&&(
-          <select value={selectedFormation} onChange={e=>updateFormation(e.target.value)} disabled={isPlaying}
+          <select value={formation} onChange={e=>setFormation(e.target.value)} disabled={isPlaying}
             style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',backdropFilter:'blur(8px)'}}
             className="ml-1 rounded-lg px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500/50 min-h-[40px] flex-shrink-0">
             {availableFormations.map(f=><option key={f.name} value={f.name} style={{background:'#0c1525'}}>{f.name}</option>)}
@@ -665,7 +600,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         ))}
 
         {(phase?.drawings?.length??0)>0&&(
-          <button onClick={()=>clearDrawings(activePhaseIdx)}
+          <button onClick={()=>clearDrawings()}
             style={{background:'rgba(248,113,113,0.06)',border:'1px solid rgba(248,113,113,0.12)'}}
             className="px-2 py-1 rounded-lg text-[13px] text-red-400/70 min-h-[40px] flex-shrink-0">🗑️</button>
         )}
@@ -757,14 +692,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           className="flex-1 min-w-0 h-full flex flex-col items-stretch"
           style={{ padding: '4px', overflow: 'hidden' }}
         >
-          {selectedFormation&&(
+          {formation&&(
             <div className="flex-shrink-0 flex items-center justify-center py-1">
               <div style={{
                 background:'rgba(5,10,28,0.7)',backdropFilter:'blur(12px)',
                 border:'1px solid rgba(56,189,248,0.12)',boxShadow:'0 0 20px rgba(56,189,248,0.05)',
               }} className="flex items-center gap-2 px-4 py-1.5 rounded-xl">
                 <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Formasjon</span>
-                <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{selectedFormation}</span>
+                <span className="text-[13px] font-black text-slate-100 tracking-wider uppercase">{formation}</span>
               </div>
             </div>
           )}
@@ -799,13 +734,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             )}
             {phase&&(
               <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
-                onPositionChange={pos=>updateBallPosition(activePhaseIdx,pos)}/>
+                onPositionChange={pos=>moveBall(pos)}/>
             )}
 
             {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
 
-            {onField.map(player => {
-              const meta       = ROLE_META[player.role as keyof typeof ROLE_META]??{color:'#64748b',label:player.role};
+            {allDisplay.map(player => {
+              const slot       = getSlot(tactic, player.slotIdx);
+              const color      = ROLE_INFO[slot.role].color;
               const name       = getDisplayName(player);
               const isTarget   = dragOverId===player.id;
               const isSrc      = draggingPlayerId===player.id;
@@ -834,20 +770,20 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                     <circle cx={x} cy={y} r={32} fill="none"
                       stroke="rgba(56,189,248,0.6)" strokeWidth={2} strokeDasharray="6,4"/>
                   )}
-                  <JerseyIcon x={x} y={y} num={player.num} color={(meta as {color:string}).color}
+                  <JerseyIcon x={x} y={y} num={player.num} color={color}
                     selected={selectedPlayerId===player.id} isDragging={!!isSrc}
                     isTarget={isTarget} isOutOfPos={outOfPos}/>
-                  <RoleBadge x={x} y={y+23} role={player.role}/>
+                  <RoleBadge x={x} y={y+23} role={slot.role} label={slot.label}/>
                   <NameLabel x={x} y={y+47} name={name}/>
                 </g>
               );
             })}
 
-            {ghostPos&&ghostPlayer&&ghostMeta&&(
+            {ghostPos&&ghostPlayer&&ghostSlot&&(
               <DragGhost x={ghostPos.x} y={ghostPos.y}
-                color={(ghostMeta as {color:string}).color??'#555'}
+                color={ROLE_INFO[ghostSlot.role].color}
                 num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
-                role={ghostPlayer.role} scaleIn={ghostPos.scaleIn}/>
+                role={ghostSlot.role} label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
             )}
 
             {isPlaying&&(

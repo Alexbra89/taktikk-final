@@ -1,11 +1,4 @@
 // ─── KONSTANTER ───────────────────────────────────────────────
-export const ROLE_SHORT: Record<string, string> = {
-  keeper:'KV', defender:'FS', wingback:'VB', sweeper:'SV',
-  midfielder:'MB', box2box:'BBM', playmaker:'PM', winger:'KANT',
-  forward:'ANG', false9:'F9', trequartista:'TQ', targetman:'TM',
-  pressforward:'PF', libero:'LIB',
-};
-
 export const MIN_DIST     = 46;
 export const SNAP_R       = 15;
 export const LONG_PRESS   = 100;

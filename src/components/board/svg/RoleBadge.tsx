@@ -1,9 +1,7 @@
 import React from 'react';
-import { ROLE_SHORT } from '../constants';
 import { getDutyColors } from '../../../lib/roleColors';
 
-export const RoleBadge = React.memo<{x:number;y:number;role:string}>(({ x,y,role }) => {
-  const short = ROLE_SHORT[role] ?? role.slice(0,5).toUpperCase();
+export const RoleBadge = React.memo<{x:number;y:number;role:string;label:string}>(({ x,y,role,label }) => {
   const {bg, text, glow} = getDutyColors(role);
   return (
     <g style={{pointerEvents:'none'}}>
@@ -15,7 +13,7 @@ export const RoleBadge = React.memo<{x:number;y:number;role:string}>(({ x,y,role
         fill="rgba(255,255,255,0.06)" style={{pointerEvents:'none'}}/>
       <text x={x} y={y+8.5} textAnchor="middle" dominantBaseline="middle"
         fill={text} fontSize={8} fontWeight="700"
-        fontFamily="system-ui,sans-serif" letterSpacing="0.07em">{short}</text>
+        fontFamily="system-ui,sans-serif" letterSpacing="0.07em">{label}</text>
     </g>
   );
 });

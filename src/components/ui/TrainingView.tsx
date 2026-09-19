@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { useActiveTactic } from '@/store/selectors';
 import { getDrillsBySport, toDrillSport, DrillExercise, CATEGORY_LABELS } from '@/data/drills';
 import { CalendarEvent } from '@/types';
 import { DrillDetailModal } from './DrillDetailModal';
@@ -16,11 +17,12 @@ interface TrainingViewProps {
 
 export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onBack }) => {
   const {
-    events, sport, addEvent, updateEvent,
+    events, addEvent, updateEvent,
     addTrainingNote, deleteTrainingNote,
     rosterNames, setRosterNames,
     ageGroup,
   } = useAppStore();
+  const { sport } = useActiveTactic();
 
   const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialTraining?.id || null);

@@ -1,6 +1,7 @@
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { useActiveTactic } from '@/store/selectors';
 import { getDrillsBySport, toDrillSport, DrillExercise, DrillCategory, CATEGORY_LABELS } from '@/data/drills';
 import { DrillDetailModal } from './DrillDetailModal';
 
@@ -17,7 +18,8 @@ const DIFFICULTY_LABELS: Record<string, string> = {
 };
 
 export const DrillLibraryModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { sport, ageGroup } = useAppStore();
+  const { ageGroup } = useAppStore();
+  const { sport } = useActiveTactic();
   const [selectedDrill, setSelectedDrill] = useState<DrillExercise | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 

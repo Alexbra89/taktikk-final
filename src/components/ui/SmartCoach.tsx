@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { useActiveTactic } from '@/store/selectors';
 import { DRILL_LIBRARY, getDrillsForContext, getWeeklyDrills, getISOWeek, toDrillSport } from '@/data/drills';
 import { Drill } from '@/types';
 
@@ -108,7 +109,8 @@ const TimerTab: React.FC = () => {
 // ═══ ØVELSESBIBLIOTEK ══════════════════════════════════════════
 
 const DrillsTab: React.FC = () => {
-  const { sport, phases, activePhaseIdx, updateStickyNote, ageGroup: storeAgeGroup } = useAppStore();
+  const { updateStickyNote, ageGroup: storeAgeGroup } = useAppStore();
+  const { sport } = useActiveTactic();
 
   const [activeDrill, setActiveDrill] = useState<Drill | null>(null);
   const [activeStep, setActiveStep]   = useState(0);
@@ -128,7 +130,7 @@ const DrillsTab: React.FC = () => {
   const applyNote = (drill: Drill, stepIdx: number) => {
     const step = drill.steps[stepIdx];
     if (!step) return;
-    updateStickyNote(activePhaseIdx, `${drill.name} · Steg ${stepIdx + 1}: ${step.name}`);
+    updateStickyNote(`${drill.name} · Steg ${stepIdx + 1}: ${step.name}`);
   };
 
   return (

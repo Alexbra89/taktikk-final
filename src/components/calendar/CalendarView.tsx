@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { useActiveTactic } from '../../store/selectors';
 import { CalendarEvent, EventType } from '../../types';
 import { getDrillsBySport, DrillExercise, CATEGORY_LABELS, toDrillSport } from '../../data/drills';
 
@@ -38,7 +39,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [showTodayStatus, setShowTodayStatus] = useState(true);
 
-  const { events, addEvent, updateEvent, deleteEvent, sport, ageGroup } = useAppStore();
+  const { events, addEvent, updateEvent, deleteEvent, ageGroup } = useAppStore();
+  const { sport } = useActiveTactic();
 
   const todayStr = today.toISOString().slice(0, 10);
 

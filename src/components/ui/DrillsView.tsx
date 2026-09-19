@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { useActiveTactic } from '../../store/selectors';
 import {
   getDrillsBySport, getWeeklyDrills, CATEGORY_LABELS,
   Drill, DrillCategory, DrillSport, toDrillSport,
@@ -27,7 +28,8 @@ const CAT_STRIPE: Record<string, string> = {
 };
 
 export const DrillsView: React.FC = () => {
-  const { addEvent, sport, ageGroup: storeAgeGroup } = useAppStore();
+  const { addEvent, ageGroup: storeAgeGroup } = useAppStore();
+  const { sport } = useActiveTactic();
 
   // Bruk sport fra store, men normaliser football7 -> football
   const activeSport = toDrillSport(sport);

@@ -7,6 +7,7 @@ import {
   Plus, Trash2, Zap, Trophy, Pencil
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
+import { useActiveTactic } from '@/store/selectors';
 import { Sport } from '@/types';
 
 const SPORTS: { id: Sport; name: string; icon: React.ReactNode }[] = [
@@ -14,15 +15,8 @@ const SPORTS: { id: Sport; name: string; icon: React.ReactNode }[] = [
 ];
 
 export const Controls: React.FC = () => {
-  const {
-    sport: currentSport, 
-    phases, 
-    activePhaseIdx,
-    setSport, 
-    addPhase, 
-    removePhase,
-    setActivePhaseIdx,
-  } = useAppStore();
+  const { setSport, addPhase, removePhase, setActivePhaseIdx } = useAppStore();
+  const { sport: currentSport, phases, activePhaseIdx } = useActiveTactic();
 
   const currentIndex = activePhaseIdx;
 

@@ -1,9 +1,10 @@
 'use client';
 import React, { useRef, useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
+import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
-import { ROLE_META } from '@/data/roleInfo';
+import { ROLE_INFO } from '@/data/roleInfo';
 
 // ═══════════════════════════════════════════════════════════════
 //  FULLSCREEN BOARD — read-only for players, interactive for coach
@@ -15,11 +16,12 @@ interface FullscreenBoardProps {
   interactive?: boolean; // true = coach can draw/move
 }
 
-const getMeta = (role: any) => ROLE_META[role as keyof typeof ROLE_META] ?? null;
 const getNum  = (p: any): number => p.number ?? p.num ?? 0;
 
 export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, interactive = false }) => {
-  const { phases, sport, activePhaseIdx, setActivePhaseIdx } = useAppStore();
+  const { setActivePhaseIdx } = useAppStore();
+  const tactic = useActiveTactic();
+  const { phases, activePhaseIdx } = tactic;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playRef  = useRef({ from: 0, t: 0 });
@@ -104,7 +106,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   })();
 
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
-  const homePlayers = (displayPlayers as any[]).filter((p: any) => p.team === 'home');
+  const homePlayers = displayPlayers as any[];
 
   return (
     <div
@@ -210,8 +212,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
             {/* Spillere — hjemmelaget, kun startere */}
             {homePlayers.map((player: any) => {
-              const meta = getMeta(player.role);
-              const fill = meta?.color ?? '#64748b';
+              const fill = ROLE_INFO[getSlot(tactic, player.slotIdx).role].color;
               const { x, y } = player.position;
               return (
                 <g key={player.id} filter="url(#ds3)">

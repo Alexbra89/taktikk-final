@@ -1,11 +1,9 @@
 import React from 'react';
-import { ROLE_SHORT } from '../constants';
 import { getDutyColors } from '../../../lib/roleColors';
 
-export const DragGhost = React.memo<{x:number;y:number;color:string;num:number;name:string;role:string;scaleIn:boolean}>(
-({ x,y,color,num,name,role,scaleIn }) => {
+export const DragGhost = React.memo<{x:number;y:number;color:string;num:number;name:string;role:string;label:string;scaleIn:boolean}>(
+({ x,y,color,num,name,role,label,scaleIn }) => {
   const {text} = getDutyColors(role);
-  const short = ROLE_SHORT[role] ?? role.slice(0,4).toUpperCase();
   return (
     <g style={{pointerEvents:'none'}} opacity={0.85}
       transform={`translate(${x},${y}) scale(${scaleIn?1.08:1})`}>
@@ -21,7 +19,7 @@ export const DragGhost = React.memo<{x:number;y:number;color:string;num:number;n
       <rect x={-22} y={25.5} width={44} height={6} rx={2.5} fill="rgba(255,255,255,0.05)"/>
       <text x={0} y={33} textAnchor="middle" dominantBaseline="middle"
         fill={text} fontSize={7.5} fontWeight="700"
-        fontFamily="system-ui,sans-serif" letterSpacing="0.05em">{short}</text>
+        fontFamily="system-ui,sans-serif" letterSpacing="0.05em">{label}</text>
       <text x={0} y={47} textAnchor="middle" dominantBaseline="middle"
         fill="rgba(255,255,255,0.9)" fontSize={8} fontWeight="600"
         fontFamily="system-ui,sans-serif" paintOrder="stroke"

@@ -7,7 +7,7 @@ import {
   Sword, Users, Info, Star 
 } from 'lucide-react';
 // FIKSET: Bruker riktig store-navn
-import { useAppStore } from '@/store/useAppStore';
+import { useActiveTactic } from '@/store/selectors';
 
 // Vi definerer typene her slik at TypeScript ikke klager på manglende filer
 interface RoleExplanation {
@@ -41,7 +41,7 @@ const footballRoles: RoleExplanation[] = [
 export const RoleExplanations: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<RoleExplanation | null>(null);
-  const { sport: currentSport } = useAppStore();
+  const { sport: currentSport } = useActiveTactic();
 
   const getRoleIcon = (role: string) => {
     switch (role) {

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import type { CalendarEvent, AppView } from '@/types';
+import { useActiveTactic, getSportChangeImpact } from '@/store/selectors';
+import type { CalendarEvent, AppView, Sport } from '@/types';
 import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
 
@@ -98,12 +99,31 @@ const DashboardView: React.FC<{
 };
 
 // ─── INNSTILLINGER MODAL ─────────────────────────────────────
+const SPORT_NAMES: Record<Sport, string> = {
+  football: '11er', football5: '5er', football7: '7er', football9: '9er',
+};
+
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const {
     homeTeamName, awayTeamName,
     setHomeTeamName, setAwayTeamName,
-    sport, setSport, ageGroup, setAgeGroup,
+    setSport, ageGroup, setAgeGroup,
   } = useAppStore();
+  const tactic = useActiveTactic();
+  const sport = tactic.sport;
+
+  // Sportbytte fjerner eller legger til spillere i alle faser, så vi spør når det finnes flere faser.
+  const changeSport = (next: Sport) => {
+    if (next === sport) return;
+    if (tactic.phases.length > 1) {
+      const { phases, added, removed } = getSportChangeImpact(tactic, next);
+      const effect = removed > 0
+        ? `fjerner ${removed} spillere fra ${phases} faser`
+        : `legger til ${added} spillere i ${phases} faser`;
+      if (!window.confirm(`Bytte til ${SPORT_NAMES[next]} ${effect} og nullstiller posisjonene i aktiv fase. Fortsette?`)) return;
+    }
+    setSport(next);
+  };
 
   const [home,  setHome]  = useState(homeTeamName);
   const [away,  setAway]  = useState(awayTeamName);
@@ -141,7 +161,7 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             ] as const).map(({ v, e, l }) => (
               <button
                 key={v}
-                onClick={() => setSport(v as any)}
+                onClick={() => changeSport(v)}
                 className={`flex-1 py-3 rounded-xl text-[10px] font-bold border transition-all min-h-[48px] backdrop-blur
                   ${sport === v
                     ? 'bg-sky-500/20 border-sky-500 text-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.2)]'
@@ -227,8 +247,9 @@ export default function Home() {
   const [selectedTraining,    setSelectedTraining]    = useState<CalendarEvent | null>(null);
 
   const {
-    currentView, setView, homeTeamName, sport,
+    currentView, setView, homeTeamName,
   } = useAppStore();
+  const { sport } = useActiveTactic();
 
   useEffect(() => { setIsMounted(true); }, []);
 
