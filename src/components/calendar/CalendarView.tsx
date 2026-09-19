@@ -1,9 +1,12 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { useActiveTactic } from '../../store/selectors';
-import { CalendarEvent, EventType } from '../../types';
-import { getDrillsBySport, DrillExercise, CATEGORY_LABELS, toDrillSport } from '../../data/drills';
+import type { CalendarEvent, EventType, DrillExercise, DrillCategory, DrillDifficulty } from '@/types';
+import { ALL_DRILLS, getDrillsByCategory, CATEGORY_LABELS } from '@/data/drills';
+
+const DRILL_CATEGORIES: DrillCategory[] = ['keeper', 'forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
+// Autogenerert økt er for hele laget, så keeperøvelser tas ikke med i rotasjonen.
+const AUTOGEN_CATEGORIES: DrillCategory[] = ['forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
 
 const MONTHS = ['Januar','Februar','Mars','April','Mai','Juni',
                 'Juli','August','September','Oktober','November','Desember'];
@@ -40,7 +43,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
   const [showTodayStatus, setShowTodayStatus] = useState(true);
 
   const { events, addEvent, updateEvent, deleteEvent, ageGroup } = useAppStore();
-  const { sport } = useActiveTactic();
 
   const todayStr = today.toISOString().slice(0, 10);
 
@@ -204,7 +206,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
 
           {showAutoGen && (
             <AutoGenForm
-              sport={sport}
               ageGroup={ageGroup}
               onGenerate={(evs) => { evs.forEach(e => addEvent(e)); setShowAutoGen(false); closeDetailPanel(); }}
               onCancel={closeDetailPanel}
@@ -214,7 +215,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
           {showNewEvent && !showAutoGen && (
             <NewEventForm
               date={selectedDate ?? todayStr}
-              sport={sport}
               ageGroup={ageGroup}
               onSave={(ev) => { addEvent(ev); setShowNewEvent(false); closeDetailPanel(); }}
               onCancel={closeDetailPanel}
@@ -289,11 +289,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) =>
 // ═══ AUTOGENERER TRENINGSPLAN (RESPONSIV OPPDATERT) ═══════════════════════
 
 const AutoGenForm: React.FC<{
-  sport: string;
   ageGroup: 'youth' | 'adult';
   onGenerate: (evs: Omit<CalendarEvent, 'id'>[]) => void;
   onCancel: () => void;
-}> = ({ sport, ageGroup, onGenerate, onCancel }) => {
+}> = ({ ageGroup, onGenerate, onCancel }) => {
   const today = new Date();
   const [weeks, setWeeks]         = useState(4);
   const [startDate, setStartDate] = useState(today.toISOString().slice(0, 10));
@@ -302,7 +301,6 @@ const AutoGenForm: React.FC<{
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 3, 5]);
   const [focusTags, setFocusTags] = useState<string[]>([]);
 
-  const activeSport = toDrillSport(sport);
   const WEEKDAYS = ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'];
 
   function toggleDay(d: number) {
@@ -332,12 +330,16 @@ const AutoGenForm: React.FC<{
   }, [startDate, weeks, selectedDays]);
 
   function generate() {
-    const allDrills = getDrillsBySport(activeSport);
-    const drills = allDrills.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
+    // Roter mellom kategoriene (ikke gjennom ALL_DRILLS i rekkefølge, da ville
+    // de første øktene bare vært én kategori), og gå videre i hver kategori.
+    const pools = AUTOGEN_CATEGORIES
+      .map(cat => getDrillsByCategory(cat).filter(d => d.ageGroup === ageGroup))
+      .filter(pool => pool.length > 0);
     const events: Omit<CalendarEvent, 'id'>[] = [];
 
     previewDates.forEach((date, idx) => {
-      const drill = drills[idx % drills.length];
+      const pool = pools.length > 0 ? pools[idx % pools.length] : undefined;
+      const drill = pool ? pool[Math.floor(idx / pools.length) % pool.length] : undefined;
       const focusLine = focusTags.length > 0 ? `\nFokus: ${focusTags.join(', ')}` : '';
       const drillDesc = drill
         ? `\n\n📋 Øvelse: ${drill.name}\n${drill.description}`
@@ -474,11 +476,10 @@ const AutoGenForm: React.FC<{
 
 const NewEventForm: React.FC<{
   date: string;
-  sport: string;
   ageGroup: 'youth' | 'adult';
   onSave: (ev: Omit<CalendarEvent, 'id'>) => void;
   onCancel: () => void;
-}> = ({ date, sport, ageGroup, onSave, onCancel }) => {
+}> = ({ date, ageGroup, onSave, onCancel }) => {
   const [type, setType]         = useState<'training' | 'match'>('training');
   const [title, setTitle]       = useState('');
   const [evDate, setEvDate]     = useState(date);
@@ -492,18 +493,12 @@ const NewEventForm: React.FC<{
   const [saving, setSaving] = useState(false);
 
   const [drillSearch, setDrillSearch]       = useState('');
-  const [drillCategory, setDrillCategory]   = useState<string>('alle');
-  const [drillDifficulty, setDrillDifficulty] = useState<string>('alle');
-
-  const allDrillsForEvent = getDrillsBySport(toDrillSport(sport));
-
-  const categories = useMemo(() => {
-    return Array.from(new Set(allDrillsForEvent.map(d => d.category)));
-  }, [allDrillsForEvent]);
+  const [drillCategory, setDrillCategory]   = useState<DrillCategory | 'alle'>('alle');
+  const [drillDifficulty, setDrillDifficulty] = useState<DrillDifficulty | 'alle'>('alle');
 
   const filteredDrills = useMemo(() => {
-    let drills = allDrillsForEvent.filter(d => !d.ageGroup || d.ageGroup === ageGroup);
-    if (drillCategory !== 'alle') drills = drills.filter(d => d.category === drillCategory);
+    let drills = (drillCategory === 'alle' ? ALL_DRILLS : getDrillsByCategory(drillCategory))
+      .filter(d => d.ageGroup === ageGroup);
     if (drillDifficulty !== 'alle') drills = drills.filter(d => d.difficulty === drillDifficulty);
     if (drillSearch.trim()) {
       const q = drillSearch.toLowerCase();
@@ -512,7 +507,7 @@ const NewEventForm: React.FC<{
       );
     }
     return drills;
-  }, [allDrillsForEvent, ageGroup, drillCategory, drillDifficulty, drillSearch]);
+  }, [ageGroup, drillCategory, drillDifficulty, drillSearch]);
 
   const addDrill = (drill: DrillExercise) => {
     if (!selectedDrills.some(d => d.id === drill.id)) {
@@ -654,11 +649,11 @@ const NewEventForm: React.FC<{
                         ${drillCategory === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                       Alle
                     </button>
-                    {categories.map(cat => (
+                    {DRILL_CATEGORIES.map(cat => (
                       <button key={cat} onClick={() => setDrillCategory(cat)}
                         className={`px-2 py-1.5 sm:py-0.5 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                           ${drillCategory === cat ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
-                        {CATEGORY_LABELS[cat]?.split(' ')[1] || cat}
+                        {CATEGORY_LABELS[cat]}
                       </button>
                     ))}
                   </div>
@@ -668,7 +663,7 @@ const NewEventForm: React.FC<{
                         ${drillDifficulty === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
                       Alle
                     </button>
-                    {['enkel', 'middels', 'avansert'].map(level => (
+                    {(['enkel', 'middels', 'avansert'] as const).map(level => (
                       <button key={level} onClick={() => setDrillDifficulty(level)}
                         className={`px-2 py-1.5 sm:py-0.5 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
                           ${drillDifficulty === level
