@@ -4,14 +4,20 @@ import { useAppStore } from '@/store/useAppStore';
 import { ALL_DRILLS, getDrillsByCategory, CATEGORY_LABELS } from '@/data/drills';
 import type { CalendarEvent, DrillExercise, DrillCategory, DrillDifficulty } from '@/types';
 import { DrillDetailModal } from './DrillDetailModal';
+import {
+  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, X, Check, Square, CheckSquare,
+  Play, Pause, StopCircle, Timer, MapPin, Trash2, AlertTriangle, CalendarDays,
+  ClipboardList, BookOpen, Pencil,
+} from 'lucide-react';
+import { INPUT_CLASS, TEXTAREA_CLASS, LABEL_CLASS, toggleClass, ICON_BTN } from '@/lib/formClasses';
 
 const DRILL_CATEGORIES: DrillCategory[] = ['keeper', 'forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
 
 /** Gul advarselsboks for øvelser med `warning`. */
 const DrillWarning: React.FC<{ text: string; compact?: boolean }> = ({ text, compact }) => (
-  <div className={`flex gap-2 bg-yellow-500/10 border border-yellow-500/40 rounded-lg ${compact ? 'p-2' : 'p-2.5 sm:p-3'}`}>
-    <span className="text-yellow-400 leading-none flex-shrink-0">⚠️</span>
-    <p className="text-[9px] sm:text-[10.5px] text-yellow-100/90 leading-relaxed">{text}</p>
+  <div className={`flex gap-2 bg-warn-500/10 border border-warn-500/40 rounded-ctl ${compact ? 'p-2' : 'p-2.5 sm:p-3'}`}>
+    <AlertTriangle size={14} strokeWidth={1.75} aria-hidden className="text-warn-400 flex-shrink-0 mt-0.5" />
+    <p className="text-meta text-ink-muted leading-relaxed">{text}</p>
   </div>
 );
 
@@ -82,42 +88,42 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0c1525] border-b border-[#1e3050]">
+      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-canvas-sunken border-b border-rule">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {onBack && (
               <button
                 onClick={onBack}
-                className="mr-1 px-2.5 sm:px-3 py-1.5 sm:py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[10px] sm:text-[11px] font-semibold hover:bg-sky-500/25 transition min-h-[44px]"
+                className="mr-1 inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-meta font-semibold hover:bg-signal/15 transition min-h-[44px]"
               >
-                ‹ Tilbake
+                <ChevronLeft size={15} strokeWidth={1.75} aria-hidden /> Tilbake
               </button>
             )}
             <div>
-              <h2 className="text-xs sm:text-sm font-black text-slate-100">🏃 Trening</h2>
-              <p className="text-[9px] sm:text-[10px] text-[#4a6080] mt-0.5 hidden sm:block">
+              <h2 className="font-serif text-[1.5rem] leading-tight text-ink">Trening</h2>
+              <p className="text-meta text-ink-subtle mt-0.5 hidden sm:block">
                 Alle treninger — marker fremmøte og legg til øvelser
               </p>
             </div>
           </div>
           <button
             onClick={() => setShowNewTraining(true)}
-            className="px-2.5 sm:px-3 py-2 sm:py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
-              text-emerald-400 text-[11px] sm:text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[44px] whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2 rounded-panel bg-signal/10 border border-signal/40
+              text-signal text-body font-bold hover:bg-signal/15 transition min-h-[44px] whitespace-nowrap"
           >
-            ✨ Ny trening
+            <Plus size={15} strokeWidth={2} aria-hidden /> Ny trening
           </button>
         </div>
       </div>
 
-      <div className="flex-shrink-0 flex border-b border-[#1e3050] bg-[#0c1525]">
+      <div className="flex-shrink-0 flex border-b border-rule bg-canvas-sunken">
         {([
-          ['upcoming', `📅 Kommende`, upcoming.length],
-          ['history',  `📋 Historikk`, past.length],
+          ['upcoming', 'Kommende',  upcoming.length],
+          ['history',  'Historikk',  past.length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex-1 py-2.5 sm:py-3 text-[9px] sm:text-[10.5px] font-semibold transition-all min-h-[44px] leading-tight px-1
-              ${tab === id ? 'text-sky-400 border-b-2 border-sky-400' : 'text-[#3a5070]'}`}>
+            className={`flex-1 py-2.5 sm:py-3 text-meta font-semibold transition-all min-h-[44px] leading-tight px-1
+              ${tab === id ? 'text-signal border-b-2 border-signal' : 'text-ink-faint'}`}>
             {label} {count > 0 ? `(${count})` : ''}
           </button>
         ))}
@@ -129,12 +135,12 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
           <div className="space-y-3 max-w-2xl mx-auto">
             {upcoming.length === 0 && (
               <div className="text-center py-12">
-                <div className="text-3xl mb-2">📅</div>
-                <p className="text-[11px] sm:text-[12px] text-[#4a6080]">Ingen kommende treninger.</p>
+                <CalendarDays size={26} strokeWidth={1.5} aria-hidden className="mx-auto text-ink-faint mb-3" />
+                <p className="text-body text-ink-subtle">Ingen kommende treninger.</p>
                 <button onClick={() => setShowNewTraining(true)}
-                  className="mt-4 px-4 py-2.5 sm:py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30
-                    text-emerald-400 text-[11px] sm:text-[12px] font-bold hover:bg-emerald-500/25 transition min-h-[44px]">
-                  ✨ Opprett ny trening
+                  className="inline-flex items-center justify-center gap-1.5 mt-4 px-4 py-2.5 sm:py-2 rounded-panel bg-signal/10 border border-signal/40
+                    text-signal text-body font-bold hover:bg-signal/15 transition min-h-[44px]">
+                  <Plus size={15} strokeWidth={2} aria-hidden /> Opprett ny trening
                 </button>
               </div>
             )}
@@ -153,8 +159,8 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
           <div className="space-y-3 max-w-2xl mx-auto">
             {past.length === 0 && (
               <div className="text-center py-12">
-                <div className="text-3xl mb-2">📋</div>
-                <p className="text-[11px] sm:text-[12px] text-[#4a6080]">Ingen gjennomførte treninger ennå.</p>
+                <ClipboardList size={26} strokeWidth={1.5} aria-hidden className="mx-auto text-ink-faint mb-3" />
+                <p className="text-body text-ink-subtle">Ingen gjennomførte treninger ennå.</p>
               </div>
             )}
             {past.map(ev => (
@@ -255,7 +261,7 @@ const NewTrainingForm: React.FC<{
     setSaving(true);
 
     const drillNotes = selectedDrills.map(d =>
-      `\n📋 ${d.name}\n${d.description}\nVarighet: ${d.duration} min${d.warning ? `\n⚠️ ${d.warning}` : ''}`
+      `\n${d.name}\n${d.description}\nVarighet: ${d.duration} min${d.warning ? `\nAdvarsel: ${d.warning}` : ''}`
     ).join('');
 
     const focusNote = focusTags.length > 0 ? `Fokus: ${focusTags.join(', ')}` : '';
@@ -293,50 +299,48 @@ const NewTrainingForm: React.FC<{
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0c1525] border-b border-[#1e3050]">
-        <button onClick={onCancel} className="text-[10px] sm:text-[11px] text-[#4a6080] hover:text-sky-400 mb-2 flex items-center gap-1 min-h-[44px]">
-          ‹ Tilbake
+      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-canvas-sunken border-b border-rule">
+        <button onClick={onCancel} className="text-meta text-ink-subtle hover:text-signal mb-2 inline-flex items-center gap-1 min-h-[44px]">
+          <ChevronLeft size={15} strokeWidth={1.75} aria-hidden /> Tilbake
         </button>
-        <h2 className="text-sm sm:text-base font-black text-slate-100">✨ Start ny trening</h2>
+        <h2 className="font-serif text-[1.5rem] leading-tight text-ink">Ny trening</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 max-w-2xl mx-auto w-full">
         <div>
-          <label className="label-cal">Tittel *</label>
+          <label className={LABEL_CLASS}>Tittel *</label>
           <input value={title} onChange={e => setTitle(e.target.value)}
             placeholder="F.eks. Teknikktrening, 4-3-3 trening..."
-            className="inp-cal" />
+            className={INPUT_CLASS} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="label-cal">Dato</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="inp-cal" />
+            <label className={LABEL_CLASS}>Dato</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className={INPUT_CLASS} />
           </div>
           <div>
-            <label className="label-cal">Tid</label>
-            <input type="time" value={time} onChange={e => setTime(e.target.value)} className="inp-cal" />
+            <label className={LABEL_CLASS}>Tid</label>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} className={INPUT_CLASS} />
           </div>
         </div>
 
         <div>
-          <label className="label-cal">Sted</label>
+          <label className={LABEL_CLASS}>Sted</label>
           <input value={location} onChange={e => setLocation(e.target.value)}
-            placeholder="Stadion / hall" className="inp-cal" />
+            placeholder="Stadion / hall" className={INPUT_CLASS} />
         </div>
 
         <div>
-          <label className="label-cal">Fokusområder (valgfritt)</label>
+          <label className={LABEL_CLASS}>Fokusområder (valgfritt)</label>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {FOCUS_OPTIONS.slice(0, 8).map(f => (
               <button key={f} type="button"
                 onClick={() => setFocusTags(prev =>
                   prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
                 )}
-                className={`px-2.5 py-1.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-semibold border transition-all min-h-[36px] sm:min-h-0
-                  ${focusTags.includes(f)
-                    ? 'border-sky-500/60 bg-sky-500/15 text-sky-400'
-                    : 'border-[#1e3050] text-[#4a6080] hover:text-slate-300'}`}>
+                className={`px-2.5 py-1.5 sm:py-1 rounded-full text-meta font-semibold border transition-all min-h-[36px] sm:min-h-0
+                  ${toggleClass(focusTags.includes(f))}`}>
                 {f}
               </button>
             ))}
@@ -344,120 +348,124 @@ const NewTrainingForm: React.FC<{
         </div>
 
         <div>
-          <label className="label-cal">Øvelser fra biblioteket (velg flere)</label>
+          <label className={LABEL_CLASS}>Øvelser fra biblioteket (velg flere)</label>
 
           {selectedDrills.length > 0 && (
             <div className="mb-2 space-y-1 max-h-32 overflow-y-auto">
               {selectedDrills.map(drill => (
-                <div key={drill.id} className="flex items-center justify-between bg-[#0c1525] rounded-lg px-3 py-2 border border-[#1e3050]">
+                <div key={drill.id} className="flex items-center justify-between bg-canvas-sunken rounded-ctl px-3 py-2 border border-rule">
                   <div className="flex-1">
-                    <div className="text-[11px] sm:text-[11px] font-semibold text-slate-200">{drill.name}</div>
-                    <div className="text-[9px] sm:text-[9px] text-[#4a6080]">{drill.duration} min · {drill.players} spillere</div>
+                    <div className="text-body font-semibold text-ink">{drill.name}</div>
+                    <div className="text-meta text-ink-subtle">{drill.duration} min · {drill.players} spillere</div>
                     {drill.warning && <div className="mt-1"><DrillWarning text={drill.warning} compact /></div>}
                   </div>
                   <button type="button" onClick={() => removeDrill(drill.id)}
-                    className="text-red-400/70 hover:text-red-400 text-[11px] px-2 min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
+                    className={ICON_BTN} aria-label="Fjern"><X size={14} strokeWidth={1.75} /></button>
                 </div>
               ))}
             </div>
           )}
 
           <button type="button" onClick={() => setShowDrillPicker(!showDrillPicker)}
-            className="w-full mt-1 py-2.5 sm:py-2 px-3 rounded-lg border border-[#1e3050] text-left text-[11px] sm:text-[12px] text-[#4a6080] hover:border-sky-500/50 hover:text-slate-300 transition-all flex items-center justify-between min-h-[44px]">
-            <span>{selectedDrills.length > 0 ? `+ Legg til flere øvelser (${selectedDrills.length} valgt)` : '– Velg øvelser –'}</span>
-            <span>{showDrillPicker ? '▲' : '▼'}</span>
+            className="w-full mt-1 py-2.5 sm:py-2 px-3 rounded-ctl border border-rule text-left text-body text-ink-subtle hover:border-signal/50 hover:text-ink-muted transition-all flex items-center justify-between min-h-[44px]">
+            <span>{selectedDrills.length > 0 ? `Legg til flere (${selectedDrills.length} valgt)` : 'Velg øvelser'}</span>
+            {showDrillPicker
+              ? <ChevronUp size={15} strokeWidth={1.75} aria-hidden />
+              : <ChevronDown size={15} strokeWidth={1.75} aria-hidden />}
           </button>
 
           <button
             type="button"
             onClick={() => setShowCustomDrill(!showCustomDrill)}
-            className="w-full mt-2 py-2.5 sm:py-2 px-3 rounded-lg border border-dashed border-sky-500/50 text-left text-[11px] sm:text-[12px] text-sky-400 hover:bg-sky-500/10 transition-all flex items-center justify-between min-h-[44px]"
+            className="w-full mt-2 py-2.5 sm:py-2 px-3 rounded-ctl border border-dashed border-signal/50 text-left text-body text-signal hover:bg-signal/10 transition-all flex items-center justify-between min-h-[44px]"
           >
-            <span>➕ Legg til egen øvelse</span>
-            <span>{showCustomDrill ? '▲' : '▼'}</span>
+            <span>Legg til egen øvelse</span>
+            {showCustomDrill
+              ? <ChevronUp size={15} strokeWidth={1.75} aria-hidden />
+              : <ChevronDown size={15} strokeWidth={1.75} aria-hidden />}
           </button>
 
           {showCustomDrill && (
-            <div className="mt-2 p-3 bg-[#0c1525] rounded-xl border border-sky-500/30">
+            <div className="mt-2 p-3 bg-canvas-sunken rounded-panel border border-signal/40">
               <input
                 type="text"
                 placeholder="Øvelsesnavn *"
                 value={customDrillName}
                 onChange={e => setCustomDrillName(e.target.value)}
-                className="w-full mb-2 bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2.5 text-[12px] text-slate-200 min-h-[44px]"
+                className="w-full mb-2 bg-canvas-raised border border-rule rounded-ctl px-3 py-2.5 text-body text-ink min-h-[44px]"
               />
               <textarea
                 placeholder="Beskrivelse (valgfritt)"
                 value={customDrillDesc}
                 onChange={e => setCustomDrillDesc(e.target.value)}
                 rows={2}
-                className="w-full mb-2 bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2.5 text-[12px] text-slate-200 resize-y"
+                className="w-full mb-2 bg-canvas-raised border border-rule rounded-ctl px-3 py-2.5 text-body text-ink resize-y"
               />
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] sm:text-[11px] text-[#4a6080]">Varighet:</span>
+                <span className="text-meta text-ink-subtle">Varighet:</span>
                 <input
                   type="number"
                   min="1"
                   max="120"
                   value={customDrillDuration}
                   onChange={e => setCustomDrillDuration(Number(e.target.value))}
-                  className="w-20 bg-[#111c30] border border-[#1e3050] rounded-lg px-2 py-2 text-[12px] text-slate-200 text-center min-h-[44px]"
+                  className="w-20 bg-canvas-raised border border-rule rounded-ctl px-2 py-2 text-body text-ink text-center min-h-[44px]"
                 />
-                <span className="text-[10px] sm:text-[11px] text-[#4a6080]">minutter</span>
+                <span className="text-meta text-ink-subtle">minutter</span>
               </div>
               <button
                 type="button"
                 onClick={addCustomDrill}
-                className="w-full py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[12px] font-semibold hover:bg-emerald-500/25 min-h-[44px]"
+                className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-body font-semibold hover:bg-signal/15 min-h-[44px]"
               >
-                ✓ Legg til øvelse
+                <Check size={15} strokeWidth={2} aria-hidden /> Legg til øvelse
               </button>
             </div>
           )}
 
           {showDrillPicker && (
-            <div className="mt-2 bg-[#0c1525] border border-[#1e3050] rounded-xl overflow-hidden">
-              <div className="p-2 border-b border-[#1e3050] space-y-2">
-                <input type="text" placeholder="🔍 Søk etter øvelse..."
+            <div className="mt-2 bg-canvas-sunken border border-rule rounded-panel overflow-hidden">
+              <div className="p-2 border-b border-rule space-y-2">
+                <input type="text" placeholder="Søk etter øvelse …"
                   value={drillSearch} onChange={e => setDrillSearch(e.target.value)}
-                  className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2.5 text-[11px] text-slate-200 focus:outline-none focus:border-sky-500 min-h-[44px]" />
+                  className={TEXTAREA_CLASS} />
                 <div className="flex flex-wrap gap-1">
                   <button onClick={() => setDrillCategory('alle')}
-                    className={`px-2 py-1.5 sm:py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
-                      ${drillCategory === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
+                    className={`px-2 py-1.5 sm:py-1 rounded-ctl text-meta font-semibold transition-all min-h-[32px] sm:min-h-0
+                      ${drillCategory === 'alle' ? 'bg-signal/15 text-signal border border-signal/40' : 'text-ink-subtle hover:text-ink-muted'}`}>
                     Alle
                   </button>
                   {DRILL_CATEGORIES.map(cat => (
                     <button key={cat} onClick={() => setDrillCategory(cat)}
-                      className={`px-2 py-1.5 sm:py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
-                        ${drillCategory === cat ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
+                      className={`px-2 py-1.5 sm:py-1 rounded-ctl text-meta font-semibold transition-all min-h-[32px] sm:min-h-0
+                        ${drillCategory === cat ? 'bg-signal/15 text-signal border border-signal/40' : 'text-ink-subtle hover:text-ink-muted'}`}>
                       {CATEGORY_LABELS[cat]}
                     </button>
                   ))}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <button onClick={() => setDrillDifficulty('alle')}
-                    className={`px-2 py-1.5 sm:py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
-                      ${drillDifficulty === 'alle' ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'text-[#4a6080] hover:text-slate-300'}`}>
+                    className={`px-2 py-1.5 sm:py-1 rounded-ctl text-meta font-semibold transition-all min-h-[32px] sm:min-h-0
+                      ${drillDifficulty === 'alle' ? 'bg-signal/15 text-signal border border-signal/40' : 'text-ink-subtle hover:text-ink-muted'}`}>
                     Alle
                   </button>
                   {(['enkel', 'middels', 'avansert'] as const).map(level => (
                     <button key={level} onClick={() => setDrillDifficulty(level)}
-                      className={`px-2 py-1.5 sm:py-1 rounded-md text-[9px] font-semibold transition-all min-h-[32px] sm:min-h-0
+                      className={`px-2 py-1.5 sm:py-1 rounded-ctl text-meta font-semibold transition-all min-h-[32px] sm:min-h-0
                         ${drillDifficulty === level
-                          ? level === 'enkel' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : level === 'middels' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'text-[#4a6080] hover:text-slate-300'}`}>
-                      {level === 'enkel' ? '⭐ Enkel' : level === 'middels' ? '⭐⭐ Middels' : '⭐⭐⭐ Avansert'}
+                          ? level === 'enkel' ? 'bg-signal/15 text-signal border border-signal/40'
+                            : level === 'middels' ? 'bg-warn-500/15 text-warn-400 border border-warn-500/40'
+                            : 'bg-bad-500/15 text-bad-400 border border-bad-500/40'
+                          : 'text-ink-subtle hover:text-ink-muted'}`}>
+                      {level === 'enkel' ? 'Enkel' : level === 'middels' ? 'Middels' : 'Avansert'}
                     </button>
                   ))}
                 </div>
-                <div className="text-[9px] text-[#4a6080] text-right">{filteredDrills.length} øvelser</div>
+                <div className="text-meta text-ink-subtle text-right">{filteredDrills.length} øvelser</div>
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {filteredDrills.length === 0 ? (
-                  <div className="text-center py-8 text-[#4a6080] text-[11px]">
+                  <div className="text-center py-8 text-ink-subtle text-body">
                     Ingen øvelser funnet. Klikk "Legg til egen øvelse" for å opprette en.
                   </div>
                 ) : (
@@ -466,15 +474,17 @@ const NewTrainingForm: React.FC<{
                     return (
                       <button key={drill.id} type="button"
                         onClick={() => isSelected ? removeDrill(drill.id) : addDrill(drill)}
-                        className={`w-full text-left px-3 py-3 sm:py-2.5 text-[11.5px] hover:bg-[#111c30] border-b border-[#1e3050]/50 transition-all min-h-[44px]
-                          ${isSelected ? 'text-sky-400 bg-sky-500/10' : 'text-slate-300'}`}>
+                        className={`w-full text-left px-3 py-3 sm:py-2.5 text-body hover:bg-canvas-raised border-b border-rule transition-all min-h-[44px]
+                          ${isSelected ? 'text-signal bg-signal/10' : 'text-ink-muted'}`}>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px]">{isSelected ? '✓' : '○'}</span>
+                          <span className={`w-4 flex-shrink-0 ${isSelected ? 'text-signal' : 'text-ink-faint'}`}>
+                            {isSelected ? <Check size={14} strokeWidth={2} aria-hidden /> : '·'}
+                          </span>
                           <div className="flex-1">
                             <div className="font-semibold">{drill.name}</div>
-                            <div className="text-[10px] text-[#4a6080]">
+                            <div className="text-meta text-ink-subtle">
                               {CATEGORY_LABELS[drill.category]} · {drill.duration} min · {drill.players} spillere ·
-                              <span className={drill.difficulty === 'enkel' ? 'text-emerald-400' : drill.difficulty === 'middels' ? 'text-yellow-400' : 'text-red-400'}> {drill.difficulty}</span>
+                              <span className={drill.difficulty === 'enkel' ? 'text-signal' : drill.difficulty === 'middels' ? 'text-warn-400' : 'text-bad-400'}> {drill.difficulty}</span>
                             </div>
                           </div>
                         </div>
@@ -488,26 +498,24 @@ const NewTrainingForm: React.FC<{
         </div>
 
         <div>
-          <label className="label-cal">Beskrivelse / notat</label>
+          <label className={LABEL_CLASS}>Beskrivelse / notat</label>
           <textarea value={teamNote} onChange={e => setTeamNote(e.target.value)}
             rows={3} placeholder="Mål for økten, beskjeder til spillerne..."
-            className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-3 sm:py-2.5
-              text-slate-300 text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
+            className={TEXTAREA_CLASS} />
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
           <button type="button" onClick={save} disabled={saving || !title.trim()}
-            className="flex-1 py-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[13px] hover:bg-emerald-500/25 disabled:opacity-40 transition min-h-[48px]">
-            {saving ? 'Oppretter...' : '✨ Opprett trening'}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-3 rounded-panel bg-signal/10 border border-signal/40 text-signal font-bold text-lead hover:bg-signal/15 disabled:opacity-40 transition min-h-[48px]">
+            {saving ? 'Oppretter …' : 'Opprett trening'}
           </button>
           <button type="button" onClick={onCancel}
-            className="px-4 py-3 rounded-xl border border-[#1e3050] text-[#4a6080] font-bold text-[13px] hover:text-slate-300 transition min-h-[48px]">
+            className="px-4 py-3 rounded-panel border border-rule text-ink-subtle font-bold text-lead hover:text-ink-muted transition min-h-[48px]">
             Avbryt
           </button>
         </div>
       </div>
 
-      <CalStyle />
     </div>
   );
 };
@@ -527,37 +535,40 @@ const TrainingCard: React.FC<{
   const isUpcoming = !past && new Date(event.date) >= new Date();
 
   return (
-    <div className="bg-[#0f1a2a] rounded-xl border border-[#1e3050] hover:border-[#2e4060] transition-all">
+    <div className="bg-canvas-panel rounded-panel border border-rule hover:border-rule-strong transition-all">
       <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-3.5">
         <div onClick={onClick} className="flex-1 flex items-center gap-2 sm:gap-3 cursor-pointer active:scale-[0.99]">
-          <div className={`w-2 h-12 rounded-full flex-shrink-0 ${past ? 'bg-[#2e4060]' : 'bg-emerald-400'}`} />
+          <div className={`w-2 h-12 rounded-full flex-shrink-0 ${past ? 'bg-ink-faint' : 'bg-signal'}`} />
           <div className="flex-1 min-w-0">
-            <div className="text-[12px] sm:text-[13px] font-bold text-slate-200 truncate">{event.title}</div>
-            <div className="text-[9px] sm:text-[10.5px] text-[#4a6080]">
+            <div className="text-body font-bold text-ink truncate">{event.title}</div>
+            <div className="text-meta text-ink-subtle">
               {dateStr}{event.time && ` · ${event.time}`}
-              {event.location && ` · 📍 ${event.location}`}
+              {event.location && ` · ${event.location}`}
             </div>
             {event.trainingNotes?.length > 0 && (
-              <div className="text-[9px] sm:text-[10px] text-emerald-400/70 mt-0.5">
-                📋 {event.trainingNotes[0].title}
+              <div className="text-meta text-ink-subtle mt-0.5 inline-flex items-center gap-1">
+                <ClipboardList size={12} strokeWidth={1.75} aria-hidden />
+                {event.trainingNotes[0].title}
                 {event.trainingNotes.length > 1 && ` +${event.trainingNotes.length - 1}`}
               </div>
             )}
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             {attendeeCount > 0 && (
-              <div className="text-[8px] sm:text-[9.5px] text-emerald-400 font-bold">✅ {attendeeCount} møtte</div>
+              <div className="text-meta text-signal font-bold inline-flex items-center gap-1">
+                <Check size={12} strokeWidth={2} aria-hidden /> {attendeeCount} møtte
+              </div>
             )}
-            <span className="text-[#3a5070] text-[11px]">›</span>
+            <ChevronRight size={14} strokeWidth={1.75} aria-hidden className="text-ink-faint" />
           </div>
         </div>
         {isUpcoming && onStart && (
           <button
             onClick={(e) => { e.stopPropagation(); onStart(); }}
-            className="px-2.5 sm:px-3 py-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30
-              text-emerald-400 text-[10px] sm:text-[11px] font-bold hover:bg-emerald-500/25 transition min-h-[44px]"
+            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-ctl bg-signal/10 border border-signal/40
+              text-signal text-meta font-bold hover:bg-signal/15 transition min-h-[44px]"
           >
-            ▶ Start
+            <Play size={14} strokeWidth={2} fill="currentColor" aria-hidden /> Start
           </button>
         )}
       </div>
@@ -598,21 +609,23 @@ const Stopwatch: React.FC<{
   const progress = ((duration * 60 - timeLeft) / (duration * 60)) * 100;
 
   return (
-    <div className="bg-[#0c1525] rounded-xl p-3 sm:p-4 border border-[#1e3050]">
+    <div className="bg-canvas-sunken rounded-panel p-3 sm:p-4 border border-rule">
       <div className="text-center">
-        <div className="text-3xl sm:text-4xl font-mono font-bold text-slate-200 mb-2">{formatTime(timeLeft)}</div>
-        <div className="w-full bg-[#1e3050] rounded-full h-2 mb-4">
-          <div className="bg-emerald-500 h-2 rounded-full transition-all duration-1000"
+        <div className="text-[2.25rem] font-mono font-bold text-ink mb-2">{formatTime(timeLeft)}</div>
+        <div className="w-full bg-canvas-raised rounded-full h-2 mb-4">
+          <div className="bg-signal h-2 rounded-full transition-all duration-1000"
             style={{ width: `${progress}%` }} />
         </div>
         <div className="flex gap-2 justify-center">
           <button onClick={() => setIsPaused(!isPaused)}
-            className="px-3 sm:px-4 py-2 sm:py-2 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-xs sm:text-sm font-semibold min-h-[44px]">
-            {isPaused ? '▶ Fortsett' : '⏸ Pause'}
+            className="px-3 sm:px-4 py-2 sm:py-2 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-body font-semibold min-h-[44px]">
+            {isPaused
+              ? <><Play size={14} strokeWidth={2} fill="currentColor" aria-hidden /> Fortsett</>
+              : <><Pause size={14} strokeWidth={2} fill="currentColor" aria-hidden /> Pause</>}
           </button>
           <button onClick={onCancel}
-            className="px-3 sm:px-4 py-2 sm:py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs sm:text-sm font-semibold min-h-[44px]">
-            ⏹ Avbryt
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2 rounded-ctl bg-bad-500/15 border border-bad-500/40 text-bad-400 text-body font-semibold min-h-[44px]">
+            <StopCircle size={14} strokeWidth={1.75} aria-hidden /> Avbryt
           </button>
         </div>
       </div>
@@ -645,6 +658,9 @@ const TrainingDetail: React.FC<{
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+
+  const weekday = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', { weekday: 'long' });
+  const dayTitle = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${new Date(event.date + 'T12:00:00').getDate()}.`;
 
   const attendance: string[] = event.attendance ?? [];
   const attendedCount = rosterNames.filter(n => attendance.includes(n)).length;
@@ -691,22 +707,30 @@ const TrainingDetail: React.FC<{
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0c1525] border-b border-[#1e3050]">
-        <button onClick={onBack} className="text-[10px] sm:text-[11px] text-[#4a6080] hover:text-sky-400 mb-2 flex items-center gap-1 min-h-[44px]">
-          ‹ Tilbake
+      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-canvas-sunken border-b border-rule">
+        <button onClick={onBack} className="text-meta text-ink-subtle hover:text-signal mb-2 inline-flex items-center gap-1 min-h-[44px]">
+          <ChevronLeft size={15} strokeWidth={1.75} aria-hidden /> Tilbake
         </button>
-        <h2 className="text-sm sm:text-base font-black text-slate-100">{event.title}</h2>
-        <p className="text-[9px] sm:text-[10.5px] text-[#4a6080]">
-          {dateStr}{event.time && ` · ${event.time}`}
-          {event.location && ` · 📍 ${event.location}`}
+        <h2 className="font-serif text-[1.75rem] leading-tight text-ink">{dayTitle}</h2>
+        <p className="text-lead text-ink mt-0.5">{event.title}</p>
+        <p className="text-meta text-ink-subtle mt-1 flex items-center gap-x-3 gap-y-0.5 flex-wrap">
+          <span>{dateStr}</span>
+          {event.time && <span className="font-mono">{event.time}</span>}
+          {event.location && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin size={12} strokeWidth={1.75} aria-hidden /> {event.location}
+            </span>
+          )}
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 max-w-2xl mx-auto w-full">
 
         {activeStopwatch && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 sm:p-4">
-            <div className="text-[10px] sm:text-[11px] font-bold text-emerald-400 mb-2">⏱ Pågående øvelse</div>
+          <div className="bg-signal/10 border border-signal/40 rounded-panel p-3 sm:p-4">
+            <div className="text-meta font-bold text-signal mb-2 inline-flex items-center gap-1.5">
+              <Timer size={13} strokeWidth={1.75} aria-hidden /> Pågående øvelse
+            </div>
             <Stopwatch
               duration={activeStopwatch === 'custom' ? 5 : (event.trainingNotes?.find((tn: any) => tn.id === activeStopwatch)?.duration || 5)}
               onComplete={() => {
@@ -722,32 +746,33 @@ const TrainingDetail: React.FC<{
         )}
 
         {event.teamNote && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 sm:p-4">
-            <div className="text-[8px] sm:text-[9.5px] font-bold text-amber-400 uppercase tracking-wider mb-2">📝 Fra trener</div>
-            <p className="text-[11px] sm:text-[12.5px] text-slate-300 leading-relaxed whitespace-pre-wrap">{event.teamNote}</p>
+          <div className="bg-canvas-panel border border-rule rounded-panel p-3 sm:p-4">
+            <div className={LABEL_CLASS + ' mb-2'}>Fra trener</div>
+            <p className="text-body text-ink-muted leading-relaxed whitespace-pre-wrap">{event.teamNote}</p>
           </div>
         )}
 
         <div>
-          <div className="text-[8px] sm:text-[9.5px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">Generelt notat</div>
+          <div className="text-meta font-bold text-ink-faint uppercase tracking-wider mb-1.5">Generelt notat</div>
           <textarea value={event.teamNote ?? ''} onChange={handleTeamNoteChange}
             rows={3} placeholder="Mål for økten, beskjeder til spillerne..."
-            className="w-full bg-[#111c30] border border-[#1e3050] rounded-xl px-3 py-2.5 sm:py-2.5
-              text-slate-300 text-[11px] sm:text-[12.5px] resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
+            className={TEXTAREA_CLASS} />
         </div>
 
         <div>
           <button onClick={() => setShowAttendance(!showAttendance)}
             className="flex items-center gap-2 w-full text-left mb-2 min-h-[44px]">
-            <span className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-wider">
-              ✅ Fremmøte ({attendedCount}/{rosterNames.length})
+            <span className={LABEL_CLASS}>
+              Fremmøte ({attendedCount}/{rosterNames.length})
             </span>
-            <span className="text-[#3a5070] text-[9px]">{showAttendance ? '▲' : '▼'}</span>
+            {showAttendance
+              ? <ChevronUp size={14} strokeWidth={1.75} aria-hidden className="text-ink-faint" />
+              : <ChevronDown size={14} strokeWidth={1.75} aria-hidden className="text-ink-faint" />}
           </button>
           {showAttendance && (
             <>
               {rosterNames.length === 0 && (
-                <p className="text-[10px] sm:text-[11px] text-[#3a5070] italic mb-1">
+                <p className="text-meta text-ink-faint italic mb-1">
                   Ingen navn i listen ennå – legg dem til under for å registrere fremmøte.
                 </p>
               )}
@@ -756,12 +781,14 @@ const TrainingDetail: React.FC<{
                   const attended = attendance.includes(name);
                   return (
                     <button key={name} onClick={() => toggleAttendance(name)}
-                      className={`flex items-center gap-2 p-2.5 sm:p-2.5 rounded-xl border transition-all text-left min-h-[44px]
+                      className={`flex items-center gap-2 p-2.5 sm:p-2.5 rounded-panel border transition-all text-left min-h-[44px]
                         ${attended
-                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                          : 'bg-[#0f1a2a] border-[#1e3050] text-[#4a6080]'}`}>
-                      <span className="text-[14px]">{attended ? '✅' : '⬜'}</span>
-                      <span className="text-[10px] sm:text-[11.5px] font-semibold truncate">{name}</span>
+                          ? 'bg-signal/10 border-signal/50 text-signal'
+                          : 'bg-canvas-panel border-rule text-ink-subtle'}`}>
+                      {attended
+                        ? <CheckSquare size={16} strokeWidth={1.75} aria-hidden className="flex-shrink-0" />
+                        : <Square size={16} strokeWidth={1.75} aria-hidden className="flex-shrink-0" />}
+                      <span className="text-meta sm:text-body font-semibold truncate">{name}</span>
                     </button>
                   );
                 })}
@@ -773,34 +800,37 @@ const TrainingDetail: React.FC<{
 
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] sm:text-[10px] font-bold text-[#3a5070] uppercase tracking-wider">
-              📋 Øvelser og notater
-            </span>
+            <span className={LABEL_CLASS}>Øvelser og notater</span>
             <button onClick={() => setShowAddNote(!showAddNote)}
-              className="ml-auto text-[9px] sm:text-[10px] text-sky-400 hover:text-sky-300 font-semibold min-h-[44px] px-2">
-              ＋ Legg til
+              className="inline-flex items-center justify-center gap-1.5 ml-auto text-meta text-signal hover:brightness-110 font-semibold min-h-[44px] px-2">
+              <Plus size={14} strokeWidth={2} aria-hidden className="inline" /> Legg til
             </button>
           </div>
 
           {showAddNote && (
-            <div className="bg-[#0c1525] border border-dashed border-[#1e3050] rounded-xl p-3 sm:p-4 mb-3">
+            <div className="bg-canvas-sunken border border-dashed border-rule rounded-panel p-3 sm:p-4 mb-3">
               <button onClick={() => setShowDrillPicker(!showDrillPicker)}
-                className="w-full text-left py-2.5 sm:py-2 px-3 rounded-lg border border-[#1e3050]
-                  text-[11px] sm:text-[12px] text-[#4a6080] hover:border-sky-500/50 mb-3 flex items-center justify-between min-h-[44px]">
-                <span>{selectedDrill ? `📋 ${selectedDrill.name}` : '– Velg fra øvelsesbibliotek –'}</span>
-                <span>{showDrillPicker ? '▲' : '▼'}</span>
+                className="w-full text-left py-2.5 sm:py-2 px-3 rounded-ctl border border-rule
+                  text-body text-ink-subtle hover:border-signal/50 mb-3 flex items-center justify-between min-h-[44px]">
+                <span>{selectedDrill ? selectedDrill.name : 'Velg fra øvelsesbiblioteket'}</span>
+                {showDrillPicker
+                  ? <ChevronUp size={15} strokeWidth={1.75} aria-hidden />
+                  : <ChevronDown size={15} strokeWidth={1.75} aria-hidden />}
               </button>
               {showDrillPicker && (
-                <div className="bg-[#111c30] border border-[#1e3050] rounded-xl max-h-40 overflow-y-auto mb-3">
+                <div className="bg-canvas-raised border border-rule rounded-panel max-h-40 overflow-y-auto mb-3">
                   <button onClick={() => { setSelectedDrill(null); setShowDrillPicker(false); }}
-                    className="w-full text-left px-3 py-2.5 text-[11px] text-[#4a6080] hover:bg-[#1a2a40] border-b border-[#1e3050] min-h-[44px]">
-                    – Ingen øvelse –
+                    className="w-full text-left px-3 py-2.5 text-body text-ink-subtle hover:bg-canvas-hover border-b border-rule min-h-[44px]">
+                    Ingen øvelse
                   </button>
                   {drills.map(d => (
                     <button key={d.id} onClick={() => { setSelectedDrill(d); setShowDrillPicker(false); setNoteTitle(d.name); }}
-                      className="w-full text-left px-3 py-2.5 text-[11.5px] text-slate-300 hover:bg-[#1a2a40] border-b border-[#1e3050]/50 min-h-[44px]">
-                      <div className="font-semibold">{d.warning && <span title="Har advarsel">⚠️ </span>}{d.name}</div>
-                      <div className="text-[9.5px] text-[#4a6080]">{CATEGORY_LABELS[d.category]} · {d.duration} min · {d.difficulty}</div>
+                      className="w-full text-left px-3 py-2.5 text-body text-ink-muted hover:bg-canvas-hover border-b border-rule min-h-[44px]">
+                      <div className="font-semibold inline-flex items-center gap-1">
+                        {d.warning && <AlertTriangle size={12} strokeWidth={1.75} aria-hidden className="text-warn-400" />}
+                        {d.name}
+                      </div>
+                      <div className="text-meta text-ink-subtle">{CATEGORY_LABELS[d.category]} · {d.duration} min · {d.difficulty}</div>
                     </button>
                   ))}
                 </div>
@@ -808,21 +838,19 @@ const TrainingDetail: React.FC<{
               {!selectedDrill && (
                 <>
                   <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
-                    placeholder="Tittel" className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2.5
-                      text-[12.5px] text-slate-300 focus:outline-none focus:border-sky-500 mb-2 min-h-[44px]" />
+                    placeholder="Tittel" className={TEXTAREA_CLASS} />
                   <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)}
                     rows={2} placeholder="Beskrivelse..."
-                    className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2.5
-                      text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 mb-2" />
+                    className={TEXTAREA_CLASS} />
                 </>
               )}
               <div className="flex gap-2">
                 <button onClick={saveNote}
-                  className="flex-1 py-2.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12px] hover:bg-sky-500/25 min-h-[44px]">
+                  className="flex-1 py-2.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal font-bold text-body hover:bg-signal/15 min-h-[44px]">
                   Lagre
                 </button>
                 <button onClick={() => setShowAddNote(false)}
-                  className="px-4 py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] text-[12px] min-h-[44px]">
+                  className="px-4 py-2.5 rounded-ctl border border-rule text-ink-subtle text-body min-h-[44px]">
                   Avbryt
                 </button>
               </div>
@@ -835,8 +863,8 @@ const TrainingDetail: React.FC<{
               const fullDrill = findDrillByName(tn.title);
 
               return (
-                <div key={tn.id} className={`bg-[#0f1a2a] border rounded-xl p-3 sm:p-4 mb-3 transition-all
-                  ${isCompleted ? 'border-emerald-500/30 opacity-70' : 'border-[#1e3050]'}`}>
+                <div key={tn.id} className={`bg-canvas-panel border rounded-panel p-3 sm:p-4 mb-3 transition-all
+                  ${isCompleted ? 'border-signal/40 opacity-70' : 'border-rule'}`}>
                   
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
@@ -847,47 +875,47 @@ const TrainingDetail: React.FC<{
                               setSelectedDrillForModal(fullDrill);
                             }
                           }}
-                          className="text-[13px] sm:text-[14px] font-bold text-slate-200 hover:text-sky-400 hover:underline transition text-left min-h-[44px]"
+                          className="text-body font-bold text-ink hover:text-signal hover:underline transition text-left min-h-[44px]"
                         >
                           {tn.title}
                         </button>
                         {hasTimer && (
-                          <span className="text-[8px] sm:text-[9px] bg-[#1e3050] px-2 py-0.5 rounded-full text-amber-400">
-                            ⏱ {tn.duration || 5} min
+                          <span className="text-meta bg-canvas-raised px-2 py-0.5 rounded-full text-ink-muted">
+                            <Timer size={11} strokeWidth={1.75} aria-hidden className="inline -mt-px" /> {tn.duration || 5} min
                           </span>
                         )}
                         {isCompleted && (
-                          <span className="text-[8px] sm:text-[9px] bg-emerald-500/20 px-2 py-0.5 rounded-full text-emerald-400">
-                            ✅ Fullført
+                          <span className="text-meta bg-signal/15 px-2 py-0.5 rounded-full text-signal">
+                            <Check size={11} strokeWidth={2} aria-hidden className="inline -mt-px" /> Fullført
                           </span>
                         )}
                       </div>
                     </div>
                     <button onClick={() => onDeleteNote(tn.id)}
-                      className="text-red-400/50 hover:text-red-400 text-xs ml-2 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
+                      className={ICON_BTN + ' ml-2'} aria-label="Slett notat"><Trash2 size={14} strokeWidth={1.75} /></button>
                   </div>
 
-                  <p className="text-[11px] sm:text-[12px] text-[#7a9ab8] leading-relaxed mb-3">{tn.content}</p>
+                  <p className="text-body text-ink-muted leading-relaxed mb-3">{tn.content}</p>
 
                   {fullDrill && (
-                    <div className="mt-3 pt-3 border-t border-[#1e3050] space-y-2">
+                    <div className="mt-3 pt-3 border-t border-rule space-y-2">
 
                       {fullDrill.warning && <DrillWarning text={fullDrill.warning} />}
 
                       {fullDrill.steps.length > 0 && (
                         <div>
-                          <div className="text-[8px] sm:text-[9px] font-bold text-sky-400 uppercase tracking-wider mb-1.5">📝 Steg</div>
+                          <div className={LABEL_CLASS + ' mb-1.5'}>Steg</div>
                           <div className="space-y-1">
                             {fullDrill.steps.slice(0, 3).map((step, idx) => (
-                              <div key={step.id} className="flex gap-2 text-[9px] sm:text-[10.5px] text-slate-300">
-                                <span className="text-sky-400 font-bold">{idx + 1}.</span>
+                              <div key={step.id} className="flex gap-2 text-meta text-ink-muted">
+                                <span className="text-signal font-bold">{idx + 1}.</span>
                                 <span>{step.name || step.description}</span>
                               </div>
                             ))}
                             {fullDrill.steps.length > 3 && (
                               <button
                                 onClick={() => setSelectedDrillForModal(fullDrill)}
-                                className="text-[8px] sm:text-[9px] text-sky-400 hover:underline mt-1 min-h-[32px]"
+                                className="text-meta text-signal hover:underline mt-1 min-h-[32px]"
                               >
                                 + {fullDrill.steps.length - 3} flere steg...
                               </button>
@@ -898,17 +926,17 @@ const TrainingDetail: React.FC<{
 
                       {fullDrill.coachingPoints.length > 0 && (
                         <div>
-                          <div className="text-[8px] sm:text-[9px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">💡 Coachingpunkter</div>
+                          <div className={LABEL_CLASS + ' mb-1.5'}>Coachingpunkter</div>
                           <div className="flex flex-wrap gap-1">
                             {fullDrill.coachingPoints.slice(0, 2).map((tip, idx) => (
-                              <span key={idx} className="text-[9px] sm:text-[10px] text-slate-300 bg-amber-500/5 px-2 py-0.5 rounded-full">
+                              <span key={idx} className="text-meta text-ink-muted bg-canvas-raised px-2 py-0.5 rounded-full">
                                 {tip.length > 30 ? tip.slice(0, 30) + '…' : tip}
                               </span>
                             ))}
                             {fullDrill.coachingPoints.length > 2 && (
                               <button
                                 onClick={() => setSelectedDrillForModal(fullDrill)}
-                                className="text-[8px] sm:text-[9px] text-amber-400 hover:underline min-h-[32px]"
+                                className="text-meta text-ink-muted hover:underline min-h-[32px]"
                               >
                                 +{fullDrill.coachingPoints.length - 2} til
                               </button>
@@ -919,17 +947,17 @@ const TrainingDetail: React.FC<{
 
                       {fullDrill.equipment.length > 0 && (
                         <div>
-                          <div className="text-[8px] sm:text-[9px] font-bold text-emerald-400 uppercase tracking-wider mb-1.5">🛠 Utstyr</div>
+                          <div className={LABEL_CLASS + ' mb-1.5'}>Utstyr</div>
                           <div className="flex flex-wrap gap-1">
                             {fullDrill.equipment.slice(0, 3).map((item, idx) => (
-                              <span key={idx} className="text-[8px] sm:text-[9px] text-slate-300 bg-emerald-500/5 px-2 py-0.5 rounded-full">
+                              <span key={idx} className="text-meta text-ink-muted bg-canvas-raised px-2 py-0.5 rounded-full">
                                 {item}
                               </span>
                             ))}
                             {fullDrill.equipment.length > 3 && (
                               <button
                                 onClick={() => setSelectedDrillForModal(fullDrill)}
-                                className="text-[8px] sm:text-[9px] text-emerald-400 hover:underline min-h-[32px]"
+                                className="text-meta text-signal hover:underline min-h-[32px]"
                               >
                                 +{fullDrill.equipment.length - 3} til
                               </button>
@@ -940,9 +968,9 @@ const TrainingDetail: React.FC<{
 
                       <button
                         onClick={() => setSelectedDrillForModal(fullDrill)}
-                        className="w-full mt-2 py-2 sm:py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[9px] sm:text-[10px] font-semibold hover:bg-sky-500/20 transition flex items-center justify-center gap-1 min-h-[44px]"
+                        className="inline-flex items-center justify-center gap-1.5 w-full mt-2 py-2 sm:py-1.5 rounded-ctl bg-signal/10 border border-signal/30 text-signal text-meta font-semibold hover:bg-signal/15 transition min-h-[44px]"
                       >
-                        📖 Vis full detalj (steg, coachingpunkter, utstyr)
+                        <BookOpen size={14} strokeWidth={1.75} aria-hidden /> Vis full detalj
                       </button>
                     </div>
                   )}
@@ -950,35 +978,34 @@ const TrainingDetail: React.FC<{
                   <div className="mt-3 flex gap-2">
                     {hasTimer && !isCompleted && activeStopwatch !== tn.id && (
                       <button 
-                        onClick={() => {
-                          console.log('Coach starting stopwatch for:', tn.id, 'Duration:', tn.duration || 5);
-                          setActiveStopwatch(tn.id);
-                        }}
-                        className="flex-1 py-2 sm:py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center justify-center gap-1 min-h-[44px]"
+                        onClick={() => setActiveStopwatch(tn.id)}
+                        className="inline-flex items-center justify-center gap-1.5 flex-1 py-2 sm:py-1.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-meta font-semibold hover:bg-signal/15 transition min-h-[44px]"
                       >
-                        ⏱ Start øvelse ({tn.duration || 5} min)
+                        <Play size={14} strokeWidth={2} fill="currentColor" aria-hidden /> Start øvelse ({tn.duration || 5} min)
                       </button>
                     )}
 
                     {!isCompleted && !hasTimer && (
                       <button 
                         onClick={() => handleCompleteDrill(tn.id)}
-                        className="flex-1 py-2 sm:py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-semibold hover:bg-emerald-500/25 transition flex items-center justify-center gap-1 min-h-[44px]"
+                        className="inline-flex items-center justify-center gap-1.5 flex-1 py-2 sm:py-1.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-meta font-semibold hover:bg-signal/15 transition min-h-[44px]"
                       >
-                        ✅ Marker som fullført
+                        <Check size={14} strokeWidth={2} aria-hidden /> Marker som fullført
                       </button>
                     )}
                   </div>
 
                   {activeStopwatch === tn.id && (
-                    <div className="mt-2 text-[9px] sm:text-[10px] text-amber-400">⏱ Øvelse pågår...</div>
+                    <div className="mt-2 text-meta text-signal inline-flex items-center gap-1.5">
+                      <Timer size={12} strokeWidth={1.75} aria-hidden /> Øvelse pågår …
+                    </div>
                   )}
                 </div>
               );
             })}
 
           {(event.trainingNotes?.length ?? 0) === 0 && (
-            <p className="text-[10px] sm:text-[11px] text-[#3a5070] italic">Ingen øvelser lagt til ennå.</p>
+            <p className="text-meta text-ink-faint italic">Ingen øvelser lagt til ennå.</p>
           )}
         </div>
       </div>
@@ -1008,44 +1035,28 @@ const RosterEditor: React.FC<{
   if (!open) {
     return (
       <button onClick={openEditor}
-        className="mt-2 text-[10px] sm:text-[11px] text-sky-400 hover:text-sky-300 font-semibold min-h-[44px]">
-        ✏️ Rediger navneliste
+        className="mt-2 text-meta text-signal hover:brightness-110 font-semibold min-h-[44px]">
+        <Pencil size={13} strokeWidth={1.75} aria-hidden className="inline -mt-px" /> Rediger navneliste
       </button>
     );
   }
 
   return (
-    <div className="mt-3 bg-[#0c1525] border border-dashed border-[#1e3050] rounded-xl p-3">
-      <div className="text-[9px] font-bold text-[#3a5070] uppercase tracking-wider mb-1.5">
-        Navneliste – ett navn per linje
-      </div>
+    <div className="mt-3 bg-canvas-sunken border border-dashed border-rule rounded-panel p-3">
+      <div className={LABEL_CLASS + ' mb-1.5'}>Navneliste – ett navn per linje</div>
       <textarea value={text} onChange={e => setText(e.target.value)} rows={6}
         placeholder={'Ola\nKari\nPer'}
-        className="w-full bg-[#111c30] border border-[#1e3050] rounded-lg px-3 py-2.5
-          text-[12.5px] text-slate-300 resize-y focus:outline-none focus:border-sky-500 leading-relaxed" />
+        className={TEXTAREA_CLASS} />
       <div className="flex gap-2 mt-2">
         <button onClick={save}
-          className="flex-1 py-2.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 font-bold text-[12px] hover:bg-sky-500/25 min-h-[44px]">
+          className="flex-1 py-2.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal font-bold text-body hover:bg-signal/15 min-h-[44px]">
           Lagre navneliste
         </button>
         <button onClick={() => setOpen(false)}
-          className="px-4 py-2.5 rounded-lg border border-[#1e3050] text-[#4a6080] text-[12px] min-h-[44px]">
+          className="px-4 py-2.5 rounded-ctl border border-rule text-ink-subtle text-body min-h-[44px]">
           Avbryt
         </button>
       </div>
     </div>
   );
 };
-
-// ═══ STYLES (RESPONSIV OPPDATERT) ══════════════════════════════
-
-const CalStyle = () => (
-  <style>{`
-    .inp-cal { width:100%; background:#111c30; border:1px solid #1e3050;
-      border-radius:8px; padding:10px 12px; color:#e2e8f0; font-size:12.5px;
-      margin-top:4px; box-sizing:border-box; min-height:44px; }
-    .inp-cal:focus { outline:none; border-color:#38bdf8; }
-    .label-cal { font-size:9.5px; font-weight:700; color:#3a5070;
-      text-transform:uppercase; letter-spacing:0.08em; display:block; }
-  `}</style>
-);

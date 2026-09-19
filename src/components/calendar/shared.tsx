@@ -38,26 +38,8 @@ export const FOCUS_OPTIONS = [
   'Innlegg','Dødball','Keepertrening','Kondisjon','Styrke','Taktikk','Individuell teknikk',
 ];
 
-// ═══ SKJEMAKLASSER ════════════════════════════════════════════
-// Erstatter CalStyle (styled-jsx med hardkodede hex-verdier).
-
-export const INPUT_CLASS =
-  'w-full mt-1.5 rounded-ctl px-3 min-h-[44px] bg-canvas-raised text-body text-ink ' +
-  'placeholder:text-ink-faint shadow-hair focus:outline-none focus:shadow-hair-signal';
-
-export const TEXTAREA_CLASS =
-  'w-full mt-1.5 rounded-ctl px-3 py-2.5 bg-canvas-raised text-body text-ink leading-relaxed resize-y ' +
-  'placeholder:text-ink-faint shadow-hair focus:outline-none focus:shadow-hair-signal';
-
-export const LABEL_CLASS =
-  'block font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle';
-
-/** Valgknapp som ikke er en handling: ukedag, fokusområde, omgang. */
-export function toggleClass(active: boolean): string {
-  return active
-    ? 'bg-signal/10 text-signal shadow-hair-signal'
-    : 'bg-canvas-raised text-ink-muted hover:text-ink shadow-hair';
-}
+// Skjemaklassene bor i lib/formClasses – de deles med treningsvisningen.
+export { INPUT_CLASS, TEXTAREA_CLASS, LABEL_CLASS, toggleClass } from '@/lib/formClasses';
 
 // ═══ DATOHJELPERE ═════════════════════════════════════════════
 // Datoene lagres som ISO (YYYY-MM-DD); T12:00 unngår tidssonehopp.
