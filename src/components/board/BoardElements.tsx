@@ -24,9 +24,18 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
     const rect = svg.getBoundingClientRect();
     const vbW  = parseFloat(svg.getAttribute('viewBox')?.split(' ')[2] ?? '880');
     const vbH  = parseFloat(svg.getAttribute('viewBox')?.split(' ')[3] ?? '560');
+
+    // Speil <svg preserveAspectRatio="xMidYMid meet"> (letterbox, skala=min) nøyaktig,
+    // ellers blir ballen forskyvet i forhold til musa når brettet har letterbox.
+    const scale     = Math.min(rect.width / vbW, rect.height / vbH);
+    const renderedW = vbW * scale;
+    const renderedH = vbH * scale;
+    const offsetX   = (rect.width  - renderedW) / 2;
+    const offsetY   = (rect.height - renderedH) / 2;
+
     return {
-      x: Math.max(45, Math.min(vbW - 45, ((clientX - rect.left) / rect.width)  * vbW)),
-      y: Math.max(45, Math.min(vbH - 45, ((clientY - rect.top)  / rect.height) * vbH)),
+      x: Math.max(45, Math.min(vbW - 45, ((clientX - rect.left - offsetX) / renderedW) * vbW)),
+      y: Math.max(45, Math.min(vbH - 45, ((clientY - rect.top  - offsetY) / renderedH) * vbH)),
     };
   }, []);
 

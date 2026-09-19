@@ -32,18 +32,16 @@ const VALID_VIEWS: AppView[] = NAV.map(n => n.view);
 // ─── INNSTILLINGER MODAL ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const {
-    homeTeamName, awayTeamName,
-    setHomeTeamName, setAwayTeamName,
+    homeTeamName,
+    setHomeTeamName,
     ageGroup, setAgeGroup,
   } = useAppStore();
 
   const [home,  setHome]  = useState(homeTeamName);
-  const [away,  setAway]  = useState(awayTeamName);
   const [saved, setSaved] = useState(false);
 
   const save = () => {
     if (home.trim())  setHomeTeamName(home.trim());
-    if (away.trim())  setAwayTeamName(away.trim());
     setSaved(true);
     setTimeout(() => { setSaved(false); onClose(); }, 800);
   };
@@ -84,13 +82,9 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <p className="text-[9px] text-slate-500 mt-1.5">Velg aldersgruppe – påvirker hvilke øvelser som vises</p>
         </div>
 
-        <div className="mb-4">
+        <div className="mb-6">
           <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Ditt lagnavn</div>
           <input value={home} onChange={e => setHome(e.target.value)} className="sett-inp mt-1" placeholder="Eks: Sotra SK" />
-        </div>
-        <div className="mb-6">
-          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Motstanderlag</div>
-          <input value={away} onChange={e => setAway(e.target.value)} className="sett-inp mt-1" placeholder="Eks: Bergen SK" />
         </div>
         <button
           onClick={save}
