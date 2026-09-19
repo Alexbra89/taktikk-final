@@ -1,8 +1,41 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { useActiveTactic } from '@/store/selectors';
-import { DRILL_LIBRARY, getDrillsForContext, getWeeklyDrills, getISOWeek, toDrillSport, DrillExercise } from '@/data/drills';
+import { ALL_DRILLS, getDrillsByAgeGroup } from '@/data/drills';
+import type { DrillExercise } from '@/types';
+
+/** ISO-ukenummer (samme beregning som i DrillsView). */
+function getWeekInfo(date = new Date()): { week: number; year: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { week, year: d.getUTCFullYear() };
+}
+
+/**
+ * Deterministisk «tilfeldig» utvalg: samme uke gir samme øvelser,
+ * ny uke gir nytt utvalg. Seeded shuffle (mulberry32) av øvelsene.
+ */
+function pickWeekly(drills: DrillExercise[], count: number, seed: number): DrillExercise[] {
+  let s = seed >>> 0;
+  const rand = () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const pool = [...drills];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
+
+const WEEKLY_COUNT = 5;
 
 // ═══════════════════════════════════════════════════════════════
 //  SMART COACH – Kampklokke · Ukentlige øvelser (RESPONSIV)
@@ -108,34 +141,36 @@ const TimerTab: React.FC = () => {
 // ═══ ØVELSESBIBLIOTEK ══════════════════════════════════════════
 
 const DrillsTab: React.FC = () => {
-  const { updateStickyNote, ageGroup: storeAgeGroup } = useAppStore();
-  const { sport } = useActiveTactic();
+  const { updateStickyNote, ageGroup } = useAppStore();
 
   const [activeDrill, setActiveDrill] = useState<DrillExercise | null>(null);
   const [activeStep, setActiveStep]   = useState(0);
   const [showAll, setShowAll]         = useState(false);
 
-  const ageGroup = storeAgeGroup;
-
-  const week        = getISOWeek();
-  const weeklyDrills = getWeeklyDrills(toDrillSport(sport), ageGroup);
-  const allDrills    = getDrillsForContext(toDrillSport(sport), ageGroup);
-  const displayed    = showAll ? allDrills : weeklyDrills;
-
-  const sportLabel: Record<string, string> = {
-    football: 'Fotball 11er', football5: 'Fotball 5er', football7: 'Fotball 7er', football9: 'Fotball 9er',
-  };
+  const { week, year } = useMemo(() => getWeekInfo(), []);
+  const allDrills = useMemo(() => getDrillsByAgeGroup(ageGroup), [ageGroup]);
+  const weeklyDrills = useMemo(
+    () => pickWeekly(
+      ALL_DRILLS.filter(d => d.ageGroup === ageGroup),
+      WEEKLY_COUNT,
+      year * 100 + week + (ageGroup === 'youth' ? 0 : 7919),
+    ),
+    [ageGroup, week, year],
+  );
+  const displayed = showAll ? allDrills : weeklyDrills;
 
   const applyNote = (drill: DrillExercise, stepIdx: number) => {
     const step = drill.steps[stepIdx];
     if (!step) return;
-    updateStickyNote(`${drill.name} · Steg ${stepIdx + 1}: ${step.name}`);
+    const lines = [`${drill.name} · Steg ${stepIdx + 1}: ${step.name || step.description}`];
+    drill.coachingPoints.slice(0, 3).forEach(p => lines.push(`• ${p}`));
+    updateStickyNote(lines.join('\n'));
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">{sportLabel[sport] ?? sport}</span>
+        <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">⚽ Fotball</span>
         <div className="flex items-center gap-1.5">
           <span className={`px-2 py-1 rounded-xl text-[9px] sm:text-[10px] font-bold ${
             ageGroup === 'youth' 
@@ -181,7 +216,7 @@ const DrillsTab: React.FC = () => {
           <div className="space-y-2">
             {displayed.length === 0 ? (
               <p className="text-[11px] sm:text-[12px] text-[#4a6080] text-center py-6">
-                Ingen øvelser for {ageGroup === 'youth' ? 'barne-' : 'voksen-'}{sportLabel[sport]}.
+                Ingen øvelser for {ageGroup === 'youth' ? 'barn' : 'voksne'}.
               </p>
             ) : (
               displayed.map((d, idx) => (
@@ -218,9 +253,22 @@ const DrillsTab: React.FC = () => {
           </button>
 
           <h3 className="text-xs sm:text-sm font-black text-slate-100 mb-1">{activeDrill.name}</h3>
-          <p className="text-[10px] sm:text-[11.5px] text-[#7a9ab8] mb-4 leading-relaxed">
+
+          {activeDrill.warning && (
+            <div className="flex gap-2 bg-yellow-500/10 border border-yellow-500/40 rounded-xl p-2.5 sm:p-3 mb-3">
+              <span className="text-yellow-400 leading-none shrink-0">⚠️</span>
+              <p className="text-[10px] sm:text-[11px] text-yellow-100/90 leading-relaxed">{activeDrill.warning}</p>
+            </div>
+          )}
+
+          <p className="text-[10px] sm:text-[11.5px] text-[#7a9ab8] mb-2 leading-relaxed">
             {activeDrill.description}
           </p>
+          {activeDrill.why && (
+            <p className="text-[10px] sm:text-[11px] text-purple-300/80 mb-4 leading-relaxed">
+              <span className="font-bold text-purple-400">🎯 Hvorfor: </span>{activeDrill.why}
+            </p>
+          )}
 
           <div className="flex gap-1.5 mb-4">
             {activeDrill.steps.map((_, i) => (
@@ -239,7 +287,7 @@ const DrillsTab: React.FC = () => {
                   {activeStep + 1}
                 </span>
                 <span className="text-[12px] sm:text-[13px] font-bold text-slate-200">
-                  {activeDrill.steps[activeStep].name}
+                  {activeDrill.steps[activeStep].name || `Steg ${activeStep + 1}`}
                 </span>
               </div>
               <p className="text-[11px] sm:text-[12px] text-[#7a9ab8] leading-relaxed pl-9">
@@ -272,9 +320,29 @@ const DrillsTab: React.FC = () => {
 
           <button onClick={() => applyNote(activeDrill, activeStep)}
             className="w-full py-2 rounded-xl border border-amber-500/30 text-amber-400/70
-              text-[10px] sm:text-[11px] hover:text-amber-400 transition min-h-[44px]">
+              text-[10px] sm:text-[11px] hover:text-amber-400 transition min-h-[44px] mb-4">
             📌 Fest til fase-notat
           </button>
+
+          {([
+            { title: '💡 Coachingpunkter', items: activeDrill.coachingPoints, color: 'text-amber-400', bullet: '•' },
+            { title: '🚫 Vanlige feil',    items: activeDrill.commonMistakes, color: 'text-red-400',   bullet: '✕' },
+            { title: '🔀 Variasjoner',     items: activeDrill.variations,     color: 'text-orange-400', bullet: '↳' },
+          ]).filter(sec => sec.items.length > 0).map(sec => (
+            <div key={sec.title} className="mb-3">
+              <div className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider mb-1.5 ${sec.color}`}>
+                {sec.title}
+              </div>
+              <ul className="space-y-1">
+                {sec.items.map((item, i) => (
+                  <li key={i} className="text-[10px] sm:text-[11px] text-slate-300 flex gap-2">
+                    <span className={`${sec.color} shrink-0`}>{sec.bullet}</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
     </div>
