@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useActiveTactic } from '../../store/selectors';
@@ -8,7 +8,7 @@ import { cn } from '../../lib/cn';
 
 // ═══════════════════════════════════════════════════════════════
 //  BRETTPANEL – alt som før lå som egne linjer og knapper rundt banen:
-//  oppsett (sport/formasjon/roller), notat, øyeblikk og avspillingsfart.
+//  oppsett (sport/formasjon/roller), øyeblikk og avspillingsfart.
 //  Bunn-sheet på mobil, popover på desktop. Banen skal eie plassen.
 // ═══════════════════════════════════════════════════════════════
 
@@ -25,35 +25,14 @@ interface BoardPanelProps {
 
 export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playSpeed, setPlaySpeed }) => {
   const tactic           = useActiveTactic();
-  const updateStickyNote = useAppStore(s => s.updateStickyNote);
   const moments          = useAppStore(s => s.moments);
   const saveMoment       = useAppStore(s => s.saveMoment);
   const deleteMoment     = useAppStore(s => s.deleteMoment);
 
   const phase = tactic.phases[tactic.activePhaseIdx] ?? null;
 
-  // ─── Notat ─────────────────────────────────────────────────
-  // Skrives lokalt og lagres med forsinkelse, som før. Siste tastetrykk
-  // skylles også når panelet lukkes.
-  const [note, setNote]  = useState(phase?.stickyNote ?? '');
-  const latest           = useRef(note);
-  const pending          = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const phaseIdx         = tactic.activePhaseIdx;
-
-  const flushNote = () => {
-    if (!pending.current) return;
-    clearTimeout(pending.current);
-    pending.current = null;
-    updateStickyNote(latest.current, phaseIdx);
-  };
-  useEffect(() => () => flushNote(), []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const onNoteChange = (v: string) => {
-    setNote(v);
-    latest.current = v;
-    if (pending.current) clearTimeout(pending.current);
-    pending.current = setTimeout(flushNote, 400);
-  };
+  // Notatet lå her før; det bor nå på verktøylinja under banen, sammen med
+  // fasene det hører til. Se PhaseNoteModal i TacticBoard.
 
   // ─── Øyeblikk ──────────────────────────────────────────────
   // Lå tidligere i lokal useState og forsvant ved refresh. Nå i store,
@@ -85,17 +64,6 @@ export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playS
   const body = (
     <div className="flex flex-col gap-5">
       <Controls />
-
-      <section>
-        <SectionTitle>Notat for {phase?.name || 'fasen'}</SectionTitle>
-        <input
-          value={note}
-          onChange={e => onNoteChange(e.target.value)}
-          onBlur={flushNote}
-          placeholder="Hva skal spillerne huske?"
-          className={cn(inputClass, 'w-full')}
-        />
-      </section>
 
       <section>
         <SectionTitle>Taktiske øyeblikk</SectionTitle>

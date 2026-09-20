@@ -23,8 +23,11 @@ import { TacticTabs } from '../ui/TacticTabs';
 import { useViewport } from '../../hooks/useViewport';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
+  StickyNote,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { Modal } from '../ui';
+import { LABEL_CLASS, TEXTAREA_CLASS, PRIMARY_BTN, SECONDARY_BTN } from '../../lib/formClasses';
 
 // ══════════════════════════════════════════════════════════════
 //  TACTIC BOARD – KALK
@@ -55,6 +58,51 @@ interface UndoEntry {
   playerId:      string;
   prevPos:       { x: number; y: number };
 }
+
+// ══════════════════════════════════════════════════════════════
+//  NOTAT FOR FASEN – lå tidligere i BoardPanel. Ligger nå på verktøy-
+//  linja sammen med fasene, fordi notatet hører til fasen man står i.
+// ══════════════════════════════════════════════════════════════
+const PhaseNoteModal: React.FC<{
+  phaseName: string;
+  note: string;
+  onSave: (note: string) => void;
+  onClose: () => void;
+}> = ({ phaseName, note, onSave, onClose }) => {
+  const [draft, setDraft] = useState(note);
+
+  const save = () => { onSave(draft); onClose(); };
+
+  return (
+    <Modal
+      onClose={onClose}
+      size="sm"
+      title={<span className="font-serif text-[1.5rem] leading-tight">Notat</span>}
+      subtitle={<span className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">{phaseName}</span>}
+      footer={
+        <div className="flex gap-2">
+          <button onClick={save} className={`flex-1 ${PRIMARY_BTN}`}>Lagre</button>
+          {note && (
+            <button onClick={() => { onSave(''); onClose(); }} className={SECONDARY_BTN}>
+              Tøm
+            </button>
+          )}
+        </div>
+      }
+    >
+      <label className={LABEL_CLASS} htmlFor="fase-notat">Hva skal spillerne huske?</label>
+      <textarea
+        id="fase-notat"
+        autoFocus
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        rows={5}
+        placeholder="F.eks. Hold linja høy til ballen er vunnet."
+        className={TEXTAREA_CLASS}
+      />
+    </Modal>
+  );
+};
 
 // ══════════════════════════════════════════════════════════════
 //  HOVED-KOMPONENT
@@ -100,11 +148,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [interpT,          setInterpT]           = useState(0);
   const [liveDrawPts,      setLiveDrawPts]       = useState<SvgPos[]>([]);
   const [showPanel,        setShowPanel]         = useState(false);
+  const [showNote,         setShowNote]          = useState(false);
+  const [undoDepth,        setUndoDepth]         = useState(0);
+  const [redoDepth,        setRedoDepth]         = useState(0);
 
   const {
     setActivePhaseIdx, addPhase, removePhase,
     movePlayer, moveBall,
     addDrawing, clearDrawings,
+    updateStickyNote,
   } = useAppStore();
 
   const tactic = useActiveTactic();
@@ -134,24 +186,34 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (timerRef.current)      clearInterval(timerRef.current);
   }, []);
 
+  // Stablene ligger i refs (de skal ikke utløse ny tegning under drag), men
+  // knappene må vite om det finnes noe å angre. Dybden speiles derfor i state.
+  const syncDepths = useCallback(() => {
+    setUndoDepth(undoStack.current.length);
+    setRedoDepth(redoStack.current.length);
+  }, []);
+
   const pushUndo = useCallback((e:UndoEntry) => {
     undoStack.current = [...undoStack.current.slice(-MAX_UNDO+1), e];
     redoStack.current = [];
-  }, []);
+    syncDepths();
+  }, [syncDepths]);
 
   const doUndo = useCallback(() => {
     const e = undoStack.current.pop(); if (!e||!phase) return;
     const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
     redoStack.current.push({ playerId:e.playerId, prevPos:{...p.position} });
     movePlayer(e.playerId, e.prevPos);
-  }, [phase, movePlayer]);
+    syncDepths();
+  }, [phase, movePlayer, syncDepths]);
 
   const doRedo = useCallback(() => {
     const e = redoStack.current.pop(); if (!e||!phase) return;
     const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
     undoStack.current.push({ playerId:e.playerId, prevPos:{...p.position} });
     movePlayer(e.playerId, e.prevPos);
-  }, [phase, movePlayer]);
+    syncDepths();
+  }, [phase, movePlayer, syncDepths]);
 
   useEffect(() => {
     const h = (e:KeyboardEvent) => {
@@ -195,7 +257,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   useEffect(() => {
     undoStack.current = [];
     redoStack.current = [];
-  }, [tactic.id, activePhaseIdx, formation, sport]);
+    syncDepths();
+  }, [tactic.id, activePhaseIdx, formation, sport, syncDepths]);
 
   // Formasjon, sport eller taktikk kan byttes utenfra (Controls/faner) mens avspilling pågår.
   useEffect(() => {
@@ -632,6 +695,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           aria-label="Legg til fase" title="Legg til fase" className={iconBtn}>
           <Plus size={16} strokeWidth={1.75} />
         </button>
+
+        {/* Notatet hører til fasen, så knappen står ved fase-knappene.
+            Prikken gjentar indikatoren på selve fasen. */}
+        <button onClick={() => setShowNote(true)} disabled={isPlaying || !phase}
+          aria-label={phase?.stickyNote ? 'Rediger notat for fasen' : 'Legg til notat for fasen'}
+          title="Notat for fasen"
+          className={cn(iconBtn, 'relative', phase?.stickyNote && 'text-signal hover:text-signal')}>
+          <StickyNote size={16} strokeWidth={1.75} />
+        </button>
         {phases.length > 1 && (
           <button onClick={() => { if (phases.length > 1) removePhase(activePhaseIdx); }} disabled={isPlaying}
             aria-label="Slett fasen" title="Slett fasen" className={iconBtn}>
@@ -641,10 +713,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
         <div className="flex-1 min-w-[4px]"/>
 
-        <button onClick={doUndo} aria-label="Angre" title="Angre (Ctrl+Z)" className={iconBtn}>
+        <button onClick={doUndo} disabled={undoDepth === 0 || isPlaying}
+          aria-label="Angre" title="Angre (Ctrl+Z)" className={iconBtn}>
           <Undo2 size={16} strokeWidth={1.75} />
         </button>
-        <button onClick={doRedo} aria-label="Gjør om" title="Gjør om (Ctrl+Y)" className={iconBtn}>
+        <button onClick={doRedo} disabled={redoDepth === 0 || isPlaying}
+          aria-label="Gjør om" title="Gjør om (Ctrl+Y)" className={iconBtn}>
           <Redo2 size={16} strokeWidth={1.75} />
         </button>
 
@@ -698,6 +772,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           </button>
         </div>
       </div>
+
+      {showNote && phase && (
+        <PhaseNoteModal
+          phaseName={phase.name || `Fase ${activePhaseIdx + 1}`}
+          note={phase.stickyNote ?? ''}
+          onSave={(v) => updateStickyNote(v, activePhaseIdx)}
+          onClose={() => setShowNote(false)}
+        />
+      )}
     </div>
   );
 };
