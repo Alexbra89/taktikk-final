@@ -1,13 +1,17 @@
 'use client';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { PlayerRole } from '@/types';
 import { useActiveTactic, getSlot, SPORT_LABELS } from '@/store/selectors';
 import { getFormationSlots } from '@/data/formations';
 import { ROLE_INFO } from '@/data/roleInfo';
+import { Modal } from '@/components/ui';
 
 // ═══════════════════════════════════════════════════════════════
 //  ROLLEFORKLARINGER – læringsverktøy for unge trenere. Åpnes som modal fra
-//  «🎓 Roller». Viser først rollene i aktiv formasjon, deretter «Andre roller».
+//  «Forklar rollene». Viser først rollene i aktiv formasjon, deretter «Andre roller».
+//  Rollefargen fra ROLE_INFO beholdes: den er den samme som på brettet,
+//  og er informasjon om hvem spilleren er – ikke pynt.
 // ═══════════════════════════════════════════════════════════════
 
 type CardId =
@@ -98,12 +102,6 @@ export const RoleExplanations: React.FC<{ onClose: () => void }> = ({ onClose })
   const tactic = useActiveTactic();
   const [openId, setOpenId] = useState<CardId | null>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   // Etikettene per rolle i aktiv formasjon, i rekkefølgen de først forekommer (keeper først).
   const inFormation = useMemo(() => {
     const labels = new Map<CardId, Map<string, number>>();
@@ -124,40 +122,52 @@ export const RoleExplanations: React.FC<{ onClose: () => void }> = ({ onClose })
     const open = openId === card.id;
     const labels = inFormation.get(card.id);
     return (
-      <div key={card.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
-        className="rounded-xl overflow-hidden">
+      <div key={card.id} className="rounded-panel bg-canvas-sunken shadow-hair overflow-hidden">
         <button
           onClick={() => setOpenId(open ? null : card.id)}
           aria-expanded={open}
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-left min-h-[44px]"
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-left min-h-[44px]
+            hover:bg-canvas-hover transition-colors"
         >
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: ROLE_INFO[card.role].color }} />
-          <span className="text-[13px] font-bold text-slate-100">{card.name}</span>
+          <span aria-hidden className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+            style={{ background: ROLE_INFO[card.role].color }} />
+          <span className="text-body font-bold text-ink">{card.name}</span>
           {labels && (
             <span className="flex gap-1 flex-wrap">
               {[...labels.entries()].map(([label, n]) => (
-                <span key={label} className="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 text-[9.5px] font-black tracking-wide">
+                <span key={label}
+                  className="px-1.5 py-0.5 rounded-ctl bg-signal/10 text-signal font-mono text-[10px] tracking-[0.06em]">
                   {label}{n > 1 ? ` ×${n}` : ''}
                 </span>
               ))}
             </span>
           )}
-          <span className="ml-auto text-slate-500 text-[10px]">{open ? '▲' : '▼'}</span>
+          <span aria-hidden className="ml-auto text-ink-faint flex-shrink-0">
+            {open
+              ? <ChevronUp size={15} strokeWidth={1.75} />
+              : <ChevronDown size={15} strokeWidth={1.75} />}
+          </span>
         </button>
         {open && (
           <div className="px-3 pb-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className="text-[9.5px] font-black text-emerald-400 uppercase tracking-widest mb-1">Med ball</div>
-              <ul className="space-y-1 text-[12px] text-slate-300 leading-snug">
-                {card.withBall.map(t => <li key={t}>• {t}</li>)}
-              </ul>
-            </div>
-            <div>
-              <div className="text-[9.5px] font-black text-amber-400 uppercase tracking-widest mb-1">Uten ball</div>
-              <ul className="space-y-1 text-[12px] text-slate-300 leading-snug">
-                {card.withoutBall.map(t => <li key={t}>• {t}</li>)}
-              </ul>
-            </div>
+            {([
+              { title: 'Med ball',  items: card.withBall },
+              { title: 'Uten ball', items: card.withoutBall },
+            ]).map(({ title, items }) => (
+              <div key={title}>
+                <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mb-1.5">
+                  {title}
+                </div>
+                <ul className="space-y-1">
+                  {items.map(t => (
+                    <li key={t} className="text-body text-ink-muted leading-snug flex gap-2">
+                      <span aria-hidden className="text-ink-faint flex-shrink-0">✦</span>
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -165,38 +175,26 @@ export const RoleExplanations: React.FC<{ onClose: () => void }> = ({ onClose })
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      size="lg"
+      title={<span className="font-serif text-[1.5rem] leading-tight">Roller</span>}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Rolleforklaringer"
-        onClick={e => e.stopPropagation()}
-        style={{ background: 'rgba(8,16,32,0.98)', border: '1px solid rgba(56,189,248,0.15)' }}
-        className="w-full sm:max-w-xl max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-2xl shadow-2xl"
-      >
-        <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-white/5">
-          <h2 className="text-[14px] font-black text-slate-100">🎓 Roller</h2>
-          <button onClick={onClose} aria-label="Lukk"
-            className="ml-auto w-10 h-10 flex items-center justify-center rounded-lg text-slate-400 hover:text-white">✕</button>
+      <div className="space-y-2">
+        <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">
+          I {tactic.formation} ({SPORT_LABELS[tactic.sport]})
         </div>
+        {usedCards.map(renderCard)}
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">
-            I {tactic.formation} ({SPORT_LABELS[tactic.sport]})
-          </div>
-          {usedCards.map(renderCard)}
-
-          {otherCards.length > 0 && (
-            <>
-              <div className="pt-3 text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Andre roller</div>
-              {otherCards.map(renderCard)}
-            </>
-          )}
-        </div>
+        {otherCards.length > 0 && (
+          <>
+            <div className="pt-3 font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">
+              Andre roller
+            </div>
+            {otherCards.map(renderCard)}
+          </>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 };
