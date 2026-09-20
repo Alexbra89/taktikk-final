@@ -68,9 +68,14 @@ export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playS
     setMomentLabel('');
   };
 
-  // Escape lukker panelet begge steder.
+  // Escape lukker panelet begge steder – men ikke når en modal ligger oppå
+  // (f.eks. rolleforklaringene). Da skal Escape bare lukke den øverste.
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (document.querySelector('[data-modal-layer]')) return;
+      onClose();
+    };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);

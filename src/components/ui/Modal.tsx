@@ -73,6 +73,9 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
+      // Lag som ligger over alt annet. Paneler under kan spørre etter
+      // [data-modal-layer] for å la Escape gjelde den øverste dialogen.
+      data-modal-layer
       className={cn(
         'fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm animate-fade-in',
         'flex justify-center p-0 sm:p-4',

@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { GraduationCap, ChevronRight } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic, getSportChangeMessage, SPORT_LABELS } from '@/store/selectors';
 import { getFormations } from '@/data/formations';
@@ -64,10 +65,21 @@ export const Controls: React.FC = () => {
           </div>
         </section>
 
-        <button
-          onClick={() => setShowRoles(true)}
-          className="self-start px-3 min-h-[36px] rounded-ctl text-body text-ink-muted hover:text-ink hover:bg-canvas-hover shadow-hair transition-colors"
-        >Forklar rollene</button>
+        <section>
+          <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mb-2">Roller</div>
+          {/* Egen seksjon, ikke en løs knapp nederst: den var praktisk talt
+              usynlig mellom formasjonschipsene og notatfeltet. */}
+          <button
+            onClick={() => setShowRoles(true)}
+            className="w-full inline-flex items-center gap-2 px-3 min-h-[40px] rounded-ctl
+              bg-canvas-raised text-body text-ink-muted hover:text-ink hover:bg-canvas-hover
+              shadow-hair transition-colors"
+          >
+            <GraduationCap size={15} strokeWidth={1.75} aria-hidden className="text-ink-faint" />
+            Forklar rollene
+            <ChevronRight size={14} strokeWidth={1.75} aria-hidden className="ml-auto text-ink-faint" />
+          </button>
+        </section>
       </div>
 
       {showRoles && <RoleExplanations onClose={() => setShowRoles(false)} />}
