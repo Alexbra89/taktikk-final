@@ -204,6 +204,7 @@ function repairPersisted(persisted: unknown, current: AppStore): Partial<AppStor
     matchReports: arr<MatchReport>(p.matchReports),
     moments: arr<TacticMoment>(p.moments),
     currentView: VALID_VIEWS.includes(p.currentView as AppView) ? p.currentView as AppView : current.currentView,
+    lastExportedAt: typeof p.lastExportedAt === 'string' ? p.lastExportedAt : null,
   };
 }
 
@@ -280,6 +281,15 @@ interface AppStore {
   moments: TacticMoment[];
   saveMoment: (name: string) => void;
   deleteMoment: (id: string) => void;
+
+  // ─── Backup ────────────────────────────────────────────────
+  /** Når brukeren sist lastet ned en backup. ISO-streng, null hvis aldri. */
+  lastExportedAt: string | null;
+  /** Nøyaktig det som lagres i localStorage – samme utvalg som partialize. */
+  exportSnapshot: () => Record<string, unknown>;
+  markExported: () => void;
+  /** Erstatter alt. Dataene går gjennom samme reparasjon som localStorage. */
+  importSnapshot: (data: unknown) => void;
 }
 
 const initialTactic = createTactic('Taktikk 1', 'football');
@@ -510,6 +520,44 @@ export const useAppStore = create<AppStore>()(
         set({ moments: [moment, ...moments] });
       },
       deleteMoment: (id) => set(s => ({ moments: s.moments.filter(m => m.id !== id) })),
+
+      // ─── Backup ──────────────────────────────────────────────
+      lastExportedAt: null,
+
+      exportSnapshot: () => {
+        const s = get();
+        // Samme utvalg som partialize under. Kamptid og eksporttidspunkt
+        // hører ikke hjemme i en backup.
+        return {
+          tactics: s.tactics,
+          activeTacticId: s.activeTacticId,
+          ageGroup: s.ageGroup,
+          homeTeamName: s.homeTeamName,
+          awayTeamName: s.awayTeamName,
+          awayTeamColor: s.awayTeamColor,
+          rosterNames: s.rosterNames,
+          events: s.events,
+          matchReports: s.matchReports,
+          moments: s.moments,
+          currentView: s.currentView,
+        };
+      },
+
+      markExported: () => set({ lastExportedAt: new Date().toISOString() }),
+
+      importSnapshot: (data) => {
+        // repairPersisted er den samme vaskemaskinen localStorage-data går
+        // gjennom: ukjente felter forkastes, ødelagte taktikker filtreres
+        // bort, og mangler noe faller vi tilbake på gjeldende verdi.
+        const repaired = repairPersisted(data, get());
+        set({
+          ...repaired,
+          matchTimer: { running: false, startedAt: null, elapsed: 0 },
+          // «Sist eksportert» handler om denne enheten. En import skal verken
+          // overta tidspunktet fra filen eller slette din egen historikk.
+          lastExportedAt: get().lastExportedAt,
+        });
+      },
     }),
     {
       name: 'taktikkboard-storage',
@@ -531,6 +579,7 @@ export const useAppStore = create<AppStore>()(
         matchReports: state.matchReports,
         moments: state.moments,
         currentView: state.currentView,
+        lastExportedAt: state.lastExportedAt,
       }),
     }
   )

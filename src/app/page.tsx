@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import type { CalendarEvent, AppView } from '@/types';
 import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
-import { Lightbulb, Settings, Sun, Moon, Baby, User, Check, AlertTriangle, X } from 'lucide-react';
+import { Lightbulb, Settings, Sun, Moon, Baby, User, Check, AlertTriangle, X, Download, Upload } from 'lucide-react';
 import { Sidebar, NAV_ITEMS } from '@/components/ui/Sidebar';
 import { Modal } from '@/components/ui';
-import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, toggleClass } from '@/lib/formClasses';
+import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, toggleClass } from '@/lib/formClasses';
+import { buildBackup, backupFilename, parseBackup, describeBackup, downloadJson, type BackupFile } from '@/lib/backup';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/cn';
 
@@ -27,6 +28,114 @@ const DrillsView = dynamic(() => import('@/components/ui/DrillsView').then(mod =
 // ─── NAVIGASJON ──────────────────────────────────────────────
 // Menypunktene bor i Sidebar.tsx; mobilmenyen bruker de samme.
 const VALID_VIEWS: AppView[] = NAV_ITEMS.map(n => n.view);
+
+// ─── DATA: EKSPORT OG IMPORT ─────────────────────────────────
+// Alt skjer lokalt. Filen lastes ned til enheten, og brukeren flytter
+// den selv videre – ingen server er involvert.
+const DataSection: React.FC = () => {
+  const { homeTeamName, lastExportedAt, exportSnapshot, markExported, importSnapshot } = useAppStore();
+  const { theme, setTheme } = useTheme();
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState('');
+  const [pending, setPending] = useState<BackupFile | null>(null);
+
+  const doExport = () => {
+    setError(''); setDone('');
+    try {
+      const backup = buildBackup({ data: exportSnapshot(), teamName: homeTeamName, theme });
+      downloadJson(backupFilename(homeTeamName), JSON.stringify(backup, null, 2));
+      markExported();
+      setDone('Backup lastet ned.');
+    } catch {
+      setError('Klarte ikke å lage filen. Er det plass på enheten?');
+    }
+  };
+
+  const pickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(''); setDone(''); setPending(null);
+    const file = e.target.files?.[0];
+    // Nullstill med én gang, så samme fil kan velges på nytt etterpå.
+    e.target.value = '';
+    if (!file) return;
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setError('Klarte ikke å lese filen.');
+      return;
+    }
+    const res = parseBackup(text);
+    if (!res.ok) { setError(res.error); return; }
+    setPending(res.backup);
+  };
+
+  const confirmImport = () => {
+    if (!pending) return;
+    importSnapshot(pending.data);
+    if (pending.theme) setTheme(pending.theme);
+    setPending(null);
+    setDone('Dataene er importert.');
+  };
+
+  const exportedLabel = lastExportedAt
+    ? new Date(lastExportedAt).toLocaleString('nb-NO', {
+        day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    : null;
+
+  return (
+    <div>
+      <div className={LABEL_CLASS}>Data</div>
+
+      <div className="mt-2 flex gap-2">
+        <button onClick={doExport} className={`flex-1 ${SECONDARY_BTN}`}>
+          <Download size={15} strokeWidth={1.75} aria-hidden /> Eksporter
+        </button>
+        <button onClick={() => fileRef.current?.click()} className={`flex-1 ${SECONDARY_BTN}`}>
+          <Upload size={15} strokeWidth={1.75} aria-hidden /> Importer
+        </button>
+        <input ref={fileRef} type="file" accept="application/json,.json"
+          onChange={pickFile} className="hidden" aria-hidden tabIndex={-1} />
+      </div>
+
+      <p className="mt-1.5 text-meta text-ink-subtle">
+        {exportedLabel ? `Sist eksportert: ${exportedLabel}` : 'Aldri eksportert.'}
+      </p>
+
+      {/* Import overskriver alt, så den skal bekreftes – med tall på bordet. */}
+      {pending && (
+        <div className="mt-3 rounded-panel border border-warn-500/40 bg-warn-500/10 p-3">
+          <div className="flex gap-2.5">
+            <AlertTriangle size={16} strokeWidth={1.75} aria-hidden
+              className="text-warn-400 flex-shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-body text-warn-300 leading-relaxed">
+                Dette erstatter alt du har nå.
+              </p>
+              <p className="mt-1 text-meta text-ink-muted">
+                {pending.teamName || 'Ukjent lag'} · {describeBackup(pending)}
+                {pending.exportedAt && ` · ${new Date(pending.exportedAt).toLocaleDateString('nb-NO')}`}
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button onClick={confirmImport} className={`flex-1 ${PRIMARY_BTN}`}>
+              Erstatt alt
+            </button>
+            <button onClick={() => setPending(null)} className={SECONDARY_BTN}>
+              Avbryt
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p role="alert" className="mt-2 text-caption text-signal">{error}</p>}
+      {done && !error && <p role="status" className="mt-2 text-caption text-ink-muted">{done}</p>}
+    </div>
+  );
+};
 
 // ─── INNSTILLINGER MODAL ─────────────────────────────────────
 const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -114,6 +223,12 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <label className={LABEL_CLASS} htmlFor="sett-lagnavn">Ditt lagnavn</label>
           <input id="sett-lagnavn" value={home} onChange={e => setHome(e.target.value)}
             className={INPUT_CLASS} placeholder="Eks: Sotra SK" />
+        </div>
+
+        <div className="pt-1 border-t border-rule">
+          <div className="pt-4">
+            <DataSection />
+          </div>
         </div>
       </div>
     </Modal>
