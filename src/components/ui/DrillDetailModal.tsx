@@ -4,7 +4,6 @@ import { AlertTriangle, Clock, Users, Cake, Package } from 'lucide-react';
 import type { DrillExercise } from '@/types';
 import { CATEGORY_LABELS } from '@/data/drills';
 import { Modal, Badge, Meta } from '@/components/ui';
-import { SketchPreview } from '@/components/board/SketchPreview';
 
 // ═══════════════════════════════════════════════════════════════
 //  FULL ØVELSESDETALJ – åpnes fra en økt i TrainingView.
@@ -63,10 +62,6 @@ export const DrillDetailModal: React.FC<{
       }
     >
       <div className="space-y-5">
-        {/* Skjematisk oppsett øverst – tegner bare det som kan telles ut av
-            skissteksten. Selve teksten står lenger ned under «Skisse / oppsett». */}
-        <SketchPreview sketch={drill.sketch} players={drill.players} />
-
         {drill.warning && (
           <div className="flex gap-3 rounded-panel border border-warn-500/40 bg-warn-500/10 p-3">
             <AlertTriangle size={16} strokeWidth={1.75} aria-hidden className="text-warn-400 flex-shrink-0 mt-0.5" />

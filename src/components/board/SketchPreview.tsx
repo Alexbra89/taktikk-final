@@ -2,7 +2,15 @@
 import React, { useMemo } from 'react';
 
 // ══════════════════════════════════════════════════════════════
-//  SKJEMATISK MINI-BANE
+//  SKJEMATISK MINI-BANE – IKKE I BRUK
+//
+//  TODO: Bygg smartere plassering: N-mot-N, mål/keeper,
+//  firkant/sirkel. Krev mer konkret sketch for å tegne.
+//
+//  Tatt ut av detaljvisningene igjen: regelen «alle spillere på en
+//  rekke i midten» ga ingen romlig informasjon. Ti prikker på rad
+//  for en 3-mot-3-øvelse så ut som en feil, og alle baner ble like
+//  uansett øvelse. `hasSketch` brukes fortsatt av øvelseslista.
 //
 //  Skissefeltet på øvelsene er fri prosa på norsk («Sone 10×10 m.
 //  To kjegler på bakkantlinjen. Angriper starter foran, forsvarer
@@ -129,10 +137,15 @@ export function parseSketch(sketch?: string, players?: string): SketchFacts | nu
   return { zone, cones, conesInCorners: corners, goals, players: playerCount };
 }
 
+/** Har øvelsen en skissebeskrivelse i det hele tatt? Dette er sjekken
+ *  øvelseslista bruker til bane-ikonet. */
+export function hasSketch(sketch?: string): boolean {
+  return Boolean(sketch && sketch.trim());
+}
+
 /**
- * Kan vi tegne en ærlig skisse av denne teksten? Brukes både av
- * SketchPreview og av øvelseslisten, så ikonet i lista og tegningen
- * i detaljvisningen aldri er uenige.
+ * Kan vi tegne en ærlig skisse av denne teksten? Ikke i bruk nå som
+ * tegningen er tatt ut, men beholdt til den smartere versjonen.
  */
 export function canRenderSketch(sketch?: string, players?: string): boolean {
   return parseSketch(sketch, players) !== null;
@@ -165,6 +178,11 @@ const Cone: React.FC<{ x: number; y: number }> = ({ x, y }) => (
 
 export const SketchPreview: React.FC<{ sketch?: string; players?: string }> = ({ sketch, players }) => {
   const facts = useMemo(() => parseSketch(sketch, players), [sketch, players]);
+
+  // Uten skissetekst er det ingenting å vise til. «Se skisse under» pekte
+  // tidligere på en seksjon som ikke fantes (f.eks. «A1-A2: 2 mot 2 pluss
+  // joker», som har oppsettet i steps[0] og ikke noe sketch-felt).
+  if (!hasSketch(sketch)) return null;
 
   if (!facts) {
     // Generisk bane – vi later ikke som vi vet hvordan øvelsen ser ut.
