@@ -12,12 +12,13 @@ import type { DrillExercise, DrillCategory, DrillAgeBand, DrillDifficulty } from
 import {
   Hand, Shield, Shuffle, Zap, HeartPulse, Dumbbell,
   Clock, Users, Cake, Package, Calendar, Check, ChevronLeft,
-  AlertTriangle, CircleDot, X, type LucideIcon,
+  AlertTriangle, CircleDot, X, Goal, type LucideIcon,
 } from 'lucide-react';
 import {
   Card, SectionLabel, Button, IconButton, Badge, Meta,
   Modal, FilterBar, FilterRow, FilterChip, SearchInput, EmptyState,
 } from '@/components/ui';
+import { SketchPreview, canRenderSketch } from '@/components/board/SketchPreview';
 
 type ViewMode = 'browse' | 'detail';
 type AgeGroup = 'youth' | 'adult';
@@ -136,6 +137,12 @@ const DrillRow: React.FC<{
             {drill.warning && (
               <AlertTriangle size={14} strokeWidth={1.75} aria-hidden
                 className="inline-block mr-1 -mt-0.5 text-warn-400" />
+            )}
+            {/* Samme sjekk som detaljvisningen bruker, så ikonet aldri lover
+                en skisse som ikke lar seg tegne. */}
+            {canRenderSketch(drill.sketch, drill.players) && (
+              <Goal size={14} strokeWidth={1.75} aria-label="Har skjematisk oppsett"
+                className="inline-block mr-1 -mt-0.5 text-ink-faint" />
             )}
             {drill.name}
           </h3>
@@ -377,6 +384,10 @@ export const DrillsView: React.FC = () => {
           </div>
 
           <div className="p-5 space-y-6">
+            {/* Skjematisk oppsett øverst. Samme komponent som i DrillDetailModal
+                (økt-visningen i TrainingView), så de to detaljvisningene viser likt. */}
+            <SketchPreview sketch={drill.sketch} players={drill.players} />
+
             {drill.warning && (
               <div className="flex gap-3 rounded-panel border border-warn-500/40 bg-warn-500/10 p-4">
                 <AlertTriangle size={16} strokeWidth={1.75} aria-hidden

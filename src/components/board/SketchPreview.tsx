@@ -129,6 +129,15 @@ export function parseSketch(sketch?: string, players?: string): SketchFacts | nu
   return { zone, cones, conesInCorners: corners, goals, players: playerCount };
 }
 
+/**
+ * Kan vi tegne en ærlig skisse av denne teksten? Brukes både av
+ * SketchPreview og av øvelseslisten, så ikonet i lista og tegningen
+ * i detaljvisningen aldri er uenige.
+ */
+export function canRenderSketch(sketch?: string, players?: string): boolean {
+  return parseSketch(sketch, players) !== null;
+}
+
 function caption(f: SketchFacts): string {
   const parts: string[] = [];
   if (f.zone) parts.push(`${f.zone.w}×${f.zone.h} m`);
@@ -161,9 +170,9 @@ export const SketchPreview: React.FC<{ sketch?: string; players?: string }> = ({
     // Generisk bane – vi later ikke som vi vet hvordan øvelsen ser ut.
     return (
       <figure className="m-0">
-        <div className="w-full h-[150px] sm:h-[140px] rounded-panel bg-pitch shadow-hair
+        <div className="mx-auto w-full max-w-[280px] h-[130px] rounded-panel bg-pitch shadow-hair
                         flex flex-col items-center justify-center gap-2">
-          <svg viewBox="0 0 60 40" className="h-14 w-auto" aria-hidden>
+          <svg viewBox="0 0 60 40" className="h-12 w-auto" aria-hidden>
             <g className="fill-none stroke-pitch-line" strokeWidth={1.2}>
               <rect x={1} y={1} width={58} height={38} rx={1} />
               <line x1={30} y1={1} x2={30} y2={39} />
@@ -214,9 +223,13 @@ export const SketchPreview: React.FC<{ sketch?: string; players?: string }> = ({
 
   return (
     <figure className="m-0">
-      <div className="w-full h-[210px] sm:h-[190px] rounded-panel bg-pitch shadow-hair p-2">
+      {/* Baneflaten ligger inne i SVG-en, ikke på containeren: ellers blir det
+          en bred mørk flate med en liten tegning midt i på desktop. */}
+      <div className="w-full h-[210px] sm:h-[190px] flex items-center justify-center">
         <svg viewBox={`0 0 ${vbW} ${vbH}`} preserveAspectRatio="xMidYMid meet"
-          className="h-full w-full" role="img" aria-label={label}>
+          className="h-full w-auto max-w-full" role="img" aria-label={label}>
+
+          <rect x={0} y={0} width={vbW} height={vbH} rx={3} className="fill-pitch" />
 
           {/* Sone */}
           <rect x={left} y={top} width={BOX_W} height={boxH} rx={1.5}
@@ -266,7 +279,7 @@ export const SketchPreview: React.FC<{ sketch?: string; players?: string }> = ({
           ))}
         </svg>
       </div>
-      <figcaption className="mt-1.5 font-mono text-meta text-ink-subtle">
+      <figcaption className="mt-1.5 text-center font-mono text-meta text-ink-subtle">
         Skjematisk · {caption(facts)}
       </figcaption>
     </figure>
