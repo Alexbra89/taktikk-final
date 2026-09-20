@@ -5,8 +5,10 @@ import { useAppStore } from '@/store/useAppStore';
 import type { CalendarEvent, AppView } from '@/types';
 import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
-import { Lightbulb, Settings, Sun, Moon } from 'lucide-react';
+import { Lightbulb, Settings, Sun, Moon, Baby, User, Check, AlertTriangle, X } from 'lucide-react';
 import { Sidebar, NAV_ITEMS } from '@/components/ui/Sidebar';
+import { Modal } from '@/components/ui';
+import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, toggleClass } from '@/lib/formClasses';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/cn';
 
@@ -33,6 +35,7 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setHomeTeamName,
     ageGroup, setAgeGroup,
   } = useAppStore();
+  const { theme, setTheme } = useTheme();
 
   const [home,  setHome]  = useState(homeTeamName);
   const [saved, setSaved] = useState(false);
@@ -44,65 +47,76 @@ const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      size="sm"
+      title={<span className="font-serif text-[1.5rem] leading-tight">Innstillinger</span>}
+      footer={
+        <button onClick={save} className={`w-full ${PRIMARY_BTN}`}>
+          {saved
+            ? <><Check size={15} strokeWidth={2} aria-hidden /> Lagret</>
+            : 'Lagre endringer'}
+        </button>
+      }
     >
-      <div
-        className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 w-full max-w-sm shadow-2xl max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-black text-slate-100 text-base">⚙️ Innstillinger</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-xl min-h-[44px] px-2 transition">✕</button>
-        </div>
-
-        <div className="mb-5">
-          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Aldersgruppe</div>
-          <div className="flex gap-2">
+      <div className="space-y-5">
+        <div>
+          <div className={LABEL_CLASS}>Tema</div>
+          {/* Samme segmenterte velger som i sidefeltet – ett valg, alltid synlig. */}
+          <div role="radiogroup" aria-label="Tema" className="mt-2 flex p-0.5 rounded-ctl bg-canvas-raised shadow-hair">
             {([
-              { v: 'youth', l: '🧒 Barneøvelser (lettere)' },
-              { v: 'adult', l: '🧑 Voksenøvelser (mer krevende)' },
-            ] as const).map(({ v, l }) => (
+              { v: 'dark',  label: 'Kveld',   icon: Moon },
+              { v: 'light', label: 'Dagslys', icon: Sun },
+            ] as const).map(({ v, label, icon: Icon }) => (
               <button
                 key={v}
-                onClick={() => setAgeGroup(v)}
-                className={`flex-1 py-3 rounded-xl text-[10px] font-bold border transition-all min-h-[48px] backdrop-blur
-                  ${ageGroup === v
-                    ? 'bg-sky-500/20 border-sky-500 text-sky-400'
-                    : 'border-slate-700 text-slate-500 hover:bg-slate-800/50'}`}
+                role="radio"
+                aria-checked={theme === v}
+                onClick={() => setTheme(v)}
+                className={cn(
+                  'flex-1 inline-flex items-center justify-center gap-1.5 min-h-[40px] rounded-[5px] text-body transition-colors',
+                  theme === v ? 'bg-canvas-panel text-ink shadow-hair-strong' : 'text-ink-subtle hover:text-ink',
+                )}
               >
-                {l}
+                <Icon size={14} strokeWidth={1.75} aria-hidden /> {label}
               </button>
             ))}
           </div>
-          <p className="text-[9px] text-slate-500 mt-1.5">Velg aldersgruppe – påvirker hvilke øvelser som vises</p>
         </div>
 
-        <div className="mb-6">
-          <div className="text-[9.5px] font-bold text-slate-500 uppercase tracking-widest">Ditt lagnavn</div>
-          <input value={home} onChange={e => setHome(e.target.value)} className="sett-inp mt-1" placeholder="Eks: Sotra SK" />
+        <div>
+          <div className={LABEL_CLASS}>Aldersgruppe</div>
+          <div className="mt-2 flex gap-2">
+            {([
+              { v: 'youth', label: 'Barn',   hint: 'lettere',      icon: Baby },
+              { v: 'adult', label: 'Voksne', hint: 'mer krevende', icon: User },
+            ] as const).map(({ v, label, hint, icon: Icon }) => (
+              <button
+                key={v}
+                onClick={() => setAgeGroup(v)}
+                aria-pressed={ageGroup === v}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] rounded-ctl transition-colors',
+                  toggleClass(ageGroup === v),
+                )}
+              >
+                <span className="inline-flex items-center gap-1.5 text-body font-bold">
+                  <Icon size={14} strokeWidth={1.75} aria-hidden /> {label}
+                </span>
+                <span className="text-meta opacity-70">{hint}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-meta text-ink-subtle">Styrer hvilke øvelser som vises.</p>
         </div>
-        <button
-          onClick={save}
-          className={`w-full py-3.5 rounded-xl font-bold text-[14px] transition min-h-[52px] backdrop-blur
-            ${saved
-              ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-400'
-              : 'bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-400 hover:to-sky-500'}`}
-        >
-          {saved ? '✓ Lagret!' : 'Lagre endringer'}
-        </button>
 
-        <style jsx>{`
-          .sett-inp {
-            width: 100%; background: #0f172a; border: 1px solid #334155;
-            border-radius: 10px; padding: 12px 14px; color: #e2e8f0; font-size: 14px;
-            box-sizing: border-box; min-height: 48px; transition: all 0.2s ease;
-          }
-          .sett-inp:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.2); }
-        `}</style>
+        <div>
+          <label className={LABEL_CLASS} htmlFor="sett-lagnavn">Ditt lagnavn</label>
+          <input id="sett-lagnavn" value={home} onChange={e => setHome(e.target.value)}
+            className={INPUT_CLASS} placeholder="Eks: Sotra SK" />
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -257,10 +271,13 @@ export default function Home() {
     <>
       {storageError && (
         <div role="alert"
-          className="fixed top-0 inset-x-0 z-[200] flex items-center justify-center gap-3 bg-red-600/90 backdrop-blur px-4 py-2 text-[12px] font-bold text-white"
+          className="fixed top-0 inset-x-0 z-[200] flex items-center justify-center gap-2.5 bg-bad-500 px-4 py-2 text-caption font-bold text-white"
           style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
-          <span>⚠️ {storageError}</span>
-          <button onClick={() => setStorageError(null)} aria-label="Lukk varsel" className="px-2 min-h-[32px]">✕</button>
+          <AlertTriangle size={14} strokeWidth={2} aria-hidden className="flex-shrink-0" />
+          <span>{storageError}</span>
+          <button onClick={() => setStorageError(null)} aria-label="Lukk varsel" className="px-2 min-h-[32px]">
+            <X size={14} strokeWidth={2} aria-hidden />
+          </button>
         </div>
       )}
       {isDesktop ? DesktopLayout : MobileLayout}

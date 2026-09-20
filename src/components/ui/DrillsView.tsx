@@ -39,14 +39,15 @@ const DIFFICULTY_TONE = {
   avansert: 'bad',
 } as const;
 
-/** Kategorifarge brukes kun som identitet: venstrestripe og prikk. */
+/** Kategorifarge brukes kun som identitet: venstrestripe og prikk.
+ *  Verdiene speiler `category` i tailwind.config.js – dempet, aldri handling. */
 const CAT_COLOR: Record<DrillCategory, string> = {
-  keeper:   '#FBBF24',
-  forsvar:  '#60A5FA',
-  midtbane: '#A78BFA',
-  angrep:   '#FB923C',
-  cardio:   '#F472B6',
-  styrke:   '#34D399',
+  keeper:   '#D9A93E',
+  forsvar:  '#6E93E6',
+  midtbane: '#9A88F0',
+  angrep:   '#E8834A',
+  cardio:   '#D97599',
+  styrke:   '#5BAE84',
 };
 
 /** Kategoriikon – monokromt, som resten av Kalk. Fargen ligger i stripen. */

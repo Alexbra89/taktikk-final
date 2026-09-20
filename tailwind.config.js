@@ -55,53 +55,11 @@ module.exports = {
           styrke:   '#5BAE84',
         },
 
-        // ── FASE 1 (fjernes når alle skjermer er over på Kalk) ──
-        // Flater – dyp blå-svart, stigende lyshet = stigende nærhet
-        surface: {
-          base:   '#05090F', // app-bakgrunn
-          sunken: '#070D18', // innfelt (scroll-område, brett)
-          panel:  '#0A1220', // header, faneliner, sidepaneler
-          card:   '#0E1727', // kort og lister
-          raised: '#131F33', // input, hover-kort, chips
-          hover:  '#18253C',
-        },
-        // Kantlinjer
-        line: {
-          DEFAULT: '#1C2B45',
-          soft:    '#152238',
-          strong:  '#2A3C5C',
-          brand:   'rgba(56,189,248,0.35)',
-        },
-        // Tekst
-        fg: {
-          DEFAULT: '#E8EEF7',
-          muted:   '#A8BBD4',
-          subtle:  '#6C82A3',
-          faint:   '#4A5F80',
-        },
-        // Primæraksent – handling og aktiv tilstand
-        brand: {
-          50:  '#EAF7FF',
-          200: '#BAE6FD',
-          300: '#7DD3FC',
-          400: '#38BDF8',
-          500: '#0EA5E9',
-          600: '#0284C7',
-          700: '#0369A1',
-        },
-        // Status
+        // Status – eneste farger utenom signal. Leses, aldri trykkes.
+        // Brukes av Badge, FilterChip, advarsler og lagringsfeil.
         ok:   { 300: '#6EE7B7', 400: '#34D399', 500: '#10B981' },
         warn: { 300: '#FCD34D', 400: '#FBBF24', 500: '#F59E0B' },
         bad:  { 300: '#FDA4AF', 400: '#FB7185', 500: '#F43F5E' },
-        // Kategori-identitet (øvelsesbiblioteket). Kun identitet – aldri handling.
-        cat: {
-          keeper:   '#FBBF24',
-          forsvar:  '#60A5FA',
-          midtbane: '#A78BFA',
-          angrep:   '#FB923C',
-          cardio:   '#F472B6',
-          styrke:   '#34D399',
-        },
       },
 
       // ── TYPOGRAFI ─────────────────────────────────────────────
