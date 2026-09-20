@@ -21,9 +21,10 @@ import { PlayerNameBar } from './PlayerNameBar';
 import { BoardPanel } from './BoardPanel';
 import { TacticTabs } from '../ui/TacticTabs';
 import { useViewport } from '../../hooks/useViewport';
+import { useBoardZoom } from '../../hooks/useBoardZoom';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
-  StickyNote,
+  StickyNote, Minus, X, Plus as PlusIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Modal } from '../ui';
@@ -164,6 +165,20 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const phase = phases[activePhaseIdx] ?? null;
 
   const { isMobile } = useViewport();
+  const zoomCtl = useBoardZoom();
+
+  // Via ref, slik at nullstillingseffekten under ikke kjører på nytt bare
+  // fordi funksjonsidentiteten endrer seg – den skal følge fase og formasjon.
+  const zoomResetRef = useRef(zoomCtl.reset);
+  useEffect(() => { zoomResetRef.current = zoomCtl.reset; }, [zoomCtl.reset]);
+
+  // Gest-flaggene MÅ leses gjennom en ref. Drag-håndtererne under er
+  // useCallback-er med egne avhengigheter; leste de flaggene direkte ville
+  // de fryse verdien fra den renderen de sist ble laget i. Panorering satte
+  // isGesturing=true midt i en slik render, og da ble drag blokkert for godt
+  // etterpå – uten at noe var galt med selve tilstanden.
+  const gestureRef = useRef({ isGesturing: false, spaceHeld: false });
+  gestureRef.current = { isGesturing: zoomCtl.isGesturing, spaceHeld: zoomCtl.spaceHeld };
 
 
   const clamp = useCallback((v:number,lo:number,hi:number) => Math.max(lo,Math.min(hi,v)), []);
@@ -258,6 +273,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     undoStack.current = [];
     redoStack.current = [];
     syncDepths();
+    // Zoomen følger samme regime: den beskriver hvor du står i én fase,
+    // ikke noe som skal henge igjen når brettet bytter innhold.
+    zoomResetRef.current();
   }, [tactic.id, activePhaseIdx, formation, sport, syncDepths]);
 
   // Formasjon, sport eller taktikk kan byttes utenfra (Controls/faner) mens avspilling pågår.
@@ -385,6 +403,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     e: React.PointerEvent, playerId:string,
   ) => {
     if (isPlaying||drawMode) return;
+    // Knipebevegelse eller panorering eier pekeren – ikke start et drag.
+    if (gestureRef.current.isGesturing || gestureRef.current.spaceHeld) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -412,6 +432,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const moveDrag = useCallback((e: React.PointerEvent) => {
     const ad = activeDragRef.current;
     if (!ad) return;
+    if (gestureRef.current.isGesturing) return;
     e.preventDefault();
 
     lastClientRef.current = { x: e.clientX, y: e.clientY };
@@ -468,8 +489,37 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     resolveDrop(ad.playerId, targetId ?? undefined, finalPos.x, finalPos.y);
   }, [dragOverId, phase, selectedPlayerId, resolveDrop, stableOnSelectPlayer, toSVG]);
 
+  /** Avbryter et pågående spillerdrag uten å flytte noe. Brukes når en
+   *  andre finger lander: da er dette en knipebevegelse, ikke et drag. */
+  const cancelDrag = useCallback(() => {
+    if (longPressRef.current) clearTimeout(longPressRef.current);
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    activeDragRef.current = null;
+    setGhostPos(null);
+    setDragOverId(null);
+    setDraggingPlayerId(null);
+    setSnapTarget(null);
+    // Også en påbegynt strek skal forkastes, ikke lagres halvferdig.
+    isDrawingRef.current = false;
+    drawPts.current = [];
+    setLiveDrawPts([]);
+  }, []);
+
+  const onZoomPtrDown = useCallback((e: React.PointerEvent) => {
+    if (zoomCtl.onPointerDown(e)) cancelDrag();
+  }, [zoomCtl, cancelDrag]);
+
+  const onZoomPtrMove = useCallback((e: React.PointerEvent) => {
+    zoomCtl.onPointerMove(e);
+  }, [zoomCtl]);
+
+  const onZoomPtrUp = useCallback((e: React.PointerEvent) => {
+    zoomCtl.onPointerUp(e);
+  }, [zoomCtl]);
+
   const onSvgPtrDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (isPlaying||!drawMode) return;
+    if (gestureRef.current.isGesturing || gestureRef.current.spaceHeld) return;
     if ((e.target as SVGElement).closest('[data-player]')) return;
     e.preventDefault();
     isDrawingRef.current=true;
@@ -566,15 +616,28 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       {/* touchAction none rundt selve banen på mobil – forhindrer at siden scroller
           under drag. Linjene over og under ligger utenfor, så de kan rulles. */}
       <div className="flex flex-1 min-h-0 overflow-hidden" style={isMobile ? { touchAction: 'none' } : undefined}>
-        <div className="flex-1 min-w-0 h-full flex flex-col items-stretch p-1 overflow-hidden">
+        <div
+          ref={zoomCtl.containerRef}
+          className="flex-1 min-w-0 h-full flex flex-col items-stretch p-1 overflow-hidden"
+          onPointerDownCapture={onZoomPtrDown}
+          onPointerMoveCapture={onZoomPtrMove}
+          onPointerUpCapture={onZoomPtrUp}
+          onPointerCancelCapture={onZoomPtrUp}
+        >
+          {/* Zoom er en CSS-transform her, ikke en endring av viewBox – da er
+              toSVG uendret, fordi getBoundingClientRect() allerede tar med
+              transformen. Se kommentaren i useBoardZoom.ts. */}
+          <div className="flex-1 min-h-0 flex flex-col" style={zoomCtl.transformStyle}>
           <svg
             ref={svgRef}
             viewBox={`0 0 ${VW} ${VH}`}
             preserveAspectRatio="xMidYMid meet"
             style={{
               flex: 1, width: '100%', height: '100%', display: 'block',
-              cursor: drawMode ? 'crosshair' : 'default',
-              touchAction: 'pan-x pan-y pinch-zoom',
+              cursor: zoomCtl.spaceHeld ? 'grab' : drawMode ? 'crosshair' : 'default',
+              // Pinch håndteres av oss når vi kan zoome, ellers lar vi
+              // nettleseren beholde sin vanlige oppførsel.
+              touchAction: 'none',
               userSelect: 'none',
               WebkitTapHighlightColor: 'transparent',
             }}
@@ -645,6 +708,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                 width={progressFrac*(VW-64)} style={{ fill:'rgb(var(--k-signal))' }}/>
             )}
           </svg>
+          </div>
         </div>
       </div>
 
@@ -712,6 +776,23 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         )}
 
         <div className="flex-1 min-w-[4px]"/>
+
+        <button onClick={zoomCtl.zoomOut} disabled={!zoomCtl.canZoomOut}
+          aria-label="Zoom ut" title="Zoom ut" className={iconBtn}>
+          <Minus size={16} strokeWidth={1.75} />
+        </button>
+        <button onClick={zoomCtl.zoomIn} disabled={!zoomCtl.canZoomIn}
+          aria-label="Zoom inn" title="Zoom inn (Ctrl+scroll)" className={iconBtn}>
+          <PlusIcon size={16} strokeWidth={1.75} />
+        </button>
+        {zoomCtl.isZoomed && (
+          <button onClick={zoomCtl.reset}
+            aria-label="Nullstill zoom" title="Nullstill zoom"
+            className="tap-auto flex-shrink-0 inline-flex items-center gap-1 px-2 min-h-[36px] rounded-ctl
+              bg-signal/10 text-signal shadow-hair-signal font-mono text-caption transition-colors">
+            {zoomCtl.zoom.toFixed(1)}× <X size={13} strokeWidth={2} aria-hidden />
+          </button>
+        )}
 
         <button onClick={doUndo} disabled={undoDepth === 0 || isPlaying}
           aria-label="Angre" title="Angre (Ctrl+Z)" className={iconBtn}>
