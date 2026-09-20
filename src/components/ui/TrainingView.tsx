@@ -202,6 +202,8 @@ const NewTrainingForm: React.FC<{
   const [customDrillDesc, setCustomDrillDesc] = useState('');
   const [customDrillDuration, setCustomDrillDuration] = useState(10);
   const [showCustomDrill, setShowCustomDrill] = useState(false);
+  const [error, setError] = useState('');
+  const [customDrillError, setCustomDrillError] = useState('');
 
   const filteredDrills = useMemo(() => {
     let drills = (drillCategory === 'alle' ? ALL_DRILLS : getDrillsByCategory(drillCategory))
@@ -225,9 +227,10 @@ const NewTrainingForm: React.FC<{
 
   const addCustomDrill = () => {
     if (!customDrillName.trim()) {
-      alert('Fyll inn øvelsesnavn');
+      setCustomDrillError('Fyll inn øvelsesnavn');
       return;
     }
+    setCustomDrillError('');
     const newDrill: DrillExercise = {
       id: `custom-${Date.now()}`,
       category: 'angrep',
@@ -257,7 +260,8 @@ const NewTrainingForm: React.FC<{
   };
 
   const save = () => {
-    if (!title.trim()) { alert('Fyll inn tittel'); return; }
+    if (!title.trim()) { setError('Fyll inn tittel'); return; }
+    setError('');
     setSaving(true);
 
     const drillNotes = selectedDrills.map(d =>
@@ -309,9 +313,10 @@ const NewTrainingForm: React.FC<{
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 max-w-2xl mx-auto w-full">
         <div>
           <label className={LABEL_CLASS}>Tittel *</label>
-          <input value={title} onChange={e => setTitle(e.target.value)}
+          <input value={title} onChange={e => { setTitle(e.target.value); if (error) setError(''); }}
             placeholder="F.eks. Teknikktrening, 4-3-3 trening..."
             className={INPUT_CLASS} />
+          {error && <p role="alert" className="mt-2 text-caption text-signal">{error}</p>}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -387,13 +392,18 @@ const NewTrainingForm: React.FC<{
 
           {showCustomDrill && (
             <div className="mt-2 p-3 bg-canvas-sunken rounded-panel border border-signal/40">
-              <input
-                type="text"
-                placeholder="Øvelsesnavn *"
-                value={customDrillName}
-                onChange={e => setCustomDrillName(e.target.value)}
-                className="w-full mb-2 bg-canvas-raised border border-rule rounded-ctl px-3 py-2.5 text-body text-ink min-h-[44px]"
-              />
+              <div className="mb-2">
+                <input
+                  type="text"
+                  placeholder="Øvelsesnavn *"
+                  value={customDrillName}
+                  onChange={e => { setCustomDrillName(e.target.value); if (customDrillError) setCustomDrillError(''); }}
+                  className="w-full bg-canvas-raised border border-rule rounded-ctl px-3 py-2.5 text-body text-ink min-h-[44px]"
+                />
+                {customDrillError && (
+                  <p role="alert" className="mt-1.5 text-caption text-signal">{customDrillError}</p>
+                )}
+              </div>
               <textarea
                 placeholder="Beskrivelse (valgfritt)"
                 value={customDrillDesc}

@@ -1,7 +1,13 @@
 'use client';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  Timer, BookOpen, Play, Pause, RotateCcw, CalendarDays, AlertTriangle,
+  Target, Pin, ChevronLeft, ChevronRight, Check,
+} from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { ALL_DRILLS, getDrillsByAgeGroup } from '@/data/drills';
+import { Modal, Badge } from '@/components/ui';
+import { PRIMARY_BTN, SECONDARY_BTN, toggleClass } from '@/lib/formClasses';
 import type { DrillExercise } from '@/types';
 
 /** ISO-ukenummer (samme beregning som i DrillsView). */
@@ -38,49 +44,43 @@ function pickWeekly(drills: DrillExercise[], count: number, seed: number): Drill
 const WEEKLY_COUNT = 5;
 
 // ═══════════════════════════════════════════════════════════════
-//  SMART COACH – Kampklokke · Ukentlige øvelser (RESPONSIV)
+//  SMART COACH – Kampklokke · Ukentlige øvelser
+//  Kalk: én aksent (signal) på «nå» og primærhandling. Resten grafitt.
 // ═══════════════════════════════════════════════════════════════
+
+const TABS = [
+  { id: 'timer'  as const, label: 'Klokke',  icon: Timer },
+  { id: 'drills' as const, label: 'Øvelser', icon: BookOpen },
+];
 
 export const SmartCoach: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [tab, setTab] = useState<'timer' | 'drills'>('timer');
 
-  const allTabs = [
-    { id: 'timer' as const, label: '⏱ Klokke' },
-    { id: 'drills' as const, label: '📚 Øvelser' },
-  ];
-
   return (
-    <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-2 sm:p-4"
-      onClick={onClose}>
-      <div
-        className="bg-[#0c1525] border border-[#1e3050] rounded-2xl w-full max-w-[500px]
-          max-h-[90vh] flex flex-col shadow-2xl"
-        onClick={e => e.stopPropagation()}>
-
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-[#1e3050] flex-shrink-0">
-          <h2 className="text-xs sm:text-sm font-black text-slate-100">⚡ Smart Coach</h2>
-          <button onClick={onClose} className="text-[#3a5070] hover:text-white text-xl min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
-        </div>
-
-        <div className="flex border-b border-[#1e3050] flex-shrink-0">
-          {allTabs.map((t) => (
-            <button 
-              key={t.id} 
-              onClick={() => setTab(t.id)}
-              className={`flex-1 py-2.5 sm:py-3 text-[11px] sm:text-[12px] font-semibold transition-all min-h-[44px]
-                ${tab === t.id ? 'text-sky-400 border-b-2 border-sky-400' : 'text-[#3a5070] hover:text-slate-400'}`}
+    <Modal
+      onClose={onClose}
+      size="md"
+      title={<span className="font-serif text-[1.5rem] leading-tight">Smart Coach</span>}
+      subtitle={
+        <div role="tablist" aria-label="Smart Coach" className="flex gap-1.5">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-ctl
+                text-body font-semibold transition-colors ${toggleClass(tab === id)}`}
             >
-              {t.label}
+              <Icon size={14} strokeWidth={1.75} aria-hidden />
+              {label}
             </button>
           ))}
         </div>
-
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
-          {tab === 'timer'  && <TimerTab />}
-          {tab === 'drills' && <DrillsTab />}
-        </div>
-      </div>
-    </div>
+      }
+    >
+      {tab === 'timer' ? <TimerTab /> : <DrillsTab />}
+    </Modal>
   );
 };
 
@@ -110,28 +110,29 @@ const TimerTab: React.FC = () => {
 
   return (
     <div>
-      <div className="text-center mb-5">
-        <div className={`text-[44px] sm:text-[52px] font-black tabular-nums tracking-tight
-          ${matchTimer.running ? 'text-emerald-400' : display > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+      <div className="text-center mb-6">
+        <div
+          className={`font-mono text-[52px] leading-none tabular-nums tracking-tight
+            ${matchTimer.running ? 'text-signal' : display > 0 ? 'text-ink' : 'text-ink-faint'}`}
+        >
           {fmt(display)}
         </div>
-        <div className="text-[10px] sm:text-[11px] text-[#3a5070] mt-0.5">
+        <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mt-2">
           {matchTimer.running ? 'Kamp pågår' : display > 0 ? 'Pauset' : 'Ikke startet'}
         </div>
       </div>
 
       <div className="flex gap-2">
-        <button onClick={matchTimer.running ? stopTimer : startTimer}
-          className={`flex-1 py-2.5 sm:py-3 rounded-xl font-bold text-[12px] sm:text-[13px] border transition-all min-h-[44px] sm:min-h-[48px]
-            ${matchTimer.running
-              ? 'bg-red-500/15 border-red-500 text-red-400 hover:bg-red-500/25'
-              : 'bg-emerald-500/15 border-emerald-500 text-emerald-400 hover:bg-emerald-500/25'}`}>
-          {matchTimer.running ? '⏸ Pause' : '▶ Start'}
+        <button
+          onClick={matchTimer.running ? stopTimer : startTimer}
+          className={`flex-1 ${matchTimer.running ? SECONDARY_BTN : PRIMARY_BTN}`}
+        >
+          {matchTimer.running
+            ? <><Pause size={15} strokeWidth={2} aria-hidden /> Pause</>
+            : <><Play size={15} strokeWidth={2} aria-hidden /> Start</>}
         </button>
-        <button onClick={resetTimer}
-          className="px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-[#1e3050] text-[#4a6080]
-            hover:text-red-400 text-[11px] sm:text-[12px] font-bold transition min-h-[44px] sm:min-h-[48px]">
-          ↺ Reset
+        <button onClick={resetTimer} className={SECONDARY_BTN}>
+          <RotateCcw size={15} strokeWidth={1.75} aria-hidden /> Nullstill
         </button>
       </div>
     </div>
@@ -139,6 +140,20 @@ const TimerTab: React.FC = () => {
 };
 
 // ═══ ØVELSESBIBLIOTEK ══════════════════════════════════════════
+
+const Section: React.FC<{ title: string; bullet: string; items: string[] }> = ({ title, bullet, items }) => (
+  <div className="mb-4">
+    <div className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle mb-1.5">{title}</div>
+    <ul className="space-y-1">
+      {items.map((item, i) => (
+        <li key={i} className="text-body text-ink-muted flex gap-2">
+          <span aria-hidden className="text-ink-faint flex-shrink-0">{bullet}</span>
+          {item}
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 const DrillsTab: React.FC = () => {
   const { updateStickyNote, ageGroup } = useAppStore();
@@ -170,35 +185,23 @@ const DrillsTab: React.FC = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] sm:text-[11px] font-bold text-slate-400">⚽ Fotball</span>
-        <div className="flex items-center gap-1.5">
-          <span className={`px-2 py-1 rounded-xl text-[9px] sm:text-[10px] font-bold ${
-            ageGroup === 'youth' 
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-              : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-          }`}>
-            {ageGroup === 'youth' ? '🧒 Barn' : '🧑 Voksen'}
-          </span>
-        </div>
+        <span className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">Fotball</span>
+        <Badge tone="neutral">{ageGroup === 'youth' ? 'Barn' : 'Voksen'}</Badge>
       </div>
 
       {!activeDrill ? (
         <>
           {!showAll && (
-            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl
-              bg-amber-500/10 border border-amber-500/20">
-              <span className="text-amber-400 text-[13px]">📅</span>
-              <div>
-                <div className="text-[10px] sm:text-[11px] font-bold text-amber-400">
-                  Uke {week} – ukens øvelser
-                </div>
-                <div className="text-[9px] sm:text-[10px] text-[#4a6080]">
-                  Roterer automatisk neste uke
-                </div>
+            <div className="flex items-center gap-2.5 mb-3 px-3 py-2.5 rounded-panel bg-canvas-sunken shadow-hair">
+              <CalendarDays size={16} strokeWidth={1.75} aria-hidden className="text-ink-faint flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-body font-bold text-ink">Uke {week} – ukens øvelser</div>
+                <div className="text-meta text-ink-subtle">Roterer automatisk neste uke</div>
               </div>
               <button onClick={() => setShowAll(true)}
-                className="ml-auto text-[9px] sm:text-[10px] text-[#4a6080] hover:text-sky-400 transition min-h-[44px] px-2">
-                Vis alle →
+                className="ml-auto flex-shrink-0 inline-flex items-center gap-1 px-2 min-h-[36px]
+                  text-meta text-ink-subtle hover:text-signal transition-colors">
+                Vis alle <ChevronRight size={13} strokeWidth={1.75} aria-hidden />
               </button>
             </div>
           )}
@@ -206,38 +209,35 @@ const DrillsTab: React.FC = () => {
           {showAll && (
             <div className="flex items-center gap-2 mb-3">
               <button onClick={() => setShowAll(false)}
-                className="text-[9px] sm:text-[10px] text-[#4a6080] hover:text-sky-400 transition min-h-[44px] px-2">
-                ← Tilbake til ukas øvelser
+                className="inline-flex items-center gap-1 px-2 min-h-[36px] text-meta text-ink-subtle hover:text-signal transition-colors">
+                <ChevronLeft size={13} strokeWidth={1.75} aria-hidden /> Tilbake til ukas øvelser
               </button>
-              <span className="text-[9px] sm:text-[10px] text-[#3a5070]">({allDrills.length} totalt)</span>
+              <span className="text-meta text-ink-faint">({allDrills.length} totalt)</span>
             </div>
           )}
 
           <div className="space-y-2">
             {displayed.length === 0 ? (
-              <p className="text-[11px] sm:text-[12px] text-[#4a6080] text-center py-6">
+              <p className="text-body text-ink-subtle text-center py-6">
                 Ingen øvelser for {ageGroup === 'youth' ? 'barn' : 'voksne'}.
               </p>
             ) : (
               displayed.map((d, idx) => (
                 <button key={d.id}
                   onClick={() => { setActiveDrill(d); setActiveStep(0); }}
-                  className="w-full text-left p-3 sm:p-3.5 bg-[#0f1a2a] rounded-xl border
-                    border-[#1e3050] hover:border-[#2e4060] transition-all min-h-[44px]">
-                  <div className="flex items-start gap-2">
+                  className="w-full text-left p-3 rounded-panel bg-canvas-sunken shadow-hair
+                    hover:bg-canvas-hover transition-colors min-h-[44px]">
+                  <div className="flex items-start gap-2.5">
                     {!showAll && (
-                      <span className="w-6 h-6 rounded-full bg-sky-500/15 border border-sky-500/20
-                        text-sky-400 text-[10px] font-black flex items-center justify-center
-                        shrink-0 mt-0.5">
+                      <span className="h-6 w-6 flex-shrink-0 mt-0.5 rounded-full bg-signal/15 shadow-hair-signal
+                        flex items-center justify-center font-mono text-meta text-signal">
                         {idx + 1}
                       </span>
                     )}
-                    <div className="flex-1">
-                      <div className="text-[11px] sm:text-[12.5px] font-bold text-slate-200">{d.name}</div>
-                      <div className="text-[10px] sm:text-[11px] text-[#4a6080] mt-0.5 leading-relaxed">
-                        {d.description}
-                      </div>
-                      <div className="text-[9px] sm:text-[10px] text-sky-500/60 mt-1">{d.steps.length} steg</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-body font-bold text-ink">{d.name}</div>
+                      <div className="text-body text-ink-muted mt-0.5 leading-relaxed">{d.description}</div>
+                      <div className="text-meta text-ink-faint mt-1">{d.steps.length} steg</div>
                     </div>
                   </div>
                 </button>
@@ -248,49 +248,50 @@ const DrillsTab: React.FC = () => {
       ) : (
         <div>
           <button onClick={() => setActiveDrill(null)}
-            className="text-[10px] sm:text-[11px] text-[#4a6080] hover:text-sky-400 mb-3 flex items-center gap-1 min-h-[44px]">
-            ‹ Tilbake til liste
+            className="inline-flex items-center gap-1 px-2 min-h-[36px] mb-3 text-meta text-ink-subtle hover:text-signal transition-colors">
+            <ChevronLeft size={13} strokeWidth={1.75} aria-hidden /> Tilbake til liste
           </button>
 
-          <h3 className="text-xs sm:text-sm font-black text-slate-100 mb-1">{activeDrill.name}</h3>
+          <h3 className="text-h4 text-ink mb-2">{activeDrill.name}</h3>
 
           {activeDrill.warning && (
-            <div className="flex gap-2 bg-yellow-500/10 border border-yellow-500/40 rounded-xl p-2.5 sm:p-3 mb-3">
-              <span className="text-yellow-400 leading-none shrink-0">⚠️</span>
-              <p className="text-[10px] sm:text-[11px] text-yellow-100/90 leading-relaxed">{activeDrill.warning}</p>
+            <div className="flex gap-3 rounded-panel border border-warn-500/40 bg-warn-500/10 p-3 mb-3">
+              <AlertTriangle size={16} strokeWidth={1.75} aria-hidden className="text-warn-400 flex-shrink-0 mt-0.5" />
+              <p className="text-body text-warn-300 leading-relaxed">{activeDrill.warning}</p>
             </div>
           )}
 
-          <p className="text-[10px] sm:text-[11.5px] text-[#7a9ab8] mb-2 leading-relaxed">
-            {activeDrill.description}
-          </p>
+          <p className="text-body text-ink-muted mb-2 leading-relaxed">{activeDrill.description}</p>
           {activeDrill.why && (
-            <p className="text-[10px] sm:text-[11px] text-purple-300/80 mb-4 leading-relaxed">
-              <span className="font-bold text-purple-400">🎯 Hvorfor: </span>{activeDrill.why}
+            <p className="text-body text-ink-muted mb-4 leading-relaxed flex gap-2">
+              <Target size={14} strokeWidth={1.75} aria-hidden className="text-ink-faint flex-shrink-0 mt-1" />
+              <span><span className="font-bold text-ink">Hvorfor: </span>{activeDrill.why}</span>
             </p>
           )}
 
           <div className="flex gap-1.5 mb-4">
             {activeDrill.steps.map((_, i) => (
               <button key={i} onClick={() => setActiveStep(i)}
-                className={`flex-1 h-2 rounded-full transition-all min-h-[20px]
-                  ${i === activeStep ? 'bg-sky-400'
-                    : i < activeStep ? 'bg-sky-800' : 'bg-[#1e3050]'}`} />
+                aria-label={`Steg ${i + 1}`}
+                className="flex-1 py-2 flex items-center">
+                <span className={`block w-full h-1.5 rounded-full transition-colors
+                  ${i === activeStep ? 'bg-signal' : i < activeStep ? 'bg-signal/35' : 'bg-rule-strong'}`} />
+              </button>
             ))}
           </div>
 
           {activeDrill.steps[activeStep] && (
-            <div className="bg-[#0f1a2a] rounded-xl p-3 sm:p-4 border border-[#1e3050] mb-4">
-              <div className="flex items-center gap-2 sm:gap-2.5 mb-2">
-                <span className="w-7 h-7 rounded-full bg-sky-500/20 border border-sky-500/40
-                  text-sky-400 text-[11px] sm:text-[12px] font-black flex items-center justify-center shrink-0">
+            <div className="rounded-panel bg-canvas-sunken shadow-hair p-3 mb-4">
+              <div className="flex items-center gap-2.5 mb-2">
+                <span className="h-7 w-7 flex-shrink-0 rounded-full bg-signal/15 shadow-hair-signal
+                  flex items-center justify-center font-mono text-meta text-signal">
                   {activeStep + 1}
                 </span>
-                <span className="text-[12px] sm:text-[13px] font-bold text-slate-200">
+                <span className="text-body font-bold text-ink">
                   {activeDrill.steps[activeStep].name || `Steg ${activeStep + 1}`}
                 </span>
               </div>
-              <p className="text-[11px] sm:text-[12px] text-[#7a9ab8] leading-relaxed pl-9">
+              <p className="text-body text-ink-muted leading-relaxed pl-9">
                 {activeDrill.steps[activeStep].description}
               </p>
             </div>
@@ -299,49 +300,31 @@ const DrillsTab: React.FC = () => {
           <div className="flex gap-2 mb-2">
             <button onClick={() => setActiveStep(s => Math.max(0, s - 1))}
               disabled={activeStep === 0}
-              className="flex-1 py-2.5 rounded-xl border border-[#1e3050] text-[#4a6080]
-                text-[11px] sm:text-[12px] font-bold hover:text-slate-300 disabled:opacity-30 min-h-[44px]">
-              ‹ Forrige
+              className={`flex-1 ${SECONDARY_BTN} disabled:opacity-30`}>
+              <ChevronLeft size={15} strokeWidth={1.75} aria-hidden /> Forrige
             </button>
             {activeStep < activeDrill.steps.length - 1 ? (
-              <button onClick={() => setActiveStep(s => s + 1)}
-                className="flex-1 py-2.5 rounded-xl bg-sky-500/15 border border-sky-500/30
-                  text-sky-400 text-[11px] sm:text-[12px] font-bold hover:bg-sky-500/25 min-h-[44px]">
-                Neste steg ›
+              <button onClick={() => setActiveStep(s => s + 1)} className={`flex-1 ${PRIMARY_BTN}`}>
+                Neste steg <ChevronRight size={15} strokeWidth={2} aria-hidden />
               </button>
             ) : (
-              <button onClick={() => setActiveDrill(null)}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30
-                  text-emerald-400 text-[11px] sm:text-[12px] font-bold hover:bg-emerald-500/25 min-h-[44px]">
-                ✓ Ferdig
+              <button onClick={() => setActiveDrill(null)} className={`flex-1 ${PRIMARY_BTN}`}>
+                <Check size={15} strokeWidth={2} aria-hidden /> Ferdig
               </button>
             )}
           </div>
 
           <button onClick={() => applyNote(activeDrill, activeStep)}
-            className="w-full py-2 rounded-xl border border-amber-500/30 text-amber-400/70
-              text-[10px] sm:text-[11px] hover:text-amber-400 transition min-h-[44px] mb-4">
-            📌 Fest til fase-notat
+            className={`w-full mb-4 ${SECONDARY_BTN}`}>
+            <Pin size={15} strokeWidth={1.75} aria-hidden /> Fest til fase-notat
           </button>
 
           {([
-            { title: '💡 Coachingpunkter', items: activeDrill.coachingPoints, color: 'text-amber-400', bullet: '•' },
-            { title: '🚫 Vanlige feil',    items: activeDrill.commonMistakes, color: 'text-red-400',   bullet: '✕' },
-            { title: '🔀 Variasjoner',     items: activeDrill.variations,     color: 'text-orange-400', bullet: '↳' },
+            { title: 'Coachingpunkter', items: activeDrill.coachingPoints, bullet: '✦' },
+            { title: 'Vanlige feil',    items: activeDrill.commonMistakes, bullet: '✕' },
+            { title: 'Variasjoner',     items: activeDrill.variations,     bullet: '↳' },
           ]).filter(sec => sec.items.length > 0).map(sec => (
-            <div key={sec.title} className="mb-3">
-              <div className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider mb-1.5 ${sec.color}`}>
-                {sec.title}
-              </div>
-              <ul className="space-y-1">
-                {sec.items.map((item, i) => (
-                  <li key={i} className="text-[10px] sm:text-[11px] text-slate-300 flex gap-2">
-                    <span className={`${sec.color} shrink-0`}>{sec.bullet}</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <Section key={sec.title} title={sec.title} bullet={sec.bullet} items={sec.items} />
           ))}
         </div>
       )}
