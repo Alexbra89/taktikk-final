@@ -22,12 +22,37 @@ export interface Player {
   notes: string;
 }
 
-export interface Drawing {
+export type DrawingType =
+  | 'freehand' | 'arrow' | 'curved-arrow' | 'dashed'
+  | 'circle' | 'rectangle' | 'label';
+
+interface DrawingBase {
   id: string;
-  pts: Position[];
   color: string;
-  label?: string;
 }
+
+/** Streker som følger punkter. Uten type = frihånd: slik er alle tegninger fra før verktøyene kom. */
+export interface PathDrawing extends DrawingBase {
+  type?: 'freehand' | 'arrow' | 'curved-arrow' | 'dashed';
+  // frihånd: alle punkter · pil og stiplet: [start, slutt] · buet pil: [start, kontrollpunkt, slutt]
+  pts: Position[];
+}
+
+export interface ShapeDrawing extends DrawingBase {
+  type: 'circle' | 'rectangle';
+  start: Position;   // sirkel: sentrum · rektangel: ett hjørne
+  end: Position;     // sirkel: punkt på radien · rektangel: motsatt hjørne
+}
+
+export interface LabelDrawing extends DrawingBase {
+  type: 'label';
+  at: Position;      // midtpunktet til teksten
+  text: string;
+}
+
+export type Drawing = PathDrawing | ShapeDrawing | LabelDrawing;
+/** En tegning før storen har gitt den id. */
+export type NewDrawing = Omit<PathDrawing, 'id'> | Omit<ShapeDrawing, 'id'> | Omit<LabelDrawing, 'id'>;
 
 export interface TacticPhase {
   id: string;

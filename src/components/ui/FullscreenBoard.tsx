@@ -5,10 +5,13 @@ import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH, getFormationSlots } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
 import { DrawingCanvas } from '@/components/board/DrawingCanvas';
+import { DrawToolbar } from '@/components/board/DrawToolbar';
+import { TextLabelModal } from '@/components/board/TextLabelModal';
 import { LONG_PRESS, DRAG_THRESH, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from '@/components/board/constants';
 import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
-import { X, Play, Pause, Minus, Plus } from 'lucide-react';
+import { useDrawingInput } from '@/hooks/useDrawingInput';
+import { X, Play, Pause, Minus, Plus, PenLine } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 // ═══════════════════════════════════════════════════════════════
@@ -33,7 +36,7 @@ interface FullscreenBoardProps {
 const getNum  = (p: any): number => p.number ?? p.num ?? 0;
 
 export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, interactive = false }) => {
-  const { setActivePhaseIdx, movePlayer, moveBall } = useAppStore();
+  const { setActivePhaseIdx, movePlayer, moveBall, removeLastDrawing, clearDrawings } = useAppStore();
   const tactic = useActiveTactic();
   const { phases, activePhaseIdx, sport, formation } = tactic;
 
@@ -54,6 +57,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   const [interpFrom, setInterpFrom] = useState(0);
   const [interpT, setInterpT]       = useState(0);
   const [showControls, setShowControls] = useState(true);
+  const [drawMode, setDrawMode]     = useState(false);
 
   const dragRef = useRef<{
     target: DragTarget; pointerId: number;
@@ -138,8 +142,19 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
   const slots = useMemo(() => getFormationSlots(sport, formation), [sport, formation]);
 
+  // ─── Tegning ────────────────────────────────────────────────
+  // Samme verktøy og samme lagring som på vanlig brett. Strekene havner i
+  // fasen storen står i, som synkes med activeIdx over.
+  const draw = useDrawingInput({
+    enabled: interactive && drawMode && !isPlaying,
+    toSVG,
+    isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
+  });
+  const drawCancel = draw.cancel;
+
   // ─── Drag av spillere og ball ───────────────────────────────
-  const canDrag = interactive && !isPlaying;
+  // I tegnemodus eier tegningen pekeren, som på vanlig brett.
+  const canDrag = interactive && !isPlaying && !drawMode;
 
   const onItemDown = useCallback((e: React.PointerEvent, target: DragTarget) => {
     if (!canDrag) return;
@@ -197,7 +212,8 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
     dragRef.current = null;
     setDragPreview(null);
-  }, []);
+    drawCancel();
+  }, [drawCancel]);
 
   const onZoomDown = useCallback((e: React.PointerEvent) => {
     if (zoomCtl.onPointerDown(e)) cancelDrag();
@@ -283,6 +299,19 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           </button>
         )}
 
+        {interactive && (
+          <button onClick={() => { setDrawMode(v => !v); resetHideTimer(); }}
+            aria-pressed={drawMode}
+            aria-label={drawMode ? 'Stopp tegning' : 'Tegn'}
+            title={drawMode ? 'Stopp tegning' : 'Tegn'}
+            className={cn(
+              'tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors',
+              drawMode && 'bg-signal/10 text-signal shadow-hair-signal hover:text-signal',
+            )}>
+            <PenLine size={16} strokeWidth={1.75} />
+          </button>
+        )}
+
         <button onClick={() => { isPlaying ? stopPlayback() : startPlayback(); resetHideTimer(); }}
           disabled={phases.length < 2}
           aria-label={isPlaying ? 'Stopp avspilling' : 'Spill av fasene'}
@@ -302,6 +331,17 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           <X size={17} strokeWidth={1.75} />
         </button>
       </div>
+
+      {interactive && drawMode && (
+        <DrawToolbar
+          tool={draw.tool} onTool={draw.setTool}
+          color={draw.color} onColor={draw.setColor}
+          hasDrawings={(phase.drawings?.length ?? 0) > 0}
+          onRemoveLast={removeLastDrawing}
+          onClearAll={clearDrawings}
+          className={cn('border-b transition-opacity duration-300',
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none')}/>
+      )}
 
       {/* -- Banen tar hele hoyden som er igjen -- */}
       <div
@@ -324,8 +364,13 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
             display: 'block',
             touchAction: 'none',
             userSelect: 'none',
-            cursor: zoomCtl.spaceHeld ? 'grab' : 'default',
+            cursor: zoomCtl.spaceHeld ? 'grab'
+              : drawMode && interactive ? (draw.tool === 'label' ? 'text' : 'crosshair') : 'default',
           }}
+          onPointerDown={draw.onPointerDown}
+          onPointerMove={draw.onPointerMove}
+          onPointerUp={draw.onPointerUp}
+          onPointerLeave={draw.onPointerUp}
         >
           <defs>
             <filter id="ds3">
@@ -338,6 +383,11 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
           {/* Tegninger */}
           {(phase.drawings ?? []).map(d => <DrawingCanvas key={d.id} drawing={d} />)}
+          {draw.preview && (
+            <g opacity={0.85} style={{ pointerEvents: 'none' }}>
+              <DrawingCanvas drawing={{ id: 'preview', ...draw.preview }} />
+            </g>
+          )}
 
           {/* Ball */}
           {displayBall && (() => {
@@ -418,6 +468,10 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         )}>
           <p className="text-body text-ink-muted">{phase.stickyNote}</p>
         </div>
+      )}
+
+      {draw.pendingLabel && (
+        <TextLabelModal onSave={draw.commitLabel} onClose={draw.cancelLabel} />
       )}
 
       {/* Hint */}

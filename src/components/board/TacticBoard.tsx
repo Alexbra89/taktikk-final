@@ -9,6 +9,8 @@ import { VW, VH, getFormationSlots } from '../../data/formations';
 import { FootballPitch } from './pitches/FootballPitch';
 import { Ball } from './BoardElements';
 import { DrawingCanvas } from './DrawingCanvas';
+import { DrawToolbar } from './DrawToolbar';
+import { TextLabelModal } from './TextLabelModal';
 import { ROLE_INFO } from '../../data/roleInfo';
 import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from './constants';
 import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
@@ -23,6 +25,7 @@ import { BoardPanel } from './BoardPanel';
 import { TacticTabs } from '../ui/TacticTabs';
 import { useViewport } from '../../hooks/useViewport';
 import { useBoardZoom } from '../../hooks/useBoardZoom';
+import { useDrawingInput } from '../../hooks/useDrawingInput';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
   StickyNote, Minus, X, Plus as PlusIcon,
@@ -124,8 +127,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   useEffect(() => { setIsMounted(true); }, []);
 
   const svgRef        = useRef<SVGSVGElement>(null);
-  const drawPts       = useRef<SvgPos[]>([]);
-  const isDrawingRef  = useRef(false);
   const timerRef      = useRef<ReturnType<typeof setInterval>|null>(null);
   const playRef       = useRef({ from:0, t:0 });
   const spacingDebRef = useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -143,12 +144,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [draggingPlayerId, setDraggingPlayerId]  = useState<string|null>(null);
   const [bounceId,         setBounceId]          = useState<string|null>(null);
   const [drawMode,         setDrawMode]          = useState(false);
-  const [drawColor,        setDrawColor]         = useState('#EDEDEF');
   const [isPlaying,        setIsPlaying]         = useState(false);
   const [playSpeed,        setPlaySpeed]         = useState(1);
   const [interpFrom,       setInterpFrom]        = useState(0);
   const [interpT,          setInterpT]           = useState(0);
-  const [liveDrawPts,      setLiveDrawPts]       = useState<SvgPos[]>([]);
   const [showPanel,        setShowPanel]         = useState(false);
   const [showNote,         setShowNote]          = useState(false);
   const [undoDepth,        setUndoDepth]         = useState(0);
@@ -157,7 +156,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const {
     setActivePhaseIdx, addPhase, removePhase,
     movePlayer, moveBall,
-    addDrawing, clearDrawings,
+    removeLastDrawing, clearDrawings,
     updateStickyNote,
   } = useAppStore();
 
@@ -340,6 +339,13 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     return clampToPitch((localX / renderedW) * VW, (localY / renderedH) * VH);
   }, [clampToPitch]);
 
+  const draw = useDrawingInput({
+    enabled: drawMode && !isPlaying,
+    toSVG,
+    isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
+  });
+  const drawCancel = draw.cancel;
+
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
     for (const p of (phase?.players??[])) {
@@ -501,10 +507,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     setDraggingPlayerId(null);
     setSnapTarget(null);
     // Også en påbegynt strek skal forkastes, ikke lagres halvferdig.
-    isDrawingRef.current = false;
-    drawPts.current = [];
-    setLiveDrawPts([]);
-  }, []);
+    drawCancel();
+  }, [drawCancel]);
 
   const onZoomPtrDown = useCallback((e: React.PointerEvent) => {
     if (zoomCtl.onPointerDown(e)) cancelDrag();
@@ -517,28 +521,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const onZoomPtrUp = useCallback((e: React.PointerEvent) => {
     zoomCtl.onPointerUp(e);
   }, [zoomCtl]);
-
-  const onSvgPtrDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (isPlaying||!drawMode) return;
-    if (gestureRef.current.isGesturing || gestureRef.current.spaceHeld) return;
-    if ((e.target as SVGElement).closest('[data-player]')) return;
-    e.preventDefault();
-    isDrawingRef.current=true;
-    const pt = toSVG(e.clientX, e.clientY);
-    drawPts.current=[pt]; setLiveDrawPts([pt]);
-    svgRef.current?.setPointerCapture(e.pointerId);
-  };
-  const onSvgPtrMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!drawMode||!isDrawingRef.current) return;
-    e.preventDefault();
-    const pt = toSVG(e.clientX, e.clientY);
-    drawPts.current.push(pt); setLiveDrawPts([...drawPts.current]);
-  };
-  const onSvgPtrUp = () => {
-    if (drawMode&&isDrawingRef.current&&drawPts.current.length>2)
-      addDrawing({pts:[...drawPts.current], color:drawColor});
-    isDrawingRef.current=false; drawPts.current=[]; setLiveDrawPts([]);
-  };
 
   const allDisplay   = useMemo(()=>getDisplayPlayers(),  [getDisplayPlayers]);
 
@@ -559,10 +541,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
   const ghostSlot   = ghostPlayer ? getSlot(tactic, ghostPlayer.slotIdx) : null;
-
-  // Tegnefargene er bevisst ikke Kalk-tokens: strekene er notater oppå banen,
-  // og må kunne skilles fra hverandre og fra de røde brikkene.
-  const DRAW_COLORS = ['#EDEDEF','#6E93E6','#5BAE84','#D9A93E','#E8834A'];
 
   if (!phase || !isMounted) {
     return (
@@ -635,27 +613,27 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             preserveAspectRatio="xMidYMid meet"
             style={{
               flex: 1, width: '100%', height: '100%', display: 'block',
-              cursor: zoomCtl.spaceHeld ? 'grab' : drawMode ? 'crosshair' : 'default',
+              cursor: zoomCtl.spaceHeld ? 'grab' : drawMode ? (draw.tool === 'label' ? 'text' : 'crosshair') : 'default',
               // Pinch håndteres av oss når vi kan zoome, ellers lar vi
               // nettleseren beholde sin vanlige oppførsel.
               touchAction: 'none',
               userSelect: 'none',
               WebkitTapHighlightColor: 'transparent',
             }}
-            onPointerDown={onSvgPtrDown}
-            onPointerMove={onSvgPtrMove}
-            onPointerUp={onSvgPtrUp}
-            onPointerLeave={onSvgPtrUp}
+            onPointerDown={draw.onPointerDown}
+            onPointerMove={draw.onPointerMove}
+            onPointerUp={draw.onPointerUp}
+            onPointerLeave={draw.onPointerUp}
           >
             <SvgDefs/>
             <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
 
             <FootballPitch/>
             {phase.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
-            {liveDrawPts.length>1&&(
-              <polyline points={liveDrawPts.map(p=>`${p.x},${p.y}`).join(' ')}
-                stroke={drawColor} strokeWidth={4} fill="none"
-                strokeLinecap="round" strokeLinejoin="round" opacity={0.85}/>
+            {draw.preview&&(
+              <g opacity={0.85} style={{ pointerEvents:'none' }}>
+                <DrawingCanvas drawing={{ id:'preview', ...draw.preview }}/>
+              </g>
             )}
             {phase&&(
               <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
@@ -717,6 +695,16 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         <PlayerNameBar key={selectedPlayer.id} player={selectedPlayer}
           label={getSlot(tactic, selectedPlayer.slotIdx).label}
           onClose={()=>stableOnSelectPlayer(null)}/>
+      )}
+
+      {drawMode&&(
+        <DrawToolbar
+          tool={draw.tool} onTool={draw.setTool}
+          color={draw.color} onColor={draw.setColor}
+          hasDrawings={(phase?.drawings?.length??0)>0}
+          onRemoveLast={removeLastDrawing}
+          onClearAll={clearDrawings}
+          className="border-t"/>
       )}
 
       {/* --- EN LINJE UNDER BANEN: faser, angre, tegn, avspilling --- */}
@@ -812,18 +800,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           <PenLine size={16} strokeWidth={1.75} />
         </button>
 
-        {drawMode&&DRAW_COLORS.map(c=>(
-          <button key={c} onClick={()=>setDrawColor(c)}
-            aria-label={`Tegnefarge ${c}`}
-            aria-pressed={drawColor===c}
-            className={cn(
-              'tap-auto w-6 h-6 flex-shrink-0 rounded-full transition-transform',
-              drawColor===c ? 'scale-110 shadow-hair-strong' : 'opacity-55',
-            )}
-            style={{background:c}}/>
-        ))}
-
-        {(phase?.drawings?.length??0)>0&&(
+        {/* I tegnemodus ligger viskelæret i tegneraden over. */}
+        {!drawMode&&(phase?.drawings?.length??0)>0&&(
           <button onClick={()=>clearDrawings()} aria-label="Slett tegningene" title="Slett tegningene" className={iconBtn}>
             <Eraser size={16} strokeWidth={1.75} />
           </button>
@@ -854,6 +832,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           </button>
         </div>
       </div>
+
+      {draw.pendingLabel && (
+        <TextLabelModal onSave={draw.commitLabel} onClose={draw.cancelLabel}/>
+      )}
 
       {showNote && phase && (
         <PhaseNoteModal

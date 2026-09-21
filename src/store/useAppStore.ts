@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   Sport, Tactic, TacticPhase, CalendarEvent,
-  AppView, Player, Position, Drawing,
+  AppView, Player, Position, Drawing, NewDrawing, PathDrawing,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
   TacticMoment
 } from '../types';
@@ -145,6 +145,33 @@ function migrateV1(old: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
+const PATH_TYPES = ['freehand', 'arrow', 'curved-arrow', 'dashed'] as const;
+
+// Hver tegnetype har sine egne felter. De hvitlistes her, slik at et felt som
+// mangler i denne funksjonen ikke forsvinner stille ved neste innlasting.
+// Tegninger som ikke kan tegnes (for få punkter, tom tekst) forkastes.
+function repairDrawing(raw: unknown): Drawing | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, unknown>;
+  const id = typeof d.id === 'string' ? d.id : `drawing-${uid()}`;
+  const color = typeof d.color === 'string' ? d.color : '#EDEDEF';
+
+  if (d.type === 'circle' || d.type === 'rectangle') {
+    return isPos(d.start) && isPos(d.end) ? { id, color, type: d.type, start: d.start, end: d.end } : null;
+  }
+  if (d.type === 'label') {
+    return isPos(d.at) && typeof d.text === 'string' && d.text.trim()
+      ? { id, color, type: 'label', at: d.at, text: d.text } : null;
+  }
+  // Uten type er det frihånd fra før verktøyene kom – den skal forbli uten type.
+  if (d.type !== undefined && !PATH_TYPES.includes(d.type as PathDrawing['type'] & string)) return null;
+  const pts = (Array.isArray(d.pts) ? d.pts : []).filter(isPos);
+  if (pts.length < (d.type === 'curved-arrow' ? 3 : 2)) return null;
+  return d.type === undefined
+    ? { id, color, pts }
+    : { id, color, type: d.type as PathDrawing['type'], pts };
+}
+
 function repairTactic(raw: unknown): Tactic | null {
   if (!raw || typeof raw !== 'object') return null;
   const t = raw as Partial<Tactic>;
@@ -167,7 +194,8 @@ function repairTactic(raw: unknown): Tactic | null {
           notes: typeof p.notes === 'string' ? p.notes : '',
         })),
       ball: isPos(ph.ball) ? ph.ball : centerBall(),
-      drawings: Array.isArray(ph.drawings) ? ph.drawings : [],
+      drawings: (Array.isArray(ph.drawings) ? ph.drawings : [])
+        .map(repairDrawing).filter((d): d is Drawing => d !== null),
       stickyNote: typeof ph.stickyNote === 'string' ? ph.stickyNote : '',
     }));
   const safePhases = syncPlayers(phases.length ? phases : [createPhase('Fase 1', slots)], slots);
@@ -248,7 +276,8 @@ interface AppStore {
   // Navn og draktnummer tilhører spilleren, ikke fasen: gjelder alle faser i taktikken.
   setPlayerName: (playerId: string, name: string) => void;
   setPlayerNum: (playerId: string, num: number) => void;
-  addDrawing: (drawing: Omit<Drawing, 'id'>) => void;
+  addDrawing: (drawing: NewDrawing) => void;
+  removeLastDrawing: () => void;
   clearDrawings: () => void;
   // phaseIdx er valgfri fordi kallet er debouncet og fasen kan ha byttet før det utføres.
   updateStickyNote: (note: string, phaseIdx?: number) => void;
@@ -416,6 +445,9 @@ export const useAppStore = create<AppStore>()(
 
       addDrawing: (drawing) => set(s => patchActiveTactic(s, t =>
         patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, drawings: [...ph.drawings, { id: uid(), ...drawing }] })))),
+
+      removeLastDrawing: () => set(s => patchActiveTactic(s, t =>
+        patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, drawings: ph.drawings.slice(0, -1) })))),
 
       clearDrawings: () => set(s => patchActiveTactic(s, t =>
         patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, drawings: [] })))),
