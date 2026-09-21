@@ -4,6 +4,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH, getFormationSlots } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
+import { DrawingCanvas } from '@/components/board/DrawingCanvas';
 import { LONG_PRESS, DRAG_THRESH, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from '@/components/board/constants';
 import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
@@ -336,22 +337,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           <FootballPitch />
 
           {/* Tegninger */}
-          {(phase.drawings ?? []).map((d: any) => {
-            if (!d.pts || d.pts.length < 2) return null;
-            const p1 = d.pts[d.pts.length - 2];
-            const p2 = d.pts[d.pts.length - 1];
-            const a  = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            const s  = 12;
-            return (
-              <g key={d.id}>
-                <polyline points={d.pts.map((p: any) => `${p.x},${p.y}`).join(' ')}
-                  stroke={d.color ?? '#EDEDEF'} strokeWidth={3} fill="none"
-                  strokeLinecap="round" strokeLinejoin="round" />
-                <polygon fill={d.color ?? '#EDEDEF'} opacity={0.88}
-                  points={`${p2.x},${p2.y} ${p2.x-s*Math.cos(a-Math.PI/6)},${p2.y-s*Math.sin(a-Math.PI/6)} ${p2.x-s*Math.cos(a+Math.PI/6)},${p2.y-s*Math.sin(a+Math.PI/6)}`} />
-              </g>
-            );
-          })}
+          {(phase.drawings ?? []).map(d => <DrawingCanvas key={d.id} drawing={d} />)}
 
           {/* Ball */}
           {displayBall && (() => {

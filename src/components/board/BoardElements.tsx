@@ -1,6 +1,5 @@
 'use client';
 import React, { useRef, useCallback } from 'react';
-import { Drawing } from '../../types';
 
 // ═══ Ball ═══════════════════════════════════════════════════════
 
@@ -83,37 +82,6 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
       {/* Kalk: ballen er en blekkprikk med kalkkjerne – leses på både mørk og lys bane. */}
       <circle cx={x} cy={y} r={10} style={{ fill: 'rgb(var(--k-ink))' }} />
       <circle cx={x} cy={y} r={4} style={{ fill: 'rgb(var(--k-pitch))' }} />
-    </g>
-  );
-};
-
-// ═══ DrawingCanvas ════════════════════════════════════════════════
-
-interface DrawingCanvasProps { drawing: Drawing; }
-
-const ArrowHead: React.FC<{
-  p1: { x: number; y: number }; p2: { x: number; y: number }; color: string;
-}> = ({ p1, p2, color }) => {
-  const a = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-  const s = 14;
-  return (
-    <polygon fill={color} opacity={0.88}
-      points={`${p2.x},${p2.y} ${p2.x - s * Math.cos(a - Math.PI/6)},${p2.y - s * Math.sin(a - Math.PI/6)} ${p2.x - s * Math.cos(a + Math.PI/6)},${p2.y - s * Math.sin(a + Math.PI/6)}`}
-    />
-  );
-};
-
-export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ drawing }) => {
-  const { pts, color } = drawing;
-  if (!pts || pts.length < 2) return null;
-  const last = pts[pts.length - 1];
-  const prev = pts[pts.length - 2];
-  return (
-    <g>
-      <polyline points={pts.map(p => `${p.x},${p.y}`).join(' ')}
-        stroke={color} strokeWidth={3} fill="none"
-        strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
-      <ArrowHead p1={prev} p2={last} color={color} />
     </g>
   );
 };

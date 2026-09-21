@@ -11,7 +11,8 @@ const ArrowHead: React.FC<{
   start: { x: number; y: number };
   end: { x: number; y: number };
   color: string;
-}> = ({ start, end, color }) => {
+  opacity?: number;
+}> = ({ start, end, color, opacity }) => {
   const angle = Math.atan2(end.y - start.y, end.x - start.x);
   const size = 14;
   const x1 = end.x - size * Math.cos(angle - Math.PI / 6);
@@ -19,12 +20,16 @@ const ArrowHead: React.FC<{
   const x2 = end.x - size * Math.cos(angle + Math.PI / 6);
   const y2 = end.y - size * Math.sin(angle + Math.PI / 6);
   return (
-    <polygon points={`${end.x},${end.y} ${x1},${y1} ${x2},${y2}`} fill={color} />
+    <polygon points={`${end.x},${end.y} ${x1},${y1} ${x2},${y2}`} fill={color} opacity={opacity} />
   );
 };
 
+// Eneste tegne-rendring i appen: brukes av både TacticBoard og FullscreenBoard.
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ drawing }) => {
-  const { pts, color } = drawing as any;
+  const { pts } = drawing as any;
+  // Tegninger valideres ikke ved innlasting (repairTactic slipper dem gjennom),
+  // så en manglende farge må ikke gi usynlig strek.
+  const color: string = (drawing as any).color ?? '#EDEDEF';
   // Support both typed and untyped drawings — untyped = freehand polyline
   const type: string = (drawing as any).type ?? 'freehand';
 
@@ -81,17 +86,27 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ drawing }) => {
         </g>
       );
 
-    // Default: freehand polyline (drawings saved without a type field)
+    // Default: frihånd med pilspiss – alle tegninger lagret uten type.
+    // Ser nøyaktig ut som tegningene på brettet har gjort hele tiden.
     default:
       return (
-        <polyline
-          points={pts.map((p: { x: number; y: number }) => `${p.x},${p.y}`).join(' ')}
-          stroke={color}
-          strokeWidth={3}
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <g>
+          <polyline
+            points={pts.map((p: { x: number; y: number }) => `${p.x},${p.y}`).join(' ')}
+            stroke={color}
+            strokeWidth={3}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.85}
+          />
+          <ArrowHead
+            start={pts[pts.length - 2]}
+            end={pts[pts.length - 1]}
+            color={color}
+            opacity={0.88}
+          />
+        </g>
       );
   }
 };
