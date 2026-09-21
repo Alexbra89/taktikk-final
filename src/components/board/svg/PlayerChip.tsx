@@ -17,14 +17,14 @@ export const PlayerChip = React.memo<{
   isDragging:boolean; isTarget:boolean; isOutOfPos:boolean;
 }>(({ x,y,num,selected,isDragging,isTarget,isOutOfPos }) => (
   <g opacity={isDragging ? 0.3 : 1} style={{ transition:'opacity 0.1s' }}>
-    {/* Valgt: hårstrek-ring utenpå brikken */}
+    {/* Valgt: hårstrek-ring utenpå brikken. Arbeidsmarkering – ikke med i eksportert bilde. */}
     {selected && (
-      <circle cx={x} cy={y} r={R + 7} fill="none" strokeWidth={1.5}
+      <circle data-export="skip" cx={x} cy={y} r={R + 7} fill="none" strokeWidth={1.5}
         style={{ stroke: INK }} opacity={0.65}/>
     )}
     {/* Byttemål under drag */}
     {isTarget && !selected && (
-      <circle cx={x} cy={y} r={R + 9} fill="none" strokeWidth={1.5}
+      <circle data-export="skip" cx={x} cy={y} r={R + 9} fill="none" strokeWidth={1.5}
         strokeDasharray="5,4" style={{ stroke: INK }} opacity={0.5}/>
     )}
     {/* Ute av posisjon: liten strek under brikken, ikke en farge til */}

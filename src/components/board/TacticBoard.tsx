@@ -11,6 +11,7 @@ import { Ball } from './BoardElements';
 import { DrawingCanvas } from './DrawingCanvas';
 import { DrawToolbar } from './DrawToolbar';
 import { TextLabelModal } from './TextLabelModal';
+import { ExportImageButton, ExportImageError } from './ExportImage';
 import { ROLE_INFO } from '../../data/roleInfo';
 import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from './constants';
 import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
@@ -26,6 +27,7 @@ import { TacticTabs } from '../ui/TacticTabs';
 import { useViewport } from '../../hooks/useViewport';
 import { useBoardZoom } from '../../hooks/useBoardZoom';
 import { useDrawingInput } from '../../hooks/useDrawingInput';
+import { useImageExport } from '../../hooks/useImageExport';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
   StickyNote, Minus, X, Plus as PlusIcon,
@@ -345,6 +347,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
   });
   const drawCancel = draw.cancel;
+
+  const imageExport = useImageExport(svgRef, activePhaseIdx);
 
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
@@ -707,6 +711,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           className="border-t"/>
       )}
 
+      {imageExport.error&&(
+        <ExportImageError message={imageExport.error} onClose={imageExport.clearError} className="border-t"/>
+      )}
+
       {/* --- EN LINJE UNDER BANEN: faser, angre, tegn, avspilling --- */}
       <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar bg-canvas-sunken border-t border-rule">
 
@@ -806,6 +814,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             <Eraser size={16} strokeWidth={1.75} />
           </button>
         )}
+
+        <ExportImageButton busy={imageExport.busy} disabled={isPlaying}
+          onClick={imageExport.exportPng} className={iconBtn}/>
 
         <div className="flex items-center gap-0.5 flex-shrink-0 pl-1 ml-1 border-l border-rule">
           <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}

@@ -7,10 +7,12 @@ import { FootballPitch } from '@/components/board/pitches/FootballPitch';
 import { DrawingCanvas } from '@/components/board/DrawingCanvas';
 import { DrawToolbar } from '@/components/board/DrawToolbar';
 import { TextLabelModal } from '@/components/board/TextLabelModal';
+import { ExportImageButton, ExportImageError } from '@/components/board/ExportImage';
 import { LONG_PRESS, DRAG_THRESH, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from '@/components/board/constants';
 import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
 import { useDrawingInput } from '@/hooks/useDrawingInput';
+import { useImageExport } from '@/hooks/useImageExport';
 import { X, Play, Pause, Minus, Plus, PenLine } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -151,6 +153,9 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
   });
   const drawCancel = draw.cancel;
+
+  // Fullskjerm har sin egen fase-indeks; bildet skal vise fasen som står her.
+  const imageExport = useImageExport(svgRef, activeIdx);
 
   // ─── Drag av spillere og ball ───────────────────────────────
   // I tegnemodus eier tegningen pekeren, som på vanlig brett.
@@ -299,6 +304,10 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           </button>
         )}
 
+        <ExportImageButton busy={imageExport.busy} disabled={isPlaying}
+          onClick={() => { imageExport.exportPng(); resetHideTimer(); }}
+          className="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30" />
+
         {interactive && (
           <button onClick={() => { setDrawMode(v => !v); resetHideTimer(); }}
             aria-pressed={drawMode}
@@ -331,6 +340,10 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           <X size={17} strokeWidth={1.75} />
         </button>
       </div>
+
+      {imageExport.error && (
+        <ExportImageError message={imageExport.error} onClose={imageExport.clearError} className="border-b" />
+      )}
 
       {interactive && drawMode && (
         <DrawToolbar

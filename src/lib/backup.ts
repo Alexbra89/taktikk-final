@@ -8,6 +8,7 @@
 // ══════════════════════════════════════════════════════════════
 
 import type { Theme } from '@/hooks/useTheme';
+import { slugify, downloadBlob } from '@/lib/download';
 
 /** Kjennemerke i filen, så vi ikke prøver å lese en vilkårlig JSON. */
 export const BACKUP_FORMAT = 'taktikkboard-backup';
@@ -42,13 +43,8 @@ export function buildBackup(args: {
 
 /** `taktikk-sotra-sk-2026-09-20.json` */
 export function backupFilename(teamName: string, when = new Date()): string {
-  const slug = (teamName || 'lag')
-    .toLowerCase()
-    .replace(/[æ]/g, 'ae').replace(/[ø]/g, 'oe').replace(/[å]/g, 'aa')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'lag';
   const d = when.toISOString().slice(0, 10);
-  return `taktikk-${slug}-${d}.json`;
+  return `taktikk-${slugify(teamName, 'lag')}-${d}.json`;
 }
 
 export type ParseResult =
@@ -110,17 +106,7 @@ export function describeBackup(b: BackupFile): string {
   return parts.join(' · ');
 }
 
-/** Laster ned teksten som fil. Objekt-URL-en ryddes opp etterpå. */
+/** Laster ned teksten som fil. */
 export function downloadJson(filename: string, json: string): void {
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Revoke etter at nedlastingen har startet – umiddelbar revoke
-  // avbryter den i enkelte nettlesere.
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  downloadBlob(filename, new Blob([json], { type: 'application/json' }));
 }

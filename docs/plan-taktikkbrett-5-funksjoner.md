@@ -456,3 +456,17 @@ må testes på nytt etter bolk 1 uansett. Rekkefølgen 1 → 2 sparer en testrun
 **Hvorfor ikke bolk 3 først:** den er lavest risiko av alle, og et godt valg hvis
 målet er en rask seier. Men den endrer ingenting brukeren kan *gjøre* — den viser
 bare noe som allerede ligger i dataene.
+
+---
+
+## Oppgave 11 — Trykk som forsvinner på mobil (tas etter bolk 5)
+
+Funnet under testing av bolk 1 (2026-09-21). Et trykk på en knapp som kommer
+mindre enn ca. 300 ms etter at en finger ble løftet fra banen, gir ikke noe
+`click`. `pointerdown`, `pointerup` og `touchend` kommer fram, men selve
+klikket uteblir. Med 600 ms mellomrom virker det.
+
+- Rammer også knapper som fantes før bolk 1, f.eks. «Zoom inn». Ikke innført av tegneverktøyene.
+- Sett i emulert mobil (Edge/Chromium via Playwright, `hasTouch`, CDP-berøring). **Ikke bekreftet på ekte telefon ennå** — det er første steg.
+- Mistanke: nettleserens dobbelttrykk-gjenkjenning, eller at `touch-action`/`preventDefault` på banen påvirker gesten som følger.
+- Mulig retning: reagere på `pointerup` i stedet for `click` på verktøyknappene, eller justere `touch-action` på verktøylinjene.
