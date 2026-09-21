@@ -470,3 +470,17 @@ klikket uteblir. Med 600 ms mellomrom virker det.
 - Sett i emulert mobil (Edge/Chromium via Playwright, `hasTouch`, CDP-berøring). **Ikke bekreftet på ekte telefon ennå** — det er første steg.
 - Mistanke: nettleserens dobbelttrykk-gjenkjenning, eller at `touch-action`/`preventDefault` på banen påvirker gesten som følger.
 - Mulig retning: reagere på `pointerup` i stedet for `click` på verktøyknappene, eller justere `touch-action` på verktøylinjene.
+
+---
+
+## Oppgave 12 — Hvit tegnefarge synes ikke i dagslys (tas etter bolk 5)
+
+Funnet under testing av bolk 2 (2026-09-21). Første farge i tegnepaletten er
+`#EDEDEF` (nesten hvit), og den er standardfargen. På dagslysbanen (`#E8EBE3`)
+blir streker og tekst i den fargen nesten usynlige — både på brettet og i
+eksportert PNG. Tekst-merkelappen har kant i banefarge, som gjør det verre i
+dagslys (lys kant på lys bane).
+
+- Forslag 1: mørk kant rundt hvite tegninger når temaet er lyst.
+- Forslag 2: bytt ut hvit med en mørk farge i paletten når temaet er lyst (og vis eksisterende hvite tegninger mørke).
+- Uansett løsning: tegninger lagres med fast farge, så det må avgjøres om fargen skal tolkes etter tema ved visning.

@@ -21,6 +21,7 @@ import { NameLabel } from './svg/NameLabel';
 import { DragGhost } from './svg/DragGhost';
 import { SnapIndicator } from './svg/SnapIndicator';
 import { SvgDefs } from './svg/SvgDefs';
+import { PlayerTrails } from './svg/PlayerTrails';
 import { PlayerNameBar } from './PlayerNameBar';
 import { BoardPanel } from './BoardPanel';
 import { TacticTabs } from '../ui/TacticTabs';
@@ -30,7 +31,7 @@ import { useDrawingInput } from '../../hooks/useDrawingInput';
 import { useImageExport } from '../../hooks/useImageExport';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
-  StickyNote, Minus, X, Plus as PlusIcon,
+  StickyNote, Minus, X, Plus as PlusIcon, Footprints,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Modal } from '../ui';
@@ -160,6 +161,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     movePlayer, moveBall,
     removeLastDrawing, clearDrawings,
     updateStickyNote,
+    showMovement, setShowMovement,
   } = useAppStore();
 
   const tactic = useActiveTactic();
@@ -633,6 +635,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
 
             <FootballPitch/>
+            {/* Under tegningene: banene er avledet og skal ikke skjule det treneren har tegnet.
+                Skjules under avspilling – da viser brikkene bevegelsen selv. */}
+            {showMovement&&!isPlaying&&activePhaseIdx>0&&(
+              <PlayerTrails from={phases[activePhaseIdx-1].players} to={phase.players}/>
+            )}
             {phase.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
             {draw.preview&&(
               <g opacity={0.85} style={{ pointerEvents:'none' }}>
@@ -814,6 +821,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             <Eraser size={16} strokeWidth={1.75} />
           </button>
         )}
+
+        <button onClick={()=>setShowMovement(!showMovement)}
+          aria-pressed={showMovement}
+          aria-label="Vis bevegelse"
+          title="Vis bevegelse fra forrige fase"
+          className={cn(iconBtn, showMovement && 'bg-signal/10 text-signal shadow-hair-signal hover:text-signal')}>
+          <Footprints size={16} strokeWidth={1.75} />
+        </button>
 
         <ExportImageButton busy={imageExport.busy} disabled={isPlaying}
           onClick={imageExport.exportPng} className={iconBtn}/>

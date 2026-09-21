@@ -5,6 +5,7 @@ import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH, getFormationSlots } from '@/data/formations';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
 import { DrawingCanvas } from '@/components/board/DrawingCanvas';
+import { PlayerTrails } from '@/components/board/svg/PlayerTrails';
 import { DrawToolbar } from '@/components/board/DrawToolbar';
 import { TextLabelModal } from '@/components/board/TextLabelModal';
 import { ExportImageButton, ExportImageError } from '@/components/board/ExportImage';
@@ -13,7 +14,7 @@ import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
 import { useDrawingInput } from '@/hooks/useDrawingInput';
 import { useImageExport } from '@/hooks/useImageExport';
-import { X, Play, Pause, Minus, Plus, PenLine } from 'lucide-react';
+import { X, Play, Pause, Minus, Plus, PenLine, Footprints } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 // ═══════════════════════════════════════════════════════════════
@@ -38,7 +39,7 @@ interface FullscreenBoardProps {
 const getNum  = (p: any): number => p.number ?? p.num ?? 0;
 
 export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, interactive = false }) => {
-  const { setActivePhaseIdx, movePlayer, moveBall, removeLastDrawing, clearDrawings } = useAppStore();
+  const { setActivePhaseIdx, movePlayer, moveBall, removeLastDrawing, clearDrawings, showMovement, setShowMovement } = useAppStore();
   const tactic = useActiveTactic();
   const { phases, activePhaseIdx, sport, formation } = tactic;
 
@@ -304,6 +305,17 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           </button>
         )}
 
+        <button onClick={() => { setShowMovement(!showMovement); resetHideTimer(); }}
+          aria-pressed={showMovement}
+          aria-label="Vis bevegelse"
+          title="Vis bevegelse fra forrige fase"
+          className={cn(
+            'tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors',
+            showMovement && 'bg-signal/10 text-signal shadow-hair-signal hover:text-signal',
+          )}>
+          <Footprints size={16} strokeWidth={1.75} />
+        </button>
+
         <ExportImageButton busy={imageExport.busy} disabled={isPlaying}
           onClick={() => { imageExport.exportPng(); resetHideTimer(); }}
           className="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30" />
@@ -393,6 +405,11 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
 
           <FootballPitch />
+
+          {/* Spillerbaner fra forrige fase – under tegningene, ikke under avspilling. */}
+          {showMovement && !isPlaying && activeIdx > 0 && (
+            <PlayerTrails from={phases[activeIdx - 1].players} to={phase.players} />
+          )}
 
           {/* Tegninger */}
           {(phase.drawings ?? []).map(d => <DrawingCanvas key={d.id} drawing={d} />)}

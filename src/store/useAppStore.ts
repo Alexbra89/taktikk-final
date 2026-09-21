@@ -233,6 +233,7 @@ function repairPersisted(persisted: unknown, current: AppStore): Partial<AppStor
     moments: arr<TacticMoment>(p.moments),
     currentView: VALID_VIEWS.includes(p.currentView as AppView) ? p.currentView as AppView : current.currentView,
     lastExportedAt: typeof p.lastExportedAt === 'string' ? p.lastExportedAt : null,
+    showMovement: p.showMovement === true,
   };
 }
 
@@ -310,6 +311,12 @@ interface AppStore {
   moments: TacticMoment[];
   saveMoment: (name: string) => void;
   deleteMoment: (id: string) => void;
+
+  // ─── Visning ───────────────────────────────────────────────
+  /** «Vis bevegelse»: stiplet linje fra spillerens posisjon i forrige fase.
+   *  Gjelder denne enheten, som lastExportedAt – ikke med i backup. */
+  showMovement: boolean;
+  setShowMovement: (on: boolean) => void;
 
   // ─── Backup ────────────────────────────────────────────────
   /** Når brukeren sist lastet ned en backup. ISO-streng, null hvis aldri. */
@@ -553,6 +560,10 @@ export const useAppStore = create<AppStore>()(
       },
       deleteMoment: (id) => set(s => ({ moments: s.moments.filter(m => m.id !== id) })),
 
+      // ─── Visning ─────────────────────────────────────────────
+      showMovement: false,
+      setShowMovement: (on) => set({ showMovement: on }),
+
       // ─── Backup ──────────────────────────────────────────────
       lastExportedAt: null,
 
@@ -588,6 +599,8 @@ export const useAppStore = create<AppStore>()(
           // «Sist eksportert» handler om denne enheten. En import skal verken
           // overta tidspunktet fra filen eller slette din egen historikk.
           lastExportedAt: get().lastExportedAt,
+          // Visningsvalg hører til enheten, ikke til dataene som importeres.
+          showMovement: get().showMovement,
         });
       },
     }),
@@ -612,6 +625,7 @@ export const useAppStore = create<AppStore>()(
         moments: state.moments,
         currentView: state.currentView,
         lastExportedAt: state.lastExportedAt,
+        showMovement: state.showMovement,
       }),
     }
   )
