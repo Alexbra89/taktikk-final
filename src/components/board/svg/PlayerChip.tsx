@@ -15,8 +15,10 @@ export const PlayerChip = React.memo<{
   x:number; y:number; num:number;
   selected:boolean;
   isDragging:boolean; isTarget:boolean; isOutOfPos:boolean;
-}>(({ x,y,num,selected,isDragging,isTarget,isOutOfPos }) => (
-  <g opacity={isDragging ? 0.3 : 1} style={{ transition:'opacity 0.1s' }}>
+  /** Hvor mye brikken dempes under drag. Fullskjerm flytter selve brikken og demper mindre. */
+  dragOpacity?:number;
+}>(({ x,y,num,selected,isDragging,isTarget,isOutOfPos,dragOpacity=0.3 }) => (
+  <g opacity={isDragging ? dragOpacity : 1} style={{ transition:'opacity 0.1s' }}>
     {/* Valgt: hårstrek-ring utenpå brikken. Arbeidsmarkering – ikke med i eksportert bilde. */}
     {selected && (
       <circle data-export="skip" cx={x} cy={y} r={R + 7} fill="none" strokeWidth={1.5}

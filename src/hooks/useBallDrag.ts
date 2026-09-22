@@ -1,24 +1,28 @@
 'use client';
-import React, { useRef, useCallback } from 'react';
+import type React from 'react';
+import { useCallback, useRef } from 'react';
+import type { Position } from '@/types';
 
-// ═══ Ball ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  DRAG AV BALLEN – lå før inne i Ball-komponenten i BoardElements.
+//  Ballen tegnes nå av BoardStage; denne hooken gir håndtererne som
+//  legges på ballgruppa. Samme utregning og samme grenser som før.
+// ══════════════════════════════════════════════════════════════
 
-interface BallProps {
-  position: { x: number; y: number };
-  isDraggable: boolean;
-  onPositionChange: (pos: { x: number; y: number }) => void;
-}
+const MOVE_THROTTLE_MS = 16;
 
-export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionChange }) => {
-  const ref        = useRef<SVGGElement>(null);
-  const isDragging = useRef(false);
-  const rafRef     = useRef<number | null>(null);
-  const pendingPos = useRef<{ x: number; y: number } | null>(null);
+export function useBallDrag(
+  svgRef: React.RefObject<SVGSVGElement>,
+  isDraggable: boolean,
+  onPositionChange: (pos: Position) => void,
+): React.SVGProps<SVGGElement> {
+  const isDragging   = useRef(false);
+  const rafRef       = useRef<number | null>(null);
+  const pendingPos   = useRef<Position | null>(null);
   const lastMoveTime = useRef(0);
-  const MOVE_THROTTLE_MS = 16;
 
   const toSVGCoords = useCallback((clientX: number, clientY: number) => {
-    const svg = ref.current?.ownerSVGElement;
+    const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
     const vbW  = parseFloat(svg.getAttribute('viewBox')?.split(' ')[2] ?? '880');
@@ -36,7 +40,7 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
       x: Math.max(45, Math.min(vbW - 45, ((clientX - rect.left - offsetX) / renderedW) * vbW)),
       y: Math.max(45, Math.min(vbH - 45, ((clientY - rect.top  - offsetY) / renderedH) * vbH)),
     };
-  }, []);
+  }, [svgRef]);
 
   const flushPosition = useCallback(() => {
     if (pendingPos.current) { onPositionChange(pendingPos.current); pendingPos.current = null; }
@@ -71,17 +75,8 @@ export const Ball: React.FC<BallProps> = ({ position, isDraggable, onPositionCha
     if (pendingPos.current) { onPositionChange(pendingPos.current); pendingPos.current = null; }
   }, [onPositionChange]);
 
-  const { x, y } = position;
-  return (
-    <g ref={ref}
-      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}
-      style={{ cursor: isDraggable ? 'grab' : 'default', touchAction: 'none', willChange: 'transform' }}
-      filter="url(#dropShadow)"
-    >
-      <circle cx={x} cy={y} r={28} fill="transparent" style={{ pointerEvents: 'all' }} />
-      {/* Kalk: ballen er en blekkprikk med kalkkjerne – leses på både mørk og lys bane. */}
-      <circle cx={x} cy={y} r={10} style={{ fill: 'rgb(var(--k-ink))' }} />
-      <circle cx={x} cy={y} r={4} style={{ fill: 'rgb(var(--k-pitch))' }} />
-    </g>
-  );
-};
+  return {
+    onPointerDown, onPointerMove, onPointerUp,
+    style: { cursor: isDraggable ? 'grab' : 'default', touchAction: 'none', willChange: 'transform' },
+  };
+}

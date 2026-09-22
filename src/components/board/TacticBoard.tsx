@@ -6,28 +6,23 @@ import { useAppStore } from '../../store/useAppStore';
 import { useActiveTactic, getSlot } from '../../store/selectors';
 import { Player } from '../../types';
 import { VW, VH, getFormationSlots } from '../../data/formations';
-import { FootballPitch } from './pitches/FootballPitch';
-import { Ball } from './BoardElements';
-import { DrawingCanvas } from './DrawingCanvas';
+import { BoardStage, type StagePlayer } from './BoardStage';
 import { DrawToolbar } from './DrawToolbar';
 import { TextLabelModal } from './TextLabelModal';
 import { ExportImageButton, ExportImageError } from './ExportImage';
 import { ROLE_INFO } from '../../data/roleInfo';
 import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from './constants';
 import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
-import { PlayerChip } from './svg/PlayerChip';
-import { RoleBadge } from './svg/RoleBadge';
-import { NameLabel } from './svg/NameLabel';
 import { DragGhost } from './svg/DragGhost';
 import { SnapIndicator } from './svg/SnapIndicator';
 import { SvgDefs } from './svg/SvgDefs';
-import { PlayerTrails } from './svg/PlayerTrails';
 import { PlayerNameBar } from './PlayerNameBar';
 import { BoardPanel } from './BoardPanel';
 import { TacticTabs } from '../ui/TacticTabs';
 import { useViewport } from '../../hooks/useViewport';
 import { useBoardZoom } from '../../hooks/useBoardZoom';
 import { useDrawingInput } from '../../hooks/useDrawingInput';
+import { useBallDrag } from '../../hooks/useBallDrag';
 import { useImageExport } from '../../hooks/useImageExport';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
@@ -530,6 +525,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const allDisplay   = useMemo(()=>getDisplayPlayers(),  [getDisplayPlayers]);
 
+  const ballDrag = useBallDrag(svgRef, !isPlaying&&!drawMode, moveBall);
+
   const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
   const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
@@ -544,6 +541,20 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (fam==='att' && yFrac > 0.5) return true;
     return false;
   }, [tactic]);
+
+  // Alt BoardStage trenger å vite om hver spiller. Interaksjonen ligger igjen her.
+  const stagePlayers: StagePlayer[] = useMemo(() => allDisplay.map(player => ({
+    id: player.id,
+    num: player.num,
+    position: player.position,
+    label: getSlot(tactic, player.slotIdx).label,
+    name: getDisplayName(player),
+    selected: selectedPlayerId===player.id,
+    dragging: draggingPlayerId===player.id,
+    target: dragOverId===player.id,
+    outOfPos: isOutOfPos(player),
+    bounce: bounceId===player.id,
+  })), [allDisplay, tactic, getDisplayName, selectedPlayerId, draggingPlayerId, dragOverId, isOutOfPos, bounceId]);
 
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
   const ghostSlot   = ghostPlayer ? getSlot(tactic, ghostPlayer.slotIdx) : null;
@@ -632,71 +643,40 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             onPointerLeave={draw.onPointerUp}
           >
             <SvgDefs/>
-            <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
 
-            <FootballPitch/>
-            {/* Under tegningene: banene er avledet og skal ikke skjule det treneren har tegnet.
-                Skjules under avspilling – da viser brikkene bevegelsen selv. */}
-            {showMovement&&!isPlaying&&activePhaseIdx>0&&(
-              <PlayerTrails from={phases[activePhaseIdx-1].players} to={phase.players}/>
-            )}
-            {phase.drawings?.map(d=><DrawingCanvas key={d.id} drawing={d}/>)}
-            {draw.preview&&(
-              <g opacity={0.85} style={{ pointerEvents:'none' }}>
-                <DrawingCanvas drawing={{ id:'preview', ...draw.preview }}/>
-              </g>
-            )}
-            {phase&&(
-              <Ball position={displayBall} isDraggable={!isPlaying&&!drawMode}
-                onPositionChange={pos=>moveBall(pos)}/>
-            )}
-
-            {snapTarget&&ghostPos&&<SnapIndicator x={snapTarget.x} y={snapTarget.y}/>}
-
-            {allDisplay.map(player => {
-              const slot       = getSlot(tactic, player.slotIdx);
-              const name       = getDisplayName(player);
-              const isTarget   = dragOverId===player.id;
-              const isSrc      = draggingPlayerId===player.id;
-              const isBouncing = bounceId===player.id;
-              const outOfPos   = isOutOfPos(player);
-              const {x,y}      = player.position;
-
-              return (
-                <g key={player.id} data-player="true"
-                  onPointerDown={e=>startDrag(e, player.id)}
-                  onPointerMove={moveDrag}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
-                  style={{
-                    cursor: !isPlaying&&!drawMode ? 'grab' : 'default',
-                    // none her er nødvendig kun for selve spillerne,
-                    // for å forhindre at dragging scroller siden.
-                    touchAction: 'none',
-                    transformOrigin: `${x}px ${y}px`,
-                    transform: isBouncing?'scale(1.12)':'scale(1)',
-                    transition: isBouncing?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
-                  }}
-                >
-                  <PlayerChip x={x} y={y} num={player.num}
-                    selected={selectedPlayerId===player.id} isDragging={!!isSrc}
-                    isTarget={isTarget} isOutOfPos={outOfPos}/>
-                  <RoleBadge x={x} y={y+22} label={slot.label}/>
-                  {name&&<NameLabel x={x} y={y+44} name={name}/>}
-                </g>
-              );
-            })}
-
-            {ghostPos&&ghostPlayer&&ghostSlot&&(
-              <DragGhost x={ghostPos.x} y={ghostPos.y}
-                num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
-                label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
-            )}
-
-            {isPlaying&&(
-              <rect x={32} y={VH-14} rx={2} height={4}
-                width={progressFrac*(VW-64)} style={{ fill:'rgb(var(--k-signal))' }}/>
-            )}
+            <BoardStage
+              players={stagePlayers}
+              ball={displayBall}
+              drawings={phase.drawings ?? []}
+              // Banene skjules under avspilling – da viser brikkene bevegelsen selv.
+              trails={showMovement&&!isPlaying&&activePhaseIdx>0
+                ? { from: phases[activePhaseIdx-1].players, to: phase.players } : null}
+              preview={draw.preview}
+              progress={isPlaying ? progressFrac : null}
+              ballGroupProps={ballDrag}
+              playerGroupProps={player => ({
+                onPointerDown: (e: React.PointerEvent) => startDrag(e, player.id),
+                onPointerMove: moveDrag,
+                onPointerUp: endDrag,
+                onPointerCancel: endDrag,
+                style: {
+                  cursor: !isPlaying&&!drawMode ? 'grab' : 'default',
+                  // none her er nødvendig kun for selve spillerne,
+                  // for å forhindre at dragging scroller siden.
+                  touchAction: 'none',
+                  transformOrigin: `${player.position.x}px ${player.position.y}px`,
+                  transform: player.bounce?'scale(1.12)':'scale(1)',
+                  transition: player.bounce?'transform 0.2s cubic-bezier(.34,1.56,.64,1)':'none',
+                },
+              })}
+              beforePlayers={snapTarget&&ghostPos
+                ? <SnapIndicator x={snapTarget.x} y={snapTarget.y}/> : null}
+              afterPlayers={ghostPos&&ghostPlayer&&ghostSlot
+                ? <DragGhost x={ghostPos.x} y={ghostPos.y}
+                    num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
+                    label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
+                : null}
+            />
           </svg>
           </div>
         </div>

@@ -3,9 +3,7 @@ import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH, getFormationSlots } from '@/data/formations';
-import { FootballPitch } from '@/components/board/pitches/FootballPitch';
-import { DrawingCanvas } from '@/components/board/DrawingCanvas';
-import { PlayerTrails } from '@/components/board/svg/PlayerTrails';
+import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
 import { DrawToolbar } from '@/components/board/DrawToolbar';
 import { TextLabelModal } from '@/components/board/TextLabelModal';
 import { ExportImageButton, ExportImageError } from '@/components/board/ExportImage';
@@ -255,7 +253,24 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   })();
 
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
-  const homePlayers = displayPlayers as any[];
+
+  // Brikken som dras flyttes her i fullskjerm (ingen drag-skygge), og dempes mindre
+  // enn på vanlig brett. Navnet kortes ned til 10 tegn, som før.
+  const ballDrag = dragPreview?.target.kind === 'ball' ? dragPreview : null;
+  const displayBallPos = ballDrag ? { x: ballDrag.x, y: ballDrag.y } : displayBall;
+  const stagePlayers: StagePlayer[] = (displayPlayers as any[]).map((player: any) => {
+    const drag = dragPreview?.target.kind === 'player' && dragPreview.target.id === player.id ? dragPreview : null;
+    const name: string = player.name ?? '';
+    return {
+      id: player.id,
+      num: getNum(player),
+      position: drag ? { x: drag.x, y: drag.y } : player.position,
+      label: getSlot(tactic, player.slotIdx).label,
+      name: name.length > 10 ? name.slice(0, 10) + '…' : name,
+      dragging: !!drag,
+      dragOpacity: 0.85,
+    };
+  });
 
   return (
     <div
@@ -402,90 +417,32 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
               <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.35"/>
             </filter>
           </defs>
-          <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
-
-          <FootballPitch />
-
-          {/* Spillerbaner fra forrige fase – under tegningene, ikke under avspilling. */}
-          {showMovement && !isPlaying && activeIdx > 0 && (
-            <PlayerTrails from={phases[activeIdx - 1].players} to={phase.players} />
-          )}
-
-          {/* Tegninger */}
-          {(phase.drawings ?? []).map(d => <DrawingCanvas key={d.id} drawing={d} />)}
-          {draw.preview && (
-            <g opacity={0.85} style={{ pointerEvents: 'none' }}>
-              <DrawingCanvas drawing={{ id: 'preview', ...draw.preview }} />
-            </g>
-          )}
-
-          {/* Ball */}
-          {displayBall && (() => {
-            const drag = dragPreview?.target.kind === 'ball' ? dragPreview : null;
-            const bx = drag ? drag.x : displayBall.x;
-            const by = drag ? drag.y : displayBall.y;
-            return (
-              <g filter="url(#ds3)"
-                data-ball="true"
-                onPointerDown={e => onItemDown(e, { kind: 'ball' })}
-                onPointerMove={onItemMove}
-                onPointerUp={onItemUp}
-                onPointerCancel={onItemUp}
-                style={{ cursor: canDrag ? 'grab' : 'default', touchAction: 'none' }}>
-                {/* Usynlig treffflate – ballen er liten å treffe med finger. */}
-                <circle cx={bx} cy={by} r={22} fill="transparent" />
-                <circle cx={bx} cy={by} r={10} style={{ fill: 'rgb(var(--k-ink))' }}/>
-                <circle cx={bx} cy={by} r={4} style={{ fill: 'rgb(var(--k-pitch))' }}/>
-              </g>
-            );
-          })()}
-
-          {/* Spillere - hjemmelaget, kun startere */}
-          {homePlayers.map((player: any) => {
-            const drag = dragPreview?.target.kind === 'player' && dragPreview.target.id === player.id
-              ? dragPreview : null;
-            const x = drag ? drag.x : player.position.x;
-            const y = drag ? drag.y : player.position.y;
-            const label = getSlot(tactic, player.slotIdx).label;
-            return (
-              <g key={player.id}
-                data-player="true"
-                onPointerDown={e => onItemDown(e, { kind: 'player', id: player.id })}
-                onPointerMove={onItemMove}
-                onPointerUp={onItemUp}
-                onPointerCancel={onItemUp}
-                style={{ cursor: canDrag ? 'grab' : 'default', touchAction: 'none' }}>
-                <circle cx={x} cy={y} r={17}
-                  style={{ fill: 'rgb(var(--k-signal))', opacity: drag ? 0.85 : 1 }}/>
-                <text x={x} y={y + 0.5} textAnchor="middle" dominantBaseline="middle"
-                  fontSize={13} fontWeight="600"
-                  fontFamily="var(--font-mono), ui-monospace, monospace"
-                  style={{ pointerEvents: 'none', fill: 'rgb(var(--k-signal-fg))' }}>
-                  {player.num}
-                </text>
-                <text x={x} y={y + 29} textAnchor="middle" dominantBaseline="middle"
-                  fontSize={8} fontWeight="500" letterSpacing="0.09em"
-                  fontFamily="var(--font-mono), ui-monospace, monospace"
-                  style={{ pointerEvents: 'none', fill: 'rgb(var(--k-ink-muted))' }}>
-                  {label.toUpperCase()}
-                </text>
-                {player.name && (
-                  <text x={x} y={y + 44} textAnchor="middle" dominantBaseline="middle"
-                    fontSize={9.5} fontWeight="500"
-                    fontFamily="var(--font-sans), system-ui, sans-serif"
-                    style={{ pointerEvents: 'none', fill: 'rgb(var(--k-ink))' }}>
-                    {player.name.length > 10 ? player.name.slice(0, 10) + '…' : player.name}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Fremdriftsbar */}
-          {isPlaying && (
-            <rect x={32} y={VH - 12} rx={2} height={4}
-              width={progressFrac * (VW - 64)} style={{ fill: 'rgb(var(--k-signal))' }}/>
-          )}
+          <BoardStage
+            players={stagePlayers}
+            ball={displayBallPos}
+            drawings={phase.drawings ?? []}
+            trails={showMovement && !isPlaying && activeIdx > 0
+              ? { from: phases[activeIdx - 1].players, to: phase.players } : null}
+            preview={draw.preview}
+            progress={isPlaying ? progressFrac : null}
+            progressY={VH - 12}
+            ballFilterId="ds3"
+            ballGroupProps={{
+              'data-ball': 'true',
+              onPointerDown: (e: React.PointerEvent) => onItemDown(e, { kind: 'ball' }),
+              onPointerMove: onItemMove,
+              onPointerUp: onItemUp,
+              onPointerCancel: onItemUp,
+              style: { cursor: canDrag ? 'grab' : 'default', touchAction: 'none' },
+            } as React.SVGProps<SVGGElement>}
+            playerGroupProps={player => ({
+              onPointerDown: (e: React.PointerEvent) => onItemDown(e, { kind: 'player', id: player.id }),
+              onPointerMove: onItemMove,
+              onPointerUp: onItemUp,
+              onPointerCancel: onItemUp,
+              style: { cursor: canDrag ? 'grab' : 'default', touchAction: 'none' },
+            })}
+          />
         </svg>
         </div>
       </div>
