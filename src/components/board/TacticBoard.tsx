@@ -708,6 +708,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         <ExportError message={videoExport.error} onClose={videoExport.clearError} className="border-t"/>
       )}
 
+      {videoExport.notice&&(
+        <ExportError message={videoExport.notice} onClose={videoExport.clearNotice} tone="info" className="border-t"/>
+      )}
+
       {/* --- EN LINJE UNDER BANEN: faser, angre, tegn, avspilling --- */}
       <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar bg-canvas-sunken border-t border-rule">
 
@@ -824,7 +828,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           onClick={videoExport.exportVideo}
           title={phases.length<2
             ? 'Legg til en fase til for å lage video'
-            : `Spill inn avspillingen som video (${videoLengthText(phases.length)})`}
+            : videoExport.format
+              ? `Spill inn avspillingen som ${videoExport.format.label} (${videoLengthText(phases.length)})`
+              : 'Nettleseren din støtter ikke videoeksport'}
           className={iconBtn}/>
 
         <div className="flex items-center gap-0.5 flex-shrink-0 pl-1 ml-1 border-l border-rule">

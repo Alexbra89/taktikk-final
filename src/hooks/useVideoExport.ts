@@ -10,7 +10,7 @@ import { serializeBoardSvg, svgMarkupToImage } from '@/lib/exportImage';
 import { downloadBlob } from '@/lib/download';
 import {
   VIDEO_FPS, VIDEO_HEIGHT, VIDEO_LEAD_MS, VIDEO_TAIL_MS, VIDEO_WIDTH,
-  boardFitSize, drawBoardFrame, frameAt, pickVideoMime, videoDurationMs, videoFilename, videoTotalMs,
+  boardFitSize, drawBoardFrame, frameAt, pickVideoFormat, videoDurationMs, videoFilename, videoTotalMs,
 } from '@/lib/exportVideo';
 import type { Tactic } from '@/types';
 
@@ -56,7 +56,12 @@ export function useVideoExport() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  /** Beskjed som ikke er en feil, f.eks. at filen ikke kan spilles av på iPhone. */
+  const [notice, setNotice] = useState<string | null>(null);
   const busyRef = useRef(false);
+
+  // Formatet avgjøres av nettleseren, ikke av oss. Leses ved hvert forsøk.
+  const format = typeof window === 'undefined' ? null : pickVideoFormat();
 
   const exportVideo = useCallback(async () => {
     const phases = tactic.phases;
@@ -65,11 +70,13 @@ export function useVideoExport() {
     setBusy(true);
     setProgress(0);
     setError(null);
+    setNotice(null);
 
     let created: { host: HTMLDivElement; svg: SVGSVGElement; root: Root } | null = null;
     try {
-      const mime = pickVideoMime();
-      if (!mime) throw new Error('Nettleseren kan ikke spille inn video.');
+      const fmt = pickVideoFormat();
+      if (!fmt) throw new Error('Nettleseren din støtter ikke videoeksport.');
+      const mime = fmt.mime;
 
       created = createOffscreenSvg();
       const { svg, root } = created;
@@ -140,8 +147,11 @@ export function useVideoExport() {
 
       const blob = await finished;
       if (!blob.size) throw new Error('Videoen ble tom.');
-      downloadBlob(videoFilename(teamName, tactic.name), blob);
+      downloadBlob(videoFilename(teamName, tactic.name, fmt.ext), blob);
       setProgress(1);
+      if (!fmt.playsOnIos) {
+        setNotice(`Nettleseren kan bare spille inn ${fmt.label}. Den filen spilles ikke av på iPhone og iPad.`);
+      }
     } catch (e) {
       setError(`Kunne ikke lage videoen.${e instanceof Error && e.message ? ' ' + e.message : ''}`);
     } finally {
@@ -156,8 +166,12 @@ export function useVideoExport() {
   }, [tactic, teamName]);
 
   const clearError = useCallback(() => setError(null), []);
+  const clearNotice = useCallback(() => setNotice(null), []);
 
-  return { busy, progress, error, exportVideo, clearError, phaseCount: tactic.phases.length };
+  return {
+    busy, progress, error, notice, exportVideo, clearError, clearNotice,
+    format, phaseCount: tactic.phases.length,
+  };
 }
 
 /** Sekundene videoen vil vare, til knappens tittel. */

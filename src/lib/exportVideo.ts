@@ -16,24 +16,53 @@ export const VIDEO_PHASE_MS = 1200;
 export const VIDEO_TAIL_MS = 600;
 /**
  * Åpningsstillingen holdes litt før bevegelsen starter. Gir også koderen tid
- * til å komme i gang – uten dette henger de første bildene igjen ujevnt.
+ * til å komme i gang: de første bildene fra MediaRecorder kan bli hengende,
+ * særlig med H.264, og da ville starten av bevegelsen blitt hakkete.
  */
-export const VIDEO_LEAD_MS = 300;
+export const VIDEO_LEAD_MS = 500;
 export const VIDEO_WIDTH = 1280;
 export const VIDEO_HEIGHT = 720;
 export const VIDEO_FPS = 30;
 
-/** vp9 om nettleseren kan, ellers vp8, ellers ren webm. null = kan ikke spille inn. */
-export function pickVideoMime(): string | null {
-  if (typeof MediaRecorder === 'undefined') return null;
-  const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-  return candidates.find(m => MediaRecorder.isTypeSupported(m)) ?? null;
+export interface VideoFormat {
+  mime: string;
+  ext: 'mp4' | 'webm';
+  label: string;
+  /** WebM spilles ikke av på iPhone og iPad. */
+  playsOnIos: boolean;
 }
 
-/** `sotra-sk-hoyt-press-2026-09-22.webm` */
-export function videoFilename(team: string, tactic: string, when = new Date()): string {
+/**
+ * MP4 med H.264 først: det er det eneste iPhone og iPad spiller av, og
+ * Safari kan bare spille inn det formatet. WebM er reserve for nettlesere
+ * som ikke kan spille inn MP4.
+ *
+ * Kodeken skrives eksplisitt. Bare «video/mp4» kan gi AV1, som iOS ikke
+ * spiller av – da ville filen sett riktig ut og likevel vært ubrukelig der.
+ * Merk at «video/mp4;codecs=h264» ikke er en gyldig streng i Chromium;
+ * den heter avc1.
+ */
+const FORMATS: VideoFormat[] = [
+  { mime: 'video/mp4;codecs=avc1.42E01E', ext: 'mp4',  label: 'MP4 (H.264)', playsOnIos: true },
+  { mime: 'video/mp4;codecs=avc1.4d002a', ext: 'mp4',  label: 'MP4 (H.264)', playsOnIos: true },
+  { mime: 'video/mp4;codecs=avc1',        ext: 'mp4',  label: 'MP4 (H.264)', playsOnIos: true },
+  { mime: 'video/mp4;codecs=h264',        ext: 'mp4',  label: 'MP4 (H.264)', playsOnIos: true },
+  { mime: 'video/mp4',                    ext: 'mp4',  label: 'MP4',         playsOnIos: true },
+  { mime: 'video/webm;codecs=vp9',        ext: 'webm', label: 'WebM (VP9)',  playsOnIos: false },
+  { mime: 'video/webm;codecs=vp8',        ext: 'webm', label: 'WebM (VP8)',  playsOnIos: false },
+  { mime: 'video/webm',                   ext: 'webm', label: 'WebM',        playsOnIos: false },
+];
+
+/** Beste formatet nettleseren kan spille inn. null = den kan ikke spille inn video. */
+export function pickVideoFormat(): VideoFormat | null {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return null;
+  return FORMATS.find(f => MediaRecorder.isTypeSupported(f.mime)) ?? null;
+}
+
+/** `sotra-sk-hoyt-press-2026-09-22.mp4` */
+export function videoFilename(team: string, tactic: string, ext: string, when = new Date()): string {
   const d = when.toISOString().slice(0, 10);
-  return `${slugify(team, 'lag')}-${slugify(tactic, 'taktikk')}-${d}.webm`;
+  return `${slugify(team, 'lag')}-${slugify(tactic, 'taktikk')}-${d}.${ext}`;
 }
 
 /** Hele avspillingen, uten halen på slutten. */
