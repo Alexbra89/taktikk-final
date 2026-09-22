@@ -492,34 +492,29 @@ hvordan verktøylinja oppfører seg på telefon.
 
 ---
 
-## Avspilling slått av (2026-09-22)
+## Bolk 5 tilbakerullet (2026-09-22)
 
-Bolk 5 ble bygget (varighet per overgang, easing, loop, felles avspillingsmotor),
-men **avspillingen er slått av i brukergrensesnittet** før den ble tatt i bruk.
+Bolk 5 (varighet per overgang, easing, loop, felles `usePhasePlayback` med
+`requestAnimationFrame`) er **fjernet helt**. Avspillingen er tilbake til slik
+den var i «Bolk 3» (`741457b`): ▶ på vanlig brett og i fullskjerm, fast tempo
+(`setInterval` hvert 30. ms, `t += 0,025 × fart` ≈ 1,2 s per overgang) og
+fartsvalget i BrettPanel.
 
-**Symptom hos brukeren (Windows + Edge):** under ▶ gled rolle-etikettene jevnt,
-mens selve brikke-sirkelen og ballen hakket og kom etter.
+**Hvorfor:** hos brukeren (Windows + Edge) gled rolle-etikettene under ▶, mens
+brikke-sirkelen og ballen hakket. Ifølge brukeren hakket det ikke før bolk 5,
+testet på flere enheter lokalt og på Vercel. Det eneste bolk 5 endret i selve
+avspillingen var motoren: fra `setInterval` til `requestAnimationFrame`.
 
-**Hva som ble undersøkt, uten å reprodusere feilen:**
+**Hva som ble målt uten at feilen lot seg reprodusere** (Playwright + Edge):
+DOM-verdier per bilde, beregnet stil, malte piksler, kompositorbilder (CDP
+screencast) med skjermskalering 1,5 – brikke, etikett og ball fulgte samme
+interpolerte posisjon. Årsaken er altså ikke funnet.
 
-- DOM per bilde under animasjon: `cx` på sirkelen, `x` på etiketten og ballens `cx` følger samme interpolerte verdi (146 bilder, 0,25/0,50/0,75 av veien ved 25/50/75 %).
-- Beregnet stil og `getBoundingClientRect` per bilde: sirkel og etikett på samme sted.
-- Malte piksler i skjermbilder og i kompositorbilder (CDP screencast, som ikke tvinger fram maling), også med skjermskalering 1,5 og alle spillere i bevegelse: brikke og ball glir.
-- React: `PlayerChip` er `React.memo` med grunn sammenligning og rendres hvert bilde; `key` er stabil; `useMemo` for visningsposisjonene avhenger av `interpT`.
-- Fjerning av `transition` på brikken og `will-change` på ballen hjalp ikke hos brukeren, og ble rullet tilbake.
-- Dev og produksjonsbygg ga samme resultat. WebKit kunne ikke startes på maskinen.
+**Hvis varighet/easing/loop skal prøves igjen:** behold `setInterval`-motoren
+og bygg varighet og easing oppå den, i små steg som brukeren tester mellom
+hvert. Koden fra bolk 5 finnes i `70464c4` (motor i `src/hooks/usePhasePlayback.ts`,
+innstillinger i `src/components/board/PlaybackSettings.tsx`).
 
-**Ikke undersøkt:** brukerens egne data (backup-fil av taktikken der det skjer),
-og opptak fra en synlig (ikke-headless) nettleser på brukerens maskin. Det er de
-to første stegene hvis avspillingen skal tilbake.
-
-**Hva som er fjernet:** ▶-knappen på vanlig brett og i fullskjerm, og
-«Avspilling»-seksjonen i BrettPanel (inkludert fartsvalget, som fantes før bolk 5).
-
-**Hva som ligger i ro:** `usePhasePlayback` er fortsatt koblet til begge brett,
-men startes aldri. Datamodell (`durationMs`, `easing`, `loop`), lagring og
-reparasjon er uendret. Innstillingene ligger i `PlaybackSettings.tsx`, som ikke
-brukes. Manuelt fasebytte (◀ ▶, faner, nedtrekksliste) virker som før.
-
-**Konsekvens for bolk 4 (GIF/MP4):** 4b spiller inn nettopp avspillingen. Den
-kan ikke bygges på en avspilling som er slått av uten at feilen over er forstått.
+**Konsekvens for bolk 4b (GIF/MP4):** den spiller inn avspillingen, og kan
+bygges på den gjenopprettede motoren – men varighet/easing fra bolk 5 finnes
+ikke, så eksporten får fast tempo.

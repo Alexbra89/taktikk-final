@@ -29,9 +29,8 @@ import { useViewport } from '../../hooks/useViewport';
 import { useBoardZoom } from '../../hooks/useBoardZoom';
 import { useDrawingInput } from '../../hooks/useDrawingInput';
 import { useImageExport } from '../../hooks/useImageExport';
-import { usePhasePlayback } from '../../hooks/usePhasePlayback';
 import {
-  Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, ChevronDown, Eraser, Maximize2,
+  Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
   StickyNote, Minus, X, Plus as PlusIcon, Footprints,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
@@ -131,6 +130,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   useEffect(() => { setIsMounted(true); }, []);
 
   const svgRef        = useRef<SVGSVGElement>(null);
+  const timerRef      = useRef<ReturnType<typeof setInterval>|null>(null);
+  const playRef       = useRef({ from:0, t:0 });
   const spacingDebRef = useRef<ReturnType<typeof setTimeout>|null>(null);
   const longPressRef  = useRef<ReturnType<typeof setTimeout>|null>(null);
   const rafRef        = useRef<number|null>(null);
@@ -146,6 +147,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [draggingPlayerId, setDraggingPlayerId]  = useState<string|null>(null);
   const [bounceId,         setBounceId]          = useState<string|null>(null);
   const [drawMode,         setDrawMode]          = useState(false);
+  const [isPlaying,        setIsPlaying]         = useState(false);
+  const [playSpeed,        setPlaySpeed]         = useState(1);
+  const [interpFrom,       setInterpFrom]        = useState(0);
+  const [interpT,          setInterpT]           = useState(0);
   const [showPanel,        setShowPanel]         = useState(false);
   const [showNote,         setShowNote]          = useState(false);
   const [undoDepth,        setUndoDepth]         = useState(0);
@@ -162,17 +167,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const tactic = useActiveTactic();
   const { sport, formation, phases, activePhaseIdx } = tactic;
   const phase = phases[activePhaseIdx] ?? null;
-
-  // Avspillingen er slått av i brukergrensesnittet (2026-09-22): ingen ▶-knapp, så
-  // start kalles aldri og isPlaying er alltid false. Motoren står koblet for å kunne
-  // slås på igjen – se PlaybackSettings.tsx og docs/plan-taktikkbrett-5-funksjoner.md.
-  const {
-    isPlaying, interpFrom, interpT, progress: progressFrac,
-    stop: stopPlayback,
-  } = usePhasePlayback({
-    phases, easing: tactic.easing, loop: !!tactic.loop, speed: 1,
-    onPhase: setActivePhaseIdx,
-  });
 
   const { isMobile } = useViewport();
   const zoomCtl = useBoardZoom();
@@ -208,6 +202,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
     if (longPressRef.current)  clearTimeout(longPressRef.current);
     if (rafRef.current)        cancelAnimationFrame(rafRef.current);
+    if (timerRef.current)      clearInterval(timerRef.current);
   }, []);
 
   // Stablene ligger i refs (de skal ikke utløse ny tegning under drag), men
@@ -250,6 +245,32 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     return () => window.removeEventListener('keydown', h);
   }, [doUndo, doRedo]);
 
+  const startPlayback = useCallback(() => {
+    if (phases.length < 2) return;
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
+    playRef.current = { from:0, t:0 };
+    setInterpFrom(0); setInterpT(0); setActivePhaseIdx(0); setIsPlaying(true);
+    timerRef.current = setInterval(() => {
+      playRef.current.t += 0.025 * playSpeed;
+      if (playRef.current.t >= 1) {
+        const next = playRef.current.from + 1;
+        if (next >= phases.length - 1) {
+          clearInterval(timerRef.current!); timerRef.current=null;
+          setIsPlaying(false); setActivePhaseIdx(phases.length-1); setInterpT(0); return;
+        }
+        playRef.current.from=next; playRef.current.t=0;
+        setInterpFrom(next); setInterpT(0); setActivePhaseIdx(next);
+      } else {
+        setInterpT(playRef.current.t); setInterpFrom(playRef.current.from);
+      }
+    }, 30);
+  }, [phases, playSpeed, setActivePhaseIdx]);
+
+  const stopPlayback = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
+    setIsPlaying(false); setInterpT(0);
+  }, []);
+
   // Angre/gjør om gjelder bare fasen spilleren ble flyttet i: nullstilles når taktikk, fase,
   // formasjon eller sport byttes, slik at «angre» aldri flytter en spiller i feil fase.
   useEffect(() => {
@@ -262,7 +283,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   }, [tactic.id, activePhaseIdx, formation, sport, syncDepths]);
 
   // Formasjon, sport eller taktikk kan byttes utenfra (Controls/faner) mens avspilling pågår.
-  useEffect(() => { stopPlayback(); }, [tactic.id, formation, sport, stopPlayback]);
+  useEffect(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setIsPlaying(false); setInterpT(0);
+  }, [tactic.id, formation, sport]);
 
   const getDisplayPlayers = useCallback((): Player[] => {
     if (!phase) return [];
@@ -507,6 +531,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const allDisplay   = useMemo(()=>getDisplayPlayers(),  [getDisplayPlayers]);
 
   const displayBall  = useMemo(()=>getDisplayBall(), [getDisplayBall]);
+  const progressFrac = phases.length>1?(interpFrom+interpT)/(phases.length-1):0;
 
   // Kallenavn er valgfritt: tomt navn betyr at brikken bare viser nummer.
   const getDisplayName = useCallback((player: Player): string => player.name.trim(), []);
@@ -567,6 +592,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           <BoardPanel
             isMobile={isMobile}
             onClose={() => setShowPanel(false)}
+            playSpeed={playSpeed}
+            setPlaySpeed={setPlaySpeed}
           />
         )}
       </div>
@@ -811,6 +838,18 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             disabled={isPlaying||activePhaseIdx===0}
             aria-label="Forrige fase" className={iconBtn}>
             <SkipBack size={15} strokeWidth={1.75} />
+          </button>
+          <button onClick={()=>isPlaying?stopPlayback():startPlayback()} disabled={phases.length<2}
+            aria-label={isPlaying ? 'Stopp avspilling' : 'Spill av fasene'}
+            className={cn(
+              'tap-auto w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-colors',
+              phases.length<2
+                ? 'text-ink-faint cursor-not-allowed shadow-hair'
+                : 'bg-signal text-signal-fg hover:brightness-110',
+            )}>
+            {isPlaying
+              ? <Pause size={16} strokeWidth={2} fill="currentColor" />
+              : <Play size={16} strokeWidth={2} fill="currentColor" />}
           </button>
           <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.min(phases.length-1,activePhaseIdx+1))}
             disabled={isPlaying||activePhaseIdx===phases.length-1}

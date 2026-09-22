@@ -14,8 +14,7 @@ import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
 import { useDrawingInput } from '@/hooks/useDrawingInput';
 import { useImageExport } from '@/hooks/useImageExport';
-import { usePhasePlayback } from '@/hooks/usePhasePlayback';
-import { X, Minus, Plus, PenLine, Footprints } from 'lucide-react';
+import { X, Play, Pause, Minus, Plus, PenLine, Footprints } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 // ═══════════════════════════════════════════════════════════════
@@ -44,6 +43,8 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   const tactic = useActiveTactic();
   const { phases, activePhaseIdx, sport, formation } = tactic;
 
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playRef  = useRef({ from: 0, t: 0 });
   const svgRef   = useRef<SVGSVGElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,6 +55,10 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   gestureRef.current = { isGesturing: zoomCtl.isGesturing, spaceHeld: zoomCtl.spaceHeld };
 
   const [activeIdx, setActiveIdx]   = useState(activePhaseIdx);
+  const [isPlaying, setIsPlaying]   = useState(false);
+  const [playSpeed, setPlaySpeed]   = useState(1);
+  const [interpFrom, setInterpFrom] = useState(0);
+  const [interpT, setInterpT]       = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [drawMode, setDrawMode]     = useState(false);
 
@@ -74,18 +79,37 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   useEffect(() => {
     resetHideTimer();
     return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, []);
 
-  // Avspillingen er slått av i brukergrensesnittet (2026-09-22), som på vanlig brett:
-  // ingen ▶-knapp, så isPlaying er alltid false. Motoren står koblet for å kunne slås på igjen.
-  const {
-    isPlaying, interpFrom, interpT, progress: progressFrac,
-  } = usePhasePlayback({
-    phases, easing: tactic.easing, loop: !!tactic.loop, speed: 1,
-    onPhase: setActiveIdx,
-  });
+  function startPlayback() {
+    if (phases.length < 2) return;
+    if (timerRef.current) clearInterval(timerRef.current);
+    playRef.current = { from: 0, t: 0 };
+    setInterpFrom(0); setInterpT(0); setActiveIdx(0); setIsPlaying(true);
+    timerRef.current = setInterval(() => {
+      playRef.current.t += 0.025 * playSpeed;
+      if (playRef.current.t >= 1) {
+        const next = playRef.current.from + 1;
+        if (next >= phases.length - 1) {
+          clearInterval(timerRef.current!); timerRef.current = null;
+          setIsPlaying(false); setActiveIdx(phases.length - 1); setInterpT(0);
+          return;
+        }
+        playRef.current.from = next; playRef.current.t = 0;
+        setInterpFrom(next); setInterpT(0); setActiveIdx(next);
+      } else {
+        setInterpT(playRef.current.t); setInterpFrom(playRef.current.from);
+      }
+    }, 30);
+  }
+
+  function stopPlayback() {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setIsPlaying(false); setInterpT(0);
+  }
 
   // Fullskjerm har sin egen activeIdx, mens movePlayer/moveBall skriver til
   // fasen storen står i. Uten denne synkingen havner et drag etter avspilling
@@ -230,6 +254,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     };
   })();
 
+  const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
   const homePlayers = displayPlayers as any[];
 
   return (
@@ -307,6 +332,20 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
             <PenLine size={16} strokeWidth={1.75} />
           </button>
         )}
+
+        <button onClick={() => { isPlaying ? stopPlayback() : startPlayback(); resetHideTimer(); }}
+          disabled={phases.length < 2}
+          aria-label={isPlaying ? 'Stopp avspilling' : 'Spill av fasene'}
+          className={cn(
+            'tap-auto w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-colors',
+            phases.length < 2
+              ? 'text-ink-faint cursor-not-allowed shadow-hair'
+              : 'bg-signal text-signal-fg hover:brightness-110',
+          )}>
+          {isPlaying
+            ? <Pause size={16} strokeWidth={2} fill="currentColor" />
+            : <Play size={16} strokeWidth={2} fill="currentColor" />}
+        </button>
 
         <button onClick={onClose} aria-label="Lukk fullskjerm"
           className="tap-auto w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors">

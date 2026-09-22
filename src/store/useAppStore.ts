@@ -4,11 +4,10 @@ import {
   Sport, Tactic, TacticPhase, CalendarEvent,
   AppView, Player, Position, Drawing, NewDrawing, PathDrawing,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
-  TacticMoment, PlaybackEasing
+  TacticMoment
 } from '../types';
 import { VW, VH, DEFAULT_FORMATION, getFormations, getFormationSlots } from '../data/formations';
 import { safeStorage } from '../lib/safeStorage';
-import { isEasing, isPhaseDuration, MIN_PHASE_MS, MAX_PHASE_MS } from '../lib/playback';
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -198,8 +197,6 @@ function repairTactic(raw: unknown): Tactic | null {
       drawings: (Array.isArray(ph.drawings) ? ph.drawings : [])
         .map(repairDrawing).filter((d): d is Drawing => d !== null),
       stickyNote: typeof ph.stickyNote === 'string' ? ph.stickyNote : '',
-      // Felt som ikke står her, forsvinner ved neste innlasting.
-      ...(isPhaseDuration(ph.durationMs) ? { durationMs: ph.durationMs } : {}),
     }));
   const safePhases = syncPlayers(phases.length ? phases : [createPhase('Fase 1', slots)], slots);
 
@@ -211,9 +208,6 @@ function repairTactic(raw: unknown): Tactic | null {
     activePhaseIdx: Number.isInteger(t.activePhaseIdx)
       ? Math.max(0, Math.min(t.activePhaseIdx as number, safePhases.length - 1)) : 0,
     createdAt: typeof t.createdAt === 'string' ? t.createdAt : new Date().toISOString(),
-    // Mangler de, spilles taktikken av som før bolk 5: lineært, uten loop.
-    ...(isEasing(t.easing) ? { easing: t.easing } : {}),
-    ...(t.loop === true ? { loop: true } : {}),
   };
 }
 
@@ -288,10 +282,6 @@ interface AppStore {
   clearDrawings: () => void;
   // phaseIdx er valgfri fordi kallet er debouncet og fasen kan ha byttet før det utføres.
   updateStickyNote: (note: string, phaseIdx?: number) => void;
-  /** undefined = standardvarighet. Verdien klemmes til gyldig område. */
-  setPhaseDuration: (phaseIdx: number, ms: number | undefined) => void;
-  setPlaybackEasing: (easing: PlaybackEasing) => void;
-  setPlaybackLoop: (loop: boolean) => void;
 
   matchTimer: MatchTimer;
   startTimer: () => void;
@@ -471,17 +461,6 @@ export const useAppStore = create<AppStore>()(
 
       updateStickyNote: (note, phaseIdx) => set(s => patchActiveTactic(s, t =>
         patchPhase(t, phaseIdx ?? t.activePhaseIdx, ph => ({ ...ph, stickyNote: note })))),
-
-      setPhaseDuration: (phaseIdx, ms) => set(s => patchActiveTactic(s, t =>
-        patchPhase(t, phaseIdx, ph => {
-          const rest = { ...ph };
-          delete rest.durationMs;
-          if (ms === undefined || !Number.isFinite(ms)) return rest;
-          return { ...rest, durationMs: Math.round(Math.min(MAX_PHASE_MS, Math.max(MIN_PHASE_MS, ms))) };
-        }))),
-
-      setPlaybackEasing: (easing) => set(s => patchActiveTactic(s, t => ({ ...t, easing }))),
-      setPlaybackLoop: (loop) => set(s => patchActiveTactic(s, t => ({ ...t, loop }))),
 
       // ─── Kamptid ───────────────────────────────────────────
       matchTimer: { running: false, startedAt: null, elapsed: 0 },
