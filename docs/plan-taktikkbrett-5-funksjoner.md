@@ -484,3 +484,42 @@ dagslys (lys kant på lys bane).
 - Forslag 1: mørk kant rundt hvite tegninger når temaet er lyst.
 - Forslag 2: bytt ut hvit med en mørk farge i paletten når temaet er lyst (og vis eksisterende hvite tegninger mørke).
 - Uansett løsning: tegninger lagres med fast farge, så det må avgjøres om fargen skal tolkes etter tema ved visning.
+
+**Tillegg fra bolk 3:** verktøylinja under banen på mobil har fått flere knapper
+(tegn, vis bevegelse, eksporter bilde). Den ruller sidelengs, og fasevelgeren kan
+havne utenfor skjermen. Ses på sammen med trykkproblemet over — begge handler om
+hvordan verktøylinja oppfører seg på telefon.
+
+---
+
+## Avspilling slått av (2026-09-22)
+
+Bolk 5 ble bygget (varighet per overgang, easing, loop, felles avspillingsmotor),
+men **avspillingen er slått av i brukergrensesnittet** før den ble tatt i bruk.
+
+**Symptom hos brukeren (Windows + Edge):** under ▶ gled rolle-etikettene jevnt,
+mens selve brikke-sirkelen og ballen hakket og kom etter.
+
+**Hva som ble undersøkt, uten å reprodusere feilen:**
+
+- DOM per bilde under animasjon: `cx` på sirkelen, `x` på etiketten og ballens `cx` følger samme interpolerte verdi (146 bilder, 0,25/0,50/0,75 av veien ved 25/50/75 %).
+- Beregnet stil og `getBoundingClientRect` per bilde: sirkel og etikett på samme sted.
+- Malte piksler i skjermbilder og i kompositorbilder (CDP screencast, som ikke tvinger fram maling), også med skjermskalering 1,5 og alle spillere i bevegelse: brikke og ball glir.
+- React: `PlayerChip` er `React.memo` med grunn sammenligning og rendres hvert bilde; `key` er stabil; `useMemo` for visningsposisjonene avhenger av `interpT`.
+- Fjerning av `transition` på brikken og `will-change` på ballen hjalp ikke hos brukeren, og ble rullet tilbake.
+- Dev og produksjonsbygg ga samme resultat. WebKit kunne ikke startes på maskinen.
+
+**Ikke undersøkt:** brukerens egne data (backup-fil av taktikken der det skjer),
+og opptak fra en synlig (ikke-headless) nettleser på brukerens maskin. Det er de
+to første stegene hvis avspillingen skal tilbake.
+
+**Hva som er fjernet:** ▶-knappen på vanlig brett og i fullskjerm, og
+«Avspilling»-seksjonen i BrettPanel (inkludert fartsvalget, som fantes før bolk 5).
+
+**Hva som ligger i ro:** `usePhasePlayback` er fortsatt koblet til begge brett,
+men startes aldri. Datamodell (`durationMs`, `easing`, `loop`), lagring og
+reparasjon er uendret. Innstillingene ligger i `PlaybackSettings.tsx`, som ikke
+brukes. Manuelt fasebytte (◀ ▶, faner, nedtrekksliste) virker som før.
+
+**Konsekvens for bolk 4 (GIF/MP4):** 4b spiller inn nettopp avspillingen. Den
+kan ikke bygges på en avspilling som er slått av uten at feilen over er forstått.

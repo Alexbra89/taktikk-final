@@ -4,11 +4,11 @@ import { X, Trash2 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useActiveTactic } from '../../store/selectors';
 import { Controls } from '../ui/Controls';
-import { cn } from '../../lib/cn';
 
 // ═══════════════════════════════════════════════════════════════
 //  BRETTPANEL – alt som før lå som egne linjer og knapper rundt banen:
-//  oppsett (sport/formasjon/roller), øyeblikk og avspillingsfart.
+//  oppsett (sport/formasjon/roller) og øyeblikk. Avspillingen er slått av
+//  (se PlaybackSettings.tsx).
 //  Bunn-sheet på mobil, popover på desktop. Banen skal eie plassen.
 // ═══════════════════════════════════════════════════════════════
 
@@ -19,11 +19,9 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 interface BoardPanelProps {
   isMobile: boolean;
   onClose: () => void;
-  playSpeed: number;
-  setPlaySpeed: (v: number) => void;
 }
 
-export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playSpeed, setPlaySpeed }) => {
+export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose }) => {
   const tactic           = useActiveTactic();
   const moments          = useAppStore(s => s.moments);
   const saveMoment       = useAppStore(s => s.saveMoment);
@@ -102,25 +100,6 @@ export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playS
             Et øyeblikk lagrer stillingen i denne fasen, slik at du finner den igjen senere.
           </p>
         )}
-      </section>
-
-      <section>
-        <SectionTitle>Avspillingsfart</SectionTitle>
-        <div role="group" aria-label="Avspillingsfart" className="flex gap-1.5">
-          {[0.5, 1, 1.5, 2].map(v => (
-            <button
-              key={v}
-              onClick={() => setPlaySpeed(v)}
-              aria-pressed={playSpeed === v}
-              className={cn(
-                'tap-auto min-h-[32px] px-3 rounded-ctl font-mono text-caption transition-colors',
-                playSpeed === v
-                  ? 'bg-signal/10 text-signal shadow-hair-signal'
-                  : 'bg-canvas-raised text-ink-muted hover:text-ink shadow-hair',
-              )}
-            >{v}×</button>
-          ))}
-        </div>
       </section>
     </div>
   );

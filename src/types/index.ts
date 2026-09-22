@@ -61,7 +61,13 @@ export interface TacticPhase {
   ball: Position;
   drawings: Drawing[];
   stickyNote?: string;
+  /** Hvor lenge overgangen fra denne fasen til neste varer, i ms. Mangler = standard.
+   *  Siste fase: pausen før ny runde når avspillingen går i loop. */
+  durationMs?: number;
 }
+
+/** Hvordan brikkene beveger seg i en overgang. Mangler = lineær, som før bolk 5. */
+export type PlaybackEasing = 'linear' | 'smooth' | 'fast-start';
 
 export interface Tactic {
   id: string;
@@ -70,6 +76,8 @@ export interface Tactic {
   formation: string;         // «4-4-2», må finnes i getFormations(sport)
   phases: TacticPhase[];     // minst én
   activePhaseIdx: number;
+  easing?: PlaybackEasing;
+  loop?: boolean;            // avspillingen starter på nytt etter siste fase
   createdAt: string;
 }
 
