@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { AlertTriangle, ImageDown, Loader2, X } from 'lucide-react';
+import { AlertTriangle, ImageDown, Loader2, Video, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 /**
@@ -30,8 +30,38 @@ export const ExportImageButton: React.FC<{
   </>
 );
 
+/**
+ * Samme knapp for video: spiller inn avspillingen og laster den ned.
+ * Viser fremdrift i prosent mens opptaket går.
+ */
+export const ExportVideoButton: React.FC<{
+  busy: boolean;
+  progress: number;
+  disabled?: boolean;
+  onClick: () => void;
+  title: string;
+  className: string;
+}> = ({ busy, progress, disabled, onClick, title, className }) => (
+  <>
+    <button onClick={onClick} disabled={disabled}
+      aria-label={busy ? 'Spiller inn video' : 'Eksporter video'}
+      aria-busy={busy}
+      title={title}
+      className={className}>
+      {busy
+        ? <Loader2 size={16} strokeWidth={1.75} className="animate-spin" aria-hidden />
+        : <Video size={16} strokeWidth={1.75} />}
+    </button>
+    {busy && (
+      <span aria-hidden className="flex-shrink-0 pr-1 text-caption text-ink-subtle whitespace-nowrap">
+        Spiller inn … {Math.round(progress * 100)} %
+      </span>
+    )}
+  </>
+);
+
 /** Feilen vises der knappen er, ikke i en dialog. */
-export const ExportImageError: React.FC<{
+export const ExportError: React.FC<{
   message: string;
   onClose: () => void;
   className?: string;

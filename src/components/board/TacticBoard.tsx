@@ -9,7 +9,7 @@ import { VW, VH, getFormationSlots } from '../../data/formations';
 import { BoardStage, type StagePlayer } from './BoardStage';
 import { DrawToolbar } from './DrawToolbar';
 import { TextLabelModal } from './TextLabelModal';
-import { ExportImageButton, ExportImageError } from './ExportImage';
+import { ExportImageButton, ExportVideoButton, ExportError } from './ExportImage';
 import { ROLE_INFO } from '../../data/roleInfo';
 import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from './constants';
 import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
@@ -24,6 +24,7 @@ import { useBoardZoom } from '../../hooks/useBoardZoom';
 import { useDrawingInput } from '../../hooks/useDrawingInput';
 import { useBallDrag } from '../../hooks/useBallDrag';
 import { useImageExport } from '../../hooks/useImageExport';
+import { useVideoExport, videoLengthText } from '../../hooks/useVideoExport';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
   StickyNote, Minus, X, Plus as PlusIcon, Footprints,
@@ -346,6 +347,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const drawCancel = draw.cancel;
 
   const imageExport = useImageExport(svgRef, activePhaseIdx);
+  const videoExport = useVideoExport();
 
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
@@ -699,7 +701,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       )}
 
       {imageExport.error&&(
-        <ExportImageError message={imageExport.error} onClose={imageExport.clearError} className="border-t"/>
+        <ExportError message={imageExport.error} onClose={imageExport.clearError} className="border-t"/>
+      )}
+
+      {videoExport.error&&(
+        <ExportError message={videoExport.error} onClose={videoExport.clearError} className="border-t"/>
       )}
 
       {/* --- EN LINJE UNDER BANEN: faser, angre, tegn, avspilling --- */}
@@ -812,6 +818,14 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
         <ExportImageButton busy={imageExport.busy} disabled={isPlaying}
           onClick={imageExport.exportPng} className={iconBtn}/>
+
+        <ExportVideoButton busy={videoExport.busy} progress={videoExport.progress}
+          disabled={isPlaying||phases.length<2}
+          onClick={videoExport.exportVideo}
+          title={phases.length<2
+            ? 'Legg til en fase til for å lage video'
+            : `Spill inn avspillingen som video (${videoLengthText(phases.length)})`}
+          className={iconBtn}/>
 
         <div className="flex items-center gap-0.5 flex-shrink-0 pl-1 ml-1 border-l border-rule">
           <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}

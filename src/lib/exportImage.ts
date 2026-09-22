@@ -31,12 +31,11 @@ export function imageFilename(team: string, tactic: string, phase: string, when 
 const escapeAttr = (v: string) =>
   v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export async function svgToPngBlob(svg: SVGSVGElement, scale: number): Promise<Blob> {
-  const vb = svg.viewBox.baseVal;
-  if (!vb || !vb.width || !vb.height) throw new Error('Brettet har ingen størrelse.');
-  const w = Math.round(vb.width * scale);
-  const h = Math.round(vb.height * scale);
-
+/**
+ * Brettets SVG som frittstående markup i størrelsen w × h, med CSS-variablene
+ * byttet ut med verdiene de har akkurat nå. Brukes av både bilde- og videoeksport.
+ */
+export function serializeBoardSvg(svg: SVGSVGElement, w: number, h: number): string {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', SVG_NS);
   // Uten eksplisitt størrelse tegner Firefox SVG-bildet som 0×0.
@@ -57,22 +56,37 @@ export async function svgToPngBlob(svg: SVGSVGElement, scale: number): Promise<B
   // Et tomt var() blir svart i bildet. Heller en tydelig feil enn et svart bilde.
   if (missing.size) throw new Error(`Mangler verdi for ${[...missing].join(', ')}.`);
 
+  return markup;
+}
+
+/** Markup → bilde, klart til å tegnes på et canvas. */
+export async function svgMarkupToImage(markup: string): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml;charset=utf-8' }));
   try {
     const img = new Image();
     img.src = url;
     await img.decode();
-
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Nettleseren kan ikke tegne bildet.');
-    ctx.drawImage(img, 0, 0, w, h);
-
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Bildet ble tomt.'))), 'image/png'));
+    return img;
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+export async function svgToPngBlob(svg: SVGSVGElement, scale: number): Promise<Blob> {
+  const vb = svg.viewBox.baseVal;
+  if (!vb || !vb.width || !vb.height) throw new Error('Brettet har ingen størrelse.');
+  const w = Math.round(vb.width * scale);
+  const h = Math.round(vb.height * scale);
+
+  const img = await svgMarkupToImage(serializeBoardSvg(svg, w, h));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Nettleseren kan ikke tegne bildet.');
+  ctx.drawImage(img, 0, 0, w, h);
+
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Bildet ble tomt.'))), 'image/png'));
 }

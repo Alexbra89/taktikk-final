@@ -6,7 +6,7 @@ import { VW, VH, getFormationSlots } from '@/data/formations';
 import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
 import { DrawToolbar } from '@/components/board/DrawToolbar';
 import { TextLabelModal } from '@/components/board/TextLabelModal';
-import { ExportImageButton, ExportImageError } from '@/components/board/ExportImage';
+import { ExportImageButton, ExportError } from '@/components/board/ExportImage';
 import { LONG_PRESS, DRAG_THRESH, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from '@/components/board/constants';
 import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
@@ -369,7 +369,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
       </div>
 
       {imageExport.error && (
-        <ExportImageError message={imageExport.error} onClose={imageExport.clearError} className="border-b" />
+        <ExportError message={imageExport.error} onClose={imageExport.clearError} className="border-b" />
       )}
 
       {interactive && drawMode && (
