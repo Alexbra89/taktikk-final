@@ -186,12 +186,16 @@ export function useBoardZoom(): BoardZoom {
 
   return {
     zoom, pan, containerRef,
-    transformStyle: {
+    // Ingen transform når brettet ikke er zoomet. Selv en identitetstransform
+    // legger banen i et eget lag, og iOS Safari tegner ikke det laget på nytt
+    // når høyden endres (verktøylinja kommer og går). Da viste skjermen en
+    // gammel kopi av banen, mens berøringen traff banen der den faktisk lå.
+    transformStyle: zoom > 1 ? {
       transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
       transformOrigin: 'center center',
       // Uten dette blir kantene hakkete mens man kniper.
-      willChange: zoom > 1 ? 'transform' : undefined,
-    },
+      willChange: 'transform',
+    } : {},
     zoomIn, zoomOut, reset,
     canZoomIn: zoom < MAX_ZOOM,
     canZoomOut: zoom > MIN_ZOOM,
