@@ -96,6 +96,14 @@ export interface TrainingNote {
   title: string;
   content: string;
   focus: string[];
+  /** Minutter. Mangler på eldre notater; de regnes som 5. 0 = uten tid. */
+  duration?: number;
+  completed?: boolean;
+  /**
+   * Satt når punktet er en taktikk fra brettet. Navnet ligger i title, så
+   * punktet står igjen som notat om taktikken senere slettes.
+   */
+  tacticId?: string;
 }
 
 export interface MatchNote {

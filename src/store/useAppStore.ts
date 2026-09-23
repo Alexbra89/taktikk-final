@@ -303,6 +303,8 @@ interface AppStore {
   addTrainingNote: (eventId: string, note: Omit<TrainingNote, 'id' | 'createdAt'>) => void;
   updateTrainingNote: (eventId: string, noteId: string, fields: Partial<TrainingNote>) => void;
   deleteTrainingNote: (eventId: string, noteId: string) => void;
+  /** Flytter et punkt ett steg opp (-1) eller ned (1) i treningens liste. */
+  moveTrainingNote: (eventId: string, noteId: string, dir: -1 | 1) => void;
   addMatchNote: (eventId: string, note: Omit<MatchNote, 'id' | 'createdAt'>) => void;
   updateMatchNote: (eventId: string, noteId: string, fields: Partial<MatchNote>) => void;
   deleteMatchNote: (eventId: string, noteId: string) => void;
@@ -533,6 +535,17 @@ export const useAppStore = create<AppStore>()(
       deleteTrainingNote: (eventId, noteId) => {
         set(s => ({ events: s.events.map(e => e.id !== eventId ? e : {
           ...e, trainingNotes: e.trainingNotes.filter(n => n.id !== noteId),
+        })}));
+      },
+      moveTrainingNote: (eventId, noteId, dir) => {
+        set(s => ({ events: s.events.map(e => {
+          if (e.id !== eventId) return e;
+          const i = e.trainingNotes.findIndex(n => n.id === noteId);
+          const j = i + dir;
+          if (i === -1 || j < 0 || j >= e.trainingNotes.length) return e;
+          const notes = [...e.trainingNotes];
+          [notes[i], notes[j]] = [notes[j], notes[i]];
+          return { ...e, trainingNotes: notes };
         })}));
       },
       addMatchNote: (eventId, note) => {

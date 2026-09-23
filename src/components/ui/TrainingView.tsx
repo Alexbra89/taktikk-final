@@ -2,12 +2,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { ALL_DRILLS, getDrillsByCategory, CATEGORY_LABELS } from '@/data/drills';
-import type { CalendarEvent, DrillExercise, DrillCategory, DrillDifficulty } from '@/types';
+import type { CalendarEvent, DrillExercise, DrillCategory, DrillDifficulty, Tactic, TrainingNote } from '@/types';
+import { SPORT_LABELS } from '@/store/selectors';
+import { TACTIC_DEFAULT_MIN, totalMinutes, sessionShareText } from '@/lib/trainingSession';
 import { DrillDetailModal } from './DrillDetailModal';
 import {
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, X, Check, Square, CheckSquare,
   Play, Pause, StopCircle, Timer, MapPin, Trash2, AlertTriangle, CalendarDays,
-  ClipboardList, BookOpen, Pencil,
+  ClipboardList, BookOpen, Pencil, ArrowUp, ArrowDown, Share2,
 } from 'lucide-react';
 import { INPUT_CLASS, TEXTAREA_CLASS, LABEL_CLASS, toggleClass, ICON_BTN } from '@/lib/formClasses';
 
@@ -663,6 +665,44 @@ const TrainingDetail: React.FC<{
   const [activeStopwatch, setActiveStopwatch] = useState<string | null>(null);
   const [completedDrills, setCompletedDrills] = useState<Set<string>>(new Set());
   const [selectedDrillForModal, setSelectedDrillForModal] = useState<DrillExercise | null>(null);
+  const [showTacticPicker, setShowTacticPicker] = useState(false);
+  const [shareMsg, setShareMsg] = useState('');
+
+  const tactics            = useAppStore(s => s.tactics);
+  const setActiveTactic    = useAppStore(s => s.setActiveTactic);
+  const setView            = useAppStore(s => s.setView);
+  const moveTrainingNote   = useAppStore(s => s.moveTrainingNote);
+  const updateTrainingNote = useAppStore(s => s.updateTrainingNote);
+  const notes: TrainingNote[] = event.trainingNotes ?? [];
+
+  const addTacticItem = (t: Tactic, minutes: number) => {
+    const phases = t.phases.length === 1 ? '1 fase' : `${t.phases.length} faser`;
+    onAddNote({
+      title: t.name,
+      content: `${SPORT_LABELS[t.sport]} · ${t.formation} · ${phases}`,
+      duration: minutes,
+      completed: false,
+      focus: [],
+      tacticId: t.id,
+    });
+    setShowTacticPicker(false);
+  };
+
+  const openTactic = (id: string) => { setActiveTactic(id); setView('board'); };
+
+  // Delingsark på mobil, ellers utklippstavla. Avbrutt deling er ingen feil.
+  const share = async () => {
+    const text = sessionShareText({ date: event.date, trainingNotes: notes });
+    try {
+      if (typeof navigator.share === 'function') { await navigator.share({ text }); return; }
+      await navigator.clipboard.writeText(text);
+      setShareMsg('Kopiert – lim inn i en melding.');
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      setShareMsg('Klarte ikke å dele. Prøv igjen.');
+    }
+    setTimeout(() => setShareMsg(''), 3000);
+  };
 
   const drills = useMemo(() => ALL_DRILLS.filter(d => d.ageGroup === ageGroup), [ageGroup]);
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
@@ -811,11 +851,19 @@ const TrainingDetail: React.FC<{
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className={LABEL_CLASS}>Øvelser og notater</span>
-            <button onClick={() => setShowAddNote(!showAddNote)}
+            <button onClick={() => { setShowTacticPicker(!showTacticPicker); setShowAddNote(false); }}
               className="inline-flex items-center justify-center gap-1.5 ml-auto text-meta text-signal hover:brightness-110 font-semibold min-h-[44px] px-2">
+              <Plus size={14} strokeWidth={2} aria-hidden className="inline" /> Legg til taktikk
+            </button>
+            <button onClick={() => { setShowAddNote(!showAddNote); setShowTacticPicker(false); }}
+              className="inline-flex items-center justify-center gap-1.5 text-meta text-signal hover:brightness-110 font-semibold min-h-[44px] px-2">
               <Plus size={14} strokeWidth={2} aria-hidden className="inline" /> Legg til
             </button>
           </div>
+
+          {showTacticPicker && (
+            <TacticPicker tactics={tactics} onPick={addTacticItem} onCancel={() => setShowTacticPicker(false)} />
+          )}
 
           {showAddNote && (
             <div className="bg-canvas-sunken border border-dashed border-rule rounded-panel p-3 sm:p-4 mb-3">
@@ -867,10 +915,13 @@ const TrainingDetail: React.FC<{
             </div>
           )}
 
-          {event.trainingNotes?.map((tn: any) => {
+          {notes.map((tn, idx) => {
               const isCompleted = completedDrills.has(tn.id) || tn.completed;
               const hasTimer = (tn.duration && tn.duration > 0) || tn.duration === undefined;
-              const fullDrill = findDrillByName(tn.title);
+              const isTactic = !!tn.tacticId;
+              // En slettet taktikk står igjen som notat: grå, og uten vei til brettet.
+              const tacticGone = isTactic && !tactics.some(t => t.id === tn.tacticId);
+              const fullDrill = isTactic ? undefined : findDrillByName(tn.title);
 
               return (
                 <div key={tn.id} className={`bg-canvas-panel border rounded-panel p-3 sm:p-4 mb-3 transition-all
@@ -879,17 +930,41 @@ const TrainingDetail: React.FC<{
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          onClick={() => {
-                            if (fullDrill) {
-                              setSelectedDrillForModal(fullDrill);
-                            }
-                          }}
-                          className="text-body font-bold text-ink hover:text-signal hover:underline transition text-left min-h-[44px]"
-                        >
-                          {tn.title}
-                        </button>
-                        {hasTimer && (
+                        {tacticGone ? (
+                          <span className="text-body font-bold text-ink-faint min-h-[44px] inline-flex items-center">
+                            {tn.title}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (tn.tacticId) openTactic(tn.tacticId);
+                              else if (fullDrill) setSelectedDrillForModal(fullDrill);
+                            }}
+                            title={isTactic ? 'Åpne på brettet' : undefined}
+                            className="text-body font-bold text-ink hover:text-signal hover:underline transition text-left min-h-[44px]"
+                          >
+                            {tn.title}
+                          </button>
+                        )}
+                        {isTactic && (
+                          <span className="text-meta bg-canvas-raised px-2 py-0.5 rounded-full text-ink-muted">
+                            {tacticGone ? 'Taktikk · slettet' : 'Taktikk'}
+                          </span>
+                        )}
+                        {isTactic ? (
+                          <label className="inline-flex items-center gap-1 text-meta text-ink-muted">
+                            <Timer size={11} strokeWidth={1.75} aria-hidden />
+                            <input type="number" inputMode="numeric" min={1} max={180}
+                              value={tn.duration ?? TACTIC_DEFAULT_MIN}
+                              onChange={e => {
+                                const v = Math.round(Number(e.target.value));
+                                if (Number.isFinite(v) && v >= 1 && v <= 180) updateTrainingNote(event.id, tn.id, { duration: v });
+                              }}
+                              aria-label={`Minutter for ${tn.title}`}
+                              className="w-14 rounded-ctl bg-canvas-raised shadow-hair px-1.5 py-0.5 text-meta text-ink text-right focus:outline-none focus:shadow-hair-signal" />
+                            min
+                          </label>
+                        ) : hasTimer && (
                           <span className="text-meta bg-canvas-raised px-2 py-0.5 rounded-full text-ink-muted">
                             <Timer size={11} strokeWidth={1.75} aria-hidden className="inline -mt-px" /> {tn.duration || 5} min
                           </span>
@@ -901,11 +976,19 @@ const TrainingDetail: React.FC<{
                         )}
                       </div>
                     </div>
-                    <button onClick={() => onDeleteNote(tn.id)}
-                      className={ICON_BTN + ' ml-2'} aria-label="Slett notat"><Trash2 size={14} strokeWidth={1.75} /></button>
+                    <div className="flex items-center ml-2">
+                      <button onClick={() => moveTrainingNote(event.id, tn.id, -1)} disabled={idx === 0}
+                        className={ICON_BTN + ' disabled:opacity-30 disabled:hover:bg-transparent'} aria-label={`Flytt ${tn.title} opp`}>
+                        <ArrowUp size={14} strokeWidth={1.75} /></button>
+                      <button onClick={() => moveTrainingNote(event.id, tn.id, 1)} disabled={idx === notes.length - 1}
+                        className={ICON_BTN + ' disabled:opacity-30 disabled:hover:bg-transparent'} aria-label={`Flytt ${tn.title} ned`}>
+                        <ArrowDown size={14} strokeWidth={1.75} /></button>
+                      <button onClick={() => onDeleteNote(tn.id)}
+                        className={ICON_BTN} aria-label={`Slett ${tn.title}`}><Trash2 size={14} strokeWidth={1.75} /></button>
+                    </div>
                   </div>
 
-                  <p className="text-body text-ink-muted leading-relaxed mb-3">{tn.content}</p>
+                  <p className={`text-body leading-relaxed mb-3 ${tacticGone ? 'text-ink-faint' : 'text-ink-muted'}`}>{tn.content}</p>
 
                   {fullDrill && (
                     <div className="mt-3 pt-3 border-t border-rule space-y-2">
@@ -1014,9 +1097,22 @@ const TrainingDetail: React.FC<{
               );
             })}
 
-          {(event.trainingNotes?.length ?? 0) === 0 && (
+          {notes.length === 0 && (
             <p className="text-meta text-ink-faint italic">Ingen øvelser lagt til ennå.</p>
           )}
+
+          {notes.length > 0 && (
+            <div className="mt-1 pt-3 border-t border-rule flex items-center gap-3">
+              <span className="text-body text-ink">
+                Total tid <span className="font-mono font-bold">{totalMinutes(notes)} min</span>
+              </span>
+              <button onClick={share}
+                className="ml-auto inline-flex items-center justify-center gap-1.5 px-3 rounded-ctl bg-canvas-raised shadow-hair text-meta font-semibold text-ink-muted hover:text-ink min-h-[44px]">
+                <Share2 size={14} strokeWidth={1.75} aria-hidden /> Del økten
+              </button>
+            </div>
+          )}
+          {shareMsg && <p role="status" className="mt-2 text-meta text-ink-muted text-right">{shareMsg}</p>}
         </div>
       </div>
 
@@ -1026,6 +1122,55 @@ const TrainingDetail: React.FC<{
           onClose={() => setSelectedDrillForModal(null)}
         />
       )}
+    </div>
+  );
+};
+
+// ═══ TAKTIKKVELGER ══════════════════════════════════════════════
+// Velg en av taktikkene på brettet og hvor lenge den skal trenes.
+
+const TacticPicker: React.FC<{
+  tactics: Tactic[];
+  onPick: (t: Tactic, minutes: number) => void;
+  onCancel: () => void;
+}> = ({ tactics, onPick, onCancel }) => {
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const [minutes, setMinutes]   = useState(TACTIC_DEFAULT_MIN);
+  const picked = tactics.find(t => t.id === pickedId);
+  const validMin = Number.isFinite(minutes) && minutes >= 1 && minutes <= 180;
+
+  return (
+    <div className="bg-canvas-sunken border border-dashed border-rule rounded-panel p-3 sm:p-4 mb-3">
+      <div role="listbox" aria-label="Taktikker"
+        className="bg-canvas-raised border border-rule rounded-panel max-h-48 overflow-y-auto mb-3">
+        {tactics.map(t => (
+          <button key={t.id} role="option" aria-selected={t.id === pickedId} onClick={() => setPickedId(t.id)}
+            className={`w-full text-left px-3 py-2.5 border-b border-rule last:border-b-0 min-h-[44px] transition-colors
+              ${t.id === pickedId ? 'bg-signal/10 text-signal' : 'text-ink-muted hover:bg-canvas-hover'}`}>
+            <div className="text-body font-semibold">{t.name}</div>
+            <div className="text-meta text-ink-subtle">
+              {SPORT_LABELS[t.sport]} · {t.formation} · {t.phases.length === 1 ? '1 fase' : `${t.phases.length} faser`}
+            </div>
+          </button>
+        ))}
+      </div>
+      <label className="flex items-center gap-2 mb-3 text-body text-ink-muted">
+        Varighet
+        <input type="number" inputMode="numeric" min={1} max={180} value={minutes}
+          onChange={e => setMinutes(Math.round(Number(e.target.value)))}
+          className="w-20 rounded-ctl bg-canvas-raised shadow-hair px-2 min-h-[40px] text-body text-ink text-right focus:outline-none focus:shadow-hair-signal" />
+        min
+      </label>
+      <div className="flex gap-2">
+        <button onClick={() => picked && validMin && onPick(picked, minutes)} disabled={!picked || !validMin}
+          className="flex-1 py-2.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal font-bold text-body hover:bg-signal/15 min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed">
+          Legg til
+        </button>
+        <button onClick={onCancel}
+          className="px-4 py-2.5 rounded-ctl border border-rule text-ink-subtle text-body min-h-[44px]">
+          Avbryt
+        </button>
+      </div>
     </div>
   );
 };
