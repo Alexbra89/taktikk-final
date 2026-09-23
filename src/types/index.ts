@@ -26,9 +26,15 @@ export type DrawingType =
   | 'freehand' | 'arrow' | 'curved-arrow' | 'dashed'
   | 'circle' | 'rectangle' | 'label';
 
+/** Palettfargen en tegning bruker. Selve fargen avhenger av temaet (se drawTools.ts). */
+export type DrawColorKey = 'white' | 'blue' | 'green' | 'yellow' | 'orange';
+
 interface DrawingBase {
   id: string;
+  /** Hex. Beholdt for eldre versjoner av appen; tegningen males fra colorKey. */
   color: string;
+  /** Mangler på tegninger fra før temafargene – da finnes nærmeste palettfarge fra color. */
+  colorKey?: DrawColorKey;
 }
 
 /** Streker som følger punkter. Uten type = frihånd: slik er alle tegninger fra før verktøyene kom. */

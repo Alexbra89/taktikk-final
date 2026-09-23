@@ -2,8 +2,8 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import type { DrawingType, Position } from '@/types';
-import { buildDrawing, DRAW_COLORS } from '@/components/board/drawTools';
+import type { DrawColorKey, DrawingType, Position } from '@/types';
+import { buildDrawing, colorFields } from '@/components/board/drawTools';
 
 // ══════════════════════════════════════════════════════════════
 //  TEGNING MED PEKER – felles for TacticBoard og FullscreenBoard
@@ -25,7 +25,7 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
   const addDrawing = useAppStore(s => s.addDrawing);
 
   const [tool,         setTool]         = useState<DrawingType>('freehand');
-  const [color,        setColor]        = useState(DRAW_COLORS[0]);
+  const [color,        setColor]        = useState<DrawColorKey>('white');
   const [livePts,      setLivePts]      = useState<Position[]>([]);
   // Tekst trenger innhold før den kan lagres: trykket husker bare hvor.
   const [pendingLabel, setPendingLabel] = useState<Position | null>(null);
@@ -93,7 +93,7 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
 
   const commitLabel = (text: string) => {
     const t = text.trim();
-    if (t && pendingLabel) addDrawing({ type: 'label', at: pendingLabel, text: t, color });
+    if (t && pendingLabel) addDrawing({ type: 'label', at: pendingLabel, text: t, ...colorFields(color) });
     setPendingLabel(null);
   };
 

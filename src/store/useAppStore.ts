@@ -9,6 +9,7 @@ import {
 import { VW, VH, DEFAULT_FORMATION, getFormations, getFormationSlots } from '../data/formations';
 import { safeStorage } from '../lib/safeStorage';
 import { buildTemplatePhases, type TacticTemplate } from '../data/tacticTemplates';
+import { drawingColorKey } from '../components/board/drawTools';
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -156,21 +157,23 @@ function repairDrawing(raw: unknown): Drawing | null {
   const d = raw as Record<string, unknown>;
   const id = typeof d.id === 'string' ? d.id : `drawing-${uid()}`;
   const color = typeof d.color === 'string' ? d.color : '#EDEDEF';
+  // Tegninger fra før temafargene får nærmeste palettfarge.
+  const colorKey = drawingColorKey(d);
 
   if (d.type === 'circle' || d.type === 'rectangle') {
-    return isPos(d.start) && isPos(d.end) ? { id, color, type: d.type, start: d.start, end: d.end } : null;
+    return isPos(d.start) && isPos(d.end) ? { id, color, colorKey, type: d.type, start: d.start, end: d.end } : null;
   }
   if (d.type === 'label') {
     return isPos(d.at) && typeof d.text === 'string' && d.text.trim()
-      ? { id, color, type: 'label', at: d.at, text: d.text } : null;
+      ? { id, color, colorKey, type: 'label', at: d.at, text: d.text } : null;
   }
   // Uten type er det frihånd fra før verktøyene kom – den skal forbli uten type.
   if (d.type !== undefined && !PATH_TYPES.includes(d.type as PathDrawing['type'] & string)) return null;
   const pts = (Array.isArray(d.pts) ? d.pts : []).filter(isPos);
   if (pts.length < (d.type === 'curved-arrow' ? 3 : 2)) return null;
   return d.type === undefined
-    ? { id, color, pts }
-    : { id, color, type: d.type as PathDrawing['type'], pts };
+    ? { id, color, colorKey, pts }
+    : { id, color, colorKey, type: d.type as PathDrawing['type'], pts };
 }
 
 function repairTactic(raw: unknown): Tactic | null {

@@ -33,8 +33,18 @@
   --k-signal:    255 90 54;  /* #FF5A36 */
   --k-signal-fg: 22 7 4;     /* mørk tekst på signal – 6.5:1 */
 
-  --k-pitch:      13 17 14;  /* #0D110E */
-  --k-pitch-line: rgba(237, 237, 239, 0.17);
+  /* Mørk gressgrønn. Linjene er hvite, men ikke helt dekkende: hvite
+     tegnestreker (#FFFFFF, tykkere) skal fortsatt skille seg ut. */
+  --k-pitch:      15 42 24;  /* #0F2A18 */
+  --k-pitch-line: rgba(255, 255, 255, 0.6); /* 6,4:1 mot banen */
+
+  /* Tegnefarger på kveldsbanen – lyse. Minst 4,5:1 mot --k-pitch.
+     Samme verdier som DRAW_PALETTE i drawTools.ts. */
+  --k-draw-white:  255 255 255; /* #FFFFFF – 15,4:1 */
+  --k-draw-blue:   91 155 248;  /* #5B9BF8 – 5,5:1 */
+  --k-draw-green:  34 197 94;   /* #22C55E – 6,8:1 */
+  --k-draw-yellow: 234 179 8;   /* #EAB308 – 8,0:1 */
+  --k-draw-orange: 249 115 22;  /* #F97316 – 5,5:1 */
 
   --k-shadow-pop: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 24px 60px -20px rgba(0, 0, 0, 0.8);
 }
@@ -60,8 +70,16 @@
   --k-signal:    228 70 31;  /* #E4461F */
   --k-signal-fg: 255 255 255; /* 3.9:1 – kun på fet tekst i knapper */
 
-  --k-pitch:      232 235 227; /* #E8EBE3 */
-  --k-pitch-line: rgba(17, 17, 16, 0.24);
+  /* Lys gressgrønn, like lys som før, så tegnefargene beholder kontrasten. */
+  --k-pitch:      224 237 220; /* #E0EDDC */
+  --k-pitch-line: rgba(26, 26, 26, 0.6); /* 4,4:1 mot banen */
+
+  /* Tegnefarger på dagslysbanen – mørke. Minst 4,5:1 mot --k-pitch. */
+  --k-draw-white:  26 26 26;    /* #1A1A1A – 14,4:1 */
+  --k-draw-blue:   30 64 175;   /* #1E40AF – 7,2:1 */
+  --k-draw-green:  20 113 58;   /* #14713A – 5,0:1 */
+  --k-draw-yellow: 138 90 6;    /* #8A5A06 – 4,9:1 */
+  --k-draw-orange: 176 58 11;   /* #B03A0B – 5,0:1 */
 
   --k-shadow-pop: 0 0 0 1px rgba(20, 20, 15, 0.14), 0 24px 60px -24px rgba(40, 30, 10, 0.25);
 }

@@ -1,8 +1,8 @@
 'use client';
 import React from 'react';
 import { Delete, Eraser } from 'lucide-react';
-import type { DrawingType } from '../../types';
-import { DRAW_COLORS, DRAW_TOOLS } from './drawTools';
+import type { DrawColorKey, DrawingType } from '../../types';
+import { DRAW_PALETTE, DRAW_TOOLS, drawPaint } from './drawTools';
 import { cn } from '../../lib/cn';
 
 // ══════════════════════════════════════════════════════════════
@@ -34,8 +34,8 @@ const ACTIVE = 'bg-signal/10 text-signal shadow-hair-signal hover:text-signal ho
 interface DrawToolbarProps {
   tool: DrawingType;
   onTool: (t: DrawingType) => void;
-  color: string;
-  onColor: (c: string) => void;
+  color: DrawColorKey;
+  onColor: (c: DrawColorKey) => void;
   hasDrawings: boolean;
   onRemoveLast: () => void;
   onClearAll: () => void;
@@ -61,15 +61,17 @@ export const DrawToolbar: React.FC<DrawToolbarProps> = ({
     </div>
 
     <div className="flex items-center gap-1.5 pl-2 ml-1 border-l border-rule">
-      {DRAW_COLORS.map(c => (
-        <button key={c} onClick={() => onColor(c)}
-          aria-label={`Tegnefarge ${c}`}
-          aria-pressed={color === c}
+      {/* Knappene viser fargen slik den blir i temaet som er aktivt nå. */}
+      {DRAW_PALETTE.map(c => (
+        <button key={c.key} onClick={() => onColor(c.key)}
+          aria-label={`Tegnefarge ${c.label.toLowerCase()}`}
+          title={c.label}
+          aria-pressed={color === c.key}
           className={cn(
             'tap-auto w-6 h-6 flex-shrink-0 rounded-full transition-transform',
-            color === c ? 'scale-110 shadow-hair-strong' : 'opacity-55',
+            color === c.key ? 'scale-110 shadow-hair-strong' : 'opacity-55',
           )}
-          style={{ background: c }} />
+          style={{ background: drawPaint(c.key) }} />
       ))}
     </div>
 

@@ -1,6 +1,6 @@
 import type { Drawing, NewDrawing, Position, Sport, TacticPhase } from '../types';
 import { getFormationSlots } from './formations';
-import { DRAW_COLORS } from '../components/board/drawTools';
+import { colorFields } from '../components/board/drawTools';
 
 // ══════════════════════════════════════════════════════════════
 //  TAKTIKK-MALER – ferdige taktikker å starte fra
@@ -37,18 +37,17 @@ export interface TacticTemplate {
   phases: TemplatePhase[];
 }
 
-/** Blå: skiller seg fra de røde brikkene og har like god kontrast som signalrødt på begge banene. */
-export const TEMPLATE_COLOR = DRAW_COLORS[1];
+/** Blå: skiller seg fra de røde brikkene, og følger temaet som alle tegnefargene. */
+const C = colorFields('blue');
 
 const p = (x: number, y: number): Position => ({ x, y });
-const C = TEMPLATE_COLOR;
 
 // Små byggeklosser for ekstra tegninger.
-const pass  = (a: Position, b: Position): NewDrawing => ({ type: 'dashed', pts: [a, b], color: C });
-const arrow = (a: Position, b: Position): NewDrawing => ({ type: 'arrow', pts: [a, b], color: C });
-const curve = (a: Position, c: Position, b: Position): NewDrawing => ({ type: 'curved-arrow', pts: [a, c, b], color: C });
-const zone  = (a: Position, b: Position): NewDrawing => ({ type: 'rectangle', start: a, end: b, color: C });
-const label = (at: Position, text: string): NewDrawing => ({ type: 'label', at, text, color: C });
+const pass  = (a: Position, b: Position): NewDrawing => ({ type: 'dashed', pts: [a, b], ...C });
+const arrow = (a: Position, b: Position): NewDrawing => ({ type: 'arrow', pts: [a, b], ...C });
+const curve = (a: Position, c: Position, b: Position): NewDrawing => ({ type: 'curved-arrow', pts: [a, c, b], ...C });
+const zone  = (a: Position, b: Position): NewDrawing => ({ type: 'rectangle', start: a, end: b, ...C });
+const label = (at: Position, text: string): NewDrawing => ({ type: 'label', at, text, ...C });
 
 const CENTER = p(440, 280);
 /** Der sentral midtbane står på midtpunktet, ligger ballen ved siden av – ellers skjules den. */
