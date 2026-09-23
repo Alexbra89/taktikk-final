@@ -8,6 +8,7 @@ import {
 } from '../types';
 import { VW, VH, DEFAULT_FORMATION, getFormations, getFormationSlots } from '../data/formations';
 import { safeStorage } from '../lib/safeStorage';
+import { buildTemplatePhases, type TacticTemplate } from '../data/tacticTemplates';
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -259,6 +260,8 @@ interface AppStore {
   tactics: Tactic[];
   activeTacticId: string;
   addTactic: (name?: string) => void;
+  /** Ny taktikk fra en mal: malens sport, formasjon og faser, med nye id-er. */
+  addTacticFromTemplate: (template: TacticTemplate) => void;
   removeTactic: (id: string) => void;
   renameTactic: (id: string, name: string) => void;
   setActiveTactic: (id: string) => void;
@@ -355,6 +358,19 @@ export const useAppStore = create<AppStore>()(
         const sport = tactics.find(t => t.id === activeTacticId)?.sport ?? 'football';
         const tactic = createTactic(name?.trim() || `Taktikk ${tactics.length + 1}`, sport);
         set({ tactics: [...tactics, tactic], activeTacticId: tactic.id });
+      },
+
+      addTacticFromTemplate: (tpl) => {
+        const tactic: Tactic = {
+          id: `tactic-${uid()}`,
+          name: tpl.name,
+          sport: tpl.sport,
+          formation: tpl.formation,
+          phases: buildTemplatePhases(tpl, uid),
+          activePhaseIdx: 0,
+          createdAt: new Date().toISOString(),
+        };
+        set(s => ({ tactics: [...s.tactics, tactic], activeTacticId: tactic.id }));
       },
 
       removeTactic: (id) => {

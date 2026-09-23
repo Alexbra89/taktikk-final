@@ -3,12 +3,14 @@ import React, { useRef, useState } from 'react';
 import { Plus, Pencil, X } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/cn';
+import { TemplateModal } from './TemplateModal';
 
 // ═══════════════════════════════════════════════════════════════
 //  TAKTIKK-FANER – én fane per taktikk.
 //  bar:  vannrett rad som rulles (mobil).
 //  list: loddrett liste i sidefeltet (desktop).
 //  Dobbeltklikk (eller ✎ på aktiv fane) gir nytt navn. × ber om bekreftelse.
+//  «Ny taktikk» åpner malvelgeren, som også har «Tom taktikk».
 // ═══════════════════════════════════════════════════════════════
 
 interface TacticTabsProps {
@@ -20,12 +22,12 @@ interface TacticTabsProps {
 export const TacticTabs: React.FC<TacticTabsProps> = ({ variant = 'bar', onActivate }) => {
   const tactics         = useAppStore(s => s.tactics);
   const activeTacticId  = useAppStore(s => s.activeTacticId);
-  const addTactic       = useAppStore(s => s.addTactic);
   const removeTactic    = useAppStore(s => s.removeTactic);
   const renameTactic    = useAppStore(s => s.renameTactic);
   const setActiveTactic = useAppStore(s => s.setActiveTactic);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [picking, setPicking]     = useState(false);
   const [draft, setDraft]         = useState('');
   const cancelled = useRef(false);
 
@@ -130,12 +132,14 @@ export const TacticTabs: React.FC<TacticTabsProps> = ({ variant = 'bar', onActiv
       })}
 
       <button
-        onClick={() => { addTactic(); onActivate?.(); }}
+        onClick={() => setPicking(true)}
         className={cn(
           'flex items-center gap-2 rounded-ctl text-body text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors',
           isList ? 'tap-auto min-h-[36px] px-3' : 'flex-shrink-0 min-h-[40px] px-3',
         )}
       ><Plus size={14} strokeWidth={1.75} /> Ny taktikk</button>
+
+      {picking && <TemplateModal onClose={() => setPicking(false)} onCreated={onActivate} />}
     </div>
   );
 };
