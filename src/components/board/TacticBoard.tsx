@@ -11,7 +11,7 @@ import { DrawToolbar } from './DrawToolbar';
 import { TextLabelModal } from './TextLabelModal';
 import { ExportImageButton, ExportVideoButton, ExportError } from './ExportImage';
 import { ROLE_INFO } from '../../data/roleInfo';
-import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from './constants';
+import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM, PITCH_BOX } from './constants';
 import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
 import { DragGhost } from './svg/DragGhost';
 import { SnapIndicator } from './svg/SnapIndicator';
@@ -632,7 +632,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             viewBox={`0 0 ${VW} ${VH}`}
             preserveAspectRatio="xMidYMid meet"
             style={{
-              flex: 1, width: '100%', height: '100%', display: 'block',
+              // Boksen har banens proporsjoner, så det aldri er tomrom inne i
+              // SVG-en over og under banen. Det tomrommet malte iOS Safari ikke
+              // på nytt når verktøylinja endret høyden, og i portrett viste det
+              // en gammel stripe av banen. Bredt brett: høyden begrenser,
+              // og tomrommet havner på sidene som før.
+              ...PITCH_BOX,
               cursor: zoomCtl.spaceHeld ? 'grab' : drawMode ? (draw.tool === 'label' ? 'text' : 'crosshair') : 'default',
               // Pinch håndteres av oss når vi kan zoome, ellers lar vi
               // nettleseren beholde sin vanlige oppførsel.

@@ -7,7 +7,7 @@ import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
 import { DrawToolbar } from '@/components/board/DrawToolbar';
 import { TextLabelModal } from '@/components/board/TextLabelModal';
 import { ExportImageButton, ExportError } from '@/components/board/ExportImage';
-import { LONG_PRESS, DRAG_THRESH, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM } from '@/components/board/constants';
+import { LONG_PRESS, DRAG_THRESH, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM, PITCH_BOX } from '@/components/board/constants';
 import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
 import { useDrawingInput } from '@/hooks/useDrawingInput';
@@ -394,15 +394,14 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         onPointerCancelCapture={zoomCtl.onPointerUp}
       >
         {/* Zoom som CSS-transform, ikke viewBox – da er toSVG uendret. */}
-        <div className="w-full h-full" style={zoomCtl.transformStyle}>
+        <div className="w-full h-full flex flex-col" style={zoomCtl.transformStyle}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VW} ${VH}`}
           preserveAspectRatio="xMidYMid meet"
           style={{
-            width: '100%',
-            height: '100%',
-            display: 'block',
+            // Banens proporsjoner – se kommentaren i TacticBoard.
+            ...PITCH_BOX,
             touchAction: 'none',
             userSelect: 'none',
             cursor: zoomCtl.spaceHeld ? 'grab'
