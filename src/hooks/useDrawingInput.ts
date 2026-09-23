@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import type { DrawingType, Position } from '@/types';
 import { buildDrawing, DRAW_COLORS } from '@/components/board/drawTools';
-import { attachDrawDebug, drawDebug, isDrawDebug } from '@/lib/drawDebug';
 
 // ══════════════════════════════════════════════════════════════
 //  TEGNING MED PEKER – felles for TacticBoard og FullscreenBoard
@@ -48,14 +47,6 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
     return () => svg.removeEventListener('touchmove', block);
   }, [enabled, svgRef]);
 
-  // MIDLERTIDIG: tellere for ?debug=draw. Fjernes etter diagnosen.
-  const [debug] = useState(isDrawDebug);
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!debug || !svg) return;
-    return attachDrawDebug(svg);
-  }, [debug, enabled, svgRef]);
-
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!enabled || isGesturing()) return;
     if ((e.target as Element).closest('[data-player]')) return;
@@ -63,13 +54,7 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
     activeRef.current = true;
     const pt = toSVG(e.clientX, e.clientY);
     ptsRef.current = [pt]; setLivePts([pt]);
-    if (debug) {
-      let ok = false;
-      try { e.currentTarget.setPointerCapture(e.pointerId); ok = e.currentTarget.hasPointerCapture(e.pointerId); } catch { /* måles */ }
-      drawDebug.set({ capture: ok });
-    } else {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    }
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -81,11 +66,10 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
 
   /** Avbryter en påbegynt strek uten å lagre den, f.eks. når en andre finger lander. */
   const cancel = useCallback(() => {
-    if (debug && activeRef.current) drawDebug.set({ lastStrokePts: ptsRef.current.length });
     activeRef.current = false;
     ptsRef.current = [];
     setLivePts([]);
-  }, [debug]);
+  }, []);
 
   const onPointerUp = () => {
     if (enabled && activeRef.current) {
@@ -104,11 +88,7 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
   // pointerout midt i et strøk, og React gjør det om til onPointerLeave.
   // Da ble streken lagret etter første bevegelse: to punkter, resten tapt.
   const onPointerLeave = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (e.pointerType !== 'mouse') {
-      if (debug && activeRef.current) drawDebug.bump('leaveIgnored');
-      return;
-    }
-    onPointerUp();
+    if (e.pointerType === 'mouse') onPointerUp();
   };
 
   const commitLabel = (text: string) => {
