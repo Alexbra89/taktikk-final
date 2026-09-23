@@ -37,6 +37,8 @@
      tegnestreker (#FFFFFF, tykkere) skal fortsatt skille seg ut. */
   --k-pitch:      15 42 24;  /* #0F2A18 */
   --k-pitch-line: rgba(255, 255, 255, 0.6); /* 6,4:1 mot banen */
+  /* Kant rundt draktene: lys her, så blå og rød drakt skiller seg fra den mørke banen. */
+  --k-kit-edge:   rgba(255, 255, 255, 0.55);
 
   /* Tegnefarger på kveldsbanen – lyse. Minst 4,5:1 mot --k-pitch.
      Samme verdier som DRAW_PALETTE i drawTools.ts. */
@@ -73,6 +75,8 @@
   /* Lys gressgrønn, like lys som før, så tegnefargene beholder kontrasten. */
   --k-pitch:      224 237 220; /* #E0EDDC */
   --k-pitch-line: rgba(26, 26, 26, 0.6); /* 4,4:1 mot banen */
+  /* Kant rundt draktene: mørk her, så gul og grønn drakt skiller seg fra den lyse banen. */
+  --k-kit-edge:   rgba(17, 17, 16, 0.6);
 
   /* Tegnefarger på dagslysbanen – mørke. Minst 4,5:1 mot --k-pitch. */
   --k-draw-white:  26 26 26;    /* #1A1A1A – 14,4:1 */

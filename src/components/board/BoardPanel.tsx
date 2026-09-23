@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useActiveTactic } from '../../store/selectors';
 import { Controls } from '../ui/Controls';
 import { cn } from '../../lib/cn';
+import { usePlayerStyle, type PlayerStyle } from '../../hooks/usePlayerStyle';
 
 // ═══════════════════════════════════════════════════════════════
 //  BRETTPANEL – alt som før lå som egne linjer og knapper rundt banen:
@@ -25,6 +26,7 @@ interface BoardPanelProps {
 
 export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playSpeed, setPlaySpeed }) => {
   const tactic           = useActiveTactic();
+  const [playerStyle, setPlayerStyle] = usePlayerStyle();
   const moments          = useAppStore(s => s.moments);
   const saveMoment       = useAppStore(s => s.saveMoment);
   const deleteMoment     = useAppStore(s => s.deleteMoment);
@@ -102,6 +104,25 @@ export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playS
             Et øyeblikk lagrer stillingen i denne fasen, slik at du finner den igjen senere.
           </p>
         )}
+      </section>
+
+      <section>
+        <SectionTitle>Spillere</SectionTitle>
+        <div role="group" aria-label="Spillere" className="flex gap-1.5">
+          {([['kit', 'Drakt'], ['chip', 'Sirkel']] as [PlayerStyle, string][]).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => setPlayerStyle(v)}
+              aria-pressed={playerStyle === v}
+              className={cn(
+                'tap-auto min-h-[32px] px-3 rounded-ctl text-caption transition-colors',
+                playerStyle === v
+                  ? 'bg-signal/10 text-signal shadow-hair-signal'
+                  : 'bg-canvas-raised text-ink-muted hover:text-ink shadow-hair',
+              )}
+            >{label}</button>
+          ))}
+        </div>
       </section>
 
       <section>

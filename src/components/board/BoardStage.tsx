@@ -5,9 +5,12 @@ import { FootballPitch } from './pitches/FootballPitch';
 import { DrawingCanvas } from './DrawingCanvas';
 import { PlayerTrails } from './svg/PlayerTrails';
 import { PlayerChip } from './svg/PlayerChip';
+import { PlayerKit, KIT_BADGE_OFFSET } from './svg/PlayerKit';
 import { RoleBadge } from './svg/RoleBadge';
 import { NameLabel } from './svg/NameLabel';
 import type { Drawing, NewDrawing, Player, Position } from '../../types';
+import type { RoleFamily } from '../../data/roleInfo';
+import type { PlayerStyle } from '../../hooks/usePlayerStyle';
 
 // ══════════════════════════════════════════════════════════════
 //  BOARD STAGE – alt som tegnes på banen, og ingenting mer.
@@ -27,6 +30,8 @@ export interface StagePlayer {
   position: Position;
   /** Rollens kortnavn, f.eks. «SP». Settes i versaler av RoleBadge. */
   label: string;
+  /** Rollefamilien. Bestemmer draktfargen. */
+  family: RoleFamily;
   /** Kallenavn. Tom streng skjuler navneetiketten. */
   name: string;
   selected?: boolean;
@@ -53,6 +58,8 @@ export interface BoardStageProps {
   progressY?: number;
   /** Filteret ballens skygge bruker. Brettene definerer det selv. */
   ballFilterId?: string;
+  /** Drakt (standard) eller sirkel. */
+  playerStyle?: PlayerStyle;
   playerGroupProps?: (player: StagePlayer) => React.SVGProps<SVGGElement>;
   ballGroupProps?: React.SVGProps<SVGGElement>;
   /** Tegnes mellom ballen og spillerne (snap-indikator). */
@@ -63,9 +70,13 @@ export interface BoardStageProps {
 
 export const BoardStage: React.FC<BoardStageProps> = ({
   players, ball, drawings, trails, preview,
-  progress = null, progressY = VH - 14, ballFilterId = 'dropShadow',
+  progress = null, progressY = VH - 14, ballFilterId = 'dropShadow', playerStyle = 'kit',
   playerGroupProps, ballGroupProps, beforePlayers, afterPlayers,
-}) => (
+}) => {
+  const kit = playerStyle === 'kit';
+  // Drakten er høyere enn sirkelen, så etikettene står litt lenger ned.
+  const badgeDy = kit ? KIT_BADGE_OFFSET : 22;
+  return (
   <>
     <rect width={VW} height={VH} style={{ fill: 'rgb(var(--k-pitch))' }}/>
 
@@ -95,12 +106,19 @@ export const BoardStage: React.FC<BoardStageProps> = ({
       const { x, y } = player.position;
       return (
         <g key={player.id} data-player="true" {...(playerGroupProps ? playerGroupProps(player) : null)}>
-          <PlayerChip x={x} y={y} num={player.num}
-            selected={!!player.selected} isDragging={!!player.dragging}
-            isTarget={!!player.target} isOutOfPos={!!player.outOfPos}
-            dragOpacity={player.dragOpacity}/>
-          <RoleBadge x={x} y={y + 22} label={player.label}/>
-          {player.name && <NameLabel x={x} y={y + 44} name={player.name}/>}
+          {kit ? (
+            <PlayerKit x={x} y={y} num={player.num} family={player.family}
+              selected={!!player.selected} isDragging={!!player.dragging}
+              isTarget={!!player.target} isOutOfPos={!!player.outOfPos}
+              dragOpacity={player.dragOpacity}/>
+          ) : (
+            <PlayerChip x={x} y={y} num={player.num}
+              selected={!!player.selected} isDragging={!!player.dragging}
+              isTarget={!!player.target} isOutOfPos={!!player.outOfPos}
+              dragOpacity={player.dragOpacity}/>
+          )}
+          <RoleBadge x={x} y={y + badgeDy} label={player.label}/>
+          {player.name && <NameLabel x={x} y={y + badgeDy + 22} name={player.name}/>}
         </g>
       );
     })}
@@ -112,4 +130,5 @@ export const BoardStage: React.FC<BoardStageProps> = ({
         width={progress * (VW - 64)} style={{ fill: 'rgb(var(--k-signal))' }}/>
     )}
   </>
-);
+  );
+};

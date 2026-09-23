@@ -7,6 +7,8 @@ import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH } from '@/data/formations';
 import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
 import { SvgDefs } from '@/components/board/svg/SvgDefs';
+import { ROLE_INFO } from '@/data/roleInfo';
+import { readPlayerStyle } from '@/hooks/usePlayerStyle';
 import { serializeBoardSvg, svgMarkupToImage } from '@/lib/exportImage';
 import { downloadBlob } from '@/lib/download';
 import {
@@ -47,6 +49,7 @@ const stagePlayers = (tactic: Tactic, players: { id: string; num: number; name: 
     num: p.num,
     position: p.position,
     label: getSlot(tactic, p.slotIdx).label,
+    family: ROLE_INFO[getSlot(tactic, p.slotIdx).role].family,
     name: p.name.trim(),
   }));
 
@@ -93,6 +96,8 @@ export function useVideoExport() {
 
       // Banen tegnes i den størrelsen den får i videoen – ikke i hele videostørrelsen.
       const fit = boardFitSize();
+      // Samme spillerform som brettet viser.
+      const playerStyle = readPlayerStyle();
       const paint = async (elapsed: number) => {
         const f = frameAt(phases, elapsed);
         // SvgDefs må med: ballen bruker filter="url(#dropShadow)". Chromium
@@ -103,6 +108,7 @@ export function useVideoExport() {
             React.createElement(SvgDefs),
             React.createElement(BoardStage, {
               players: stagePlayers(tactic, f.players),
+              playerStyle,
               ball: f.ball,
               drawings: phases[f.fromIdx]?.drawings ?? [],
               progress: f.progress,

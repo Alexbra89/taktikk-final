@@ -25,6 +25,7 @@ import { useDrawingInput } from '../../hooks/useDrawingInput';
 import { useBallDrag } from '../../hooks/useBallDrag';
 import { useImageExport } from '../../hooks/useImageExport';
 import { useVideoExport, videoLengthText } from '../../hooks/useVideoExport';
+import { usePlayerStyle } from '../../hooks/usePlayerStyle';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
   StickyNote, Minus, X, Plus as PlusIcon, Footprints,
@@ -349,6 +350,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const imageExport = useImageExport(svgRef, activePhaseIdx);
   const videoExport = useVideoExport();
+  const [playerStyle] = usePlayerStyle();
 
   const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
     let best:Player|null=null, bestD=54;
@@ -551,6 +553,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     num: player.num,
     position: player.position,
     label: getSlot(tactic, player.slotIdx).label,
+    family: ROLE_INFO[getSlot(tactic, player.slotIdx).role].family,
     name: getDisplayName(player),
     selected: selectedPlayerId===player.id,
     dragging: draggingPlayerId===player.id,
@@ -655,6 +658,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
             <BoardStage
               players={stagePlayers}
+              playerStyle={playerStyle}
               ball={displayBall}
               drawings={phase.drawings ?? []}
               // Banene skjules under avspilling – da viser brikkene bevegelsen selv.
@@ -683,7 +687,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               afterPlayers={ghostPos&&ghostPlayer&&ghostSlot
                 ? <DragGhost x={ghostPos.x} y={ghostPos.y}
                     num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
-                    label={ghostSlot.label} scaleIn={ghostPos.scaleIn}/>
+                    label={ghostSlot.label} scaleIn={ghostPos.scaleIn}
+                    family={ROLE_INFO[ghostSlot.role].family} playerStyle={playerStyle}/>
                 : null}
             />
           </svg>

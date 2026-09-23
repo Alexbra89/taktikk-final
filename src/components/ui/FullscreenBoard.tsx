@@ -12,6 +12,8 @@ import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
 import { useDrawingInput } from '@/hooks/useDrawingInput';
 import { useImageExport } from '@/hooks/useImageExport';
+import { usePlayerStyle } from '@/hooks/usePlayerStyle';
+import { ROLE_INFO } from '@/data/roleInfo';
 import { X, Play, Pause, Minus, Plus, PenLine, Footprints } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -156,6 +158,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
   // Fullskjerm har sin egen fase-indeks; bildet skal vise fasen som står her.
   const imageExport = useImageExport(svgRef, activeIdx);
+  const [playerStyle] = usePlayerStyle();
 
   // ─── Drag av spillere og ball ───────────────────────────────
   // I tegnemodus eier tegningen pekeren, som på vanlig brett.
@@ -267,6 +270,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
       num: getNum(player),
       position: drag ? { x: drag.x, y: drag.y } : player.position,
       label: getSlot(tactic, player.slotIdx).label,
+      family: ROLE_INFO[getSlot(tactic, player.slotIdx).role].family,
       name: name.length > 10 ? name.slice(0, 10) + '…' : name,
       dragging: !!drag,
       dragOpacity: 0.85,
@@ -420,6 +424,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           </defs>
           <BoardStage
             players={stagePlayers}
+            playerStyle={playerStyle}
             ball={displayBallPos}
             drawings={phase.drawings ?? []}
             trails={showMovement && !isPlaying && activeIdx > 0
