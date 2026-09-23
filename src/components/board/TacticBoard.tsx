@@ -341,6 +341,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const draw = useDrawingInput({
     enabled: drawMode && !isPlaying,
+    svgRef,
     toSVG,
     isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
   });
@@ -642,6 +643,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             onPointerDown={draw.onPointerDown}
             onPointerMove={draw.onPointerMove}
             onPointerUp={draw.onPointerUp}
+            onPointerCancel={draw.onPointerCancel}
             onPointerLeave={draw.onPointerUp}
           >
             <SvgDefs/>

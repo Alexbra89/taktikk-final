@@ -1,6 +1,6 @@
 'use client';
 import type React from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import type { DrawingType, Position } from '@/types';
 import { buildDrawing, DRAW_COLORS } from '@/components/board/drawTools';
@@ -14,12 +14,14 @@ import { buildDrawing, DRAW_COLORS } from '@/components/board/drawTools';
 interface Options {
   /** Tegnemodus er på, og ingenting annet (avspilling) eier brettet. */
   enabled: boolean;
+  /** Brettet håndtererne kobles på. Trengs for touch-sperren under, som React ikke kan sette opp. */
+  svgRef: React.RefObject<SVGSVGElement>;
   toSVG: (clientX: number, clientY: number) => Position;
   /** Knip eller panorering eier pekeren. En funksjon, så verdien leses ved hvert trykk. */
   isGesturing: () => boolean;
 }
 
-export function useDrawingInput({ enabled, toSVG, isGesturing }: Options) {
+export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options) {
   const addDrawing = useAppStore(s => s.addDrawing);
 
   const [tool,         setTool]         = useState<DrawingType>('freehand');
@@ -30,6 +32,20 @@ export function useDrawingInput({ enabled, toSVG, isGesturing }: Options) {
 
   const ptsRef    = useRef<Position[]>([]);
   const activeRef = useRef(false);
+
+  // iOS Safari respekterer ikke alltid touch-action: none på <svg>. Da tar
+  // nettleseren fingeren til rulling eller zoom etter noen få punkter, sender
+  // pointercancel, og streken stopper. Tegningen går fortsatt bare via
+  // pekerhendelser; dette hindrer kun nettleseren i å ta over mens en strek
+  // pågår. Lytteren må være ikke-passiv, og det kan ikke Reacts onTouchMove.
+  // Android og desktop har allerede touch-action, så der endrer det ingenting.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!enabled || !svg) return;
+    const block = (e: TouchEvent) => { if (activeRef.current && e.cancelable) e.preventDefault(); };
+    svg.addEventListener('touchmove', block, { passive: false });
+    return () => svg.removeEventListener('touchmove', block);
+  }, [enabled, svgRef]);
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!enabled || isGesturing()) return;
@@ -86,6 +102,9 @@ export function useDrawingInput({ enabled, toSVG, isGesturing }: Options) {
   return {
     tool, setTool, color, setColor,
     preview, pendingLabel, commitLabel, cancelLabel,
+    // Nettleseren tok pekeren: forkast streken. Å lagre de få punktene
+    // som rakk å komme, var det som ga prikker i stedet for streker på iOS.
+    onPointerCancel: cancel,
     onPointerDown, onPointerMove, onPointerUp, cancel,
   };
 }

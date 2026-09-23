@@ -148,6 +148,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   // fasen storen står i, som synkes med activeIdx over.
   const draw = useDrawingInput({
     enabled: interactive && drawMode && !isPlaying,
+    svgRef,
     toSVG,
     isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
   });
@@ -410,6 +411,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           onPointerDown={draw.onPointerDown}
           onPointerMove={draw.onPointerMove}
           onPointerUp={draw.onPointerUp}
+          onPointerCancel={draw.onPointerCancel}
           onPointerLeave={draw.onPointerUp}
         >
           <defs>

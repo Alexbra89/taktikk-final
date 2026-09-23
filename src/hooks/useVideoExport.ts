@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH } from '@/data/formations';
 import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
+import { SvgDefs } from '@/components/board/svg/SvgDefs';
 import { serializeBoardSvg, svgMarkupToImage } from '@/lib/exportImage';
 import { downloadBlob } from '@/lib/download';
 import {
@@ -94,13 +95,19 @@ export function useVideoExport() {
       const fit = boardFitSize();
       const paint = async (elapsed: number) => {
         const f = frameAt(phases, elapsed);
+        // SvgDefs må med: ballen bruker filter="url(#dropShadow)". Chromium
+        // ignorerer et filter som ikke finnes, men WebKit (iPhone, iPad) tegner
+        // da ikke ballen i det hele tatt.
         flushSync(() => root.render(
-          React.createElement(BoardStage, {
-            players: stagePlayers(tactic, f.players),
-            ball: f.ball,
-            drawings: phases[f.fromIdx]?.drawings ?? [],
-            progress: f.progress,
-          }),
+          React.createElement(React.Fragment, null,
+            React.createElement(SvgDefs),
+            React.createElement(BoardStage, {
+              players: stagePlayers(tactic, f.players),
+              ball: f.ball,
+              drawings: phases[f.fromIdx]?.drawings ?? [],
+              progress: f.progress,
+            }),
+          ),
         ));
         const img = await svgMarkupToImage(serializeBoardSvg(svg, fit.width, fit.height));
         drawBoardFrame(ctx, img, pitch);
