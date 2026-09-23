@@ -18,6 +18,7 @@ const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(
   ssr: false,
   loading: () => <div className="flex-1 bg-canvas" />,
 });
+const DrawDebugOverlay = dynamic(() => import('@/components/board/DrawDebugOverlay').then(mod => mod.DrawDebugOverlay), { ssr: false });
 const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
 const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
 const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
@@ -403,6 +404,8 @@ export default function Home() {
       {showFullscreenBoard && (
         <FullscreenBoard onClose={() => setShowFullscreenBoard(false)} interactive />
       )}
+      {/* MIDLERTIDIG: vises bare med ?debug=draw. */}
+      <DrawDebugOverlay />
     </>
   );
 }
