@@ -99,6 +99,18 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
     cancel();
   };
 
+  // Bare musen avslutter streken ved å forlate brettet. Berøring og penn
+  // får alltid pointerup eller pointercancel. iOS Safari sender dessuten
+  // pointerout midt i et strøk, og React gjør det om til onPointerLeave.
+  // Da ble streken lagret etter første bevegelse: to punkter, resten tapt.
+  const onPointerLeave = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== 'mouse') {
+      if (debug && activeRef.current) drawDebug.bump('leaveIgnored');
+      return;
+    }
+    onPointerUp();
+  };
+
   const commitLabel = (text: string) => {
     const t = text.trim();
     if (t && pendingLabel) addDrawing({ type: 'label', at: pendingLabel, text: t, color });
@@ -121,6 +133,6 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
     // Nettleseren tok pekeren: forkast streken. Å lagre de få punktene
     // som rakk å komme, var det som ga prikker i stedet for streker på iOS.
     onPointerCancel: cancel,
-    onPointerDown, onPointerMove, onPointerUp, cancel,
+    onPointerDown, onPointerMove, onPointerUp, onPointerLeave, cancel,
   };
 }

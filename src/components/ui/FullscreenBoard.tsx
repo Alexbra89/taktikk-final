@@ -412,7 +412,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           onPointerMove={draw.onPointerMove}
           onPointerUp={draw.onPointerUp}
           onPointerCancel={draw.onPointerCancel}
-          onPointerLeave={draw.onPointerUp}
+          onPointerLeave={draw.onPointerLeave}
         >
           <defs>
             <filter id="ds3">

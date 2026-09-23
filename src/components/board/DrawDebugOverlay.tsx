@@ -22,6 +22,7 @@ export const DrawDebugOverlay: React.FC = () => {
     ['capture', s.capture === null ? '–' : String(s.capture)],
     ['ptrType', s.pointerType],
     ['punkter', s.lastStrokePts],
+    ['leave (ignorert)', s.leaveIgnored],
   ];
 
   return (

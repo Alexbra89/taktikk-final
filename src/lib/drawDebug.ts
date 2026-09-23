@@ -8,6 +8,8 @@ export interface DrawDebugState {
   pointermove: number;
   pointerup: number;
   pointercancel: number;
+  /** onPointerLeave fra berøring midt i en strek – avsluttet streken før fiksen. */
+  leaveIgnored: number;
   touchstart: number;
   touchmove: number;
   touchend: number;
@@ -18,7 +20,7 @@ export interface DrawDebugState {
 }
 
 const initial = (): DrawDebugState => ({
-  pointerdown: 0, pointermove: 0, pointerup: 0, pointercancel: 0,
+  pointerdown: 0, pointermove: 0, pointerup: 0, pointercancel: 0, leaveIgnored: 0,
   touchstart: 0, touchmove: 0, touchend: 0,
   touchAction: '–', pointerType: '–', capture: null, lastStrokePts: 0,
 });
@@ -34,7 +36,7 @@ export const drawDebug = {
   get: () => state,
   subscribe: (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; },
   set: (patch: Partial<DrawDebugState>) => { state = { ...state, ...patch }; emit(); },
-  bump: (key: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel' | 'touchstart' | 'touchmove' | 'touchend') => {
+  bump: (key: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel' | 'leaveIgnored' | 'touchstart' | 'touchmove' | 'touchend') => {
     state = { ...state, [key]: state[key] + 1 }; emit();
   },
   reset: () => { state = initial(); emit(); },

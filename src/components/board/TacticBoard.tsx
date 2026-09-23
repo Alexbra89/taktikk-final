@@ -644,7 +644,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             onPointerMove={draw.onPointerMove}
             onPointerUp={draw.onPointerUp}
             onPointerCancel={draw.onPointerCancel}
-            onPointerLeave={draw.onPointerUp}
+            onPointerLeave={draw.onPointerLeave}
           >
             <SvgDefs/>
 
