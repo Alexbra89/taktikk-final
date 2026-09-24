@@ -171,7 +171,7 @@ function repairMatchNote(raw: unknown): MatchNote | null {
 }
 
 /** Uten gyldig dato kan hendelsen ikke plasseres i kalenderen, og forkastes. */
-function repairEvent(raw: unknown): CalendarEvent | null {
+export function repairEvent(raw: unknown): CalendarEvent | null {
   const e = obj(raw);
   if (!e || typeof e.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
   const notes = <T,>(v: unknown, fix: (x: unknown) => T | null): T[] =>
@@ -253,7 +253,7 @@ const samePos = (a: BoardItem, b: BoardItem) =>
   Math.abs(a.position.x - b.position.x) < 0.5 && Math.abs(a.position.y - b.position.y) < 0.5;
 const sameRot = (a: BoardItem, b: BoardItem) => (a.rotation ?? 0) === (b.rotation ?? 0);
 
-function repairItem(raw: unknown): BoardItem | null {
+export function repairItem(raw: unknown): BoardItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const i = raw as Record<string, unknown>;
   if (!BOARD_ITEM_TYPES.includes(i.type as BoardItemType) || !isPos(i.position)) return null;
@@ -267,7 +267,7 @@ function repairItem(raw: unknown): BoardItem | null {
 // Hver tegnetype har sine egne felter. De hvitlistes her, slik at et felt som
 // mangler i denne funksjonen ikke forsvinner stille ved neste innlasting.
 // Tegninger som ikke kan tegnes (for få punkter, tom tekst) forkastes.
-function repairDrawing(raw: unknown): Drawing | null {
+export function repairDrawing(raw: unknown): Drawing | null {
   if (!raw || typeof raw !== 'object') return null;
   const d = raw as Record<string, unknown>;
   const id = typeof d.id === 'string' ? d.id : `drawing-${uid()}`;
@@ -291,7 +291,7 @@ function repairDrawing(raw: unknown): Drawing | null {
     : { id, color, colorKey, type: d.type as PathDrawing['type'], pts };
 }
 
-function repairTactic(raw: unknown): Tactic | null {
+export function repairTactic(raw: unknown): Tactic | null {
   if (!raw || typeof raw !== 'object') return null;
   const t = raw as Partial<Tactic>;
   const sport: Sport = isSport(t.sport) ? t.sport : 'football';
@@ -332,8 +332,11 @@ function repairTactic(raw: unknown): Tactic | null {
   };
 }
 
+// Vaskefunksjonene over og under er eksportert for testene (useAppStore.test.ts).
+// Appen bruker dem bare gjennom innlasting og import.
+
 // Et korrupt lager skal aldri gi hvit skjerm: alt som ikke er gyldig erstattes med `current`.
-function repairPersisted(persisted: unknown, current: AppStore): Partial<AppStore> {
+export function repairPersisted(persisted: unknown, current: AppStore): Partial<AppStore> {
   const p = (persisted && typeof persisted === 'object' ? persisted : {}) as Record<string, unknown>;
   const str = (v: unknown, fallback: string) => typeof v === 'string' && v ? v : fallback;
   const arr = <T,>(v: unknown): T[] => Array.isArray(v) ? v as T[] : [];
@@ -362,7 +365,7 @@ function repairPersisted(persisted: unknown, current: AppStore): Partial<AppStor
 //  ZUSTAND STORE
 // ═══════════════════════════════════════════════════════════════
 
-interface AppStore {
+export interface AppStore {
   currentView: AppView;
   setView: (v: AppView) => void;
 

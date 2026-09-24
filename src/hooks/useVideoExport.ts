@@ -14,7 +14,9 @@ import { downloadBlob } from '@/lib/download';
 import {
   VIDEO_FPS, VIDEO_HEIGHT, VIDEO_LEAD_MS, VIDEO_TAIL_MS, VIDEO_WIDTH,
   boardFitSize, drawBoardFrame, frameAt, pickVideoFormat, videoDurationMs, videoFilename, videoTotalMs,
+  type FrameState,
 } from '@/lib/exportVideo';
+import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import type { Tactic } from '@/types';
 
 // ══════════════════════════════════════════════════════════════
@@ -61,6 +63,28 @@ const stagePlayers = (tactic: Tactic, players: { id: string; num: number; name: 
     family: ROLE_INFO[getSlot(tactic, p.slotIdx).role].family,
     name: p.name.trim(),
   }));
+
+/**
+ * Ett videobilde: banen, spillerne, ballen, tegningene og utstyret ved et
+ * gitt tidspunkt. Egen funksjon, så testene kan sjekke hva bildet inneholder.
+ *
+ * SvgDefs må med: ballen bruker filter="url(#dropShadow)". Chromium ignorerer
+ * et filter som ikke finnes, men WebKit (iPhone, iPad) tegner da ikke ballen
+ * i det hele tatt.
+ */
+export function videoFrameElement(tactic: Tactic, f: FrameState, playerStyle: PlayerStyle): React.ReactElement {
+  return React.createElement(React.Fragment, null,
+    React.createElement(SvgDefs),
+    React.createElement(BoardStage, {
+      players: stagePlayers(tactic, f.players),
+      playerStyle,
+      ball: f.ball,
+      drawings: tactic.phases[f.fromIdx]?.drawings ?? [],
+      items: f.items,
+      progress: f.progress,
+    }),
+  );
+}
 
 export function useVideoExport() {
   const teamName = useAppStore(s => s.homeTeamName);
@@ -120,23 +144,7 @@ export function useVideoExport() {
       // Samme spillerform som brettet viser.
       const playerStyle = readPlayerStyle();
       const paint = async (elapsed: number) => {
-        const f = frameAt(phases, elapsed);
-        // SvgDefs må med: ballen bruker filter="url(#dropShadow)". Chromium
-        // ignorerer et filter som ikke finnes, men WebKit (iPhone, iPad) tegner
-        // da ikke ballen i det hele tatt.
-        flushSync(() => root.render(
-          React.createElement(React.Fragment, null,
-            React.createElement(SvgDefs),
-            React.createElement(BoardStage, {
-              players: stagePlayers(tactic, f.players),
-              playerStyle,
-              ball: f.ball,
-              drawings: phases[f.fromIdx]?.drawings ?? [],
-              items: f.items,
-              progress: f.progress,
-            }),
-          ),
-        ));
+        flushSync(() => root.render(videoFrameElement(tactic, frameAt(phases, elapsed), playerStyle)));
         const img = await svgMarkupToImage(serializeBoardSvg(svg, fit.width, fit.height));
         drawBoardFrame(ctx, img, pitch);
       };
