@@ -132,6 +132,7 @@ export function useVideoExport() {
               playerStyle,
               ball: f.ball,
               drawings: phases[f.fromIdx]?.drawings ?? [],
+              items: f.items,
               progress: f.progress,
             }),
           ),

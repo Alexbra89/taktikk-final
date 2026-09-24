@@ -26,11 +26,12 @@ import { useBallDrag } from '../../hooks/useBallDrag';
 import { useImageExport } from '../../hooks/useImageExport';
 import { useVideoExport, videoLengthText } from '../../hooks/useVideoExport';
 import { usePlayerStyle } from '../../hooks/usePlayerStyle';
-import { EquipmentPalette } from './EquipmentPalette';
-import { itemLabel, ITEM_RADIUS, normalizeRotation } from '../../data/boardItems';
+import { ItemControls } from './ItemControls';
+import { useBoardItems } from '../../hooks/useBoardItems';
+import { interpolateItems } from '../../lib/exportVideo';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
-  StickyNote, Minus, X, Plus as PlusIcon, Footprints, TrafficCone, RotateCcw, RotateCw,
+  StickyNote, Minus, X, Plus as PlusIcon, Footprints,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Modal } from '../ui';
@@ -60,15 +61,6 @@ interface ActiveDrag {
 }
 
 interface GhostPos { x: number; y: number; scaleIn: boolean }
-
-/** Utstyr som dras. Posisjonen lever lokalt til slippet, og skrives først da. */
-interface ItemDrag {
-  itemId:    string;
-  pointerId: number;
-  startX:    number;
-  startY:    number;
-  started:   boolean;
-}
 
 /**
  * Én handling som kan angres. Et bytte flytter to spillere og må angres
@@ -164,17 +156,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [interpT,          setInterpT]           = useState(0);
   const [showPanel,        setShowPanel]         = useState(false);
   const [showNote,         setShowNote]          = useState(false);
-  const [showPalette,      setShowPalette]       = useState(false);
-  const [selectedItemId,   setSelectedItemId]    = useState<string|null>(null);
-  const [itemDragPos,      setItemDragPos]       = useState<{ id: string; x: number; y: number }|null>(null);
-  // Rotasjon under drag i håndtaket; skrives først ved slipp, som posisjonen.
-  const [itemRotPreview,   setItemRotPreview]    = useState<{ id: string; deg: number }|null>(null);
-  const rotDragRef = useRef<{ itemId: string; pointerId: number }|null>(null);
-  // Håndtaket er for mus og penn. På berøring er knappene tryggere enn et lite punkt.
-  const [finePointer] = useState(() => typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches);
-  const itemDragRef = useRef<ItemDrag|null>(null);
-  const selectedItemIdRef = useRef<string|null>(null);
-  selectedItemIdRef.current = selectedItemId;
   const [undoDepth,        setUndoDepth]         = useState(0);
   const [redoDepth,        setRedoDepth]         = useState(0);
 
@@ -183,7 +164,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     movePlayer, moveBall,
     removeLastDrawing, clearDrawings,
     updateStickyNote,
-    addItem, moveItem, removeItem, rotateItem,
     showMovement, setShowMovement,
   } = useAppStore();
 
@@ -264,15 +244,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const h = (e:KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
-      if ((e.key==='Delete'||e.key==='Backspace') && selectedItemIdRef.current) {
-        e.preventDefault(); removeItem(selectedItemIdRef.current); setSelectedItemId(null); return;
-      }
       if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey) { e.preventDefault(); doUndo(); }
       if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))) { e.preventDefault(); doRedo(); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [doUndo, doRedo, removeItem]);
+  }, [doUndo, doRedo]);
 
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
@@ -310,9 +287,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     // ikke noe som skal henge igjen når brettet bytter innhold.
     zoomResetRef.current();
   }, [tactic.id, activePhaseIdx, formation, sport, syncDepths]);
-
-  // Markert utstyr hører til fasen det står i.
-  useEffect(() => { setSelectedItemId(null); }, [tactic.id, activePhaseIdx]);
 
   // Formasjon, sport eller taktikk kan byttes utenfra (Controls/faner) mens avspilling pågår.
   useEffect(() => {
@@ -381,6 +355,16 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const p = toSVGRaw(cx, cy);
     return clampToPitch(p.x, p.y);
   }, [toSVGRaw, clampToPitch]);
+
+  // Utstyret: kjegler, motstandere osv. Samme logikk som i fullskjerm.
+  const items = useBoardItems({
+    phase,
+    enabled: !isPlaying && !drawMode,
+    toSVG, toSVGRaw,
+    isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
+    dragThreshold: DRAG_THRESH,
+  });
+  const itemsCancel = items.cancel;
 
   const draw = useDrawingInput({
     enabled: drawMode && !isPlaying,
@@ -558,98 +542,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     setDraggingPlayerId(null);
     setSnapTarget(null);
     // Utstyr som dras slippes der det sto.
-    itemDragRef.current = null;
-    setItemDragPos(null);
+    itemsCancel();
     // Også en påbegynt strek skal forkastes, ikke lagres halvferdig.
     drawCancel();
-  }, [drawCancel]);
-
-  // ─── Utstyr: dra, marker, slett ────────────────────────────────
-  // Som ballen og spillerne, men uten snapping og bytte. Et trykk uten
-  // bevegelse markerer elementet (søppelbøtta dukker opp i verktøylinja).
-  const onItemDown = useCallback((e: React.PointerEvent, itemId: string) => {
-    if (isPlaying || drawMode) return;
-    if (gestureRef.current.isGesturing || gestureRef.current.spaceHeld) return;
-    e.preventDefault();
-    e.stopPropagation();
-    itemDragRef.current = { itemId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, started: false };
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
-  }, [isPlaying, drawMode]);
-
-  const onItemMove = useCallback((e: React.PointerEvent) => {
-    const d = itemDragRef.current;
-    if (!d || d.pointerId !== e.pointerId || gestureRef.current.isGesturing) return;
-    e.preventDefault();
-    if (!d.started && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) <= DRAG_THRESH) return;
-    d.started = true;
-    const sp = toSVG(e.clientX, e.clientY);
-    setItemDragPos({ id: d.itemId, x: sp.x, y: sp.y });
-  }, [toSVG]);
-
-  const onItemUp = useCallback((e: React.PointerEvent) => {
-    const d = itemDragRef.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    e.preventDefault();
-    itemDragRef.current = null;
-    if (d.started) {
-      const sp = toSVG(e.clientX, e.clientY);
-      moveItem(d.itemId, sp);
-      setItemDragPos(null);
-      setSelectedItemId(d.itemId);
-    } else {
-      setSelectedItemId(id => id === d.itemId ? null : d.itemId);
-    }
-  }, [toSVG, moveItem]);
-
-  // ─── Rotasjon ─────────────────────────────────────────────────
-  // Knappene tar 15° om gangen. Håndtaket roterer fritt, men låser seg til
-  // nærmeste 45° innenfor 4°, så en stige lett blir helt rett.
-  const ROT_STEP = 15;
-  const rotateBy = (itemId: string, delta: number) => {
-    const it = phase?.items?.find(i => i.id === itemId);
-    if (it) rotateItem(itemId, (it.rotation ?? 0) + delta);
-  };
-
-  const onRotDown = useCallback((e: React.PointerEvent, itemId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    rotDragRef.current = { itemId, pointerId: e.pointerId };
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
-  }, []);
-
-  const angleTo = useCallback((itemId: string, cx: number, cy: number): number | null => {
-    const it = phase?.items?.find(i => i.id === itemId);
-    if (!it) return null;
-    const p = toSVGRaw(cx, cy);
-    // Håndtaket sitter rett over elementet ved 0°, så «opp» er 0°.
-    let deg = Math.atan2(p.y - it.position.y, p.x - it.position.x) * 180 / Math.PI + 90;
-    const snap = Math.round(deg / 45) * 45;
-    if (Math.abs(deg - snap) <= 4) deg = snap;
-    return normalizeRotation(deg);
-  }, [phase, toSVGRaw]);
-
-  const onRotMove = useCallback((e: React.PointerEvent) => {
-    const d = rotDragRef.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    e.preventDefault();
-    const deg = angleTo(d.itemId, e.clientX, e.clientY);
-    if (deg !== null) setItemRotPreview({ id: d.itemId, deg });
-  }, [angleTo]);
-
-  const onRotUp = useCallback((e: React.PointerEvent) => {
-    const d = rotDragRef.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    e.preventDefault();
-    rotDragRef.current = null;
-    const deg = angleTo(d.itemId, e.clientX, e.clientY);
-    if (deg !== null) rotateItem(d.itemId, deg);
-    setItemRotPreview(null);
-  }, [angleTo, rotateItem]);
-
-  const pickItem = (type: Parameters<typeof addItem>[0]) => {
-    setSelectedItemId(addItem(type));
-    setShowPalette(false);
-  };
+  }, [drawCancel, itemsCancel]);
 
   const onZoomPtrDown = useCallback((e: React.PointerEvent) => {
     if (zoomCtl.onPointerDown(e)) cancelDrag();
@@ -697,37 +593,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     bounce: bounceId===player.id,
   })), [allDisplay, tactic, getDisplayName, selectedPlayerId, draggingPlayerId, dragOverId, isOutOfPos, bounceId]);
 
-  // Utstyret som vises: elementet som dras står der fingeren er.
-  const displayItems = useMemo(() => (phase?.items ?? []).map(it => {
-    let out = it;
-    if (itemDragPos && itemDragPos.id === it.id) out = { ...out, position: { x: itemDragPos.x, y: itemDragPos.y } };
-    if (itemRotPreview && itemRotPreview.id === it.id) out = { ...out, rotation: itemRotPreview.deg };
-    return out;
-  }), [phase, itemDragPos, itemRotPreview]);
-  const selectedItem = selectedItemId ? phase?.items?.find(it => it.id === selectedItemId) ?? null : null;
-  const selectedShown = selectedItemId ? displayItems.find(it => it.id === selectedItemId) ?? null : null;
-
-  // Rotasjonshåndtaket: en liten ring over det markerte elementet, som følger
-  // rotasjonen. Arbeidsmarkering – ikke med i eksportert bilde.
-  const rotHandle = (() => {
-    if (!finePointer || !selectedShown || isPlaying || drawMode || itemDragPos) return null;
-    const { x, y } = selectedShown.position;
-    const rad = ((selectedShown.rotation ?? 0) - 90) * Math.PI / 180;
-    const dist = ITEM_RADIUS[selectedShown.type] + 18;
-    const hx = x + Math.cos(rad) * dist, hy = y + Math.sin(rad) * dist;
-    return (
-      <g data-export="skip" data-item="true">
-        <line x1={x} y1={y} x2={hx} y2={hy} strokeWidth={1} strokeDasharray="3,3"
-          style={{ stroke: 'rgb(var(--k-ink))', pointerEvents: 'none' }} opacity={0.5}/>
-        <circle cx={hx} cy={hy} r={6} strokeWidth={1.5}
-          style={{ fill: 'rgb(var(--k-pitch))', stroke: 'rgb(var(--k-ink))', cursor: 'grab', touchAction: 'none' }}
-          onPointerDown={e => onRotDown(e, selectedShown.id)}
-          onPointerMove={onRotMove} onPointerUp={onRotUp} onPointerCancel={onRotUp}>
-          <title>Dra for å rotere</title>
-        </circle>
-      </g>
-    );
-  })();
+  // Under avspilling glir utstyret mellom fasene, som spillerne.
+  const shownItems = isPlaying && interpT > 0
+    ? interpolateItems(phases[interpFrom]?.items, phases[interpFrom + 1]?.items, interpT)
+    : items.displayItems;
 
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
   const ghostSlot   = ghostPlayer ? getSlot(tactic, ghostPlayer.slotIdx) : null;
@@ -845,15 +714,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               preview={draw.preview}
               progress={isPlaying ? progressFrac : null}
               ballGroupProps={ballDrag}
-              items={displayItems}
-              selectedItemId={selectedItemId}
-              itemGroupProps={item => ({
-                onPointerDown: (e: React.PointerEvent) => onItemDown(e, item.id),
-                onPointerMove: onItemMove,
-                onPointerUp: onItemUp,
-                onPointerCancel: onItemUp,
-                style: { cursor: !isPlaying&&!drawMode ? 'grab' : 'default', touchAction: 'none' },
-              })}
+              items={shownItems}
+              selectedItemId={items.selectedId}
+              itemGroupProps={items.itemGroupProps}
               playerGroupProps={player => ({
                 onPointerDown: (e: React.PointerEvent) => startDrag(e, player.id),
                 onPointerMove: moveDrag,
@@ -878,7 +741,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                     label={ghostSlot.label} scaleIn={ghostPos.scaleIn}
                     family={ROLE_INFO[ghostSlot.role].family} playerStyle={playerStyle}/>
                 )}
-                {rotHandle}
+                {items.rotHandle}
               </>}
             />
           </svg>
@@ -1007,25 +870,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           <PenLine size={16} strokeWidth={1.75} />
         </button>
 
-        <button onClick={()=>setShowPalette(true)} disabled={isPlaying}
-          aria-label="Utstyr" title="Legg til utstyr: kjegler, motstandere og mer" className={iconBtn}>
-          <TrafficCone size={16} strokeWidth={1.75} />
-        </button>
-        {selectedItem && (<>
-          <button onClick={()=>rotateBy(selectedItem.id, -ROT_STEP)} disabled={isPlaying}
-            aria-label="Roter mot klokka" title={`Roter ${ROT_STEP}° mot klokka`} className={iconBtn}>
-            <RotateCcw size={16} strokeWidth={1.75} />
-          </button>
-          <button onClick={()=>rotateBy(selectedItem.id, ROT_STEP)} disabled={isPlaying}
-            aria-label="Roter med klokka" title={`Roter ${ROT_STEP}° med klokka`} className={iconBtn}>
-            <RotateCw size={16} strokeWidth={1.75} />
-          </button>
-          <button onClick={()=>{ removeItem(selectedItem.id); setSelectedItemId(null); }} disabled={isPlaying}
-            aria-label={`Slett ${itemLabel(selectedItem.type).toLowerCase()}`} title={`Slett ${itemLabel(selectedItem.type).toLowerCase()} (Delete)`}
-            className={cn(iconBtn, 'text-signal hover:text-signal')}>
-            <Trash2 size={16} strokeWidth={1.75} />
-          </button>
-        </>)}
+        <ItemControls selectedItem={items.selectedItem} onAdd={items.add}
+          onRotate={items.rotateBy} onRemove={items.removeSelected}
+          disabled={isPlaying} buttonClass={iconBtn}/>
 
         {/* I tegnemodus ligger viskelæret i tegneraden over. */}
         {!drawMode&&(phase?.drawings?.length??0)>0&&(
@@ -1084,8 +931,6 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       {draw.pendingLabel && (
         <TextLabelModal onSave={draw.commitLabel} onClose={draw.cancelLabel}/>
       )}
-
-      {showPalette && <EquipmentPalette onPick={pickItem} onClose={() => setShowPalette(false)}/>}
 
       {showNote && phase && (
         <PhaseNoteModal

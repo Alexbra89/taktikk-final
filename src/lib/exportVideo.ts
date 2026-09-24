@@ -1,6 +1,6 @@
 import { slugify } from '@/lib/download';
 import { VW, VH } from '@/data/formations';
-import type { Player, Position, TacticPhase } from '@/types';
+import type { BoardItem, Player, Position, TacticPhase } from '@/types';
 
 // ══════════════════════════════════════════════════════════════
 //  VIDEO-EKSPORT – avspillingen av fasene som WebM
@@ -76,9 +76,35 @@ export const videoTotalMs = (phaseCount: number) =>
 export interface FrameState {
   players: Player[];
   ball: Position;
+  /** Utstyret i fasen det er på vei fra, flyttet mot neste fase. */
+  items: BoardItem[];
   /** Fasen brikkene er på vei fra – tegningene som vises hører til den. */
   fromIdx: number;
   progress: number;
+}
+
+/**
+ * Utstyret mellom to faser. Et element med samme id i begge glir dit, og
+ * roterer den korteste veien. Et element som bare finnes i fasen det går
+ * fra, står stille til fasen skifter; et nytt element dukker opp da.
+ * Brukes av både ▶ og videoen, så de viser det samme.
+ */
+export function interpolateItems(from: BoardItem[] = [], to: BoardItem[] = [], t: number): BoardItem[] {
+  if (t <= 0) return from;
+  return from.map(fi => {
+    const ti = to.find(i => i.id === fi.id);
+    if (!ti) return fi;
+    const r0 = fi.rotation ?? 0, r1 = ti.rotation ?? 0;
+    const dr = ((r1 - r0 + 540) % 360) - 180;   // korteste vei, −180..180
+    return {
+      ...fi,
+      position: {
+        x: fi.position.x + (ti.position.x - fi.position.x) * t,
+        y: fi.position.y + (ti.position.y - fi.position.y) * t,
+      },
+      rotation: r0 + dr * t,
+    };
+  });
 }
 
 /**
@@ -96,7 +122,7 @@ export function frameAt(phases: TacticPhase[], elapsedMs: number): FrameState {
   const to = phases[Math.min(fromIdx + 1, last)];
   if (!from || !to) {
     const ph = phases[0];
-    return { players: ph.players, ball: ph.ball, fromIdx: 0, progress: 0 };
+    return { players: ph.players, ball: ph.ball, items: ph.items ?? [], fromIdx: 0, progress: 0 };
   }
 
   return {
@@ -112,6 +138,7 @@ export function frameAt(phases: TacticPhase[], elapsedMs: number): FrameState {
       x: from.ball.x + (to.ball.x - from.ball.x) * t,
       y: from.ball.y + (to.ball.y - from.ball.y) * t,
     },
+    items: interpolateItems(from.items, to.items, t),
     fromIdx,
     progress: total === 0 ? 0 : clamped / total,
   };

@@ -13,6 +13,9 @@ import { useBoardZoom } from '@/hooks/useBoardZoom';
 import { useDrawingInput } from '@/hooks/useDrawingInput';
 import { useImageExport } from '@/hooks/useImageExport';
 import { usePlayerStyle } from '@/hooks/usePlayerStyle';
+import { useBoardItems } from '@/hooks/useBoardItems';
+import { ItemControls } from '@/components/board/ItemControls';
+import { interpolateItems } from '@/lib/exportVideo';
 import { ROLE_INFO } from '@/data/roleInfo';
 import { X, Play, Pause, Minus, Plus, PenLine, Footprints } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -127,7 +130,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   // Samme utregning som i TacticBoard: speiler preserveAspectRatio="xMidYMid
   // meet". getBoundingClientRect() tar med CSS-transformen, så zoomen krever
   // ingen egen korreksjon her.
-  const toSVG = useCallback((cx: number, cy: number): SvgPos => {
+  const toSVGRaw = useCallback((cx: number, cy: number): SvgPos => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const rect = svg.getBoundingClientRect();
@@ -135,13 +138,17 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     const renderedW = VW * scale, renderedH = VH * scale;
     const localX = cx - rect.left - (rect.width - renderedW) / 2;
     const localY = cy - rect.top - (rect.height - renderedH) / 2;
-    const x = (localX / renderedW) * VW;
-    const y = (localY / renderedH) * VH;
+    return { x: (localX / renderedW) * VW, y: (localY / renderedH) * VH };
+  }, []);
+
+  // Klemt til banen; rotasjonshåndtaket bruker den rå posisjonen.
+  const toSVG = useCallback((cx: number, cy: number): SvgPos => {
+    const { x, y } = toSVGRaw(cx, cy);
     return {
       x: Math.max(CLAMP_X, Math.min(VW - CLAMP_X, x)),
       y: Math.max(CLAMP_Y_TOP, Math.min(VH - CLAMP_Y_BOTTOM, y)),
     };
-  }, []);
+  }, [toSVGRaw]);
 
   const slots = useMemo(() => getFormationSlots(sport, formation), [sport, formation]);
 
@@ -163,6 +170,16 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   // ─── Drag av spillere og ball ───────────────────────────────
   // I tegnemodus eier tegningen pekeren, som på vanlig brett.
   const canDrag = interactive && !isPlaying && !drawMode;
+
+  // Utstyret: samme logikk og knapper som på vanlig brett.
+  const equip = useBoardItems({
+    phase: phases[activeIdx],
+    enabled: canDrag,
+    toSVG, toSVGRaw,
+    isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
+    dragThreshold: DRAG_THRESH,
+  });
+  const equipCancel = equip.cancel;
 
   const onItemDown = useCallback((e: React.PointerEvent, target: DragTarget) => {
     if (!canDrag) return;
@@ -220,8 +237,9 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
     dragRef.current = null;
     setDragPreview(null);
+    equipCancel();
     drawCancel();
-  }, [drawCancel]);
+  }, [drawCancel, equipCancel]);
 
   const onZoomDown = useCallback((e: React.PointerEvent) => {
     if (zoomCtl.onPointerDown(e)) cancelDrag();
@@ -255,6 +273,11 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
       y: from.ball.y + (to.ball.y - from.ball.y) * interpT,
     };
   })();
+
+  // Under avspilling glir utstyret mellom fasene, som spillerne.
+  const shownItems = isPlaying && interpT > 0
+    ? interpolateItems(phases[interpFrom]?.items, phases[interpFrom + 1]?.items, interpT)
+    : equip.displayItems;
 
   const progressFrac = phases.length > 1 ? (interpFrom + interpT) / (phases.length - 1) : 0;
 
@@ -353,6 +376,13 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           </button>
         )}
 
+        {interactive && (
+          <ItemControls selectedItem={equip.selectedItem} onAdd={equip.add}
+            onRotate={equip.rotateBy} onRemove={equip.removeSelected}
+            disabled={isPlaying} onInteract={resetHideTimer}
+            buttonClass="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30" />
+        )}
+
         <button onClick={() => { isPlaying ? stopPlayback() : startPlayback(); resetHideTimer(); }}
           disabled={phases.length < 2}
           aria-label={isPlaying ? 'Stopp avspilling' : 'Spill av fasene'}
@@ -426,6 +456,10 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           <BoardStage
             players={stagePlayers}
             playerStyle={playerStyle}
+            items={shownItems}
+            selectedItemId={equip.selectedId}
+            itemGroupProps={equip.itemGroupProps}
+            afterPlayers={equip.rotHandle}
             ball={displayBallPos}
             drawings={phase.drawings ?? []}
             trails={showMovement && !isPlaying && activeIdx > 0
