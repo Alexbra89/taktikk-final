@@ -73,7 +73,14 @@ const DataSection: React.FC = () => {
 
   const confirmImport = () => {
     if (!pending) return;
-    importSnapshot(pending.data);
+    try {
+      importSnapshot(pending.data);
+    } catch {
+      // Dataene dine er urørt: importen erstatter først når alt er vasket.
+      setPending(null);
+      setError('Klarte ikke å importere filen. Dataene dine er ikke endret.');
+      return;
+    }
     if (pending.theme) setTheme(pending.theme);
     setPending(null);
     setDone('Dataene er importert.');

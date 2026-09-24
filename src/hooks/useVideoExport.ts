@@ -29,6 +29,15 @@ import type { Tactic } from '@/types';
 const nextFrame = () => new Promise<void>(r => requestAnimationFrame(() => r()));
 const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
+/**
+ * I bakgrunnen står requestAnimationFrame stille og canvaset males ikke,
+ * så videoen ville frosset og hoppet – på iPhone kan opptaket også dø.
+ * Eksporten avbrytes derfor, med en beskjed brukeren forstår.
+ */
+class BackgroundAbort extends Error {
+  constructor() { super('Videoen ble avbrutt fordi appen ble lagt i bakgrunnen. Prøv igjen.'); }
+}
+
 /** Usynlig, men i dokumentet: ellers finnes ikke CSS-variablene vi bytter ut. */
 function createOffscreenSvg(): { host: HTMLDivElement; svg: SVGSVGElement; root: Root } {
   const host = document.createElement('div');
@@ -77,7 +86,19 @@ export function useVideoExport() {
     setNotice(null);
 
     let created: { host: HTMLDivElement; svg: SVGSVGElement; root: Root } | null = null;
+    let recorder: MediaRecorder | null = null;
+    let stream: MediaStream | null = null;
+
+    // Blir appen skjult, løser «hidden» seg, så en ventende ramme ikke henger.
+    let isHidden = document.hidden;
+    let onHidden: () => void = () => {};
+    const hidden = new Promise<void>(r => { onHidden = r; });
+    const onVisibility = () => { if (document.hidden) { isHidden = true; onHidden(); } };
+    document.addEventListener('visibilitychange', onVisibility);
+    const checkVisible = () => { if (isHidden) throw new BackgroundAbort(); };
+
     try {
+      checkVisible();
       const fmt = pickVideoFormat();
       if (!fmt) throw new Error('Nettleseren din støtter ikke videoeksport.');
       const mime = fmt.mime;
@@ -122,20 +143,24 @@ export function useVideoExport() {
       // Første bilde før opptaket starter, slik at videoen ikke begynner tom.
       await paint(0);
 
-      const stream = canvas.captureStream(VIDEO_FPS);
-      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+      stream = canvas.captureStream(VIDEO_FPS);
+      const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+      recorder = rec;
       const chunks: Blob[] = [];
-      recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       const finished = new Promise<Blob>((resolve, reject) => {
-        recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
-        recorder.onerror = () => reject(new Error('Opptaket stoppet uventet.'));
+        rec.onstop = () => resolve(new Blob(chunks, { type: mime }));
+        rec.onerror = () => reject(new Error('Opptaket stoppet uventet.'));
       });
+      // Avbrytes eksporten før vi venter på den, skal en sen feil ikke bli ubehandlet.
+      finished.catch(() => {});
 
-      recorder.start();
+      rec.start();
 
       // Forspann: hold åpningsstillingen mens koderen kommer i gang.
       const holdFrame = async (untilMs: number, elapsed: number) => {
         while (performance.now() < untilMs) {
+          checkVisible();
           await paint(elapsed);
           await wait(1000 / VIDEO_FPS);
         }
@@ -145,18 +170,19 @@ export function useVideoExport() {
       const total = videoDurationMs(phases.length);
       const started = performance.now();
       for (;;) {
+        checkVisible();
         const elapsed = performance.now() - started;
         await paint(elapsed);
         setProgress(Math.min(1, elapsed / total));
         if (elapsed >= total) break;
-        await nextFrame();
+        await Promise.race([nextFrame(), hidden]);
       }
       // Hold siste stilling litt, ellers forsvinner den i det videoen slutter.
       // Canvaset må males om igjen underveis: captureStream fanger bare nye bilder
       // når noe endres, så en stillestående hale ville blitt klippet bort.
       await holdFrame(performance.now() + VIDEO_TAIL_MS, total);
-      recorder.stop();
-      stream.getTracks().forEach(t => t.stop());
+      checkVisible();
+      rec.stop();
 
       const blob = await finished;
       if (!blob.size) throw new Error('Videoen ble tom.');
@@ -166,8 +192,16 @@ export function useVideoExport() {
         setNotice(`Nettleseren kan bare spille inn ${fmt.label}. Den filen spilles ikke av på iPhone og iPad.`);
       }
     } catch (e) {
-      setError(`Kunne ikke lage videoen.${e instanceof Error && e.message ? ' ' + e.message : ''}`);
+      setError(e instanceof BackgroundAbort
+        ? e.message
+        : `Kunne ikke lage videoen.${e instanceof Error && e.message ? ' ' + e.message : ''}`);
     } finally {
+      // Ryddes uansett hvordan eksporten endte – også etter en feil midt i opptaket.
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (recorder && recorder.state !== 'inactive') {
+        try { recorder.stop(); } catch { /* allerede stoppet */ }
+      }
+      stream?.getTracks().forEach(t => t.stop());
       if (created) {
         const { host, root } = created;
         // unmount må ut av render-fasen, ellers klager React.

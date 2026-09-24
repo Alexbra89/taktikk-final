@@ -129,14 +129,66 @@ const patchPhase = (t: Tactic, idx: number, fn: (ph: TacticPhase) => TacticPhase
 const LEGACY_ATTENDANCE_TITLE = '✅ Fremmøte';
 const VALID_VIEWS: AppView[] = ['board', 'drills', 'calendar', 'training'];
 
-function cleanPersistedEvents(events: CalendarEvent[]): CalendarEvent[] {
-  const stripTargets = <T extends { title: string }>(notes: T[] | undefined) =>
-    (notes ?? []).map(n => { const rest: Record<string, unknown> = { ...n }; delete rest.targetPlayerIds; return rest as unknown as T; });
-  return events.map(e => ({
-    ...e,
-    trainingNotes: stripTargets(e.trainingNotes).filter(n => n.title !== LEGACY_ATTENDANCE_TITLE),
-    matchNotes: stripTargets(e.matchNotes),
-  }));
+// Hendelsene vaskes felt for felt, som taktikkene. Én ødelagt hendelse
+// (null, feil type, manglende dato) fikk tidligere hele innlastingen til å
+// kaste – da startet appen med standarddata og overskrev de lagrede dataene
+// ved neste endring. Feltene hvitlistes: ukjente felt (som det gamle
+// targetPlayerIds) forsvinner, og visningene kan stole på typen.
+const obj = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null;
+const optStr = (v: unknown): string | undefined => typeof v === 'string' ? v : undefined;
+const strList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+
+function repairTrainingNote(raw: unknown): TrainingNote | null {
+  const n = obj(raw);
+  // Uten tittel er det ikke noe å vise – et tomt kort hjelper ingen.
+  if (!n || typeof n.title !== 'string' || n.title === LEGACY_ATTENDANCE_TITLE) return null;
+  return {
+    id: typeof n.id === 'string' ? n.id : uid(),
+    createdAt: typeof n.createdAt === 'string' ? n.createdAt : new Date().toISOString(),
+    title: n.title,
+    content: typeof n.content === 'string' ? n.content : '',
+    focus: strList(n.focus),
+    ...(Number.isFinite(n.duration) && (n.duration as number) >= 0 ? { duration: n.duration as number } : {}),
+    ...(typeof n.completed === 'boolean' ? { completed: n.completed } : {}),
+    ...(typeof n.tacticId === 'string' ? { tacticId: n.tacticId } : {}),
+  };
+}
+
+function repairMatchNote(raw: unknown): MatchNote | null {
+  const n = obj(raw);
+  // Kampnotatet er teksten; uten den er det ingenting igjen.
+  if (!n || typeof n.content !== 'string') return null;
+  return {
+    id: typeof n.id === 'string' ? n.id : uid(),
+    createdAt: typeof n.createdAt === 'string' ? n.createdAt : new Date().toISOString(),
+    half: n.half === 2 || n.half === 3 ? n.half : 1,
+    title: typeof n.title === 'string' ? n.title : '',
+    content: n.content,
+  };
+}
+
+/** Uten gyldig dato kan hendelsen ikke plasseres i kalenderen, og forkastes. */
+function repairEvent(raw: unknown): CalendarEvent | null {
+  const e = obj(raw);
+  if (!e || typeof e.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+  const notes = <T,>(v: unknown, fix: (x: unknown) => T | null): T[] =>
+    (Array.isArray(v) ? v : []).map(fix).filter((x): x is T => x !== null);
+  return {
+    id: typeof e.id === 'string' ? e.id : uid(),
+    type: e.type === 'match' ? 'match' : 'training',
+    title: typeof e.title === 'string' ? e.title : '',
+    date: e.date,
+    time: optStr(e.time),
+    location: optStr(e.location),
+    opponent: optStr(e.opponent),
+    result: optStr(e.result),
+    teamNote: typeof e.teamNote === 'string' ? e.teamNote : '',
+    trainingNotes: notes(e.trainingNotes, repairTrainingNote),
+    matchNotes: notes(e.matchNotes, repairMatchNote),
+    ...(Array.isArray(e.attendance) ? { attendance: strList(e.attendance) } : {}),
+  };
 }
 
 // v1 → v2: bare innstillinger, hendelser og navneliste tas med. Taktikkene starter på nytt.
@@ -232,7 +284,7 @@ function repairPersisted(persisted: unknown, current: AppStore): Partial<AppStor
     awayTeamName: str(p.awayTeamName, current.awayTeamName),
     awayTeamColor: str(p.awayTeamColor, current.awayTeamColor),
     rosterNames: arr<unknown>(p.rosterNames).filter((n): n is string => typeof n === 'string'),
-    events: cleanPersistedEvents(arr<CalendarEvent>(p.events)),
+    events: arr<unknown>(p.events).map(repairEvent).filter((e): e is CalendarEvent => e !== null),
     matchReports: arr<MatchReport>(p.matchReports),
     moments: arr<TacticMoment>(p.moments),
     currentView: VALID_VIEWS.includes(p.currentView as AppView) ? p.currentView as AppView : current.currentView,
