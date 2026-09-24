@@ -39,6 +39,8 @@
   --k-pitch-line: rgba(255, 255, 255, 0.6); /* 6,4:1 mot banen */
   /* Kant rundt draktene: lys her, så blå og rød drakt skiller seg fra den mørke banen. */
   --k-kit-edge:   rgba(255, 255, 255, 0.55);
+  /* Motstandere: nøytral grå som skiller seg fra alle draktfargene. 11:1 mot banen. */
+  --k-opponent:   203 213 225; /* #CBD5E1 */
 
   /* Tegnefarger på kveldsbanen – lyse. Minst 4,5:1 mot --k-pitch.
      Samme verdier som DRAW_PALETTE i drawTools.ts. */
@@ -77,6 +79,8 @@
   --k-pitch-line: rgba(26, 26, 26, 0.6); /* 4,4:1 mot banen */
   /* Kant rundt draktene: mørk her, så gul og grønn drakt skiller seg fra den lyse banen. */
   --k-kit-edge:   rgba(17, 17, 16, 0.6);
+  /* Motstandere: mørk grå her. 6,7:1 mot banen. */
+  --k-opponent:   71 85 105;   /* #475569 */
 
   /* Tegnefarger på dagslysbanen – mørke. Minst 4,5:1 mot --k-pitch. */
   --k-draw-white:  26 26 26;    /* #1A1A1A – 14,4:1 */

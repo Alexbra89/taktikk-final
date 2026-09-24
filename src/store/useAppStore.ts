@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   Sport, Tactic, TacticPhase, CalendarEvent,
-  AppView, Player, Position, Drawing, NewDrawing, PathDrawing,
+  AppView, Player, Position, Drawing, NewDrawing, PathDrawing, BoardItem, BoardItemType,
   TrainingNote, MatchNote, MatchTimer, MatchReport, ReportTag,
   TacticMoment
 } from '../types';
@@ -10,6 +10,7 @@ import { VW, VH, DEFAULT_FORMATION, getFormations, getFormationSlots } from '../
 import { safeStorage } from '../lib/safeStorage';
 import { buildTemplatePhases, type TacticTemplate } from '../data/tacticTemplates';
 import { drawingColorKey } from '../components/board/drawTools';
+import { BOARD_ITEM_TYPES, ITEM_RADIUS } from '../data/boardItems';
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -201,6 +202,33 @@ function migrateV1(old: Record<string, unknown>): Record<string, unknown> {
 
 const PATH_TYPES = ['freehand', 'arrow', 'curved-arrow', 'dashed'] as const;
 
+/**
+ * Første ledige plass for et nytt element: langs toppen av banen, så langs
+ * bunnen – der det sjelden står spillere. Bredden teller (en stige er 88
+ * bred), så elementene aldri legges oppå hverandre, en spiller eller ballen.
+ */
+function freeSpot(type: BoardItemType, ph: TacticPhase): Position {
+  const r = ITEM_RADIUS[type];
+  const taken = [
+    ...(ph.items ?? []).map(it => ({ p: it.position, r: ITEM_RADIUS[it.type] })),
+    ...ph.players.map(p => ({ p: p.position, r: 22 })),
+    { p: ph.ball, r: 12 },
+  ];
+  const free = (x: number, y: number) =>
+    taken.every(t => Math.abs(t.p.x - x) > t.r + r + 6 || Math.abs(t.p.y - y) > 34);
+  for (const y of [70, 490, 130, 430]) {
+    for (let x = 60 + r; x <= VW - 60 - r; x += 8) if (free(x, y)) return { x, y };
+  }
+  return centerBall();
+}
+
+function repairItem(raw: unknown): BoardItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const i = raw as Record<string, unknown>;
+  if (!BOARD_ITEM_TYPES.includes(i.type as BoardItemType) || !isPos(i.position)) return null;
+  return { id: typeof i.id === 'string' ? i.id : `item-${uid()}`, type: i.type as BoardItemType, position: i.position };
+}
+
 // Hver tegnetype har sine egne felter. De hvitlistes her, slik at et felt som
 // mangler i denne funksjonen ikke forsvinner stille ved neste innlasting.
 // Tegninger som ikke kan tegnes (for få punkter, tom tekst) forkastes.
@@ -252,6 +280,8 @@ function repairTactic(raw: unknown): Tactic | null {
       ball: isPos(ph.ball) ? ph.ball : centerBall(),
       drawings: (Array.isArray(ph.drawings) ? ph.drawings : [])
         .map(repairDrawing).filter((d): d is Drawing => d !== null),
+      items: (Array.isArray(ph.items) ? ph.items : [])
+        .map(repairItem).filter((it): it is BoardItem => it !== null),
       stickyNote: typeof ph.stickyNote === 'string' ? ph.stickyNote : '',
     }));
   const safePhases = syncPlayers(phases.length ? phases : [createPhase('Fase 1', slots)], slots);
@@ -336,6 +366,10 @@ interface AppStore {
   setPlayerName: (playerId: string, name: string) => void;
   setPlayerNum: (playerId: string, num: number) => void;
   addDrawing: (drawing: NewDrawing) => void;
+  /** Utstyr i aktiv fase. addItem returnerer id-en, så brettet kan markere det nye elementet. */
+  addItem: (type: BoardItemType) => string;
+  moveItem: (itemId: string, pos: Position) => void;
+  removeItem: (itemId: string) => void;
   removeLastDrawing: () => void;
   clearDrawings: () => void;
   // phaseIdx er valgfri fordi kallet er debouncet og fasen kan ha byttet før det utføres.
@@ -484,6 +518,9 @@ export const useAppStore = create<AppStore>()(
           id: `phase-${uid()}`,
           name: `Fase ${t.phases.length + 1}`,
           players: cur.players.map(p => ({ ...p, position: { ...p.position } })),
+          // Utstyret følger med, med samme id-er: kjeglene står, og en
+          // motstander som flyttes i den nye fasen glir dit under avspilling.
+          items: (cur.items ?? []).map(it => ({ ...it, position: { ...it.position } })),
           ball: { ...cur.ball },
           drawings: [],
           stickyNote: '',
@@ -525,6 +562,25 @@ export const useAppStore = create<AppStore>()(
 
       addDrawing: (drawing) => set(s => patchActiveTactic(s, t =>
         patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, drawings: [...ph.drawings, { id: uid(), ...drawing }] })))),
+
+      addItem: (type) => {
+        const id = `item-${uid()}`;
+        set(s => patchActiveTactic(s, t => patchPhase(t, t.activePhaseIdx, ph => {
+          const items = ph.items ?? [];
+          return { ...ph, items: [...items, { id, type, position: freeSpot(type, ph) }] };
+        })));
+        return id;
+      },
+
+      moveItem: (itemId, pos) => set(s => patchActiveTactic(s, t =>
+        patchPhase(t, t.activePhaseIdx, ph => ({
+          ...ph, items: (ph.items ?? []).map(it => it.id === itemId ? { ...it, position: pos } : it),
+        })))),
+
+      removeItem: (itemId) => set(s => patchActiveTactic(s, t =>
+        patchPhase(t, t.activePhaseIdx, ph => ({
+          ...ph, items: (ph.items ?? []).filter(it => it.id !== itemId),
+        })))),
 
       removeLastDrawing: () => set(s => patchActiveTactic(s, t =>
         patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, drawings: ph.drawings.slice(0, -1) })))),

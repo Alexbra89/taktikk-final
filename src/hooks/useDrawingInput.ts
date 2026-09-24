@@ -49,7 +49,7 @@ export function useDrawingInput({ enabled, svgRef, toSVG, isGesturing }: Options
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!enabled || isGesturing()) return;
-    if ((e.target as Element).closest('[data-player]')) return;
+    if ((e.target as Element).closest('[data-player], [data-item]')) return;
     e.preventDefault();
     activeRef.current = true;
     const pt = toSVG(e.clientX, e.clientY);

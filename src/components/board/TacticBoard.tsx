@@ -26,9 +26,11 @@ import { useBallDrag } from '../../hooks/useBallDrag';
 import { useImageExport } from '../../hooks/useImageExport';
 import { useVideoExport, videoLengthText } from '../../hooks/useVideoExport';
 import { usePlayerStyle } from '../../hooks/usePlayerStyle';
+import { EquipmentPalette } from './EquipmentPalette';
+import { itemLabel } from '../../data/boardItems';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
-  StickyNote, Minus, X, Plus as PlusIcon, Footprints,
+  StickyNote, Minus, X, Plus as PlusIcon, Footprints, TrafficCone,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Modal } from '../ui';
@@ -58,6 +60,15 @@ interface ActiveDrag {
 }
 
 interface GhostPos { x: number; y: number; scaleIn: boolean }
+
+/** Utstyr som dras. Posisjonen lever lokalt til slippet, og skrives først da. */
+interface ItemDrag {
+  itemId:    string;
+  pointerId: number;
+  startX:    number;
+  startY:    number;
+  started:   boolean;
+}
 
 /**
  * Én handling som kan angres. Et bytte flytter to spillere og må angres
@@ -153,6 +164,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [interpT,          setInterpT]           = useState(0);
   const [showPanel,        setShowPanel]         = useState(false);
   const [showNote,         setShowNote]          = useState(false);
+  const [showPalette,      setShowPalette]       = useState(false);
+  const [selectedItemId,   setSelectedItemId]    = useState<string|null>(null);
+  const [itemDragPos,      setItemDragPos]       = useState<{ id: string; x: number; y: number }|null>(null);
+  const itemDragRef = useRef<ItemDrag|null>(null);
+  const selectedItemIdRef = useRef<string|null>(null);
+  selectedItemIdRef.current = selectedItemId;
   const [undoDepth,        setUndoDepth]         = useState(0);
   const [redoDepth,        setRedoDepth]         = useState(0);
 
@@ -161,6 +178,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     movePlayer, moveBall,
     removeLastDrawing, clearDrawings,
     updateStickyNote,
+    addItem, moveItem, removeItem,
     showMovement, setShowMovement,
   } = useAppStore();
 
@@ -241,12 +259,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const h = (e:KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
+      if ((e.key==='Delete'||e.key==='Backspace') && selectedItemIdRef.current) {
+        e.preventDefault(); removeItem(selectedItemIdRef.current); setSelectedItemId(null); return;
+      }
       if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey) { e.preventDefault(); doUndo(); }
       if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))) { e.preventDefault(); doRedo(); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [doUndo, doRedo]);
+  }, [doUndo, doRedo, removeItem]);
 
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
@@ -284,6 +305,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     // ikke noe som skal henge igjen når brettet bytter innhold.
     zoomResetRef.current();
   }, [tactic.id, activePhaseIdx, formation, sport, syncDepths]);
+
+  // Markert utstyr hører til fasen det står i.
+  useEffect(() => { setSelectedItemId(null); }, [tactic.id, activePhaseIdx]);
 
   // Formasjon, sport eller taktikk kan byttes utenfra (Controls/faner) mens avspilling pågår.
   useEffect(() => {
@@ -521,9 +545,54 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     setDragOverId(null);
     setDraggingPlayerId(null);
     setSnapTarget(null);
+    // Utstyr som dras slippes der det sto.
+    itemDragRef.current = null;
+    setItemDragPos(null);
     // Også en påbegynt strek skal forkastes, ikke lagres halvferdig.
     drawCancel();
   }, [drawCancel]);
+
+  // ─── Utstyr: dra, marker, slett ────────────────────────────────
+  // Som ballen og spillerne, men uten snapping og bytte. Et trykk uten
+  // bevegelse markerer elementet (søppelbøtta dukker opp i verktøylinja).
+  const onItemDown = useCallback((e: React.PointerEvent, itemId: string) => {
+    if (isPlaying || drawMode) return;
+    if (gestureRef.current.isGesturing || gestureRef.current.spaceHeld) return;
+    e.preventDefault();
+    e.stopPropagation();
+    itemDragRef.current = { itemId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, started: false };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  }, [isPlaying, drawMode]);
+
+  const onItemMove = useCallback((e: React.PointerEvent) => {
+    const d = itemDragRef.current;
+    if (!d || d.pointerId !== e.pointerId || gestureRef.current.isGesturing) return;
+    e.preventDefault();
+    if (!d.started && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) <= DRAG_THRESH) return;
+    d.started = true;
+    const sp = toSVG(e.clientX, e.clientY);
+    setItemDragPos({ id: d.itemId, x: sp.x, y: sp.y });
+  }, [toSVG]);
+
+  const onItemUp = useCallback((e: React.PointerEvent) => {
+    const d = itemDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    itemDragRef.current = null;
+    if (d.started) {
+      const sp = toSVG(e.clientX, e.clientY);
+      moveItem(d.itemId, sp);
+      setItemDragPos(null);
+      setSelectedItemId(d.itemId);
+    } else {
+      setSelectedItemId(id => id === d.itemId ? null : d.itemId);
+    }
+  }, [toSVG, moveItem]);
+
+  const pickItem = (type: Parameters<typeof addItem>[0]) => {
+    setSelectedItemId(addItem(type));
+    setShowPalette(false);
+  };
 
   const onZoomPtrDown = useCallback((e: React.PointerEvent) => {
     if (zoomCtl.onPointerDown(e)) cancelDrag();
@@ -570,6 +639,12 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     outOfPos: isOutOfPos(player),
     bounce: bounceId===player.id,
   })), [allDisplay, tactic, getDisplayName, selectedPlayerId, draggingPlayerId, dragOverId, isOutOfPos, bounceId]);
+
+  // Utstyret som vises: elementet som dras står der fingeren er.
+  const displayItems = useMemo(() => (phase?.items ?? []).map(it =>
+    itemDragPos && itemDragPos.id === it.id ? { ...it, position: { x: itemDragPos.x, y: itemDragPos.y } } : it,
+  ), [phase, itemDragPos]);
+  const selectedItem = selectedItemId ? phase?.items?.find(it => it.id === selectedItemId) ?? null : null;
 
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
   const ghostSlot   = ghostPlayer ? getSlot(tactic, ghostPlayer.slotIdx) : null;
@@ -687,6 +762,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               preview={draw.preview}
               progress={isPlaying ? progressFrac : null}
               ballGroupProps={ballDrag}
+              items={displayItems}
+              selectedItemId={selectedItemId}
+              itemGroupProps={item => ({
+                onPointerDown: (e: React.PointerEvent) => onItemDown(e, item.id),
+                onPointerMove: onItemMove,
+                onPointerUp: onItemUp,
+                onPointerCancel: onItemUp,
+                style: { cursor: !isPlaying&&!drawMode ? 'grab' : 'default', touchAction: 'none' },
+              })}
               playerGroupProps={player => ({
                 onPointerDown: (e: React.PointerEvent) => startDrag(e, player.id),
                 onPointerMove: moveDrag,
@@ -837,6 +921,18 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           <PenLine size={16} strokeWidth={1.75} />
         </button>
 
+        <button onClick={()=>setShowPalette(true)} disabled={isPlaying}
+          aria-label="Utstyr" title="Legg til utstyr: kjegler, motstandere og mer" className={iconBtn}>
+          <TrafficCone size={16} strokeWidth={1.75} />
+        </button>
+        {selectedItem && (
+          <button onClick={()=>{ removeItem(selectedItem.id); setSelectedItemId(null); }} disabled={isPlaying}
+            aria-label={`Slett ${itemLabel(selectedItem.type).toLowerCase()}`} title={`Slett ${itemLabel(selectedItem.type).toLowerCase()} (Delete)`}
+            className={cn(iconBtn, 'text-signal hover:text-signal')}>
+            <Trash2 size={16} strokeWidth={1.75} />
+          </button>
+        )}
+
         {/* I tegnemodus ligger viskelæret i tegneraden over. */}
         {!drawMode&&(phase?.drawings?.length??0)>0&&(
           <button onClick={confirmClearDrawings} aria-label="Slett tegningene" title="Slett tegningene" className={iconBtn}>
@@ -894,6 +990,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       {draw.pendingLabel && (
         <TextLabelModal onSave={draw.commitLabel} onClose={draw.cancelLabel}/>
       )}
+
+      {showPalette && <EquipmentPalette onPick={pickItem} onClose={() => setShowPalette(false)}/>}
 
       {showNote && phase && (
         <PhaseNoteModal

@@ -8,7 +8,9 @@ import { PlayerChip } from './svg/PlayerChip';
 import { PlayerKit, KIT_BADGE_OFFSET } from './svg/PlayerKit';
 import { RoleBadge } from './svg/RoleBadge';
 import { NameLabel } from './svg/NameLabel';
-import type { Drawing, NewDrawing, Player, Position } from '../../types';
+import { BoardItemShape } from './svg/BoardItemShape';
+import { ITEM_RADIUS } from '../../data/boardItems';
+import type { BoardItem, Drawing, NewDrawing, Player, Position } from '../../types';
 import type { RoleFamily } from '../../data/roleInfo';
 import type { PlayerStyle } from '../../hooks/usePlayerStyle';
 
@@ -60,6 +62,11 @@ export interface BoardStageProps {
   ballFilterId?: string;
   /** Drakt (standard) eller sirkel. */
   playerStyle?: PlayerStyle;
+  /** Utstyr i fasen: kjegler, motstandere osv. */
+  items?: BoardItem[];
+  /** Markert utstyr får en ring, som en valgt spiller. */
+  selectedItemId?: string | null;
+  itemGroupProps?: (item: BoardItem) => React.SVGProps<SVGGElement>;
   playerGroupProps?: (player: StagePlayer) => React.SVGProps<SVGGElement>;
   ballGroupProps?: React.SVGProps<SVGGElement>;
   /** Tegnes mellom ballen og spillerne (snap-indikator). */
@@ -71,6 +78,7 @@ export interface BoardStageProps {
 export const BoardStage: React.FC<BoardStageProps> = ({
   players, ball, drawings, trails, preview,
   progress = null, progressY = VH - 14, ballFilterId = 'dropShadow', playerStyle = 'kit',
+  items, selectedItemId = null, itemGroupProps,
   playerGroupProps, ballGroupProps, beforePlayers, afterPlayers,
 }) => {
   const kit = playerStyle === 'kit';
@@ -91,6 +99,23 @@ export const BoardStage: React.FC<BoardStageProps> = ({
         <DrawingCanvas drawing={{ id: 'preview', ...preview }}/>
       </g>
     )}
+
+    {/* Utstyr over tegningene – ellers ville en pil over en kjegle stjele draget –
+        men under ballen og spillerne, som er det man oftest tar tak i. */}
+    {items?.map(item => (
+      <g key={item.id} data-item="true" {...(itemGroupProps ? itemGroupProps(item) : null)}>
+        {/* Usynlig treffflate, så små elementer er lette å treffe med finger. */}
+        <circle cx={item.position.x} cy={item.position.y} r={Math.max(ITEM_RADIUS[item.type], 20)}
+          fill="transparent" style={{ pointerEvents: 'all' }}/>
+        {item.id === selectedItemId && (
+          <circle data-export="skip" cx={item.position.x} cy={item.position.y} r={ITEM_RADIUS[item.type] + 8}
+            fill="none" strokeWidth={1.5} strokeDasharray="5,4" style={{ stroke: 'rgb(var(--k-ink))' }} opacity={0.65}/>
+        )}
+        <g transform={`translate(${item.position.x} ${item.position.y})`}>
+          <BoardItemShape type={item.type}/>
+        </g>
+      </g>
+    ))}
 
     {/* Kalk: ballen er en blekkprikk med kalkkjerne – leses på både mørk og lys bane. */}
     <g {...ballGroupProps} filter={`url(#${ballFilterId})`}>

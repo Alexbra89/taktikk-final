@@ -60,12 +60,27 @@ export type Drawing = PathDrawing | ShapeDrawing | LabelDrawing;
 /** En tegning før storen har gitt den id. */
 export type NewDrawing = Omit<PathDrawing, 'id'> | Omit<ShapeDrawing, 'id'> | Omit<LabelDrawing, 'id'>;
 
+/** Utstyr som kan settes på banen ved behov. */
+export type BoardItemType = 'cone' | 'opponent' | 'minigoal' | 'mannequin' | 'ladder' | 'hurdle' | 'ball';
+
+/**
+ * Et utstyrselement i en fase. Samme id i flere faser betyr samme element,
+ * slik at en motstander kan følges (og glir) fra fase til fase som spillerne.
+ */
+export interface BoardItem {
+  id: string;
+  type: BoardItemType;
+  position: Position;
+}
+
 export interface TacticPhase {
   id: string;
   name: string;
   players: Player[];
   ball: Position;
   drawings: Drawing[];
+  /** Mangler i faser fra før utstyret kom. */
+  items?: BoardItem[];
   stickyNote?: string;
 }
 
