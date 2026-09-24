@@ -59,9 +59,12 @@ interface ActiveDrag {
 
 interface GhostPos { x: number; y: number; scaleIn: boolean }
 
+/**
+ * Én handling som kan angres. Et bytte flytter to spillere og må angres
+ * samlet – ellers går bare den ene tilbake, og de havner oppå hverandre.
+ */
 interface UndoEntry {
-  playerId:      string;
-  prevPos:       { x: number; y: number };
+  moves: { playerId: string; prevPos: { x: number; y: number } }[];
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -215,21 +218,24 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     syncDepths();
   }, [syncDepths]);
 
-  const doUndo = useCallback(() => {
-    const e = undoStack.current.pop(); if (!e||!phase) return;
-    const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
-    redoStack.current.push({ playerId:e.playerId, prevPos:{...p.position} });
-    movePlayer(e.playerId, e.prevPos);
+  /** Flytter alle spillerne i øverste oppføring tilbake, og legger stillingen nå på den andre stakken. */
+  const restore = useCallback((from: React.MutableRefObject<UndoEntry[]>, to: React.MutableRefObject<UndoEntry[]>) => {
+    const e = from.current.pop();
+    if (e && phase) {
+      const moves = e.moves.flatMap(m => {
+        const p = phase.players.find(pl => pl.id === m.playerId);
+        return p ? [{ m, now: { ...p.position } }] : [];
+      });
+      if (moves.length) {
+        to.current.push({ moves: moves.map(({ m, now }) => ({ playerId: m.playerId, prevPos: now })) });
+        moves.forEach(({ m }) => movePlayer(m.playerId, m.prevPos));
+      }
+    }
     syncDepths();
   }, [phase, movePlayer, syncDepths]);
 
-  const doRedo = useCallback(() => {
-    const e = redoStack.current.pop(); if (!e||!phase) return;
-    const p = phase.players.find(pl=>pl.id===e.playerId); if (!p) return;
-    undoStack.current.push({ playerId:e.playerId, prevPos:{...p.position} });
-    movePlayer(e.playerId, e.prevPos);
-    syncDepths();
-  }, [phase, movePlayer, syncDepths]);
+  const doUndo = useCallback(() => restore(undoStack, redoStack), [restore]);
+  const doRedo = useCallback(() => restore(redoStack, undoStack), [restore]);
 
   useEffect(() => {
     const h = (e:KeyboardEvent) => {
@@ -381,7 +387,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     if (!phase) return;
     const a=phase.players.find(p=>p.id===aId), b=phase.players.find(p=>p.id===bId);
     if (!a||!b) return;
-    pushUndo({ playerId:aId, prevPos:{...a.position} });
+    pushUndo({ moves: [
+      { playerId:aId, prevPos:{...a.position} },
+      { playerId:bId, prevPos:{...b.position} },
+    ] });
     const [ap,bp] = [{...a.position},{...b.position}];
     movePlayer(aId, bp);
     movePlayer(bId, ap);
@@ -406,7 +415,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const snap = nearestSlotPos(pos, currentHomePlayers);
     if (snap) pos = snap;
 
-    pushUndo({ playerId:dragged.id, prevPos:{...dragged.position} });
+    pushUndo({ moves: [{ playerId:dragged.id, prevPos:{...dragged.position} }] });
     movePlayer(dragged.id, pos);
     scheduleSpacing(dragged.id);
     setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
