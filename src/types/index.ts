@@ -71,6 +71,8 @@ export interface BoardItem {
   id: string;
   type: BoardItemType;
   position: Position;
+  /** Grader med klokka, 0–359. Mangler = 0. */
+  rotation?: number;
 }
 
 export interface TacticPhase {

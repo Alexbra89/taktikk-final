@@ -10,7 +10,7 @@ import { VW, VH, DEFAULT_FORMATION, getFormations, getFormationSlots } from '../
 import { safeStorage } from '../lib/safeStorage';
 import { buildTemplatePhases, type TacticTemplate } from '../data/tacticTemplates';
 import { drawingColorKey } from '../components/board/drawTools';
-import { BOARD_ITEM_TYPES, ITEM_RADIUS } from '../data/boardItems';
+import { BOARD_ITEM_TYPES, ITEM_RADIUS, normalizeRotation } from '../data/boardItems';
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -226,7 +226,11 @@ function repairItem(raw: unknown): BoardItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const i = raw as Record<string, unknown>;
   if (!BOARD_ITEM_TYPES.includes(i.type as BoardItemType) || !isPos(i.position)) return null;
-  return { id: typeof i.id === 'string' ? i.id : `item-${uid()}`, type: i.type as BoardItemType, position: i.position };
+  const rotation = Number.isFinite(i.rotation) ? normalizeRotation(i.rotation as number) : 0;
+  return {
+    id: typeof i.id === 'string' ? i.id : `item-${uid()}`, type: i.type as BoardItemType, position: i.position,
+    ...(rotation ? { rotation } : {}),
+  };
 }
 
 // Hver tegnetype har sine egne felter. De hvitlistes her, slik at et felt som
@@ -369,6 +373,8 @@ interface AppStore {
   /** Utstyr i aktiv fase. addItem returnerer id-en, så brettet kan markere det nye elementet. */
   addItem: (type: BoardItemType) => string;
   moveItem: (itemId: string, pos: Position) => void;
+  /** Setter rotasjonen i grader; normaliseres til 0–359. */
+  rotateItem: (itemId: string, deg: number) => void;
   removeItem: (itemId: string) => void;
   removeLastDrawing: () => void;
   clearDrawings: () => void;
@@ -575,6 +581,11 @@ export const useAppStore = create<AppStore>()(
       moveItem: (itemId, pos) => set(s => patchActiveTactic(s, t =>
         patchPhase(t, t.activePhaseIdx, ph => ({
           ...ph, items: (ph.items ?? []).map(it => it.id === itemId ? { ...it, position: pos } : it),
+        })))),
+
+      rotateItem: (itemId, deg) => set(s => patchActiveTactic(s, t =>
+        patchPhase(t, t.activePhaseIdx, ph => ({
+          ...ph, items: (ph.items ?? []).map(it => it.id === itemId ? { ...it, rotation: normalizeRotation(deg) } : it),
         })))),
 
       removeItem: (itemId) => set(s => patchActiveTactic(s, t =>

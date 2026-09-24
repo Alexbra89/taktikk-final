@@ -18,6 +18,9 @@ export const BOARD_ITEM_TYPES: BoardItemType[] = BOARD_ITEMS.map(i => i.type);
 
 export const itemLabel = (type: BoardItemType) => BOARD_ITEMS.find(i => i.type === type)?.label ?? 'Utstyr';
 
+/** Grader til 0–359, heltall. */
+export const normalizeRotation = (deg: number) => ((Math.round(deg) % 360) + 360) % 360;
+
 /** Halv bredde – til treffflate, markeringsring og plassering. I SVG-enheter. */
 export const ITEM_RADIUS: Record<BoardItemType, number> = {
   cone: 12, opponent: 15, minigoal: 22, mannequin: 14, ladder: 44, hurdle: 18, ball: 10,

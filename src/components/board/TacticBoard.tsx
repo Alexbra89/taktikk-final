@@ -27,10 +27,10 @@ import { useImageExport } from '../../hooks/useImageExport';
 import { useVideoExport, videoLengthText } from '../../hooks/useVideoExport';
 import { usePlayerStyle } from '../../hooks/usePlayerStyle';
 import { EquipmentPalette } from './EquipmentPalette';
-import { itemLabel } from '../../data/boardItems';
+import { itemLabel, ITEM_RADIUS, normalizeRotation } from '../../data/boardItems';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
-  StickyNote, Minus, X, Plus as PlusIcon, Footprints, TrafficCone,
+  StickyNote, Minus, X, Plus as PlusIcon, Footprints, TrafficCone, RotateCcw, RotateCw,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Modal } from '../ui';
@@ -167,6 +167,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [showPalette,      setShowPalette]       = useState(false);
   const [selectedItemId,   setSelectedItemId]    = useState<string|null>(null);
   const [itemDragPos,      setItemDragPos]       = useState<{ id: string; x: number; y: number }|null>(null);
+  // Rotasjon under drag i håndtaket; skrives først ved slipp, som posisjonen.
+  const [itemRotPreview,   setItemRotPreview]    = useState<{ id: string; deg: number }|null>(null);
+  const rotDragRef = useRef<{ itemId: string; pointerId: number }|null>(null);
+  // Håndtaket er for mus og penn. På berøring er knappene tryggere enn et lite punkt.
+  const [finePointer] = useState(() => typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches);
   const itemDragRef = useRef<ItemDrag|null>(null);
   const selectedItemIdRef = useRef<string|null>(null);
   selectedItemIdRef.current = selectedItemId;
@@ -178,7 +183,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     movePlayer, moveBall,
     removeLastDrawing, clearDrawings,
     updateStickyNote,
-    addItem, moveItem, removeItem,
+    addItem, moveItem, removeItem, rotateItem,
     showMovement, setShowMovement,
   } = useAppStore();
 
@@ -344,7 +349,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   // Må speile <svg preserveAspectRatio="xMidYMid meet"> nøyaktig (letterbox, skala=min).
   // Banen vises alltid i sin helhet: med faner, kontroller og verktøylinje rundt blir
   // brettet lavt i liggende format, og "slice" (skala=max) ville beskåret vinger og backer.
-  const toSVG = useCallback((cx: number, cy: number): SvgPos => {
+  const toSVGRaw = useCallback((cx: number, cy: number): SvgPos => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
 
@@ -367,8 +372,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     const localX = cx - rect.left - offsetX;
     const localY = cy - rect.top  - offsetY;
 
-    return clampToPitch((localX / renderedW) * VW, (localY / renderedH) * VH);
-  }, [clampToPitch]);
+    return { x: (localX / renderedW) * VW, y: (localY / renderedH) * VH };
+  }, []);
+
+  // Det meste skal holde seg innenfor banen. Rotasjonshåndtaket bruker den
+  // rå posisjonen, så vinkelen blir riktig også når pekeren er utenfor.
+  const toSVG = useCallback((cx: number, cy: number): SvgPos => {
+    const p = toSVGRaw(cx, cy);
+    return clampToPitch(p.x, p.y);
+  }, [toSVGRaw, clampToPitch]);
 
   const draw = useDrawingInput({
     enabled: drawMode && !isPlaying,
@@ -589,6 +601,51 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     }
   }, [toSVG, moveItem]);
 
+  // ─── Rotasjon ─────────────────────────────────────────────────
+  // Knappene tar 15° om gangen. Håndtaket roterer fritt, men låser seg til
+  // nærmeste 45° innenfor 4°, så en stige lett blir helt rett.
+  const ROT_STEP = 15;
+  const rotateBy = (itemId: string, delta: number) => {
+    const it = phase?.items?.find(i => i.id === itemId);
+    if (it) rotateItem(itemId, (it.rotation ?? 0) + delta);
+  };
+
+  const onRotDown = useCallback((e: React.PointerEvent, itemId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    rotDragRef.current = { itemId, pointerId: e.pointerId };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  }, []);
+
+  const angleTo = useCallback((itemId: string, cx: number, cy: number): number | null => {
+    const it = phase?.items?.find(i => i.id === itemId);
+    if (!it) return null;
+    const p = toSVGRaw(cx, cy);
+    // Håndtaket sitter rett over elementet ved 0°, så «opp» er 0°.
+    let deg = Math.atan2(p.y - it.position.y, p.x - it.position.x) * 180 / Math.PI + 90;
+    const snap = Math.round(deg / 45) * 45;
+    if (Math.abs(deg - snap) <= 4) deg = snap;
+    return normalizeRotation(deg);
+  }, [phase, toSVGRaw]);
+
+  const onRotMove = useCallback((e: React.PointerEvent) => {
+    const d = rotDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    const deg = angleTo(d.itemId, e.clientX, e.clientY);
+    if (deg !== null) setItemRotPreview({ id: d.itemId, deg });
+  }, [angleTo]);
+
+  const onRotUp = useCallback((e: React.PointerEvent) => {
+    const d = rotDragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    e.preventDefault();
+    rotDragRef.current = null;
+    const deg = angleTo(d.itemId, e.clientX, e.clientY);
+    if (deg !== null) rotateItem(d.itemId, deg);
+    setItemRotPreview(null);
+  }, [angleTo, rotateItem]);
+
   const pickItem = (type: Parameters<typeof addItem>[0]) => {
     setSelectedItemId(addItem(type));
     setShowPalette(false);
@@ -641,10 +698,36 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   })), [allDisplay, tactic, getDisplayName, selectedPlayerId, draggingPlayerId, dragOverId, isOutOfPos, bounceId]);
 
   // Utstyret som vises: elementet som dras står der fingeren er.
-  const displayItems = useMemo(() => (phase?.items ?? []).map(it =>
-    itemDragPos && itemDragPos.id === it.id ? { ...it, position: { x: itemDragPos.x, y: itemDragPos.y } } : it,
-  ), [phase, itemDragPos]);
+  const displayItems = useMemo(() => (phase?.items ?? []).map(it => {
+    let out = it;
+    if (itemDragPos && itemDragPos.id === it.id) out = { ...out, position: { x: itemDragPos.x, y: itemDragPos.y } };
+    if (itemRotPreview && itemRotPreview.id === it.id) out = { ...out, rotation: itemRotPreview.deg };
+    return out;
+  }), [phase, itemDragPos, itemRotPreview]);
   const selectedItem = selectedItemId ? phase?.items?.find(it => it.id === selectedItemId) ?? null : null;
+  const selectedShown = selectedItemId ? displayItems.find(it => it.id === selectedItemId) ?? null : null;
+
+  // Rotasjonshåndtaket: en liten ring over det markerte elementet, som følger
+  // rotasjonen. Arbeidsmarkering – ikke med i eksportert bilde.
+  const rotHandle = (() => {
+    if (!finePointer || !selectedShown || isPlaying || drawMode || itemDragPos) return null;
+    const { x, y } = selectedShown.position;
+    const rad = ((selectedShown.rotation ?? 0) - 90) * Math.PI / 180;
+    const dist = ITEM_RADIUS[selectedShown.type] + 18;
+    const hx = x + Math.cos(rad) * dist, hy = y + Math.sin(rad) * dist;
+    return (
+      <g data-export="skip" data-item="true">
+        <line x1={x} y1={y} x2={hx} y2={hy} strokeWidth={1} strokeDasharray="3,3"
+          style={{ stroke: 'rgb(var(--k-ink))', pointerEvents: 'none' }} opacity={0.5}/>
+        <circle cx={hx} cy={hy} r={6} strokeWidth={1.5}
+          style={{ fill: 'rgb(var(--k-pitch))', stroke: 'rgb(var(--k-ink))', cursor: 'grab', touchAction: 'none' }}
+          onPointerDown={e => onRotDown(e, selectedShown.id)}
+          onPointerMove={onRotMove} onPointerUp={onRotUp} onPointerCancel={onRotUp}>
+          <title>Dra for å rotere</title>
+        </circle>
+      </g>
+    );
+  })();
 
   const ghostPlayer = draggingPlayerId ? phase?.players.find(p=>p.id===draggingPlayerId) : null;
   const ghostSlot   = ghostPlayer ? getSlot(tactic, ghostPlayer.slotIdx) : null;
@@ -788,12 +871,15 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               })}
               beforePlayers={snapTarget&&ghostPos
                 ? <SnapIndicator x={snapTarget.x} y={snapTarget.y}/> : null}
-              afterPlayers={ghostPos&&ghostPlayer&&ghostSlot
-                ? <DragGhost x={ghostPos.x} y={ghostPos.y}
+              afterPlayers={<>
+                {ghostPos&&ghostPlayer&&ghostSlot&&(
+                  <DragGhost x={ghostPos.x} y={ghostPos.y}
                     num={ghostPlayer.num} name={getDisplayName(ghostPlayer)}
                     label={ghostSlot.label} scaleIn={ghostPos.scaleIn}
                     family={ROLE_INFO[ghostSlot.role].family} playerStyle={playerStyle}/>
-                : null}
+                )}
+                {rotHandle}
+              </>}
             />
           </svg>
           </div>
@@ -925,13 +1011,21 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           aria-label="Utstyr" title="Legg til utstyr: kjegler, motstandere og mer" className={iconBtn}>
           <TrafficCone size={16} strokeWidth={1.75} />
         </button>
-        {selectedItem && (
+        {selectedItem && (<>
+          <button onClick={()=>rotateBy(selectedItem.id, -ROT_STEP)} disabled={isPlaying}
+            aria-label="Roter mot klokka" title={`Roter ${ROT_STEP}° mot klokka`} className={iconBtn}>
+            <RotateCcw size={16} strokeWidth={1.75} />
+          </button>
+          <button onClick={()=>rotateBy(selectedItem.id, ROT_STEP)} disabled={isPlaying}
+            aria-label="Roter med klokka" title={`Roter ${ROT_STEP}° med klokka`} className={iconBtn}>
+            <RotateCw size={16} strokeWidth={1.75} />
+          </button>
           <button onClick={()=>{ removeItem(selectedItem.id); setSelectedItemId(null); }} disabled={isPlaying}
             aria-label={`Slett ${itemLabel(selectedItem.type).toLowerCase()}`} title={`Slett ${itemLabel(selectedItem.type).toLowerCase()} (Delete)`}
             className={cn(iconBtn, 'text-signal hover:text-signal')}>
             <Trash2 size={16} strokeWidth={1.75} />
           </button>
-        )}
+        </>)}
 
         {/* I tegnemodus ligger viskelæret i tegneraden over. */}
         {!drawMode&&(phase?.drawings?.length??0)>0&&(

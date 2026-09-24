@@ -111,7 +111,7 @@ export const BoardStage: React.FC<BoardStageProps> = ({
           <circle data-export="skip" cx={item.position.x} cy={item.position.y} r={ITEM_RADIUS[item.type] + 8}
             fill="none" strokeWidth={1.5} strokeDasharray="5,4" style={{ stroke: 'rgb(var(--k-ink))' }} opacity={0.65}/>
         )}
-        <g transform={`translate(${item.position.x} ${item.position.y})`}>
+        <g transform={`translate(${item.position.x} ${item.position.y}) rotate(${item.rotation ?? 0})`}>
           <BoardItemShape type={item.type}/>
         </g>
       </g>
