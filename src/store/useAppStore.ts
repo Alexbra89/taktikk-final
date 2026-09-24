@@ -370,11 +370,17 @@ interface AppStore {
   setPlayerName: (playerId: string, name: string) => void;
   setPlayerNum: (playerId: string, num: number) => void;
   addDrawing: (drawing: NewDrawing) => void;
-  /** Utstyr i aktiv fase. addItem returnerer id-en, så brettet kan markere det nye elementet. */
+  /**
+   * Nytt utstyr legges i aktiv fase og alle fasene etter, med samme id –
+   * en kjegle står der gjennom resten av taktikken, og flyttes den i en
+   * senere fase, glir den dit. Returnerer id-en, så brettet kan markere det.
+   */
   addItem: (type: BoardItemType) => string;
+  /** Flytting og rotering gjelder bare aktiv fase. */
   moveItem: (itemId: string, pos: Position) => void;
   /** Setter rotasjonen i grader; normaliseres til 0–359. */
   rotateItem: (itemId: string, deg: number) => void;
+  /** Sletter i aktiv fase og alle fasene etter; tidligere faser beholder det. */
   removeItem: (itemId: string) => void;
   removeLastDrawing: () => void;
   clearDrawings: () => void;
@@ -571,10 +577,15 @@ export const useAppStore = create<AppStore>()(
 
       addItem: (type) => {
         const id = `item-${uid()}`;
-        set(s => patchActiveTactic(s, t => patchPhase(t, t.activePhaseIdx, ph => {
-          const items = ph.items ?? [];
-          return { ...ph, items: [...items, { id, type, position: freeSpot(type, ph) }] };
-        })));
+        set(s => patchActiveTactic(s, t => {
+          // Plassen finnes i fasen man står i; de senere fasene får samme plass.
+          const position = freeSpot(type, t.phases[t.activePhaseIdx]);
+          return {
+            ...t, phases: t.phases.map((ph, i) => i < t.activePhaseIdx ? ph : {
+              ...ph, items: [...(ph.items ?? []), { id, type, position: { ...position } }],
+            }),
+          };
+        }));
         return id;
       },
 
@@ -588,10 +599,13 @@ export const useAppStore = create<AppStore>()(
           ...ph, items: (ph.items ?? []).map(it => it.id === itemId ? { ...it, rotation: normalizeRotation(deg) } : it),
         })))),
 
-      removeItem: (itemId) => set(s => patchActiveTactic(s, t =>
-        patchPhase(t, t.activePhaseIdx, ph => ({
+      // Borte fra og med denne fasen: det gir ingen mening at et element
+      // forsvinner og så dukker opp igjen i en senere fase.
+      removeItem: (itemId) => set(s => patchActiveTactic(s, t => ({
+        ...t, phases: t.phases.map((ph, i) => i < t.activePhaseIdx ? ph : {
           ...ph, items: (ph.items ?? []).filter(it => it.id !== itemId),
-        })))),
+        }),
+      }))),
 
       removeLastDrawing: () => set(s => patchActiveTactic(s, t =>
         patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, drawings: ph.drawings.slice(0, -1) })))),
