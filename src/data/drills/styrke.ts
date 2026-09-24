@@ -565,7 +565,7 @@ export const STYRKE_ADULT: DrillExercise[] = [
       { id: 'styrke-a-03-s5', name: 'Variasjon', description: 'Skift kombinasjon jevnlig.' },
     ],
     coachingPoints: [
-      'Tenk gjerne spilllignende situasjoner (kilde: læringsmoment)',
+      'Tenk gjerne spillignende situasjoner (kilde: læringsmoment)',
       'Minimer sidebøy og fremoverbevegelse i overkroppen (kilde: læringsmoment)',
       'Kort kontakttid i bakken (kilde: læringsmoment)',
       'Tilpass farten så du beholder kontrollen (kilde: læringsmoment)',

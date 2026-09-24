@@ -366,7 +366,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       'Lukker øynene eller snur ryggen',
     ],
     variations: [
-      'Lettere: Angriperen tar tre faste touch før skudd, slik at keeperen kan tajme utrykket',
+      'Lettere: Angriperen tar tre faste touch før skudd, slik at keeperen kan time utrykningen',
       'Vanskeligere: Angriperen kan velge å legge av til en medspiller på blankt mål',
     ],
     equipment: ['8 baller', '1 mål', 'Kjegler'],

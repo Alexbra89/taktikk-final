@@ -573,6 +573,17 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     );
   }
 
+  // Sletting av tegninger og faser kan ikke angres (angre gjelder bare
+  // spillerflytt). Spør derfor først, som ved sletting av en taktikk.
+  const confirmClearDrawings = () => {
+    if (window.confirm(`Slette alle tegningene i «${phase.name}»?`)) clearDrawings();
+  };
+  const confirmRemovePhase = () => {
+    if (phases.length > 1 && window.confirm(`Slette «${phase.name}»? Plasseringene og tegningene i fasen forsvinner.`)) {
+      removePhase(activePhaseIdx);
+    }
+  };
+
   const iconBtn = 'tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30 disabled:hover:text-ink-subtle disabled:hover:bg-transparent';
 
   return (
@@ -708,7 +719,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           color={draw.color} onColor={draw.setColor}
           hasDrawings={(phase?.drawings?.length??0)>0}
           onRemoveLast={removeLastDrawing}
-          onClearAll={clearDrawings}
+          onClearAll={confirmClearDrawings}
           className="border-t"/>
       )}
 
@@ -775,7 +786,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           <StickyNote size={16} strokeWidth={1.75} />
         </button>
         {phases.length > 1 && (
-          <button onClick={() => { if (phases.length > 1) removePhase(activePhaseIdx); }} disabled={isPlaying}
+          <button onClick={confirmRemovePhase} disabled={isPlaying}
             aria-label="Slett fasen" title="Slett fasen" className={iconBtn}>
             <Trash2 size={16} strokeWidth={1.75} />
           </button>
@@ -819,7 +830,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
         {/* I tegnemodus ligger viskelæret i tegneraden over. */}
         {!drawMode&&(phase?.drawings?.length??0)>0&&(
-          <button onClick={()=>clearDrawings()} aria-label="Slett tegningene" title="Slett tegningene" className={iconBtn}>
+          <button onClick={confirmClearDrawings} aria-label="Slett tegningene" title="Slett tegningene" className={iconBtn}>
             <Eraser size={16} strokeWidth={1.75} />
           </button>
         )}

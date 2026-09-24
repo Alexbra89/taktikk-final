@@ -383,7 +383,8 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           color={draw.color} onColor={draw.setColor}
           hasDrawings={(phase.drawings?.length ?? 0) > 0}
           onRemoveLast={removeLastDrawing}
-          onClearAll={clearDrawings}
+          // Kan ikke angres – spør først, som på vanlig brett.
+          onClearAll={() => { if (window.confirm(`Slette alle tegningene i «${phase.name}»?`)) clearDrawings(); }}
           className={cn('border-b transition-opacity duration-300',
             showControls ? 'opacity-100' : 'opacity-0 pointer-events-none')}/>
       )}

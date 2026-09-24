@@ -63,7 +63,7 @@ NFF skriver at blokk er et godt alternativ når gjennomspilleren er nær keepere
 - Lukker øynene eller snur ryggen
 
 **VARIASJONER**
-- *Lettere:* Angriperen tar tre faste touch før skudd, slik at keeperen kan tajme utrykket
+- *Lettere:* Angriperen tar tre faste touch før skudd, slik at keeperen kan time utrykningen
 - *Vanskeligere:* Angriperen kan velge å legge av til en medspiller på blankt mål
 
 **UTSTYR**

@@ -290,7 +290,7 @@ Kobler kontrollerte retningsforandringer til spillsituasjoner: kroppskontroll og
 
 \*\*COACHING-PUNKTER\*\*
 
-\- Tenk gjerne spilllignende situasjoner (kilde: læringsmoment)
+\- Tenk gjerne spillignende situasjoner (kilde: læringsmoment)
 
 \- Minimer sidebøy og fremoverbevegelse i overkroppen (kilde: læringsmoment)
 

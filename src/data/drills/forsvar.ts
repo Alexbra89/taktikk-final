@@ -591,7 +591,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     unverifiedSource:
       'Gemini oppga «US Soccer Coaching DCC (Grassroots 7v7 / 9v9 manual)», uten URL. Opprinnelig tittel «Offside-Fellen (Linjekontroll 4v4)», men øvelsen handler om linjeorganisering, ikke offside.',
     sketch:
-      'Bane 30×20 m med mål i hver ende. Forsvarslinje på 4 foran eget mål, en kjegleline midt på banen som referanse. Fire angripere spiller mot linjen.',
+      'Bane 30×20 m med mål i hver ende. Forsvarslinje på 4 foran eget mål, en kjeglelinje midt på banen som referanse. Fire angripere spiller mot linjen.',
   },
 ];
 
@@ -610,7 +610,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     why: 'Lærer forsvareren å bestemme hvor angriperen får bevege seg, i stedet for å reagere passivt. NFF beskriver at førsteforsvarer skal «lede vekk fra mål» og «reagere raskt og vinne ball ved dårlige, lange touch». (kilde: Landslagsskolens spillmodell, 1 mot 1)',
     steps: [
       { id: 'forsvar-a-01-s1', name: 'Oppsett', description: 'Marker en korridor på 15×8 m langs sidelinjen.' },
-      { id: 'forsvar-a-01-s2', name: 'Utrykk', description: 'Forsvareren støter ut i høy fart, bremser 1,5 m foran angriperen og setter en halvåpen kroppsstilling.' },
+      { id: 'forsvar-a-01-s2', name: 'Utrykning', description: 'Forsvareren støter ut i høy fart, bremser 1,5 m foran angriperen og setter en halvåpen kroppsstilling.' },
       { id: 'forsvar-a-01-s3', name: 'Lede', description: 'Kroppsstillingen lukker sporet inn mot banen og tvinger angriperen ut mot sidelinjen.' },
       { id: 'forsvar-a-01-s4', name: 'Vinne ball', description: 'Tar angriperen et urent touch eller slipper ballen for langt frem, går forsvareren inn og vinner ballen.' },
     ],

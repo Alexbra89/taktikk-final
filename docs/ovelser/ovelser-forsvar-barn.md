@@ -668,7 +668,7 @@ Forbereder de eldste barna på linjeorganisering og bakromsforsvar på større b
 2 mål, markeringskjegler, vester, baller
 
 **SKISSE**
-Bane 30×20 m med mål i hver ende. Forsvarslinje på 4 foran eget mål, en kjegleline midt på banen som referanse. Fire angripere spiller mot linjen.
+Bane 30×20 m med mål i hver ende. Forsvarslinje på 4 foran eget mål, en kjeglelinje midt på banen som referanse. Fire angripere spiller mot linjen.
 
 ---
 
