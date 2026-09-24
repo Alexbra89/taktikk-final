@@ -222,6 +222,37 @@ function freeSpot(type: BoardItemType, ph: TacticPhase): Position {
   return centerBall();
 }
 
+/**
+ * Endrer et element i aktiv fase og i fasene etter som fortsatt står likt –
+ * der det ikke er flyttet (eller rotert) for seg. Den første fasen med egen
+ * verdi stopper kopieringen, så en bevegelse lagt inn senere blir stående.
+ * Tidligere faser røres ikke.
+ */
+function patchItemForward(
+  t: Tactic, itemId: string,
+  same: (a: BoardItem, b: BoardItem) => boolean,
+  apply: (it: BoardItem) => BoardItem,
+): Tactic {
+  const a = t.activePhaseIdx;
+  const cur = t.phases[a]?.items?.find(i => i.id === itemId);
+  if (!cur) return t;
+  let following = true;
+  return {
+    ...t, phases: t.phases.map((ph, i) => {
+      if (i < a || !following) return ph;
+      if (i > a) {
+        const it = ph.items?.find(x => x.id === itemId);
+        if (!it || !same(it, cur)) { following = false; return ph; }
+      }
+      return { ...ph, items: (ph.items ?? []).map(x => x.id === itemId ? apply(x) : x) };
+    }),
+  };
+}
+
+const samePos = (a: BoardItem, b: BoardItem) =>
+  Math.abs(a.position.x - b.position.x) < 0.5 && Math.abs(a.position.y - b.position.y) < 0.5;
+const sameRot = (a: BoardItem, b: BoardItem) => (a.rotation ?? 0) === (b.rotation ?? 0);
+
 function repairItem(raw: unknown): BoardItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const i = raw as Record<string, unknown>;
@@ -376,9 +407,12 @@ interface AppStore {
    * senere fase, glir den dit. Returnerer id-en, så brettet kan markere det.
    */
   addItem: (type: BoardItemType) => string;
-  /** Flytting og rotering gjelder bare aktiv fase. */
+  /**
+   * Flytter i aktiv fase og i fasene etter der elementet står likt – ikke
+   * der det er flyttet for seg. Tidligere faser røres ikke.
+   */
   moveItem: (itemId: string, pos: Position) => void;
-  /** Setter rotasjonen i grader; normaliseres til 0–359. */
+  /** Rotasjon i grader, normalisert til 0–359. Følger med framover som moveItem. */
   rotateItem: (itemId: string, deg: number) => void;
   /** Sletter i aktiv fase og alle fasene etter; tidligere faser beholder det. */
   removeItem: (itemId: string) => void;
@@ -590,14 +624,10 @@ export const useAppStore = create<AppStore>()(
       },
 
       moveItem: (itemId, pos) => set(s => patchActiveTactic(s, t =>
-        patchPhase(t, t.activePhaseIdx, ph => ({
-          ...ph, items: (ph.items ?? []).map(it => it.id === itemId ? { ...it, position: pos } : it),
-        })))),
+        patchItemForward(t, itemId, samePos, it => ({ ...it, position: { ...pos } })))),
 
       rotateItem: (itemId, deg) => set(s => patchActiveTactic(s, t =>
-        patchPhase(t, t.activePhaseIdx, ph => ({
-          ...ph, items: (ph.items ?? []).map(it => it.id === itemId ? { ...it, rotation: normalizeRotation(deg) } : it),
-        })))),
+        patchItemForward(t, itemId, sameRot, it => ({ ...it, rotation: normalizeRotation(deg) })))),
 
       // Borte fra og med denne fasen: det gir ingen mening at et element
       // forsvinner og så dukker opp igjen i en senere fase.
