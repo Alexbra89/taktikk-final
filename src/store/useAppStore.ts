@@ -7,7 +7,7 @@ import {
   TacticMoment
 } from '../types';
 import { VW, VH, DEFAULT_FORMATION, getFormations, getFormationSlots } from '../data/formations';
-import { safeStorage } from '../lib/safeStorage';
+import { safeStorage, createTabGuardedStorage } from '../lib/safeStorage';
 import { buildTemplatePhases, type TacticTemplate } from '../data/tacticTemplates';
 import { drawingColorKey } from '../components/board/drawTools';
 import { BOARD_ITEM_TYPES, ITEM_RADIUS, normalizeRotation } from '../data/boardItems';
@@ -47,6 +47,9 @@ const isSport = (v: unknown): v is Sport => SPORTS.includes(v as Sport);
 const isPos = (p: unknown): p is Position =>
   !!p && Number.isFinite((p as Position).x) && Number.isFinite((p as Position).y);
 const centerBall = (): Position => ({ x: VW / 2, y: VH / 2 });
+/** Innenfor brettet. Brukes ved lasting: en brikke langt utenfor kan ikke dras tilbake. */
+const inBoard = (p: Position): Position =>
+  ({ x: Math.min(VW, Math.max(0, p.x)), y: Math.min(VH, Math.max(0, p.y)) });
 const newPlayerId = () => `p-${uid()}`;
 
 function createPhase(name: string, slots: Slots): TacticPhase {
@@ -85,23 +88,35 @@ function syncPlayers(phases: TacticPhase[], slots: Slots): TacticPhase[] {
   const usedNums = new Set<number>();
   phases.forEach(ph => ph.players.forEach(p => usedNums.add(p.num)));
 
-  return phases.map(ph => {
+  const keptPerPhase = phases.map(ph => {
     const seen = new Set<number>();
-    const kept = ph.players.filter(p => {
+    return ph.players.filter(p => {
       const ok = Number.isInteger(p.slotIdx) && p.slotIdx >= 0 && p.slotIdx < n && !seen.has(p.slotIdx);
       if (ok) seen.add(p.slotIdx);
       return ok;
     });
+  });
+  // Spilleren som står på sloten i en annen fase er den samme spilleren:
+  // en manglende spiller får hans id og nummer, ikke en ny.
+  keptPerPhase.forEach(kept => kept.forEach(p => {
+    if (!shared.has(p.slotIdx)) shared.set(p.slotIdx, { id: p.id, num: p.num });
+  }));
+
+  return phases.map((ph, phaseIdx) => {
+    const kept = keptPerPhase[phaseIdx];
+    const seen = new Set(kept.map(p => p.slotIdx));
     const added: Player[] = [];
     for (let i = 0; i < n; i++) {
       if (seen.has(i)) continue;
       let t = shared.get(i);
-      if (!t) {
+      // Står id-en allerede på en annen slot i denne fasen (inkonsistent import),
+      // får sloten en ny id – to spillere med samme id i én fase er verre.
+      if (!t || kept.some(p => p.id === t!.id)) {
         let num = i + 1;
         while (usedNums.has(num)) num++;
         usedNums.add(num);
         t = { id: newPlayerId(), num };
-        shared.set(i, t);
+        if (!shared.has(i)) shared.set(i, t);
       }
       added.push({ id: t.id, num: t.num, name: '', slotIdx: i, position: { ...slots[i].position }, notes: '' });
     }
@@ -140,6 +155,21 @@ const obj = (v: unknown): Record<string, unknown> | null =>
 const optStr = (v: unknown): string | undefined => typeof v === 'string' ? v : undefined;
 const strList = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+
+/**
+ * Et objekt med samme id som et tidligere i lista får ny id. Handlingene finner
+ * objekter på id, så to med samme id ble endret eller slettet sammen
+ * (og removeTactic krasjet). Kan bare oppstå fra importerte eller skadde data.
+ */
+function uniqueIds<T extends { id: string }>(list: T[], make: () => string): T[] {
+  const seen = new Set<string>();
+  return list.map(x => {
+    if (!seen.has(x.id)) { seen.add(x.id); return x; }
+    const id = make();
+    seen.add(id);
+    return { ...x, id };
+  });
+}
 
 function repairTrainingNote(raw: unknown): TrainingNote | null {
   const n = obj(raw);
@@ -186,9 +216,43 @@ export function repairEvent(raw: unknown): CalendarEvent | null {
     opponent: optStr(e.opponent),
     result: optStr(e.result),
     teamNote: typeof e.teamNote === 'string' ? e.teamNote : '',
-    trainingNotes: notes(e.trainingNotes, repairTrainingNote),
-    matchNotes: notes(e.matchNotes, repairMatchNote),
+    trainingNotes: uniqueIds(notes(e.trainingNotes, repairTrainingNote), uid),
+    matchNotes: uniqueIds(notes(e.matchNotes, repairMatchNote), uid),
     ...(Array.isArray(e.attendance) ? { attendance: strList(e.attendance) } : {}),
+  };
+}
+
+// Rapporter og øyeblikk vises i lister (MatchReport, BoardPanel) som leser
+// feltene direkte. Uten vasking ga f.eks. `null` eller tags som streng en krasj
+// hver gang listen ble åpnet.
+const REPORT_TAGS = Object.keys(TAG_LABELS) as ReportTag[];
+
+export function repairReport(raw: unknown): MatchReport | null {
+  const r = obj(raw);
+  // Den genererte teksten er selve rapporten; uten den er det ingenting å vise.
+  if (!r || typeof r.generatedText !== 'string') return null;
+  return {
+    id: typeof r.id === 'string' ? r.id : uid(),
+    eventId: optStr(r.eventId),
+    matchTitle: optStr(r.matchTitle),
+    createdAt: typeof r.createdAt === 'string' ? r.createdAt : new Date().toISOString(),
+    tags: strList(r.tags).filter((t): t is ReportTag => REPORT_TAGS.includes(t as ReportTag)),
+    freeText: typeof r.freeText === 'string' ? r.freeText : '',
+    generatedText: r.generatedText,
+  };
+}
+
+// Snapshotet vises ikke noe sted i dag, så det sjekkes bare at det er et objekt.
+export function repairMoment(raw: unknown): TacticMoment | null {
+  const m = obj(raw);
+  const snapshot = obj(m?.snapshot);
+  if (!m || typeof m.name !== 'string' || !snapshot) return null;
+  return {
+    id: typeof m.id === 'string' ? m.id : uid(),
+    name: m.name,
+    timestamp: typeof m.timestamp === 'string' ? m.timestamp : new Date().toISOString(),
+    ...(typeof m.tacticId === 'string' ? { tacticId: m.tacticId } : {}),
+    snapshot: snapshot as unknown as TacticPhase,
   };
 }
 
@@ -259,7 +323,7 @@ export function repairItem(raw: unknown): BoardItem | null {
   if (!BOARD_ITEM_TYPES.includes(i.type as BoardItemType) || !isPos(i.position)) return null;
   const rotation = Number.isFinite(i.rotation) ? normalizeRotation(i.rotation as number) : 0;
   return {
-    id: typeof i.id === 'string' ? i.id : `item-${uid()}`, type: i.type as BoardItemType, position: i.position,
+    id: typeof i.id === 'string' ? i.id : `item-${uid()}`, type: i.type as BoardItemType, position: inBoard(i.position),
     ...(rotation ? { rotation } : {}),
   };
 }
@@ -299,26 +363,34 @@ export function repairTactic(raw: unknown): Tactic | null {
     ? (t.formation as string) : DEFAULT_FORMATION[sport];
   const slots = getFormationSlots(sport, formation);
 
-  const phases = (Array.isArray(t.phases) ? t.phases : [])
+  const phases = uniqueIds((Array.isArray(t.phases) ? t.phases : [])
     .filter((ph): ph is TacticPhase => !!ph && typeof ph === 'object')
-    .map((ph, i): TacticPhase => ({
+    .map((ph, i): TacticPhase => {
+      // Samme spiller-id to ganger i én fase: den andre forkastes, og syncPlayers
+      // fyller sloten med spilleren som står der i de andre fasene.
+      const playerIds = new Set<string>();
+      return {
       id: typeof ph.id === 'string' ? ph.id : `phase-${uid()}`,
       name: typeof ph.name === 'string' ? ph.name : `Fase ${i + 1}`,
       players: (Array.isArray(ph.players) ? ph.players : [])
-        .filter((p): p is Player => !!p && typeof p.id === 'string' && isPos(p.position))
+        .filter((p): p is Player => !!p && typeof p.id === 'string' && isPos(p.position)
+          && !playerIds.has(p.id) && (playerIds.add(p.id), true))
         .map(p => ({
-          id: p.id, slotIdx: p.slotIdx, position: p.position,
-          num: Number.isFinite(p.num) ? p.num : (Number.isInteger(p.slotIdx) ? p.slotIdx + 1 : 0),
+          id: p.id, slotIdx: p.slotIdx, position: inBoard(p.position),
+          // Samme regel som setPlayerNum: heltall 1–99.
+          num: Number.isInteger(p.num) && p.num >= 1 && p.num <= 99
+            ? p.num : (Number.isInteger(p.slotIdx) ? p.slotIdx + 1 : 0),
           name: typeof p.name === 'string' ? p.name : '',
           notes: typeof p.notes === 'string' ? p.notes : '',
         })),
-      ball: isPos(ph.ball) ? ph.ball : centerBall(),
-      drawings: (Array.isArray(ph.drawings) ? ph.drawings : [])
-        .map(repairDrawing).filter((d): d is Drawing => d !== null),
-      items: (Array.isArray(ph.items) ? ph.items : [])
-        .map(repairItem).filter((it): it is BoardItem => it !== null),
+      ball: isPos(ph.ball) ? inBoard(ph.ball) : centerBall(),
+      drawings: uniqueIds((Array.isArray(ph.drawings) ? ph.drawings : [])
+        .map(repairDrawing).filter((d): d is Drawing => d !== null), () => `drawing-${uid()}`),
+      items: uniqueIds((Array.isArray(ph.items) ? ph.items : [])
+        .map(repairItem).filter((it): it is BoardItem => it !== null), () => `item-${uid()}`),
       stickyNote: typeof ph.stickyNote === 'string' ? ph.stickyNote : '',
-    }));
+      };
+    }), () => `phase-${uid()}`);
   const safePhases = syncPlayers(phases.length ? phases : [createPhase('Fase 1', slots)], slots);
 
   return {
@@ -341,7 +413,8 @@ export function repairPersisted(persisted: unknown, current: AppStore): Partial<
   const str = (v: unknown, fallback: string) => typeof v === 'string' && v ? v : fallback;
   const arr = <T,>(v: unknown): T[] => Array.isArray(v) ? v as T[] : [];
 
-  const tactics = arr<unknown>(p.tactics).map(repairTactic).filter((t): t is Tactic => t !== null);
+  const tactics = uniqueIds(arr<unknown>(p.tactics).map(repairTactic).filter((t): t is Tactic => t !== null),
+    () => `tactic-${uid()}`);
   const safeTactics = tactics.length ? tactics : current.tactics;
 
   return {
@@ -352,9 +425,9 @@ export function repairPersisted(persisted: unknown, current: AppStore): Partial<
     awayTeamName: str(p.awayTeamName, current.awayTeamName),
     awayTeamColor: str(p.awayTeamColor, current.awayTeamColor),
     rosterNames: arr<unknown>(p.rosterNames).filter((n): n is string => typeof n === 'string'),
-    events: arr<unknown>(p.events).map(repairEvent).filter((e): e is CalendarEvent => e !== null),
-    matchReports: arr<MatchReport>(p.matchReports),
-    moments: arr<TacticMoment>(p.moments),
+    events: uniqueIds(arr<unknown>(p.events).map(repairEvent).filter((e): e is CalendarEvent => e !== null), uid),
+    matchReports: uniqueIds(arr<unknown>(p.matchReports).map(repairReport).filter((r): r is MatchReport => r !== null), uid),
+    moments: uniqueIds(arr<unknown>(p.moments).map(repairMoment).filter((m): m is TacticMoment => m !== null), uid),
     currentView: VALID_VIEWS.includes(p.currentView as AppView) ? p.currentView as AppView : current.currentView,
     lastExportedAt: typeof p.lastExportedAt === 'string' ? p.lastExportedAt : null,
     showMovement: p.showMovement === true,
@@ -473,6 +546,12 @@ export interface AppStore {
 
 const initialTactic = createTactic('Taktikk 1', 'football');
 
+const STORE_KEY = 'taktikkboard-storage';
+// Skriver aldri over det en annen fane har lagret; laster det inn i stedet.
+// queueMicrotask: storen er midt i en set() når skrivingen avvises.
+const tabStorage = createTabGuardedStorage(safeStorage, () =>
+  queueMicrotask(() => void useAppStore.persist.rehydrate()));
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
@@ -586,13 +665,15 @@ export const useAppStore = create<AppStore>()(
 
       renamePhase: (idx, name) => set(s => patchActiveTactic(s, t => patchPhase(t, idx, ph => ({ ...ph, name })))),
 
-      movePlayer: (playerId, pos) => set(s => patchActiveTactic(s, t =>
+      // NaN/Infinity (f.eks. fra et brett med størrelse 0) lagres som null og
+      // forkaster spilleren ved neste lasting. Slike posisjoner avvises her.
+      movePlayer: (playerId, pos) => { if (isPos(pos)) set(s => patchActiveTactic(s, t =>
         patchPhase(t, t.activePhaseIdx, ph => ({
           ...ph, players: ph.players.map(p => p.id === playerId ? { ...p, position: pos } : p),
-        })))),
+        })))); },
 
-      moveBall: (pos) => set(s => patchActiveTactic(s, t =>
-        patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, ball: pos })))),
+      moveBall: (pos) => { if (isPos(pos)) set(s => patchActiveTactic(s, t =>
+        patchPhase(t, t.activePhaseIdx, ph => ({ ...ph, ball: pos })))); },
 
       setPlayerName: (playerId, name) => set(s => patchActiveTactic(s, t => ({
         ...t, phases: t.phases.map(ph => ({
@@ -626,8 +707,8 @@ export const useAppStore = create<AppStore>()(
         return id;
       },
 
-      moveItem: (itemId, pos) => set(s => patchActiveTactic(s, t =>
-        patchItemForward(t, itemId, samePos, it => ({ ...it, position: { ...pos } })))),
+      moveItem: (itemId, pos) => { if (isPos(pos)) set(s => patchActiveTactic(s, t =>
+        patchItemForward(t, itemId, samePos, it => ({ ...it, position: { ...pos } })))); },
 
       rotateItem: (itemId, deg) => set(s => patchActiveTactic(s, t =>
         patchItemForward(t, itemId, sameRot, it => ({ ...it, rotation: normalizeRotation(deg) })))),
@@ -791,6 +872,10 @@ export const useAppStore = create<AppStore>()(
         // gjennom: ukjente felter forkastes, ødelagte taktikker filtreres
         // bort, og mangler noe faller vi tilbake på gjeldende verdi.
         const repaired = repairPersisted(data, get());
+        // Ingen gyldig taktikk i filen: repairPersisted faller da tilbake på dine
+        // taktikker, mens kalender og rapporter ville kommet fra filen. Heller
+        // avbryte – page.tsx viser da at dataene dine ikke er endret.
+        if (repaired.tactics === get().tactics) throw new Error('Filen har ingen gyldige taktikker.');
         set({
           ...repaired,
           matchTimer: { running: false, startedAt: null, elapsed: 0 },
@@ -803,9 +888,9 @@ export const useAppStore = create<AppStore>()(
       },
     }),
     {
-      name: 'taktikkboard-storage',
+      name: STORE_KEY,
       version: 2,
-      storage: createJSONStorage(() => safeStorage),
+      storage: createJSONStorage(() => tabStorage.storage),
       migrate: (persisted, version) =>
         version < 2 ? migrateV1((persisted ?? {}) as Record<string, unknown>) : persisted,
       merge: (persisted, current) => ({ ...current, ...repairPersisted(persisted, current) }),
@@ -828,3 +913,15 @@ export const useAppStore = create<AppStore>()(
     }
   )
 );
+
+// En annen fane har lagret, eller fanen kommer tilbake i forgrunnen (der den
+// kan ha gått glipp av storage-hendelser): hent det nye før brukeren endrer noe.
+if (typeof window !== 'undefined') {
+  const refresh = () => {
+    if (tabStorage.changedElsewhere(STORE_KEY)) void useAppStore.persist.rehydrate();
+  };
+  window.addEventListener('storage', e => { if (e.key === STORE_KEY) refresh(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refresh();
+  });
+}
