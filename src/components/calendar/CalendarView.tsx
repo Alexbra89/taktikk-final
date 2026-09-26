@@ -16,13 +16,16 @@ import { AutoGenForm } from './AutoGenForm';
 // ═══════════════════════════════════════════════════════════════
 interface CalendarViewProps {
   onGoToTraining?: (training: CalendarEvent) => void;
+  /** Åpner kalenderen på en bestemt dag (YYYY-MM-DD), f.eks. fra ukestripa på dashbordet. */
+  initialDate?: string;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining, initialDate }) => {
   const today = new Date();
-  const [year,  setYear]  = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
-  const [selectedDate, setSelectedDate]   = useState<string | null>(null);
+  const start = initialDate ? new Date(initialDate + 'T12:00:00') : today;
+  const [year,  setYear]  = useState(start.getFullYear());
+  const [month, setMonth] = useState(start.getMonth());
+  const [selectedDate, setSelectedDate]   = useState<string | null>(initialDate ?? null);
   const [showNewEvent, setShowNewEvent]   = useState(false);
   const [showAutoGen, setShowAutoGen]     = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);

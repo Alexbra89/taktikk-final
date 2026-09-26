@@ -4,11 +4,15 @@
 //  alt valideres her før noe sendes videre til modellen.
 // ══════════════════════════════════════════════════════════════
 
-export const AI_MODES = ['ANALYZE_PHASE', 'COACHING', 'DRILL', 'NEXT_PHASE', 'GENERAL'] as const;
+export const AI_MODES = ['ANALYZE_PHASE', 'COACHING', 'DRILL', 'NEXT_PHASE', 'GENERAL', 'CHAT'] as const;
 export type AiMode = typeof AI_MODES[number];
 
-/** Modusene som trenger brettet. GENERAL svarer uten. */
+/** Modusene som trenger brettet. GENERAL svarer uten; CHAT kan ha brettet med. */
 export const BOARD_MODES: readonly AiMode[] = ['ANALYZE_PHASE', 'COACHING', 'DRILL', 'NEXT_PHASE'];
+
+/** Hvor i appen AI-treneren ble brukt. Styrer bare innrammingen i prompten. */
+export const AI_AREAS = ['dashboard', 'board', 'training', 'calendar', 'general'] as const;
+export type AiArea = typeof AI_AREAS[number];
 
 export const AI_ACCESS_HEADER = 'x-ai-access-code';
 
@@ -30,8 +34,11 @@ export interface AiHistoryMessage {
 export interface AiRequest {
   mode: AiMode;
   question: string;
-  /** Resultatet av buildAiContext – påkrevd for modusene som bruker brettet. */
+  /** Resultatet av buildAiContext – påkrevd for modusene som bruker brettet, valgfritt i CHAT. */
   context: Record<string, unknown> | null;
+  /** Resultatet av buildAppContext – treninger, kalender og taktikkoversikt. Valgfritt. */
+  appContext: Record<string, unknown> | null;
+  area: AiArea;
   history: AiHistoryMessage[];
 }
 
@@ -51,10 +58,10 @@ export function validateAiRequest(body: unknown): AiRequestResult {
 
   const question = typeof body.question === 'string' ? body.question.trim() : '';
   if (question.length > AI_LIMITS.question) return { ok: false, error: 'Spørsmålet er for langt.' };
-  if (mode === 'GENERAL' && !question) return { ok: false, error: 'Skriv et spørsmål.' };
+  if ((mode === 'GENERAL' || mode === 'CHAT') && !question) return { ok: false, error: 'Skriv et spørsmål.' };
 
   let context: Record<string, unknown> | null = null;
-  if (BOARD_MODES.includes(mode)) {
+  if (BOARD_MODES.includes(mode) || (mode === 'CHAT' && body.context != null)) {
     if (!isObj(body.context)) return { ok: false, error: 'Brettet mangler i forespørselen.' };
     if (JSON.stringify(body.context).length > AI_LIMITS.contextChars) {
       return { ok: false, error: 'Brettet er for stort til å analyseres.' };
@@ -62,6 +69,16 @@ export function validateAiRequest(body: unknown): AiRequestResult {
     context = body.context;
   }
   // GENERAL sender aldri brettet videre, selv om klienten skulle sende det med.
+
+  let appContext: Record<string, unknown> | null = null;
+  if (body.appContext != null) {
+    if (!isObj(body.appContext)) return { ok: false, error: 'Ugyldig kontekst.' };
+    if (JSON.stringify(body.appContext).length > AI_LIMITS.contextChars) {
+      return { ok: false, error: 'Konteksten er for stor.' };
+    }
+    appContext = body.appContext;
+  }
+  const area: AiArea = AI_AREAS.includes(body.area as AiArea) ? body.area as AiArea : 'general';
 
   const rawHistory = Array.isArray(body.history) ? body.history : [];
   if (rawHistory.length > AI_LIMITS.historyMessages) return { ok: false, error: 'For lang samtalehistorikk.' };
@@ -74,5 +91,5 @@ export function validateAiRequest(body: unknown): AiRequestResult {
     history.push({ role: m.role, content: m.content });
   }
 
-  return { ok: true, value: { mode, question, context, history } };
+  return { ok: true, value: { mode, question, context, appContext, area, history } };
 }

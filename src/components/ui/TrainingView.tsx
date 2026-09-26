@@ -11,7 +11,9 @@ import {
   Play, Pause, StopCircle, Timer, MapPin, Trash2, AlertTriangle, CalendarDays,
   ClipboardList, BookOpen, Pencil, ArrowUp, ArrowDown, Share2,
 } from 'lucide-react';
-import { INPUT_CLASS, TEXTAREA_CLASS, LABEL_CLASS, toggleClass, ICON_BTN } from '@/lib/formClasses';
+import { INPUT_CLASS, TEXTAREA_CLASS, LABEL_CLASS, toggleClass, ICON_BTN, PRIMARY_BTN } from '@/lib/formClasses';
+import { ViewHeader, StatTile } from '@/components/layout/Surface';
+import { NAV } from '@/components/layout/navigation';
 
 const DRILL_CATEGORIES: DrillCategory[] = ['keeper', 'forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
 
@@ -30,9 +32,54 @@ const DrillWarning: React.FC<{ text: string; compact?: boolean }> = ({ text, com
 interface TrainingViewProps {
   initialTraining?: CalendarEvent;
   onBack?: () => void;
+  /** Åpner skjemaet for ny trening med én gang (hurtigvalg på dashbordet). */
+  initialNew?: boolean;
+  /** Melder hvilken trening som er åpen (null = lista), så AI-treneren kan bruke den. */
+  onSelectedChange?: (eventId: string | null) => void;
 }
 
-export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onBack }) => {
+// ═══ OVERSIKT ØVERST I LISTA ══════════════════════════════════════
+// Leser bare eksisterende treninger: varighet fra punktene, tema fra fokus.
+
+const DAY_MS = 86_400_000;
+const isoOffset = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
+
+const TrainingOverview: React.FC<{ trainings: CalendarEvent[]; today: string }> = ({ trainings, today }) => {
+  const upcoming = trainings.filter(e => e.date >= today);
+  const next = upcoming[0];
+  const in7 = upcoming.filter(e => e.date <= isoOffset(7));
+  const past28 = trainings.filter(e => e.date < today && e.date >= isoOffset(-28));
+
+  // Fokus teller én gang per trening, ikke per punkt.
+  const focusCount = new Map<string, number>();
+  upcoming.forEach(ev => {
+    new Set(ev.trainingNotes.flatMap(n => n.focus)).forEach(f => focusCount.set(f, (focusCount.get(f) ?? 0) + 1));
+  });
+  const topFocus = [...focusCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([f]) => f);
+
+  const nextDate = next ? new Date(next.date + 'T12:00:00') : null;
+  const nextLabel = nextDate ? nextDate.toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' }) : '–';
+  const nextDay = nextDate ? nextDate.toLocaleDateString('nb-NO', { weekday: 'short' }) : '';
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
+      <StatTile icon={NAV.training.icon} tone={NAV.training.tile} label="Neste økt"
+        value={<span className="text-[1.25rem]">{nextLabel}</span>}
+        hint={next ? `${nextDay}${next.time ? ` ${next.time}` : ''} · ${totalMinutes(next.trainingNotes)} min` : 'Ingen planlagt'} />
+      <StatTile icon={Timer} label="Neste 7 dager"
+        value={in7.length}
+        hint={`${in7.reduce((m, e) => m + totalMinutes(e.trainingNotes), 0)} min totalt`} />
+      <StatTile icon={ClipboardList} label="Siste 4 uker"
+        value={past28.length}
+        hint={`${past28.reduce((m, e) => m + totalMinutes(e.trainingNotes), 0)} min gjennomført`} />
+      <StatTile icon={BookOpen} label="Tema fremover"
+        value={<span className="text-[1.25rem]">{topFocus.length}</span>}
+        hint={topFocus.length ? topFocus.join(', ') : 'Ingen fokus satt'} />
+    </div>
+  );
+};
+
+export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onBack, initialNew, onSelectedChange }) => {
   const {
     events, addEvent, updateEvent,
     addTrainingNote, deleteTrainingNote,
@@ -42,13 +89,15 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
 
   const [tab, setTab] = useState<'upcoming' | 'history'>('upcoming');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialTraining?.id || null);
-  const [showNewTraining, setShowNewTraining] = useState(false);
+  const [showNewTraining, setShowNewTraining] = useState(!!initialNew);
 
   useEffect(() => {
     if (initialTraining?.id) {
       setSelectedEventId(initialTraining.id);
     }
   }, [initialTraining]);
+
+  useEffect(() => { onSelectedChange?.(selectedEventId); }, [selectedEventId, onSelectedChange]);
 
   const today = new Date().toISOString().slice(0, 10);
   const trainings = useMemo(() =>
@@ -88,53 +137,44 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
     );
   }
 
+  const newBtn = (
+    <button onClick={() => setShowNewTraining(true)} className={PRIMARY_BTN}>
+      <Plus size={15} strokeWidth={2} aria-hidden /> Ny trening
+    </button>
+  );
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-canvas-sunken border-b border-rule">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="mr-1 inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1.5 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-meta font-semibold hover:bg-signal/15 transition min-h-[44px]"
-              >
-                <ChevronLeft size={15} strokeWidth={1.75} aria-hidden /> Tilbake
-              </button>
-            )}
-            <div>
-              <h2 className="font-serif text-[1.5rem] leading-tight text-ink">Trening</h2>
-              <p className="text-meta text-ink-subtle mt-0.5 hidden sm:block">
-                Alle treninger — marker fremmøte og legg til øvelser
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowNewTraining(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2 rounded-panel bg-signal/10 border border-signal/40
-              text-signal text-body font-bold hover:bg-signal/15 transition min-h-[44px] whitespace-nowrap"
-          >
-            <Plus size={15} strokeWidth={2} aria-hidden /> Ny trening
-          </button>
-        </div>
+      <ViewHeader
+        eyebrow="Arbeid"
+        title="Trening"
+        subtitle="Økter, innhold, varighet og fremmøte"
+        actions={newBtn}
+      />
+      {/* Mobil: topplinja viser tittelen, her står bare hovedhandlingen. */}
+      <div className="sm:hidden flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-rule bg-canvas">
+        <p className="flex-1 min-w-0 text-meta text-ink-subtle truncate">Økter og fremmøte</p>
+        {newBtn}
       </div>
 
-      <div className="flex-shrink-0 flex border-b border-rule bg-canvas-sunken">
+      <div className="flex-shrink-0 flex border-b border-rule bg-canvas px-2 sm:px-4">
         {([
           ['upcoming', 'Kommende',  upcoming.length],
           ['history',  'Historikk',  past.length],
         ] as const).map(([id, label, count]) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex-1 py-2.5 sm:py-3 text-meta font-semibold transition-all min-h-[44px] leading-tight px-1
-              ${tab === id ? 'text-signal border-b-2 border-signal' : 'text-ink-faint'}`}>
+            className={`flex-1 sm:flex-none sm:px-4 py-2.5 sm:py-3 text-body font-semibold transition-all min-h-[44px] leading-tight px-1 border-b-2
+              ${tab === id ? 'text-ink border-signal' : 'text-ink-subtle border-transparent hover:text-ink'}`}>
             {label} {count > 0 ? `(${count})` : ''}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6">
 
         {tab === 'upcoming' && (
-          <div className="space-y-3 max-w-2xl mx-auto">
+          <div className="space-y-3 max-w-4xl mx-auto">
+            <TrainingOverview trainings={trainings} today={today} />
             {upcoming.length === 0 && (
               <div className="text-center py-12">
                 <CalendarDays size={26} strokeWidth={1.5} aria-hidden className="mx-auto text-ink-faint mb-3" />
@@ -158,7 +198,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
         )}
 
         {tab === 'history' && (
-          <div className="space-y-3 max-w-2xl mx-auto">
+          <div className="space-y-3 max-w-4xl mx-auto">
             {past.length === 0 && (
               <div className="text-center py-12">
                 <ClipboardList size={26} strokeWidth={1.5} aria-hidden className="mx-auto text-ink-faint mb-3" />

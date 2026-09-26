@@ -48,6 +48,32 @@ export function getDrillsByAgeBand(ageBand: DrillAgeBand): DrillExercise[] {
   return ALL_DRILLS.filter((drill) => drill.ageBand.includes(ageBand));
 }
 
+/** ISO-ukenummer. */
+export function isoWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+const WEEKLY_CATEGORIES: DrillCategory[] = ['keeper', 'forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
+
+/**
+ * Ukens anbefalte øvelser: én fra hver av fire kategorier, roterer med ukenummeret.
+ * Samme uke gir samme utvalg – øvelsesbiblioteket og dashbordet viser de samme.
+ */
+export function getWeeklyDrills(ageGroup: 'youth' | 'adult', date = new Date()): DrillExercise[] {
+  const week = isoWeek(date);
+  const picks: DrillExercise[] = [];
+  for (let i = 0; i < 4; i++) {
+    const cat = WEEKLY_CATEGORIES[(week + i) % WEEKLY_CATEGORIES.length];
+    const pool = getDrillsByCategory(cat).filter(d => d.ageGroup === ageGroup);
+    if (pool.length > 0) picks.push(pool[week % pool.length]);
+  }
+  return picks;
+}
+
 export const CATEGORY_LABELS: Record<DrillCategory, string> = {
   keeper:   'Keeper',
   forsvar:  'Forsvar',

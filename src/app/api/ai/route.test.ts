@@ -81,6 +81,20 @@ describe('/api/ai – OpenRouter', () => {
     expect(init.body as string).not.toContain(CODE);
   });
 
+  it('CHAT fra kalenderen sender app-data, ikke brett, og logger området', async () => {
+    const fetchMock = okProvider();
+    vi.stubGlobal('fetch', fetchMock);
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const res = await call({ mode: 'CHAT', question: 'Hjelp meg planlegge uka', area: 'calendar',
+      appContext: { upcoming: [{ type: 'trening', date: '2026-09-28' }] } });
+    expect(res.status).toBe(200);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const last = JSON.parse(init.body as string).messages.at(-1).content;
+    expect(last).toContain('<app_data>');
+    expect(last).not.toContain('<board_data>');
+    expect(JSON.parse(info.mock.calls.at(-1)![0] as string)).toMatchObject({ mode: 'CHAT', area: 'calendar', ok: true });
+  });
+
   it('GENERAL sender ikke brettet til modellen', async () => {
     const fetchMock = okProvider();
     vi.stubGlobal('fetch', fetchMock);

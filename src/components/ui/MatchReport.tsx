@@ -13,7 +13,7 @@ import { cn } from '@/lib/cn';
 //  om et punkt er ros eller kritikk er informasjon, ikke handling.
 // ═══════════════════════════════════════════════════════════════
 
-const TAG_CONFIG: { tag: ReportTag; label: string; positive: boolean }[] = [
+export const TAG_CONFIG: { tag: ReportTag; label: string; positive: boolean }[] = [
   { tag: 'god_gjennomforing',     label: 'God gjennomføring',      positive: true  },
   { tag: 'manglet_konsentrasjon', label: 'Manglet konsentrasjon',  positive: false },
   { tag: 'god_pressing',          label: 'God pressing',           positive: true  },
@@ -31,14 +31,19 @@ const VIEWS = [
   { v: 'history' as const, label: 'Tidligere' },
 ];
 
-export const MatchReportModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const MatchReportModal: React.FC<{
+  onClose: () => void;
+  /** Kobler rapporten til en kamp fra start, f.eks. fra Rapporter-siden. */
+  initialEventId?: string;
+}> = ({ onClose, initialEventId }) => {
   const { createReport, matchReports, deleteReport, events } = useAppStore();
+  const initialEvent = initialEventId ? events.find(e => e.id === initialEventId) : undefined;
 
   const [view, setView]                 = useState<'create' | 'history'>('create');
   const [selectedTags, setSelectedTags] = useState<ReportTag[]>([]);
   const [freeText, setFreeText]         = useState('');
-  const [matchTitle, setMatchTitle]     = useState('');
-  const [eventId, setEventId]           = useState('');
+  const [matchTitle, setMatchTitle]     = useState(initialEvent?.title ?? '');
+  const [eventId, setEventId]           = useState(initialEvent?.id ?? '');
   const [generated, setGenerated]       = useState<string | null>(null);
   const [copied, setCopied]             = useState(false);
 

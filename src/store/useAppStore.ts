@@ -143,7 +143,7 @@ const patchPhase = (t: Tactic, idx: number, fn: (ph: TacticPhase) => TacticPhase
 // ═══════════════════════════════════════════════════════════════
 
 const LEGACY_ATTENDANCE_TITLE = '✅ Fremmøte';
-const VALID_VIEWS: AppView[] = ['board', 'drills', 'calendar', 'training'];
+const VALID_VIEWS: AppView[] = ['dashboard', 'board', 'drills', 'calendar', 'training', 'reports', 'settings'];
 
 // Hendelsene vaskes felt for felt, som taktikkene. Én ødelagt hendelse
 // (null, feil type, manglende dato) fikk tidligere hele innlastingen til å
@@ -555,7 +555,7 @@ const tabStorage = createTabGuardedStorage(safeStorage, () =>
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      currentView: 'board',
+      currentView: 'dashboard',
       setView: (v) => set({ currentView: v }),
 
       homeTeamName: 'Hjemmelag',

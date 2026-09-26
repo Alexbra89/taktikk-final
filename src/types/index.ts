@@ -195,7 +195,8 @@ export interface MatchReport {
   generatedText: string;
 }
 
-export type AppView = 'board' | 'drills' | 'calendar' | 'training';
+// dashboard, reports og settings er rene visninger – de har ingen egne data i storen.
+export type AppView = 'dashboard' | 'board' | 'drills' | 'calendar' | 'training' | 'reports' | 'settings';
 
 export interface AppState {
   tactics: Tactic[];         // minst én

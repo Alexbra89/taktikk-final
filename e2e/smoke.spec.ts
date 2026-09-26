@@ -15,6 +15,8 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', e => consoleErrors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   await page.goto('/');
+  // Appen starter på dashbordet; brettet ligger under Taktikk i hovedmenyen.
+  await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Taktikk' }).click();
   await page.locator(SVG).first().waitFor();
 });
 test.afterEach(() => {

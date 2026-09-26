@@ -45,6 +45,15 @@ module.exports = {
           DEFAULT: 'rgb(var(--k-pitch) / <alpha-value>)',
           line:    'var(--k-pitch-line)',
         },
+        // Områdefarger (plattform): ikonflater i navigasjon og på dashbordet.
+        area: {
+          board:    'rgb(var(--k-area-board) / <alpha-value>)',
+          training: 'rgb(var(--k-area-training) / <alpha-value>)',
+          calendar: 'rgb(var(--k-area-calendar) / <alpha-value>)',
+          drills:   'rgb(var(--k-area-drills) / <alpha-value>)',
+          reports:  'rgb(var(--k-area-reports) / <alpha-value>)',
+          ai:       'rgb(var(--k-area-ai) / <alpha-value>)',
+        },
         // Kategori-identitet i Kalk: dempet, kun som 6px-prikker og tidslinjer
         category: {
           keeper:   '#D9A93E',
@@ -95,8 +104,9 @@ module.exports = {
 
       // ── FORM OG DYBDE ─────────────────────────────────────────
       borderRadius: {
-        ctl:   '6px',  // KALK: knapper, input, segmenter
-        panel: '8px',  // KALK: verktøylinjer, kort, bane
+        ctl:   '8px',  // KALK: knapper, input, segmenter
+        panel: '12px', // KALK: verktøylinjer, kort, bane
+        tile:  '16px', // plattform: dashbordkort og sidekort
         card: '1rem',
         pill: '9999px',
       },
@@ -106,6 +116,7 @@ module.exports = {
         'hair-strong': 'inset 0 0 0 1px var(--k-rule-strong)',
         'hair-signal': 'inset 0 0 0 1px rgb(var(--k-signal) / 0.45)',
         pop:           'var(--k-shadow-pop)', // flytende verktøy, menyer, modaler
+        tile:          'var(--k-shadow-card)', // plattform: kort på dashbord og sider
         // FASE 1
         card:      '0 1px 2px rgba(0,0,0,0.4)',
         raised:    '0 4px 16px -4px rgba(0,0,0,0.55)',

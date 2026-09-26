@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import {
   ALL_DRILLS,
@@ -7,6 +7,7 @@ import {
   getDrillsByAgeGroup,
   getDrillsByAgeBand,
   CATEGORY_LABELS,
+  getWeeklyDrills,
 } from '@/data/drills';
 import type { DrillExercise, DrillCategory, DrillAgeBand, DrillDifficulty } from '@/types';
 import {
@@ -19,6 +20,7 @@ import {
   Modal, FilterBar, FilterRow, FilterChip, SearchInput, EmptyState,
 } from '@/components/ui';
 import { hasSketch } from '@/components/board/SketchPreview';
+import { ViewHeader } from '@/components/layout/Surface';
 
 type ViewMode = 'browse' | 'detail';
 type AgeGroup = 'youth' | 'adult';
@@ -67,13 +69,6 @@ const CatIcon: React.FC<{ category: DrillCategory }> = ({ category }) => {
 };
 
 /** ISO-ukenummer, brukes til å rotere ukens anbefalte øvelser. */
-function isoWeek(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-}
 
 /** Kilder er ofte URL-er (tiim.no o.l.), men kan også være fritekst. */
 function isUrl(s: string): boolean {
@@ -177,7 +172,10 @@ const DrillRow: React.FC<{
   </Card>
 );
 
-export const DrillsView: React.FC = () => {
+export const DrillsView: React.FC<{
+  /** Åpner en øvelse direkte, f.eks. fra ukens øvelser på dashbordet. */
+  focusDrillId?: string;
+}> = ({ focusDrillId }) => {
   const { addEvent, ageGroup: storeAgeGroup } = useAppStore();
 
   // Starter på appens aldersgruppe, men kan byttes lokalt i biblioteket.
@@ -218,16 +216,7 @@ export const DrillsView: React.FC = () => {
   }, [ageGroup]);
 
   // Ukens anbefalte øvelser: én fra hver av fire kategorier, roterer med ukenummer
-  const weeklyDrills = useMemo(() => {
-    const week = isoWeek(new Date());
-    const picks: DrillExercise[] = [];
-    for (let i = 0; i < 4; i++) {
-      const cat = CATEGORIES[(week + i) % CATEGORIES.length];
-      const pool = getDrillsByCategory(cat).filter(d => d.ageGroup === ageGroup);
-      if (pool.length > 0) picks.push(pool[week % pool.length]);
-    }
-    return picks;
-  }, [ageGroup]);
+  const weeklyDrills = useMemo(() => getWeeklyDrills(ageGroup), [ageGroup]);
 
   const filteredDrills = useMemo(() => {
     let drills = activeCategory === 'alle'
@@ -275,6 +264,11 @@ export const DrillsView: React.FC = () => {
     setScheduledId(null);
     setScheduleDate('');
   }
+
+  useEffect(() => {
+    const drill = focusDrillId ? ALL_DRILLS.find(d => d.id === focusDrillId) : undefined;
+    if (drill) openDrill(drill);
+  }, [focusDrillId]);
 
   function buildTeamNote(drill: DrillExercise, extra?: string): string {
     const parts = [
@@ -544,6 +538,12 @@ export const DrillsView: React.FC = () => {
   return (
     <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
       {toastEl}
+
+      <ViewHeader
+        eyebrow="Arbeid"
+        title="Øvelser"
+        subtitle={`${ALL_DRILLS.filter(d => d.ageGroup === ageGroup).length} øvelser for ${ageGroup === 'youth' ? 'barn' : 'voksne'} – finn, les og legg i en trening`}
+      />
 
       <FilterBar>
         {/* Rad 1: aldersgruppe + treffantall */}

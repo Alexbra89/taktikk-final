@@ -69,7 +69,7 @@ export async function POST(req: Request): Promise<Response> {
   }
   const parsed = validateAiRequest(body);
   if (!parsed.ok) return json({ error: parsed.error }, 400);
-  const { mode } = parsed.value;
+  const { mode, area } = parsed.value;
 
   try {
     const result = await callOpenRouter({
@@ -78,12 +78,12 @@ export async function POST(req: Request): Promise<Response> {
       maxTokens: MODE_MAX_TOKENS[mode],
       timeoutMs: PROVIDER_TIMEOUT_MS,
     });
-    logUsage({ mode, model, ok: true, ms: Date.now() - started, in: result.usage.input, out: result.usage.output, truncated: result.truncated });
+    logUsage({ mode, area, model, ok: true, ms: Date.now() - started, in: result.usage.input, out: result.usage.output, truncated: result.truncated });
     return json({ answer: result.text, truncated: result.truncated });
   } catch (e) {
     const kind = e instanceof AiProviderError ? e.kind : 'unavailable';
     const status = e instanceof AiProviderError ? e.status : undefined;
-    logUsage({ mode, model, ok: false, ms: Date.now() - started, error: kind, providerStatus: status });
+    logUsage({ mode, area, model, ok: false, ms: Date.now() - started, error: kind, providerStatus: status });
     if (kind === 'timeout') return json({ error: MSG.timeout }, 504);
     if (kind === 'rate_limit') return json({ error: MSG.rateLimit }, 429);
     return json({ error: MSG.unavailable }, 502);
