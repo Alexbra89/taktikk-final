@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/useAppStore';
 import type { CalendarEvent, AppView } from '@/types';
 import { STORAGE_ERROR_EVENT } from '@/lib/safeStorage';
 import dynamic from 'next/dynamic';
-import { Lightbulb, Settings, Sun, Moon, Baby, User, Check, AlertTriangle, X, Download, Upload } from 'lucide-react';
+import { Lightbulb, Settings, Sun, Moon, Baby, User, Check, AlertTriangle, X, Download, Upload, Sparkles } from 'lucide-react';
 import { Sidebar, NAV_ITEMS } from '@/components/ui/Sidebar';
 import { Modal } from '@/components/ui';
 import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, toggleClass } from '@/lib/formClasses';
@@ -20,6 +20,7 @@ const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(
 });
 const FullscreenBoard = dynamic(() => import('@/components/ui/FullscreenBoard').then(mod => mod.FullscreenBoard), { ssr: false });
 const SmartCoach = dynamic(() => import('@/components/ui/SmartCoach').then(mod => mod.SmartCoach), { ssr: false });
+const AiCoach = dynamic(() => import('@/components/ui/AiCoach').then(mod => mod.AiCoach), { ssr: false });
 const MatchReportModal = dynamic(() => import('@/components/ui/MatchReport').then(mod => mod.MatchReportModal), { ssr: false });
 const TrainingView = dynamic(() => import('@/components/ui/TrainingView').then(mod => mod.TrainingView), { ssr: false });
 const CalendarView = dynamic(() => import('@/components/calendar/CalendarView').then(mod => mod.CalendarView), { ssr: false });
@@ -248,6 +249,7 @@ export default function Home() {
   // null til vi vet skjermbredden: bare én av layoutene monteres, slik at brettet aldri finnes to ganger.
   const [isDesktop,           setIsDesktop]           = useState<boolean | null>(null);
   const [showSmartCoach,      setShowSmartCoach]      = useState(false);
+  const [showAiCoach,         setShowAiCoach]         = useState(false);
   const [showMatchReport,     setShowMatchReport]     = useState(false);
   const [showSettings,        setShowSettings]        = useState(false);
   const [showFullscreenBoard, setShowFullscreenBoard] = useState(false);
@@ -308,6 +310,7 @@ export default function Home() {
           onNavigate={setView}
           teamName={homeTeamName}
           onOpenSmartCoach={() => setShowSmartCoach(true)}
+          onOpenAiCoach={() => setShowAiCoach(true)}
           onOpenReport={() => setShowMatchReport(true)}
           onOpenSettings={() => setShowSettings(true)}
         />
@@ -340,6 +343,11 @@ export default function Home() {
             {homeTeamName || 'Taktikkboard'}
           </span>
           <div className="flex-1" />
+          {currentView === 'board' && (
+            <button onClick={() => setShowAiCoach(true)} aria-label="AI-trener" className={headerBtn}>
+              <Sparkles size={17} strokeWidth={1.75} />
+            </button>
+          )}
           {currentView === 'board' && (
             <button onClick={() => setShowSmartCoach(true)} aria-label="Smart Coach" className={headerBtn}>
               <Lightbulb size={17} strokeWidth={1.75} />
@@ -405,6 +413,7 @@ export default function Home() {
       {isDesktop ? DesktopLayout : MobileLayout}
 
       {showSmartCoach  && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
+      {showAiCoach     && <AiCoach onClose={() => setShowAiCoach(false)} />}
       {showMatchReport && <MatchReportModal onClose={() => setShowMatchReport(false)} />}
       {showSettings    && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showFullscreenBoard && (

@@ -2,7 +2,7 @@
 import React from 'react';
 import {
   Clipboard, BookOpen, CalendarDays, Dumbbell,
-  Lightbulb, BarChart3, Settings, Sun, Moon,
+  Lightbulb, BarChart3, Settings, Sun, Moon, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import type { AppView } from '@/types';
@@ -53,12 +53,13 @@ interface SidebarProps {
   onNavigate: (view: AppView) => void;
   teamName: string;
   onOpenSmartCoach: () => void;
+  onOpenAiCoach: () => void;
   onOpenReport: () => void;
   onOpenSettings: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  currentView, onNavigate, teamName, onOpenSmartCoach, onOpenReport, onOpenSettings,
+  currentView, onNavigate, teamName, onOpenSmartCoach, onOpenAiCoach, onOpenReport, onOpenSettings,
 }) => {
   const { theme, setTheme } = useTheme();
 
@@ -98,6 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="mt-6">
             <SectionTitle>Verktøy</SectionTitle>
             <div className="flex flex-col gap-px">
+              <RowButton icon={Sparkles} label="AI-trener" onClick={onOpenAiCoach} />
               <RowButton icon={Lightbulb} label="Smart Coach" onClick={onOpenSmartCoach} />
               <RowButton icon={BarChart3} label="Kamprapport" onClick={onOpenReport} />
             </div>
