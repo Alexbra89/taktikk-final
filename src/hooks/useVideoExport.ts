@@ -73,13 +73,16 @@ const stagePlayers = (tactic: Tactic, players: { id: string; num: number; name: 
  * i det hele tatt.
  */
 export function videoFrameElement(tactic: Tactic, f: FrameState, playerStyle: PlayerStyle): React.ReactElement {
+  // Tegningene hører til fasen spillerne kommer fra. Framme i siste fase
+  // (slutten og halen) er det dens tegninger som gjelder, som på brettet.
+  const drawIdx = f.progress >= 1 ? tactic.phases.length - 1 : f.fromIdx;
   return React.createElement(React.Fragment, null,
     React.createElement(SvgDefs),
     React.createElement(BoardStage, {
       players: stagePlayers(tactic, f.players),
       playerStyle,
       ball: f.ball,
-      drawings: tactic.phases[f.fromIdx]?.drawings ?? [],
+      drawings: tactic.phases[drawIdx]?.drawings ?? [],
       items: f.items,
       progress: f.progress,
     }),
