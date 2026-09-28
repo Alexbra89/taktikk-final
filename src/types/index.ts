@@ -61,7 +61,7 @@ export type Drawing = PathDrawing | ShapeDrawing | LabelDrawing;
 export type NewDrawing = Omit<PathDrawing, 'id'> | Omit<ShapeDrawing, 'id'> | Omit<LabelDrawing, 'id'>;
 
 /** Utstyr som kan settes på banen ved behov. */
-export type BoardItemType = 'cone' | 'opponent' | 'minigoal' | 'mannequin' | 'ladder' | 'hurdle' | 'ball';
+export type BoardItemType = 'cone' | 'opponent' | 'minigoal' | 'mannequin' | 'ladder' | 'hurdle' | 'ball' | 'player';
 
 /**
  * Et utstyrselement i en fase. Samme id i flere faser betyr samme element,
@@ -94,6 +94,11 @@ export interface Tactic {
   phases: TacticPhase[];     // minst én
   activePhaseIdx: number;
   createdAt: string;
+  /**
+   * Tom bane: ingen formasjon og ingen formasjonsspillere. Treneren legger
+   * selv til spillere (utstyrstypen «player») og utstyr. Mangler = vanlig taktikk.
+   */
+  empty?: boolean;
 }
 
 export type EventType = 'training' | 'match';

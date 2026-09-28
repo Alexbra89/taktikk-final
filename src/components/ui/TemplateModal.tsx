@@ -39,6 +39,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ onClose, onCreated
   const done = () => { onCreated?.(); onClose(); };
   const pick = (tpl: TacticTemplate) => { addTacticFromTemplate(tpl); done(); };
   const empty = () => { addTactic(); done(); };
+  const emptyPitch = () => { addTactic(undefined, { empty: true }); done(); };
 
   return (
     <Modal
@@ -51,7 +52,18 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ onClose, onCreated
         </button>
       }
     >
-      <div className="flex justify-end">
+      {/* Tom bane: bare banen og ballen. Spillere og utstyr legges til fra «Utstyr». */}
+      <button
+        onClick={emptyPitch}
+        className="w-full text-left rounded-ctl bg-canvas-raised shadow-hair px-3 py-2.5 hover:bg-canvas-hover transition-colors"
+      >
+        <span className="text-body font-bold text-ink">Tom bane</span>
+        <span className="mt-0.5 block text-caption text-ink-muted leading-relaxed">
+          Bare banen. Legg til spillere og utstyr selv.
+        </span>
+      </button>
+
+      <div className="mt-3 flex justify-end">
         <button
           onClick={() => setShowAll(v => !v)}
           aria-pressed={showAll}

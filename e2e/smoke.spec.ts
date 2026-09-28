@@ -98,3 +98,44 @@ test('eksporter bildet som PNG', async ({ page }) => {
   // PNG-signaturen: \x89 P N G
   expect([...bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
 });
+
+test('tom bane: spiller via utstyr følger fasene og overlever reload', async ({ page }) => {
+  await page.getByRole('button', { name: 'Ny taktikk' }).first().click();
+  await page.getByRole('button', { name: /^Tom bane/ }).click();
+  // Bare banen: ingen formasjonsspillere, ingen formasjon i knappen over banen.
+  await expect(page.locator(`${SVG} g[data-player]`)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Tom bane/ }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Utstyr' }).first().click();
+  await page.getByRole('button', { name: 'Spiller', exact: true }).click();
+  const item = page.locator(`${SVG} g[data-item]`).first();
+  await expect(item).toBeVisible();
+
+  const b = (await page.locator(SVG).first().boundingBox())!;
+  const center = async () => { const r = (await item.boundingBox())!; return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; };
+  type Saved = { empty?: boolean; phases: { players: number; items: [string, number][] }[] };
+  const items = () => page.evaluate((): Saved => {
+    const s = JSON.parse(localStorage.getItem('taktikkboard-storage')!).state;
+    const t = s.tactics.find((t: { id: string }) => t.id === s.activeTacticId);
+    return { empty: t.empty, phases: t.phases.map((p: { players: unknown[]; items: { type: string; position: { x: number } }[] }) =>
+      ({ players: p.players.length, items: p.items.map(i => [i.type, Math.round(i.position.x)]) })) };
+  });
+
+  await drag(page, await center(), { x: b.x + b.width * 0.3, y: b.y + b.height * 0.5 });
+  await page.getByRole('button', { name: 'Legg til fase' }).first().click();
+  await drag(page, await center(), { x: b.x + b.width * 0.7, y: b.y + b.height * 0.5 });
+
+  const saved = await items();
+  expect(saved.empty).toBe(true);
+  expect(saved.phases.map(p => p.players)).toEqual([0, 0]);
+  const [[t1, x1]] = saved.phases[0].items, [[t2, x2]] = saved.phases[1].items;
+  expect([t1, t2]).toEqual(['player', 'player']);
+  expect(x1).toBeLessThan(x2);   // egen posisjon i hver fase
+
+  await page.reload();
+  // Appen starter alltid på dashbordet; brettet ligger under Taktikk.
+  await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Taktikk' }).click();
+  await page.locator(SVG).first().waitFor();
+  expect(await items()).toEqual(saved);
+  await expect(page.locator(`${SVG} g[data-item]`)).toHaveCount(1);
+});

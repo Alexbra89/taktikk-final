@@ -466,3 +466,65 @@ describe('ekstreme posisjoner og draktnumre ved lasting', () => {
     }
   });
 });
+
+describe('tom bane', () => {
+  const emptyPitch = () => { s().addTactic(undefined, { empty: true }); return active(); };
+
+  it('gir en taktikk uten spillere, med ballen på banen', () => {
+    const t = emptyPitch();
+    expect(t.empty).toBe(true);
+    expect(t.phases).toHaveLength(1);
+    expect(t.phases[0].players).toEqual([]);
+    expect(t.phases[0].ball).toEqual({ x: 440, y: 280 });
+  });
+
+  it('«Tom taktikk» er uendret: full formasjon, ikke tom', () => {
+    s().addTactic();
+    expect(active().empty).toBeUndefined();
+    expect(active().phases[0].players).toHaveLength(11);
+  });
+
+  it('forblir tom gjennom lagring, reparasjon, ny fase, sport- og formasjonsbytte', () => {
+    const t = emptyPitch();
+    const repaired = repairTactic(JSON.parse(JSON.stringify(t)))!;
+    expect(repaired.empty).toBe(true);
+    expect(repaired.phases[0].players).toEqual([]);
+    s().addPhase();
+    s().setSport('football7');
+    s().setFormation(active().formation === '4-4-2' ? '4-3-3' : '4-4-2');
+    expect(active().phases.map(ph => ph.players.length)).toEqual([0, 0]);
+    // Spillere i lagrede data for en tom bane fyller ikke opp igjen formasjonen.
+    const withPlayers = { ...t, phases: [{ ...t.phases[0], players: s().tactics[0].phases[0].players }] };
+    expect(repairTactic(withPlayers)!.phases[0].players).toEqual([]);
+  });
+
+  it('spillere legges til via utstyr og følger fasene som utstyr', () => {
+    emptyPitch();
+    const pid = s().addItem('player');
+    const cone = s().addItem('cone');
+    expect(itemsIn(0).map(i => i.type)).toEqual(['player', 'cone']);
+
+    s().moveItem(pid, { x: 200, y: 300 });
+    s().addPhase();                                   // fase 2 får samme spiller og kjegle
+    expect(itemsIn(1).find(i => i.id === pid)?.position).toEqual({ x: 200, y: 300 });
+
+    s().moveItem(pid, { x: 500, y: 250 });            // flyttet i fase 2
+    s().moveItem(cone, { x: 600, y: 100 });
+    expect(itemsIn(0).find(i => i.id === pid)?.position).toEqual({ x: 200, y: 300 });
+    expect(itemsIn(1).find(i => i.id === pid)?.position).toEqual({ x: 500, y: 250 });
+    expect(itemsIn(1).find(i => i.id === cone)?.position).toEqual({ x: 600, y: 100 });
+
+    s().setActivePhaseIdx(0);                         // flytt i fase 1: fase 2 er flyttet for seg og står
+    s().moveItem(pid, { x: 150, y: 150 });
+    expect(itemsIn(1).find(i => i.id === pid)?.position).toEqual({ x: 500, y: 250 });
+
+    // Overlever lagring og innlasting.
+    const back = repairPersisted(s().exportSnapshot(), initial);
+    const t = back.tactics!.find(x => x.id === s().activeTacticId)!;
+    expect(t.empty).toBe(true);
+    expect(t.phases.map(ph => ph.items!.map(i => [i.type, i.position]))).toEqual([
+      [['player', { x: 150, y: 150 }], ['cone', itemsIn(0)[1].position]],
+      [['player', { x: 500, y: 250 }], ['cone', { x: 600, y: 100 }]],
+    ]);
+  });
+});

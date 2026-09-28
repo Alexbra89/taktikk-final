@@ -30,6 +30,9 @@ export const Controls: React.FC = () => {
     setSport(next);
   };
 
+  // Tom bane har verken formasjon eller formasjonsspillere – ingenting å stille inn her.
+  if (tactic.empty) return null;
+
   return (
     <>
       <div className="flex flex-col gap-4">

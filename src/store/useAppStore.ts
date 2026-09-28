@@ -66,14 +66,16 @@ function createPhase(name: string, slots: Slots): TacticPhase {
   };
 }
 
-function createTactic(name: string, sport: Sport): Tactic {
+function createTactic(name: string, sport: Sport, empty = false): Tactic {
   const formation = DEFAULT_FORMATION[sport] ?? getFormations(sport)[0].name;
   return {
     id: `tactic-${uid()}`,
     name, sport, formation,
-    phases: [createPhase('Fase 1', getFormationSlots(sport, formation))],
+    // Tom bane: bare banen og ballen. Spillerne legges til som utstyr.
+    phases: [createPhase('Fase 1', empty ? [] : getFormationSlots(sport, formation))],
     activePhaseIdx: 0,
     createdAt: new Date().toISOString(),
+    ...(empty ? { empty: true } : {}),
   };
 }
 
@@ -361,7 +363,10 @@ export function repairTactic(raw: unknown): Tactic | null {
   const sport: Sport = isSport(t.sport) ? t.sport : 'football';
   const formation = getFormations(sport).some(f => f.name === t.formation)
     ? (t.formation as string) : DEFAULT_FORMATION[sport];
-  const slots = getFormationSlots(sport, formation);
+  const empty = t.empty === true;
+  // Tom bane har ingen formasjonsplasser: syncPlayers fjerner da alle
+  // formasjonsspillere i stedet for å fylle dem inn.
+  const slots = empty ? [] : getFormationSlots(sport, formation);
 
   const phases = uniqueIds((Array.isArray(t.phases) ? t.phases : [])
     .filter((ph): ph is TacticPhase => !!ph && typeof ph === 'object')
@@ -401,6 +406,7 @@ export function repairTactic(raw: unknown): Tactic | null {
     activePhaseIdx: Number.isInteger(t.activePhaseIdx)
       ? Math.max(0, Math.min(t.activePhaseIdx as number, safePhases.length - 1)) : 0,
     createdAt: typeof t.createdAt === 'string' ? t.createdAt : new Date().toISOString(),
+    ...(empty ? { empty: true } : {}),
   };
 }
 
@@ -455,7 +461,8 @@ export interface AppStore {
   // ─── Taktikker ───────────────────────────────────────────
   tactics: Tactic[];
   activeTacticId: string;
-  addTactic: (name?: string) => void;
+  /** Ny taktikk med standardformasjonen – eller tom bane uten spillere (empty). */
+  addTactic: (name?: string, opts?: { empty?: boolean }) => void;
   /** Ny taktikk fra en mal: malens sport, formasjon og faser, med nye id-er. */
   addTacticFromTemplate: (template: TacticTemplate) => void;
   removeTactic: (id: string) => void;
@@ -572,10 +579,10 @@ export const useAppStore = create<AppStore>()(
       tactics: [initialTactic],
       activeTacticId: initialTactic.id,
 
-      addTactic: (name) => {
+      addTactic: (name, opts) => {
         const { tactics, activeTacticId } = get();
         const sport = tactics.find(t => t.id === activeTacticId)?.sport ?? 'football';
-        const tactic = createTactic(name?.trim() || `Taktikk ${tactics.length + 1}`, sport);
+        const tactic = createTactic(name?.trim() || `Taktikk ${tactics.length + 1}`, sport, opts?.empty === true);
         set({ tactics: [...tactics, tactic], activeTacticId: tactic.id });
       },
 
@@ -617,7 +624,7 @@ export const useAppStore = create<AppStore>()(
       // Posisjonene nullstilles bare i aktiv fase.
       setFormation: (name) => set(s => ({
         tactics: s.tactics.map(t => {
-          if (t.id !== s.activeTacticId) return t;
+          if (t.id !== s.activeTacticId || t.empty) return t;
           if (!getFormations(t.sport).some(f => f.name === name)) return t;
           const slots = getFormationSlots(t.sport, name);
           return patchPhase({ ...t, formation: name }, t.activePhaseIdx, ph => resetToSlots(ph, slots));
@@ -630,7 +637,8 @@ export const useAppStore = create<AppStore>()(
         tactics: s.tactics.map(t => {
           if (t.id !== s.activeTacticId || t.sport === sport || !isSport(sport)) return t;
           const formation = DEFAULT_FORMATION[sport];
-          const slots = getFormationSlots(sport, formation);
+          // Tom bane forblir tom: ingen formasjonsspillere fylles inn.
+          const slots = t.empty ? [] : getFormationSlots(sport, formation);
           const synced = { ...t, sport, formation, phases: syncPlayers(t.phases, slots) };
           return patchPhase(synced, t.activePhaseIdx, ph => resetToSlots(ph, slots));
         }),

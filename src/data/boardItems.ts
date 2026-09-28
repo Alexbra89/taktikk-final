@@ -12,6 +12,7 @@ export const BOARD_ITEMS: { type: BoardItemType; label: string }[] = [
   { type: 'ladder',    label: 'Stige' },
   { type: 'hurdle',    label: 'Hekk' },
   { type: 'ball',      label: 'Ekstra ball' },
+  { type: 'player',    label: 'Spiller' },
 ];
 
 export const BOARD_ITEM_TYPES: BoardItemType[] = BOARD_ITEMS.map(i => i.type);
@@ -23,5 +24,5 @@ export const normalizeRotation = (deg: number) => ((Math.round(deg) % 360) + 360
 
 /** Halv bredde – til treffflate, markeringsring og plassering. I SVG-enheter. */
 export const ITEM_RADIUS: Record<BoardItemType, number> = {
-  cone: 12, opponent: 15, minigoal: 22, mannequin: 14, ladder: 44, hurdle: 18, ball: 10,
+  cone: 12, opponent: 15, minigoal: 22, mannequin: 14, ladder: 44, hurdle: 18, ball: 10, player: 20,
 };

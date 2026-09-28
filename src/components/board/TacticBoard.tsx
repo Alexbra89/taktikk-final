@@ -633,7 +633,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         {isMobile ? (
           <div className="flex-1 min-w-0"><TacticTabs /></div>
         ) : (
-          <span className="pl-1 font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">Formasjon</span>
+          <span className="pl-1 font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">{tactic.empty ? 'Bane' : 'Formasjon'}</span>
         )}
         <button
           onClick={() => setShowPanel(v => !v)}
@@ -642,7 +642,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           title="Oppsett, notat, øyeblikk og fart"
           className="flex-shrink-0 flex items-center gap-1.5 px-3 min-h-[40px] rounded-ctl bg-canvas-raised text-ink shadow-hair hover:bg-canvas-hover transition-colors"
         >
-          <span className="font-mono text-body">{formation}</span>
+          <span className="font-mono text-body">{tactic.empty ? 'Tom bane' : formation}</span>
           <ChevronDown size={14} strokeWidth={1.75} className="text-ink-subtle" />
         </button>
 

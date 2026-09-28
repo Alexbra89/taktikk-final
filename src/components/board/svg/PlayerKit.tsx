@@ -19,7 +19,7 @@ export const KIT_COLORS: Record<RoleFamily, { fill: string; fg: string }> = {
  * fra skuldrene (−17) til nederste kant (+18) – omtrent like stor som
  * sirkelen (r 17), litt høyere.
  */
-const KIT_PATH =
+export const KIT_PATH =
   'M -7 -17 Q 0 -10 7 -17 L 13 -16 L 20 -8 L 15 -2 L 12 -5 L 12 17 ' +
   'Q 0 19.5 -12 17 L -12 -5 L -15 -2 L -20 -8 L -13 -16 Z';
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { BoardItemType } from '@/types';
+import { KIT_PATH } from './PlayerKit';
 
 // ══════════════════════════════════════════════════════════════
 //  UTSTYR – slik hvert element ser ut på banen, sett ovenfra
@@ -68,6 +69,17 @@ export const BoardItemShape: React.FC<{ type: BoardItemType }> = ({ type }) => {
           <line x1={-15} y1={-5} x2={-15} y2={5} strokeWidth={2.5}/>
           <line x1={15} y1={-5} x2={15} y2={5} strokeWidth={2.5}/>
         </g>
+      );
+
+    case 'player':
+      // Egen spiller uten nummer: samme drakt som formasjonsspillerne, i lagets
+      // signalfarge (som sirkelbrikkene), så den ikke forveksles med motstander.
+      return (
+        <>
+          <path d={KIT_PATH} transform="translate(0.5 1.8)" fill="#000" opacity={0.28}/>
+          <path d={KIT_PATH} strokeWidth={1.25} strokeLinejoin="round"
+            style={{ fill: 'rgb(var(--k-signal))', stroke: EDGE }}/>
+        </>
       );
 
     case 'ball':
