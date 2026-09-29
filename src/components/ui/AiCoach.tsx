@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, Send, KeyRound, RotateCcw, ChevronRight, Eye } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import { useActiveTactic } from '@/store/selectors';
+import { useActiveTactic, formationLabel } from '@/store/selectors';
 import { buildAiContext } from '@/lib/ai/context';
 import { buildAppContext } from '@/lib/ai/appContext';
 import {
@@ -101,7 +101,7 @@ export const AiCoach: React.FC<AiCoachProps> = ({ onClose, variant = 'modal', ar
     const today = localToday();
     switch (area) {
       case 'board':
-        return `${tactic.name} · ${phase?.name ?? 'fase'} (${tactic.activePhaseIdx + 1}/${tactic.phases.length}) · ${tactic.formation}`;
+        return `${tactic.name} · ${phase?.name ?? 'fase'} (${tactic.activePhaseIdx + 1}/${tactic.phases.length}) · ${formationLabel(tactic)}`;
       case 'training': {
         const t = openTraining ?? events.filter(e => e.type === 'training' && e.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
         return t ? `Trening: ${t.title} (${t.date})` : 'Ingen trening planlagt – generelle treningsråd';
@@ -113,7 +113,7 @@ export const AiCoach: React.FC<AiCoachProps> = ({ onClose, variant = 'modal', ar
       case 'general':
         return 'Generelt – ingen data fra appen';
       default:
-        return `Oversikt: treninger, kamper og ${tactic.name} (${tactic.formation})`;
+        return `Oversikt: treninger, kamper og ${tactic.name} (${formationLabel(tactic)})`;
     }
   })();
 

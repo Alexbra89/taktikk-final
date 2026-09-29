@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import type { AppView, CalendarEvent, DrillCategory } from '@/types';
 import { useAppStore } from '@/store/useAppStore';
-import { useActiveTactic, SPORT_LABELS } from '@/store/selectors';
+import { useActiveTactic, formationLabel, tacticSetupLabel } from '@/store/selectors';
 import { getWeeklyDrills, CATEGORY_LABELS } from '@/data/drills';
 import { totalMinutes } from '@/lib/trainingSession';
 import { PRIMARY_BTN, SECONDARY_BTN } from '@/lib/formClasses';
@@ -249,7 +249,7 @@ export const DashboardView: React.FC<DashboardProps> = ({
 
           <Tile aria-label="Aktiv taktikk" className="md:col-span-2 xl:col-span-1">
             <TileHeader icon={NAV.board.icon} tone={NAV.board.tile} title={tactic.name}
-              subtitle={`${tactic.formation} · ${SPORT_LABELS[tactic.sport]} · ${tactic.phases.length} ${tactic.phases.length === 1 ? 'fase' : 'faser'}`}
+              subtitle={`${tacticSetupLabel(tactic)} · ${tactic.phases.length} ${tactic.phases.length === 1 ? 'fase' : 'faser'}`}
               action={{ label: 'Åpne', onClick: openBoard }} />
             <div className="grid md:grid-cols-2 xl:grid-cols-1 gap-3">
               <button onClick={openBoard} aria-label={`Åpne ${tactic.name} på brettet`}
@@ -282,7 +282,7 @@ export const DashboardView: React.FC<DashboardProps> = ({
                           <button onClick={() => { setActiveTactic(t.id); openBoard(); }}
                             className="w-full flex items-center gap-2 min-h-[34px] px-2 -mx-2 rounded-ctl text-left text-body text-ink-muted hover:text-ink hover:bg-canvas-hover transition-colors">
                             <span className="flex-1 min-w-0 truncate">{t.name}</span>
-                            <span className="font-mono text-meta text-ink-subtle">{t.formation}</span>
+                            <span className="font-mono text-meta text-ink-subtle">{formationLabel(t)}</span>
                           </button>
                         </li>
                       ))}

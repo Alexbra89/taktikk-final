@@ -50,3 +50,18 @@ describe('buildAppContext', () => {
     expect(Object.keys(g).sort()).toEqual(['ageGroup', 'area', 'today']);
   });
 });
+
+describe('buildAppContext – tom bane', () => {
+  it('aktiv taktikk beskrives som tom bane, ikke som formasjonen den arvet', () => {
+    const empty = { ...tactic, empty: true } as Tactic;
+    const ctx = buildAppContext({ area: 'dashboard', today, ageGroup: 'adult', tactic: empty, events: [], matchReports: [] });
+    expect(ctx.activeTactic?.formation).toMatch(/tom bane/);
+    expect(ctx.activeTactic?.format).toMatch(/tom bane/);
+    expect(JSON.stringify(ctx.activeTactic)).not.toMatch(/4-3-3|11er/);
+  });
+
+  it('vanlig taktikk er uendret', () => {
+    const ctx = buildAppContext({ area: 'dashboard', today, ageGroup: 'adult', tactic, events: [], matchReports: [] });
+    expect(ctx.activeTactic).toMatchObject({ formation: '4-3-3', format: '11er' });
+  });
+});

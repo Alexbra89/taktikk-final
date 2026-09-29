@@ -109,3 +109,58 @@ describe('buildAiContext', () => {
     expect(ctx.drawings).toEqual([]);
   });
 });
+
+describe('buildAiContext – tom bane', () => {
+  const emptyPitch = () => {
+    s().addTactic(undefined, { empty: true });
+    const p1 = s().addItem('player');
+    s().addItem('cone');
+    const p2 = s().addItem('player');
+    s().moveItem(p1, { x: 220, y: 280 });
+    s().moveItem(p2, { x: 440, y: 140 });
+    return { p1, p2 };
+  };
+
+  it('beskrives som tom bane, ikke som formasjonen eller 11er den arvet', () => {
+    emptyPitch();
+    const t = active();
+    expect(t.formation).toBeTruthy();                // arvet standard ligger fortsatt i dataene …
+    const ctx = buildAiContext(t, 0)!;
+    expect(ctx.formation).toMatch(/tom bane/);       // … men sendes ikke som formasjon
+    expect(ctx.formation).not.toContain(t.formation);
+    expect(ctx.format).toMatch(/tom bane/);
+    expect(ctx.format).not.toMatch(/11er/);
+  });
+
+  it('spiller-utstyr sendes som spillere, resten som utstyr', () => {
+    emptyPitch();
+    const ctx = buildAiContext(active(), 0)!;
+    expect(ctx.players).toEqual([
+      { id: 'P1', role: 'Spiller (ingen fast rolle)', ...toPct({ x: 220, y: 280 }) },
+      { id: 'P2', role: 'Spiller (ingen fast rolle)', ...toPct({ x: 440, y: 140 }) },
+    ]);
+    expect(ctx.items.map(i => i.type)).toEqual(['kjegle']);
+    expect(JSON.stringify(ctx)).not.toMatch(/item-|p-\d/);   // ingen interne id-er
+  });
+
+  it('forrige fase bruker samme alias for samme spiller', () => {
+    const { p1 } = emptyPitch();
+    s().addPhase();
+    s().moveItem(p1, { x: 660, y: 280 });
+    const ctx = buildAiContext(active(), 1, { includePrevious: true })!;
+    expect(ctx.players.find(p => p.id === 'P1')).toMatchObject(toPct({ x: 660, y: 280 }));
+    expect(ctx.previousPhase!.players.find(p => p.id === 'P1')).toMatchObject(toPct({ x: 220, y: 280 }));
+    expect(ctx.previousPhase!.players.map(p => p.id)).toEqual(['P1', 'P2']);
+  });
+
+  it('vanlig taktikk er uendret: formasjon, format, formasjonsspillere og spiller-utstyr som utstyr', () => {
+    s().addItem('player');
+    const t = active();
+    const ctx = buildAiContext(t, 0)!;
+    expect(ctx.formation).toBe(t.formation);
+    expect(ctx.format).toBe('11er');
+    expect(ctx.players).toHaveLength(11);
+    expect(ctx.players[0]).toMatchObject({ id: 'P1', num: 1, role: 'Keeper', label: 'KV' });
+    expect(ctx.items.map(i => i.type)).toEqual(['spiller']);
+  });
+});

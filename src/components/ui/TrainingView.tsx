@@ -518,7 +518,7 @@ const NewTrainingForm: React.FC<{
               <div className="max-h-64 overflow-y-auto">
                 {filteredDrills.length === 0 ? (
                   <div className="text-center py-8 text-ink-subtle text-body">
-                    Ingen øvelser funnet. Klikk "Legg til egen øvelse" for å opprette en.
+                    Ingen øvelser funnet. Klikk &quot;Legg til egen øvelse&quot; for å opprette en.
                   </div>
                 ) : (
                   filteredDrills.map(drill => {

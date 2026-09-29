@@ -17,9 +17,11 @@ export interface AiPoint { x: number; y: number }
 
 export interface AiPlayer {
   id: string;        // alias, f.eks. «P7»
-  num: number;
+  /** Mangler på tom bane: spillerne der er utstyr uten draktnummer. */
+  num?: number;
   role: string;      // «Spiss»
-  label: string;     // «SP»
+  /** Mangler på tom bane: ingen formasjon, ingen rolleetikett. */
+  label?: string;    // «SP»
   x: number;
   y: number;
 }
@@ -121,9 +123,25 @@ export function compactDrawing(d: Drawing): AiDrawing | null {
   return out;
 }
 
-function compactItems(items: BoardItem[] | undefined): AiItem[] {
+// Tom bane: ingen formasjon og ikke fast spillerantall. Spillerne er utstyr av
+// typen «player» som treneren har plassert selv, og sendes som spillere.
+const EMPTY_FORMAT = 'tom bane (ingen fast spillerantall)';
+const EMPTY_FORMATION = 'ingen – tom bane; spillerne er plassert manuelt av treneren';
+const EMPTY_PLAYER_ROLE = 'Spiller (ingen fast rolle)';
+
+/** Alias per spiller-utstyr på tom bane: P1, P2 … i rekkefølgen de ble lagt til (samme i alle faser). */
+function itemPlayerAliases(items: BoardItem[] | undefined): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const it of Array.isArray(items) ? items : []) {
+    if (it?.type === 'player' && typeof it.id === 'string' && !out.has(it.id)) out.set(it.id, `P${out.size + 1}`);
+  }
+  return out;
+}
+
+function compactItems(items: BoardItem[] | undefined, skipPlayers = false): AiItem[] {
   const out: AiItem[] = [];
   for (const it of Array.isArray(items) ? items : []) {
+    if (skipPlayers && it?.type === 'player') continue;
     if (out.length >= MAX_ITEMS) break;
     if (!it || !finite(it.position)) continue;
     const { x, y } = toPct(it.position);
@@ -141,11 +159,20 @@ export function buildAiContext(tactic: Tactic, phaseIdx: number, opts: AiContext
   const phase = tactic?.phases?.[phaseIdx];
   if (!phase) return null;
 
+  const empty = tactic.empty === true;
   const players = Array.isArray(phase.players) ? phase.players : [];
-  const aliases = playerAliases(players);
+  // Tom bane har ingen formasjonsspillere; spillerne er utstyr av typen «player».
+  const aliases = empty ? itemPlayerAliases(phase.items) : playerAliases(players);
 
   const aiPlayers: AiPlayer[] = [];
-  for (const p of players) {
+  if (empty) {
+    for (const it of Array.isArray(phase.items) ? phase.items : []) {
+      const alias = aliases.get(it?.id);
+      if (!alias || !finite(it.position)) continue;
+      aiPlayers.push({ id: alias, role: EMPTY_PLAYER_ROLE, ...toPct(it.position) });
+    }
+  }
+  for (const p of empty ? [] : players) {
     const alias = aliases.get(p?.id);
     if (!alias || !finite(p.position)) continue;
     const slot = getSlot(tactic, p.slotIdx);
@@ -166,25 +193,28 @@ export function buildAiContext(tactic: Tactic, phaseIdx: number, opts: AiContext
 
   const note = cut(phase.stickyNote, MAX_NOTE);
   const ctx: AiBoardContext = {
-    format: SPORT_LABELS[tactic.sport] ?? String(tactic.sport),
+    format: empty ? EMPTY_FORMAT : SPORT_LABELS[tactic.sport] ?? String(tactic.sport),
     ageGroup: opts.ageGroup === 'youth' ? 'barn' : opts.ageGroup === 'adult' ? 'voksne' : 'ukjent',
-    formation: tactic.formation,
+    formation: empty ? EMPTY_FORMATION : tactic.formation,
     tactic: cut(tactic.name, MAX_NAME),
     phase: { name: cut(phase.name, MAX_NAME), number: phaseIdx + 1, total: tactic.phases.length },
     direction: 'Hjemmelaget angriper mot høyre (x = 100 er motstanderens mål).',
     players: aiPlayers,
     ball: pct(phase.ball) ?? null,
-    items: compactItems(phase.items),
+    items: compactItems(phase.items, empty),
     drawings,
     ...(note ? { note } : {}),
   };
 
   const prev = opts.includePrevious && phaseIdx > 0 ? tactic.phases[phaseIdx - 1] : undefined;
   if (prev) {
+    // På tom bane er spillerne utstyr; ellers formasjonsspillerne.
+    const prevSrc: unknown = empty ? prev.items : prev.players;
+    const prevPlayers: { id: string; position: Position }[] = Array.isArray(prevSrc) ? prevSrc : [];
     ctx.previousPhase = {
       name: cut(prev.name, MAX_NAME),
       // Samme alias som i aktiv fase: det er samme spiller.
-      players: (Array.isArray(prev.players) ? prev.players : [])
+      players: prevPlayers
         .filter(p => aliases.has(p?.id) && finite(p.position))
         .map(p => ({ id: aliases.get(p.id)!, ...toPct(p.position) })),
       ball: pct(prev.ball) ?? null,

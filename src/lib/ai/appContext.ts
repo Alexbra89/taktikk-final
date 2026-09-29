@@ -129,8 +129,9 @@ export function buildAppContext(input: AppContextInput): AiAppContext {
     const phases = tactic.phases.map(p => cut(p.name, MAX_TITLE));
     ctx.activeTactic = {
       name: cut(tactic.name, MAX_TITLE),
-      format: SPORT_LABELS[tactic.sport] ?? String(tactic.sport),
-      formation: tactic.formation,
+      // Tom bane har verken formasjon eller fast spillerantall (se buildAiContext).
+      format: tactic.empty ? 'tom bane (ingen fast spillerantall)' : SPORT_LABELS[tactic.sport] ?? String(tactic.sport),
+      formation: tactic.empty ? 'ingen – tom bane; spillerne er plassert manuelt av treneren' : tactic.formation,
       phases,
       activePhase: phases[tactic.activePhaseIdx] ?? phases[0] ?? '',
     };

@@ -29,6 +29,14 @@ export const SPORT_LABELS: Record<Sport, string> = {
   football: '11er', football5: '5er', football7: '7er', football9: '9er',
 };
 
+/** Formasjonen slik den vises. Tom bane har ingen formasjon (formation er bare en arvet standard). */
+export const formationLabel = (t: Pick<Tactic, 'empty' | 'formation'>): string =>
+  t.empty ? 'Tom bane' : t.formation;
+
+/** «4-3-3 · 11er» – eller bare «Tom bane», som verken har formasjon eller fast spillerantall. */
+export const tacticSetupLabel = (t: Pick<Tactic, 'empty' | 'formation' | 'sport'>): string =>
+  t.empty ? 'Tom bane' : `${t.formation} · ${SPORT_LABELS[t.sport]}`;
+
 /**
  * Bekreftelsestekst for sportbytte, eller null når ingen bekreftelse trengs
  * (taktikken har bare én fase). «Bytte til 5er fjerner 6 spillere fra 3 faser. Fortsette?»
