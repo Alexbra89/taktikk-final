@@ -155,7 +155,7 @@ test('missing model files keep 3D and playback usable with a small notice', asyn
 test('22 animated players reuse one model load across view switches', async ({ page }, info) => {
   let models = 0, skies = 0;
   page.on('request', request => {
-    if (request.url().endsWith('/models/spiller.glb')) models++;
+    if (request.url().endsWith('/models/spiller-v2.glb')) models++;
     if (request.url().endsWith('/models/himmel.hdr')) skies++;
   });
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

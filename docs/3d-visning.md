@@ -83,7 +83,10 @@ timersteg gi noen millisekunders forskjell. Denne eksisterende klokken er ikke e
 - Mobil bruker redusert pikseloppløsning, myke kontaktskygger i stedet for
   skyggekart, og maksimalt 30 oppdateringer/s. Berøringsenheter beholder denne
   tilpasningen også i liggende format.
-- `public/models/spiller.glb` lastes én gang og klones med `SkeletonUtils`.
+- `public/models/spiller-v2.glb` lastes én gang og klones med `SkeletonUtils`.
+  Den lages av `scripts/slank-modell.mjs`, som beholder bare de tre animasjonene
+  appen bruker. En endret modell må få nytt filnavn, ellers serverer
+  service workerens CacheFirst-cache den gamle.
   Spillerne deler geometri og draktmaterialer, men har hvert sitt skjelett og
   animasjonsmiks. Stillestående, jogging og sprint blandes ut fra faktisk fart,
   med myk overgang til og fra stillestående. Jogg og sprint går i samme stegtakt,

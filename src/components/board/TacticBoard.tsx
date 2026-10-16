@@ -46,6 +46,15 @@ const Board3D = dynamic(() => import('./Board3D'), {
   loading: () => <div role="status" className="flex-1 flex items-center justify-center text-caption text-ink-subtle">Laster 3D-visning …</div>,
 });
 
+// Hopper over nye tegninger så lenge `hold` er sann. Brukes på det skjulte
+// 2D-brettet under 3D-avspilling: klokka og fasen ligger i TacticBoard, så
+// brettet tegnes med gjeldende tilstand straks det vises igjen eller
+// avspillingen stopper.
+const HoldWhileHidden = React.memo(
+  function HoldWhileHidden({ children }: { hold: boolean; children: React.ReactNode }) { return <>{children}</>; },
+  (_prev, next) => next.hold,
+);
+
 // ══════════════════════════════════════════════════════════════
 //  TACTIC BOARD – KALK
 //  Banen er helten: én linje over (taktikk + formasjon) og én under
@@ -731,6 +740,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           >
             <SvgDefs/>
 
+            <HoldWhileHidden hold={boardView === '3d' && isPlaying}>
             <BoardStage
               players={stagePlayers}
               playerStyle={playerStyle}
@@ -772,6 +782,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                 {items.rotHandle}
               </>}
             />
+            </HoldWhileHidden>
           </svg>
           </div>
         </div>

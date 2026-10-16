@@ -20,8 +20,11 @@ async function modelFile(name: string) {
   } finally { clearTimeout(timeout); }
 }
 
+// A new file name rather than a changed file: the service worker caches models
+// CacheFirst, so an old copy would otherwise be served forever.
+// Built by scripts/slank-modell.mjs with only the three clips below.
 export function loadPlayer() {
-  return player ??= modelFile('spiller.glb').then(data => new GLTFLoader().parseAsync(data, '/models/')).then(gltf => {
+  return player ??= modelFile('spiller-v2.glb').then(data => new GLTFLoader().parseAsync(data, '/models/')).then(gltf => {
     gltf.animations = gltf.animations.filter(c => ['Idle_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop'].includes(c.name));
     if (!gltf.scene.getObjectByProperty('isSkinnedMesh', true) || gltf.animations.length !== 3) {
       throw new Error('The player model is missing its skeleton or football animations.');
