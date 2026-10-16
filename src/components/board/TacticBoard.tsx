@@ -695,6 +695,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         tactic={tactic} players={stagePlayers} ball={displayBall} drawings={phase.drawings ?? []}
         items={shownItems} playerStyle={playerStyle} isPlaying={isPlaying} speed={playSpeed}
         teamName={teamName} isMobile={isMobile}
+        // For 3D fullscreen, which covers the rows below: same rules as those buttons.
+        onSelectPhase={idx => !isPlaying && setActivePhaseIdx(idx)}
+        onTogglePlay={() => isPlaying ? stopPlayback() : startPlayback()}
+        onSpeed={setPlaySpeed}
         trails={showMovement && !isPlaying && activePhaseIdx > 0 ? { from: phases[activePhaseIdx - 1].players, to: phase.players } : null}
         progress={isPlaying ? progressFrac : null}
         // Same clock as 2D; only the height of long passes is added in 3D.

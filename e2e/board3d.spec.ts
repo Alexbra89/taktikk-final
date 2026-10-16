@@ -91,6 +91,141 @@ test('mobile 3D has a visible pitch and controls without page overflow', async (
   }
 });
 
+test('3D fullscreen fills the screen with fading controls, and Esc closes it', async ({ page }, info) => {
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
+  await openBoard(page);
+  await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+  await open3D(page);
+  const before = await savedTactics(page);
+  const viewport = page.viewportSize()!;
+  await page.getByRole('button', { name: 'Fullskjerm for 3D', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '3D-bane i fullskjerm' });
+  await expect(dialog).toBeVisible();
+  const box = (await dialog.boundingBox())!;
+  expect(box.x).toBeLessThanOrEqual(1); expect(box.y).toBeLessThanOrEqual(1);
+  expect(box.width).toBeGreaterThanOrEqual(viewport.width - 2); expect(box.height).toBeGreaterThanOrEqual(viewport.height - 2);
+  // The drawing buffer follows the new size with the same scale on both axes: not stretched, not stale.
+  await expect.poll(() => page.locator('[data-testid="board-3d"] canvas').evaluate((c: HTMLCanvasElement) =>
+    c.clientWidth >= innerWidth - 2 && c.clientHeight >= innerHeight - 2 && Math.abs(c.width / c.clientWidth - c.height / c.clientHeight) < .02)).toBe(true);
+  const controls = dialog.getByRole('group', { name: 'Kontroller', exact: true });
+  for (const name of ['Forrige fase', 'Spill av fasene', 'Neste fase', 'Zoom ut i 3D', 'Zoom inn i 3D', 'Tilbakestill kamera', 'Avslutt fullskjerm']) {
+    await expect(controls.getByRole('button', { name, exact: true })).toBeVisible();
+  }
+  for (const name of ['Fase', 'Avspillingsfart', 'Kameravinkel']) await expect(controls.getByRole('combobox', { name, exact: true })).toBeVisible();
+  // Modal for the keyboard: focus starts inside, and Tab / Shift+Tab never reach the page behind.
+  const focusInside = () => dialog.evaluate(el => el.contains(document.activeElement));
+  expect(await focusInside()).toBe(true);
+  for (let i = 0; i < 20; i++) { await page.keyboard.press('Tab'); expect(await focusInside()).toBe(true); }
+  for (let i = 0; i < 20; i++) { await page.keyboard.press('Shift+Tab'); expect(await focusInside()).toBe(true); }
+  await controls.getByRole('combobox', { name: 'Kameravinkel', exact: true }).selectOption({ label: 'Ovenfra' });
+  await controls.getByRole('button', { name: 'Zoom inn i 3D', exact: true }).click();
+  await expect(dialog.locator('.board3d-phase-name')).toHaveText('Fase 2');
+  await controls.getByRole('button', { name: 'Forrige fase', exact: true }).click();
+  await expect(dialog.locator('.board3d-phase-name')).not.toHaveText('Fase 2');
+  await controls.getByRole('button', { name: 'Spill av fasene', exact: true }).click();
+  await expect(controls.getByRole('button', { name: 'Stopp avspilling', exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('3d-fullscreen.png') });
+  // Fades after a few seconds without input; a tap brings it back.
+  await expect(controls).toHaveCSS('opacity', '0', { timeout: 8_000 });
+  await page.mouse.click(viewport.width / 2, viewport.height / 2);
+  await expect(controls).toHaveCSS('opacity', '1');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Fullskjerm for 3D', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fullskjerm for 3D', exact: true })).toBeFocused();
+  expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
+  const after = (await page.locator('[data-testid="board-3d-stage"]').boundingBox())!;
+  expect(after.height).toBeLessThan(viewport.height - 50);
+  // Phase choice and playback move activePhaseIdx, as in the normal view; the content is untouched.
+  expect((await savedTactics(page)).map((t: Tactic) => t.phases)).toEqual(before.map((t: Tactic) => t.phases));
+  expect(errors).toEqual([]);
+});
+
+test('rotating the phone keeps 3D and its fullscreen open', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
+  const portrait = { width: 390, height: 844 }, landscape = { width: 844, height: 390 };
+  await page.setViewportSize(portrait);
+  await openBoard(page);
+  await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+  await open3D(page);
+  const region = page.getByRole('region', { name: '3D-visning' });
+  // Without fullscreen: the layout switches at 640 px, the view stays 3D.
+  await page.setViewportSize(landscape);
+  await expect(region.getByRole('button', { name: 'Oversikt', exact: true })).toBeEnabled({ timeout: 45_000 });
+  await page.setViewportSize(portrait);
+  await expect(region.getByRole('button', { name: 'Oversikt', exact: true })).toBeEnabled({ timeout: 45_000 });
+  await region.getByRole('button', { name: 'Fullskjerm for 3D', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '3D-bane i fullskjerm' });
+  for (const viewport of [landscape, portrait, landscape]) {
+    await page.setViewportSize(viewport);
+    await expect(dialog).toBeVisible();
+    await expect.poll(async () => {
+      const box = (await dialog.boundingBox())!;
+      return box.width >= viewport.width - 2 && box.height >= viewport.height - 2;
+    }).toBe(true);
+    await expect.poll(() => page.locator('[data-testid="board-3d"] canvas').evaluate((c: HTMLCanvasElement) =>
+      c.clientWidth >= innerWidth - 2 && c.clientHeight >= innerHeight - 2 && Math.abs(c.width / c.clientWidth - c.height / c.clientHeight) < .02), { timeout: 45_000 }).toBe(true);
+    await page.mouse.click(viewport.width / 2, viewport.height / 3); // the controls may have faded
+    await expect(dialog.getByRole('button', { name: 'Avslutt fullskjerm', exact: true })).toBeVisible();
+  }
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(region.getByRole('button', { name: 'Fullskjerm for 3D', exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('the phase pill stays small in a landscape phone and never covers the middle of the pitch', async ({ page }, info) => {
+  await openBoard(page);
+  await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+  await page.evaluate(() => {
+    const storage = JSON.parse(localStorage.getItem('taktikkboard-storage')!);
+    const tactic: Tactic = storage.state.tactics.find((t: Tactic) => t.id === storage.state.activeTacticId);
+    tactic.phases.forEach((phase, index) => {
+      phase.name = index ? 'Fase 6' : 'Bygg opp';
+      phase.stickyNote = 'Press sammen når ballen går ut på kanten. Midtbanen skyver opp, backen på ballsiden går i duell, og stopperne holder linja til ballen er vunnet. Keeper styrer.\n'.repeat(3) + 'Siste linje.';
+    });
+    localStorage.setItem('taktikkboard-storage', JSON.stringify(storage));
+  });
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.reload();
+  await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Taktikk', exact: true }).click();
+  await open3D(page);
+  const stage = page.locator('[data-testid="board-3d-stage"]');
+  const pill = stage.getByRole('button', { name: 'Vis hele fasenotatet', exact: true });
+  const clearOfMiddle = async (maxShare: number) => {
+    const s = (await stage.boundingBox())!, p = (await stage.locator('.board3d-phase').boundingBox())!;
+    expect(p.width).toBeLessThanOrEqual(s.width * maxShare + 1);
+    expect(p.x + p.width).toBeLessThan(s.x + s.width / 2);
+    expect(p.y + p.height).toBeLessThan(s.y + s.height / 2 + 1);
+  };
+  await expect(pill).toBeVisible();
+  await expect(stage.locator('.board3d-phase-name')).toHaveText('Fase 6');
+  // One line, cut with an ellipsis.
+  expect(await stage.locator('.board3d-phase-note').evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+  expect((await pill.boundingBox())!.height).toBeLessThan(30);
+  await clearOfMiddle(.3);
+  await page.screenshot({ path: info.outputPath('3d-landscape-pill.png') });
+  await pill.click();
+  await expect(stage.getByRole('button', { name: 'Skjul fasenotatet', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await clearOfMiddle(.42);
+  // The whole note can be reached: the text keeps its full height and the pill scrolls to its end.
+  const note = stage.locator('.board3d-phase-note'), open = stage.locator('.board3d-phase');
+  expect(await note.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  expect(await open.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+  await open.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  const end = (await note.boundingBox())!, frame = (await open.boundingBox())!;
+  expect(end.y + end.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
+  await page.screenshot({ path: info.outputPath('3d-landscape-pill-open.png') });
+  await stage.getByRole('button', { name: 'Skjul fasenotatet', exact: true }).click();
+  await page.getByRole('button', { name: 'Fullskjerm for 3D', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '3D-bane i fullskjerm' })).toBeVisible();
+  await clearOfMiddle(.3);
+  await page.screenshot({ path: info.outputPath('3d-landscape-fullscreen.png') });
+  await page.mouse.click(422, 195); // the controls may have faded by now
+  await page.getByRole('button', { name: 'Avslutt fullskjerm', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '3D-bane i fullskjerm' })).toHaveCount(0);
+});
+
 test('all equipment and drawing types render in 3D without altering the tactic', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   page.on('console', message => { if (message.type() === 'error' && /THREE|WebGL|shader/i.test(message.text())) errors.push(message.text()); });

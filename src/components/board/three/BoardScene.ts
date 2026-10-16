@@ -6,7 +6,7 @@ import type { StagePlayer } from '../BoardStage';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import { KIT_COLORS } from '../svg/PlayerKit';
 import { PITCHES, boardToWorld, ballToWorld, boardRotation, figureScale, GOAL_DEPTH } from './coordinates';
-import { drawingTexture, textTexture, themeColor, grassTexture, phaseTexture } from './textures';
+import { drawingTexture, textTexture, themeColor, grassTexture, phaseTexture, PHASE_PILL_WIDTH } from './textures';
 import { DrawingCache } from './drawingCache';
 import { drawingColorKey } from '../drawTools';
 import { loadPlayer, loadSky, clonePlayer, kitMaterial, strideOffset } from './assets';
@@ -62,7 +62,8 @@ interface Figure {
 export class BoardScene {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
-  readonly camera = new THREE.PerspectiveCamera(44, 1, 0.08, 600);
+  // Keep depth precision for low, oblique views, including mobile depth buffers.
+  readonly camera = new THREE.PerspectiveCamera(44, 1, 0.5, 450);
   readonly controls: OrbitControls;
   readonly assetsReady: Promise<void>;
   readonly assetWarnings: string[] = [];
@@ -248,8 +249,13 @@ export class BoardScene {
 
   private buildPitch() {
     const p = PITCHES[this.sport];
-    // The ground only receives shadows; casting would just cost shadow-map time.
-    this.box(this.scene, 0, -0.28, 0, p.length + 28, 0.5, p.width + 24, '#21452e').castShadow = false;
+    // A frame around the turf, rather than a second floor 3 cm underneath it.
+    // The overlapping floor could bleed through at grazing angles on mobile
+    // (z-fighting). Removing the overlap fixes this without reducing detail.
+    for (const side of [-1, 1]) {
+      this.box(this.scene, side * (p.length / 2 + 9.5), -0.28, 0, 9, 0.5, p.width + 24, '#21452e').castShadow = false;
+      this.box(this.scene, 0, -0.28, side * (p.width / 2 + 8.5), p.length + 10, 0.5, 7, '#21452e').castShadow = false;
+    }
     const grass = grassTexture(); grass.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy()); this.textures.add(grass);
     const turf = new THREE.MeshStandardMaterial({ map: grass, roughness: .98, bumpMap: grass, bumpScale: .065 });
     turf.onBeforeCompile = shader => {
@@ -291,7 +297,7 @@ export class BoardScene {
       goal.position.x = sign * p.length / 2; goal.rotation.y = -sign * Math.PI / 2; goal.scale.setScalar(this.figureSize); this.scene.add(goal);
     }
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy()); this.textures.add(texture);
-    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }); this.ownedMaterials.add(material);
+    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }); this.ownedMaterials.add(material);
     const plane = new THREE.Mesh(this.geo('pitch-plane', () => new THREE.PlaneGeometry(p.length, p.width)), material);
     plane.rotation.x = -Math.PI / 2; plane.position.y = .02; this.scene.add(plane);
     // Quiet stadium frame, clear run-off space and low stepped stands.
@@ -488,7 +494,9 @@ export class BoardScene {
     }
   }
 
+  /** Only the video draws the phase into WebGL; the live view shows a tappable pill in the page (Board3D). */
   private setPhase(name = '', note = '') {
+    if (!this.exportMode) return;
     const key = JSON.stringify([name, note]); if (key === this.phaseKey) return;
     this.phaseKey = key;
     const material = this.phasePanel.material;
@@ -505,11 +513,12 @@ export class BoardScene {
     }
     const image = this.phasePanel.material.map?.image as HTMLCanvasElement | undefined;
     if (!image) return;
-    // 360 px on screen; grows with the frame height so it stays legible in a 1080p video.
-    // On phones it may span the width; on wide frames at most half, leaving the pitch visible.
-    const width = Math.min(Math.max(360, size.y * .45), Math.max(size.x * .5, Math.min(360, size.x - 24)), (size.y * .42) * image.width / image.height);
-    this.phasePanel.position.set(12, size.y - 12, 0);
-    this.phasePanel.scale.set(width, width * image.height / image.width, 1);
+    // Compact corner pill: a full-width texture is at most 30 % of the frame,
+    // so it never reaches the middle of the pitch (576 px wide in 1080p).
+    const scale = Math.min(size.x * .3, size.y * .55) / PHASE_PILL_WIDTH;
+    const margin = Math.round(size.y * .025);
+    this.phasePanel.position.set(margin, size.y - margin, 0);
+    this.phasePanel.scale.set(image.width * scale, image.height * scale, 1);
   }
 
   setFrame(frame: SceneFrame, animate = true) {

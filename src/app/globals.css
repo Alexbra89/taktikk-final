@@ -477,6 +477,205 @@ button:active,
   overflow: hidden;
 }
 
+/* ============================================================
+   3D-VISNING – fasepille og fullskjerm. Gjelder bare Board3D.
+   ============================================================ */
+
+.board3d-stage {
+  position: relative;
+  overscroll-behavior: contain;
+}
+.board3d-stage.is-fullscreen {
+  background: #0c191f;
+}
+/* Fokus flyttes hit når fullskjermen åpnes; selve flaten trenger ingen ring. */
+.board3d-stage.is-fullscreen:focus {
+  outline: none;
+}
+/* iPhone har ikke elementfullskjerm: da dekker brettet hele vinduet selv. */
+.board3d-stage.is-pseudo-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  width: 100vw;
+  height: 100vh;
+  width: 100dvw;
+  height: 100dvh;
+}
+
+/* Liten pille øverst til venstre. Maks 30 % av bredden, så den aldri
+   når midten av banen; åpnet notat maks 42 % bredt og 45 % høyt. */
+.board3d-phase {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 0;
+  max-width: min(30%, 18rem);
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: rgba(12, 25, 31, 0.58);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms ease;
+}
+button.board3d-phase {
+  cursor: pointer;
+}
+button.board3d-phase:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) and (pointer: fine) {
+  button.board3d-phase:hover {
+    background: rgba(12, 25, 31, 0.74);
+  }
+}
+.board3d-phase::before {
+  content: "";
+  flex-shrink: 0;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f3b75f;
+}
+.board3d-phase-name {
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.board3d-phase-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #dfe7e3;
+}
+.board3d-phase.is-open {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-width: min(42%, 24rem);
+  max-height: 45%;
+  overflow-y: auto;
+  padding: 6px 12px 8px;
+  border-radius: 12px;
+  background: rgba(12, 25, 31, 0.8);
+}
+.board3d-phase.is-open::before {
+  display: none;
+}
+.board3d-phase.is-open .board3d-phase-name {
+  max-width: 100%;
+}
+/* Teksten får full høyde, så det er pillen som ruller – ellers krymper
+   flexboksen teksten og klipper slutten av et langt notat. */
+.board3d-phase.is-open .board3d-phase-note {
+  flex-shrink: 0;
+  overflow: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.board3d-stage.is-fullscreen .board3d-phase {
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+}
+/* Lave skjermer (telefon på tvers): enda mindre. */
+@media (max-height: 500px) {
+  .board3d-phase {
+    max-width: min(26%, 15rem);
+    padding: 3px 8px 3px 7px;
+    font-size: 11px;
+  }
+  .board3d-phase.is-open {
+    max-width: min(40%, 20rem);
+  }
+}
+
+/* Tynn, halvgjennomsiktig kontrollrad nederst i fullskjerm. */
+.board3d-fsbar {
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  background: linear-gradient(to top, rgba(8, 16, 20, 0.78), rgba(8, 16, 20, 0.42));
+  color: #fff;
+  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1), transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.board3d-fsbar.is-hidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+.board3d-fsbar-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.board3d-fsbtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  border-radius: 999px;
+  color: #fff;
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms ease;
+}
+.board3d-fsbtn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.board3d-fsbtn:disabled {
+  opacity: 0.35;
+}
+@media (hover: hover) and (pointer: fine) {
+  .board3d-fsbtn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.14);
+  }
+}
+.board3d-fsbtn.is-play,
+.board3d-fsbtn.is-play:hover:not(:disabled) {
+  background: rgb(var(--k-signal));
+  color: rgb(var(--k-signal-fg));
+}
+.board3d-fsselect {
+  flex-shrink: 0;
+  min-height: 0;
+  height: 34px;
+  max-width: 11rem;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  /* Under 16px zoomer iPhone inn når valget åpnes. */
+  font-size: 16px;
+}
+.board3d-fsselect option {
+  color: #111;
+}
+.board3d-fsselect:disabled {
+  opacity: 0.45;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
