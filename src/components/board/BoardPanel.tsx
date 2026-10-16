@@ -128,7 +128,7 @@ export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playS
       <section>
         <SectionTitle>Avspillingsfart</SectionTitle>
         <div role="group" aria-label="Avspillingsfart" className="flex gap-1.5">
-          {[0.5, 1, 1.5, 2].map(v => (
+          {[0.5, 1, 1.5, 2, 3].map(v => (
             <button
               key={v}
               onClick={() => setPlaySpeed(v)}
