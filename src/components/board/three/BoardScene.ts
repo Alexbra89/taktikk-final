@@ -6,7 +6,7 @@ import type { StagePlayer } from '../BoardStage';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import { KIT_COLORS } from '../svg/PlayerKit';
 import { PITCHES, boardToWorld, ballToWorld, boardRotation, figureScale, GOAL_DEPTH } from './coordinates';
-import { drawingTexture, textTexture, themeColor, grassTexture, phaseTexture } from './textures';
+import { drawingTexture, textTexture, themeColor, grassTexture, phaseTexture, PHASE_PILL_WIDTH } from './textures';
 import { DrawingCache } from './drawingCache';
 import { drawingColorKey } from '../drawTools';
 import { loadPlayer, loadSky, clonePlayer, kitMaterial, strideOffset } from './assets';
@@ -488,7 +488,9 @@ export class BoardScene {
     }
   }
 
+  /** Only the video draws the phase into WebGL; the live view shows a tappable pill in the page (Board3D). */
   private setPhase(name = '', note = '') {
+    if (!this.exportMode) return;
     const key = JSON.stringify([name, note]); if (key === this.phaseKey) return;
     this.phaseKey = key;
     const material = this.phasePanel.material;
@@ -505,11 +507,12 @@ export class BoardScene {
     }
     const image = this.phasePanel.material.map?.image as HTMLCanvasElement | undefined;
     if (!image) return;
-    // 360 px on screen; grows with the frame height so it stays legible in a 1080p video.
-    // On phones it may span the width; on wide frames at most half, leaving the pitch visible.
-    const width = Math.min(Math.max(360, size.y * .45), Math.max(size.x * .5, Math.min(360, size.x - 24)), (size.y * .42) * image.width / image.height);
-    this.phasePanel.position.set(12, size.y - 12, 0);
-    this.phasePanel.scale.set(width, width * image.height / image.width, 1);
+    // Compact corner pill: a full-width texture is at most 30 % of the frame,
+    // so it never reaches the middle of the pitch (576 px wide in 1080p).
+    const scale = Math.min(size.x * .3, size.y * .55) / PHASE_PILL_WIDTH;
+    const margin = Math.round(size.y * .025);
+    this.phasePanel.position.set(margin, size.y - margin, 0);
+    this.phasePanel.scale.set(image.width * scale, image.height * scale, 1);
   }
 
   setFrame(frame: SceneFrame, animate = true) {

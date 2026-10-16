@@ -21,6 +21,27 @@ fase. Bytte mellom 2D og 3D stopper eller starter ikke avspillingen.
   starter kameraet i spillerens øyne, og minus går bakover til en vinkel over skulderen.
 - Videoen bruker samme vinkel, også en vinkel du har dratt deg til selv.
 
+## Fasenavn og fullskjerm
+
+- Fasenavnet står i en liten, halvgjennomsiktig pille øverst til venstre (maks
+  30 % av bredden, mindre på lave skjermer som liggende telefon). Et langt notat
+  kortes ned med «…»; trykk på pillen for å lese hele, trykk igjen for å lukke.
+  Åpnet er den maks 42 % bred og 45 % høy, så den dekker aldri midten av banen;
+  et notat som er lengre enn det, kan rulles i pillen.
+- Fullskjermknappen står ved − + ↻. Den bruker nettleserens fullskjerm (også
+  Safaris webkit-variant). På iPhone, som ikke kan vise et element i fullskjerm,
+  legger 3D-banen seg over hele vinduet i stedet, med plass til hakk og hjemlinje.
+- I fullskjerm ligger fase, forrige/spill av/neste, fart, kamera og zoom i en tynn
+  rad nederst. Raden tones ut etter 3 sekunder uten berøring og kommer tilbake ved trykk.
+- Avslutt med knappen ytterst til høyre, Esc eller tilbake-knappen på Android.
+  Der det er støttet, låses skjermen i liggende format mens fullskjerm er på.
+- Banen tegnes på nytt i riktig størrelse når den går til og fra fullskjerm og
+  når telefonen roteres. Mobil tegner fortsatt med 1× pikseltetthet for å spare batteri.
+- Rotasjon bytter appens layout ved 640 px, men brettet ligger på samme sted i
+  begge (page.tsx), så 3D-visningen og fullskjermen blir stående.
+- Med tastatur: fokus flyttes inn i fullskjermen, Tab og Shift+Tab går rundt
+  inne i den, og fokus går tilbake til fullskjermknappen når den lukkes.
+
 3D bruker eksisterende draktfarger, nummer og valgfrie navn. Sirkelstilen bruker
 lagets signalfarge på figurene. Temaendringer oppdaterer også tegninger og utstyr.
 Ballens høyde finnes ikke i datamodellen. Bakkebanen er alltid den samme som i 2D.
@@ -100,7 +121,8 @@ timersteg gi noen millisekunders forskjell. Denne eksisterende klokken er ikke e
 - Gresset lages i kode med klippestriper, fargevariasjon og nærstruktur.
   Kjegler, nett, stiger, hekker, dukker og baller lages også i kode.
 - Tegnefarger og pilhoder gjenbruker 2D-tegneren. Tekst vender mot kameraet.
-  Fasenavn og notat tegnes inne i videobildet, slik at de også følger eksporten.
+  Fasenavn og notat tegnes inne i videobildet som den samme kompakte pillen
+  (maks 30 % av bildebredden; notatet på høyst to linjer, kortet ned med «…»).
 - Bare de siste tre tegnelagene beholdes på mobil (seks på PC). Videoen laster
   tegnelag etter behov, så lange sekvenser ikke forhåndslaster alle fasene i minnet.
 - Grenen legger til pakkene `three` og `@types/three`. MP4- og WebM-beholdere
@@ -135,6 +157,9 @@ I dette miljøet mangler også fontvariabelen `--font-mono`, slik at den eksiste
 5. Eksporter en 3D-video og åpne den nedlastede filen. Sjekk også at de siste
    sekundene spiller, og at tekst, utstyr og notater er med. Prøv **Avbryt**.
 6. Bytt tilbake til 2D og bekreft at innholdet og redigeringen er som før.
+7. På telefonen: snu den på tvers, åpne 3D og trykk fullskjermknappen ved − + ↻.
+   Prøv avspilling, fart, kamera og zoom, vent til raden tones ut, trykk for å få
+   den tilbake, roter telefonen, og avslutt med knappen eller tilbake-knappen.
 
 Mobilens faktiske bildeflyt og videostøtte bør prøves på en vanlig telefon;
 en nettlesertest med mobilstørrelse måler ikke telefonens grafikkytelse.

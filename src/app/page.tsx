@@ -134,17 +134,17 @@ export default function Home() {
           />
         );
       case 'board':
-        return mobile ? (
-          /* Brettet eier sine egne linjer over og under banen (se TacticBoard). */
-          <TacticBoard selectedPlayerId={selectedPlayerId} onSelectPlayer={setSelectedPlayerId} />
-        ) : (
-          <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden animate-in fade-in">
-            <TacticsHeader aiOpen={aiOpen} onToggleAi={toggleAi} onOpenSmartCoach={() => setShowSmartCoach(true)} />
+        // Samme tre på mobil og desktop, slik at brettet ikke monteres på nytt når telefonen
+        // roteres over 640 px: da ville 3D-visningen og fullskjermen falle tilbake til 2D.
+        // Brettet eier sine egne linjer over og under banen (se TacticBoard).
+        return (
+          <div className={`flex-1 min-w-0 h-full flex flex-col overflow-hidden${mobile ? '' : ' animate-in fade-in'}`}>
+            {!mobile && <TacticsHeader aiOpen={aiOpen} onToggleAi={toggleAi} onOpenSmartCoach={() => setShowSmartCoach(true)} />}
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               <TacticBoard
                 selectedPlayerId={selectedPlayerId}
                 onSelectPlayer={setSelectedPlayerId}
-                onFullscreen={() => setShowFullscreenBoard(true)}
+                onFullscreen={mobile ? undefined : () => setShowFullscreenBoard(true)}
               />
             </div>
           </div>
