@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ballArcHeight, boardRotation, boardToWorld, worldToBoard, PITCHES, playbackBallHeight, playbackDuration, playbackFrame, exportDuration,
+  ballToWorld, figureScale, GOAL_DEPTH,
 } from './coordinates';
 import { frameAt, VIDEO_LEAD_MS, VIDEO_TAIL_MS } from '@/lib/exportVideo';
 import type { Sport, TacticPhase } from '@/types';
@@ -67,6 +68,36 @@ describe('3D playback and fixed-frame export', () => {
   });
   it('takes the short rotation path for equipment', () => {
     expect(playbackFrame(phases, 600, 1).items[0].rotation).toBe(360);
+  });
+});
+
+describe('ball in the goal', () => {
+  for (const sport of Object.keys(PITCHES) as Sport[]) {
+    it(`${sport}: on or behind the goal line it lies inside the enlarged net`, () => {
+      const p = PITCHES[sport], depth = GOAL_DEPTH * figureScale(sport), half = p.goal / 2 * figureScale(sport);
+      for (const ball of [{ x: 32, y: 280 }, { x: 24, y: 250 }, { x: 10, y: 316 }, { x: 848, y: 300 }, { x: 856, y: 244 }]) {
+        const w = ballToWorld(ball, sport, .26, .26);
+        expect(Math.abs(w.x) - p.length / 2).toBeGreaterThanOrEqual(.36 - 1e-9);
+        expect(Math.abs(w.x) - p.length / 2).toBeLessThanOrEqual(depth - .36 + 1e-9);
+        expect(Math.abs(w.z)).toBeLessThanOrEqual(half - .36 + 1e-9);
+        expect(Math.sign(w.x)).toBe(ball.x < 440 ? -1 : 1); expect(w.y).toBe(.26);
+      }
+      // Deeper in the 2D box is deeper in the net.
+      expect(ballToWorld({ x: 20, y: 280 }, sport, .26).x).toBeLessThan(ballToWorld({ x: 30, y: 280 }, sport, .26).x);
+    });
+    it(`${sport}: elsewhere the ball is exactly where 2D has it`, () => {
+      for (const ball of [{ x: 440, y: 280 }, { x: 40, y: 280 }, { x: 24, y: 200 }, { x: 836, y: 400 }]) {
+        expect(ballToWorld(ball, sport, .26)).toEqual(boardToWorld(ball, sport));
+      }
+    });
+  }
+  it('glides across the goal line without a jump', () => {
+    let previous = ballToWorld({ x: 40, y: 280 }, 'football', .26).x;
+    for (let x = 39.5; x >= 20; x -= .5) {
+      const next = ballToWorld({ x, y: 280 }, 'football', .26).x;
+      expect(previous - next).toBeGreaterThan(0); expect(previous - next).toBeLessThan(.3);
+      previous = next;
+    }
   });
 });
 

@@ -8,7 +8,11 @@ fase. Bytte mellom 2D og 3D stopper eller starter ikke avspillingen.
 
 ## Kamera
 
-- Dra for å rotere. Rull eller klyp for å zoome.
+- Mus: dra for å rotere, høyreklikk og dra (eller Shift + dra) for å flytte
+  kameraet sidelengs og langs banen, rull for å zoome.
+- Berøring: én finger roterer, to fingre flytter kameraet og klyper for å zoome.
+- Flyttingen går langs bakken. Punktet kameraet ser på holdes innenfor
+  banen pluss 10 m (omtrent til tribunene).
 - Velg Oversikt, Ovenfra, Følg ballen eller Spillerperspektiv.
 - Spiller 1 er merket Keeper i spillervelgeren.
 - Drar eller zoomer du selv i Følg ballen eller Spillerperspektiv, beholdes din
@@ -35,6 +39,14 @@ Spillformene bruker faste visningsmål, siden småbaner kan ha flere tillatte m�
 | 9er | 70 × 50 m | 5 × 2 m |
 | 7er | 60 × 40 m | 5 × 2 m |
 | 5er | 40 × 30 m | 3 × 2 m |
+
+Spillerne vises forstørret (`figureScale`, 1,5–1,9×), og mål og minimål
+forstørres med samme faktor, så forholdet mellom mål og spiller er riktig.
+Banelinjene er i ekte mål. Målåpningen står alltid på mållinjen.
+Ligger ballen i 2D på eller bak mållinjen inne i målboksen, vises den inne i
+nettet, like dypt inn som i 2D-boksen (`ballToWorld`). Ellers er ballen nøyaktig
+der 2D har den. På 2D-brettet kan ballen dras på langs til `CLAMP_X` (som
+spillere og fullskjerm), altså over mållinjen og inn i målboksen.
 
 Disse målene lagres ikke på taktikken. Eventuelle klubbspesifikke banemål må
 avklares før visningsstandardene endres.
@@ -72,8 +84,10 @@ timersteg gi noen millisekunders forskjell. Denne eksisterende klokken er ikke e
   tilpasningen også i liggende format.
 - `public/models/spiller.glb` lastes én gang og klones med `SkeletonUtils`.
   Spillerne deler geometri og draktmaterialer, men har hvert sitt skjelett og
-  animasjonsmiks. Stillestående, jogging og sprint blandes ut fra faktisk fart;
-  figurene snur seg i bevegelsesretningen. Keeperen har egen draktfarge.
+  animasjonsmiks. Stillestående, jogging og sprint blandes ut fra faktisk fart,
+  med myk overgang til og fra stillestående. Jogg og sprint går i samme stegtakt,
+  på samme fot (`strideOffset`), så beina ikke stivner når de blandes.
+  Figurene snur seg i bevegelsesretningen. Keeperen har egen draktfarge.
   Motspillere og ekstra spillere fra utstyret har samme størrelse som lagets spillere.
 - `public/models/himmel.hdr` gir himmel og miljølys via HDRLoader (det nye
   navnet på RGBELoader i three r186) og PMREM.

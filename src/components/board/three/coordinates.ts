@@ -21,6 +21,35 @@ export function boardToWorld(p: Position, sport: Sport, height = 0) {
   return { x: (p.x - VW / 2) / (VW - 64) * pitch.length, y: height, z: (p.y - VH / 2) / (VH - 64) * pitch.width };
 }
 
+/** Net depth in metres before figureScale; the goals are enlarged with the figures. */
+export const GOAL_DEPTH = 2;
+// FootballPitch draws each goal as a 22 × 72 box behind the goal line at x = 32.
+const GOAL_LINE = 32, GOAL_BOX_DEPTH = 22, GOAL_BOX_HALF = 36;
+/** The 2D ball counts as in the goal once its core (r = 4) touches the goal line. */
+const GOAL_TOUCH = 4;
+
+/**
+ * Like boardToWorld, but a ball the 2D board shows on or behind the goal line
+ * in a goal box lies inside the 3D net: wholly behind the line, and as far
+ * into the (enlarged) net as it is into the 2D box. Across the pitch it keeps
+ * the 2D position, only held inside the side netting. Continuous, so a shot
+ * glides in instead of jumping.
+ */
+export function ballToWorld(p: Position, sport: Sport, radius: number, height = 0) {
+  const world = boardToWorld(p, sport, height);
+  const behind = Math.max(GOAL_LINE - p.x, p.x - (VW - GOAL_LINE));
+  if (behind < -GOAL_TOUCH || Math.abs(p.y - VH / 2) > GOAL_BOX_HALF) return world;
+  const pitch = PITCHES[sport], scale = figureScale(sport), side = p.x < VW / 2 ? -1 : 1;
+  // Clear of the posts and the net.
+  const clearance = radius + .1;
+  const inside = clearance + Math.min(1, Math.max(0, behind) / GOAL_BOX_DEPTH) * (GOAL_DEPTH * scale - 2 * clearance);
+  const t = Math.min(1, (behind + GOAL_TOUCH) / GOAL_TOUCH);
+  const linear = Math.abs(world.x) - pitch.length / 2;
+  const half = pitch.goal / 2 * scale - clearance;
+  const z = Math.max(-half, Math.min(half, world.z));
+  return { x: side * (pitch.length / 2 + linear + (inside - linear) * t), y: height, z: world.z + (z - world.z) * t };
+}
+
 export function worldToBoard(p: { x: number; z: number }, sport: Sport): Position {
   const pitch = PITCHES[sport];
   return { x: p.x / pitch.length * (VW - 64) + VW / 2, y: p.z / pitch.width * (VH - 64) + VH / 2 };

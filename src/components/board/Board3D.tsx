@@ -181,7 +181,9 @@ export default function Board3D(props: Props) {
       </div>
       <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 border-t border-rule bg-canvas-sunken">
         <div className="w-full sm:flex-1 sm:min-w-[220px] sm:w-auto">
-          <p className="text-caption text-ink-muted">Dra for å rotere · Rull eller klyp for å zoome</p>
+          <p className="text-caption text-ink-muted">{lowPower
+            ? 'Én finger: roter · To fingre: flytt kameraet og klyp for å zoome · ↺ tilbakestiller'
+            : 'Dra: roter · Høyreklikk og dra (eller Shift + dra): flytt kameraet · Rull: zoom · ↺ tilbakestiller'}</p>
           <p className="font-mono text-meta text-ink-subtle">{SPORT_LABELS[props.tactic.sport]} · {pitch.length} × {pitch.width} m · Rediger i 2D</p>
         </div>
         <Button size="sm" icon={<Video size={15} />} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.tactic.phases.length < 2}

@@ -5,10 +5,10 @@ import type { BoardItem, Drawing, Position, Sport, Player } from '@/types';
 import type { StagePlayer } from '../BoardStage';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import { KIT_COLORS } from '../svg/PlayerKit';
-import { PITCHES, boardToWorld, boardRotation, figureScale } from './coordinates';
+import { PITCHES, boardToWorld, ballToWorld, boardRotation, figureScale, GOAL_DEPTH } from './coordinates';
 import { drawingTexture, textTexture, themeColor, grassTexture, phaseTexture } from './textures';
 import { drawingColorKey } from '../drawTools';
-import { loadPlayer, loadSky, clonePlayer, kitMaterial } from './assets';
+import { loadPlayer, loadSky, clonePlayer, kitMaterial, strideOffset } from './assets';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /** Slightly larger than a real ball (0.11 m), so it reads in the overview. */
@@ -48,6 +48,10 @@ interface Figure {
   signature: string;
   mixer?: THREE.AnimationMixer;
   actions?: THREE.AnimationAction[];
+  /** Shared jog/sprint stride phase, 0–1. */
+  cycle: number;
+  /** Eased weight of running against standing. */
+  running: number;
   speed: number;
   resources: (THREE.Material | THREE.Texture)[];
   displaced?: THREE.Mesh;
@@ -62,6 +66,8 @@ export class BoardScene {
   readonly assetsReady: Promise<void>;
   readonly assetWarnings: string[] = [];
   private playerAsset?: GLTF;
+  /** Where in Sprint_Loop the stride matches the start of Jog_Fwd_Loop. */
+  private sprintPhase = 0;
   private environment?: THREE.WebGLRenderTarget;
   private hud = new THREE.Scene();
   private hudCamera = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
@@ -100,6 +106,7 @@ export class BoardScene {
   private fromOffset = new THREE.Spherical();
   private toOffset = new THREE.Spherical();
   private offset = new THREE.Vector3();
+  private stadiumShift = new THREE.Vector3();
   private ballTarget = new THREE.Vector3();
   private ballPlaced = false;
   /** Ground point the camera follows in Følg ballen / Spillerperspektiv, also after manual orbiting. */
@@ -127,10 +134,14 @@ export class BoardScene {
     // three r186 removed PCFSoftShadowMap; PCF with a blur radius gives the soft edge.
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
-    this.renderer.domElement.setAttribute('aria-label', 'Taktikktavle i 3D. Dra for å rotere, rull eller klyp for å zoome.');
+    this.renderer.domElement.setAttribute('aria-label', 'Taktikktavle i 3D. Dra for å rotere, høyreklikk og dra, Shift og dra eller dra med to fingre for å flytte kameraet, rull eller klyp for å zoome.');
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-    this.controls.enablePan = false;
+    // Shift/Ctrl + left drag also pans. Panning slides along the grass, never into it.
+    this.controls.enablePan = true;
+    this.controls.screenSpacePanning = false;
+    this.controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    this.controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
     this.controls.minDistance = 1;
     this.controls.maxDistance = 260;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.015;
@@ -175,6 +186,8 @@ export class BoardScene {
       loadPlayer().then(asset => {
         if (this.disposed) return;
         this.playerAsset = asset;
+        const clip = (name: string) => asset.animations.find(c => c.name === name)!;
+        this.sprintPhase = strideOffset(clip('Jog_Fwd_Loop'), clip('Sprint_Loop'));
         this.figures.forEach(f => this.releaseFigure(f)); this.figures.clear();
         // Rebuild numbered and additional players after the one shared load.
         this.equipment.forEach((entry, id) => {
@@ -274,8 +287,9 @@ export class BoardScene {
       circle(edge, -p.width / 2, 1, 0, Math.PI / 2);
       circle(edge, p.width / 2, 1, -Math.PI / 2, 0);
       ctx.restore();
-      const goal = this.goal(p.goal, p.goalHeight, 2);
-      goal.position.x = sign * p.length / 2; goal.rotation.y = -sign * Math.PI / 2; this.scene.add(goal);
+      // Enlarged with the figures, so goal and players keep their real proportions; the mouth stays on the goal line.
+      const goal = this.goal(p.goal, p.goalHeight, GOAL_DEPTH);
+      goal.position.x = sign * p.length / 2; goal.rotation.y = -sign * Math.PI / 2; goal.scale.setScalar(this.figureSize); this.scene.add(goal);
     }
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy()); this.textures.add(texture);
     const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }); this.ownedMaterials.add(material);
@@ -340,7 +354,8 @@ export class BoardScene {
       mixer = new THREE.AnimationMixer(model);
       actions = ['Idle_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop'].flatMap(name => {
         const clip = this.playerAsset!.animations.find(c => c.name === name);
-        return clip ? [mixer!.clipAction(clip).setEffectiveWeight(name === 'Idle_Loop' ? 1 : 0).play()] : [];
+        // Jog and sprint are not clocked by the mixer; animateFigure sets their time from one stride cycle.
+        return clip ? [mixer!.clipAction(clip).setEffectiveWeight(name === 'Idle_Loop' ? 1 : 0).setEffectiveTimeScale(name === 'Idle_Loop' ? 1 : 0).play()] : [];
       });
       mixer.update(0);
     } else {
@@ -389,7 +404,7 @@ export class BoardScene {
     displaced.rotation.x = -Math.PI / 2; displaced.position.set(0, .03, .55); displaced.visible = false; group.add(displaced);
     // Enlarged TV figures remain legible on phones and in the overview.
     group.scale.setScalar(this.figureSize);
-    return { group, limbs, mixer, actions, resources, displaced, speed: 0, target: new THREE.Vector3(), heading: Math.PI / 2, stride: 0, motion: 0, signature: '' };
+    return { group, limbs, mixer, actions, resources, displaced, cycle: 0, running: 0, speed: 0, target: new THREE.Vector3(), heading: Math.PI / 2, stride: 0, motion: 0, signature: '' };
   }
 
   private equipmentGroup(item: BoardItem) {
@@ -414,7 +429,9 @@ export class BoardScene {
         g.add(figure.group); g.userData.figure = figure; break;
       }
       case 'ball': g.add(this.makeBall()); break;
-      case 'minigoal': g.add(this.goal(3, 1.5, 1, ink)); break;
+      case 'minigoal': {
+        const goal = this.goal(3, 1.5, 1, ink); goal.scale.setScalar(this.figureSize); g.add(goal); break;
+      }
       case 'mannequin':
         this.box(g, 0, .05, 0, .65, .1, .5, '#45334e');
         for (const x of [-.19, .19]) this.box(g, x, .45, 0, .06, .8, .06, '#A855F7');
@@ -531,7 +548,7 @@ export class BoardScene {
     this.equipment.forEach((e, id) => { if (!itemIds.has(id)) { if (e.group.userData.figure) this.releaseFigure(e.group.userData.figure); this.scene.remove(e.group); this.equipment.delete(id); } });
     for (const item of frame.items) {
       let entry = this.equipment.get(item.id);
-      const p = boardToWorld(item.position, this.sport);
+      const p = item.type === 'ball' ? ballToWorld(item.position, this.sport, BALL_RADIUS) : boardToWorld(item.position, this.sport);
       const fresh = !entry || entry.type !== item.type;
       if (!entry || fresh) {
         if (entry) {
@@ -544,8 +561,8 @@ export class BoardScene {
       if (!animate || fresh) { entry.group.position.copy(entry.target); entry.group.rotation.y = entry.turn; }
     }
     const height = Math.max(0, frame.ballHeight ?? 0);
-    // The ground path is always the 2D path; only the height is added.
-    const bp = boardToWorld(frame.ball, this.sport, BALL_RADIUS + height);
+    // The ground path is always the 2D path; only the height is added, and a ball in a 2D goal lies in the net.
+    const bp = ballToWorld(frame.ball, this.sport, BALL_RADIUS, BALL_RADIUS + height);
     this.ballTarget.set(bp.x, bp.y, bp.z);
     if (!animate || !this.ballPlaced) { this.ball.position.copy(this.ballTarget); this.placeBallBlob(); }
     this.ballPlaced = true;
@@ -628,7 +645,7 @@ export class BoardScene {
     if (this.manual) {
       // After dragging or wheel-zooming, the user's angle is kept, but the camera still follows.
       if (moved) { this.camera.position.add(this.offset); this.controls.target.add(this.offset); }
-      this.controls.update(); return;
+      this.controls.update(); this.keepInStadium(); return;
     }
     const p = PITCHES[this.sport]; const target = this.desiredTarget; const position = this.desiredPosition;
     target.set(0, 0, 0);
@@ -664,6 +681,15 @@ export class BoardScene {
     this.camera.position.setFromSpherical(this.fromOffset).add(this.controls.target);
     this.controls.update();
   }
+  /** Panning may roam the whole pitch and its surrounds, but the look-at point stays inside the stands. */
+  private keepInStadium() {
+    const p = PITCHES[this.sport], target = this.controls.target;
+    const x = THREE.MathUtils.clamp(target.x, -p.length / 2 - 10, p.length / 2 + 10);
+    const z = THREE.MathUtils.clamp(target.z, -p.width / 2 - 10, p.width / 2 + 10);
+    if (x === target.x && z === target.z) return;
+    const shift = this.stadiumShift.set(x - target.x, 0, z - target.z);
+    target.add(shift); this.camera.position.add(shift);
+  }
   private povFigure() {
     return this.figures.get(this.playerId) ?? this.figures.get(this.frame.players.find(p => p.num === 1)?.id ?? '') ?? this.figures.values().next().value;
   }
@@ -692,13 +718,18 @@ export class BoardScene {
     if (!f.mixer || !f.actions?.length) return;
     // Figures are drawn figureSize× life size; their stride is too, so cadence follows body lengths, not metres.
     const pace = speed / this.figureSize;
-    const moving = THREE.MathUtils.smoothstep(pace, .08, .4);
+    // Eased over about a quarter second, so starting and stopping blend softly into and out of Idle.
+    f.running += (THREE.MathUtils.smoothstep(pace, .08, .4) - f.running) * (1 - Math.exp(-dt * 8));
     const sprint = THREE.MathUtils.smoothstep(pace, 3, 5.5);
-    const weights = [1 - moving, moving * (1 - sprint), moving * sprint];
-    f.actions.forEach((action, i) => {
-      action.setEffectiveWeight(weights[i]);
-      action.setEffectiveTimeScale(i === 0 ? 1 : THREE.MathUtils.clamp(pace / (i === 1 ? 3 : 6), .3, 3));
-    });
+    const [idle, jog, run] = f.actions;
+    idle.setEffectiveWeight(1 - f.running); jog.setEffectiveWeight(f.running * (1 - sprint)); run.setEffectiveWeight(f.running * sprint);
+    // Jog and sprint share one stride cycle, aligned on the same foot: blending
+    // two loops out of step averages a left stride into a right one, and the
+    // legs go stiff and slide. Cadence is as before: natural speed at pace 3 / 6.
+    const jogTime = jog.getClip().duration, runTime = run.getClip().duration;
+    const rate = THREE.MathUtils.lerp(THREE.MathUtils.clamp(pace / 3, .3, 3) / jogTime, THREE.MathUtils.clamp(pace / 6, .3, 3) / runTime, sprint);
+    if (!this.reducedMotion) f.cycle = (f.cycle + rate * dt) % 1;
+    jog.time = f.cycle * jogTime; run.time = (f.cycle + this.sprintPhase) % 1 * runTime;
     f.mixer.update(this.reducedMotion ? 0 : dt);
   }
   render(dt: number, snap = false) {

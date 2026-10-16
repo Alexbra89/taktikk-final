@@ -49,6 +49,28 @@ export function loadPlayer() {
     return gltf;
   }).catch(error => { player = undefined; throw error; });
 }
+/**
+ * Phase (0–1) of `to` whose leg pose best matches the start of `from`, so two
+ * loops can be blended stride for stride. 0 if the thigh tracks are missing.
+ */
+export function strideOffset(from: THREE.AnimationClip, to: THREE.AnimationClip, samples = 96) {
+  // Set at runtime by setInterpolation (or GLTFLoader for cubic splines); missing from the typings.
+  type Sampled = THREE.KeyframeTrack & { createInterpolant(): THREE.Interpolant };
+  const legs = (clip: THREE.AnimationClip) => ['thigh_l', 'thigh_r'].map(bone => clip.tracks.find(t => t.name === `${bone}.quaternion`) as Sampled | undefined);
+  const a = legs(from), b = legs(to);
+  if (a.some(t => !t) || b.some(t => !t) || !(to.duration > 0)) return 0;
+  const start = a.map(t => Array.from(t!.createInterpolant().evaluate(0)));
+  const pose = b.map(t => t!.createInterpolant());
+  let best = 0, bestScore = Infinity;
+  for (let i = 0; i < samples; i++) {
+    const score = pose.reduce((sum, interpolant, j) => {
+      const q = interpolant.evaluate(i / samples * to.duration), s = start[j];
+      return sum + 1 - Math.abs(q[0] * s[0] + q[1] * s[1] + q[2] * s[2] + q[3] * s[3]);
+    }, 0);
+    if (score < bestScore) { bestScore = score; best = i / samples; }
+  }
+  return best;
+}
 export function loadSky() {
   return sky ??= modelFile('himmel.hdr').then(data => {
     const texture = new HDRLoader().createDataTexture(data);
