@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import type { BoardItemType, Drawing, Tactic } from '../src/types';
 
 const svg = 'svg[viewBox="0 0 880 560"]';
@@ -12,6 +12,7 @@ async function open3D(page: Page) {
   await page.getByRole('button', { name: '3D', exact: true }).click();
   await expect(page.getByRole('region', { name: '3D-visning' }).getByRole('button', { name: 'Oversikt', exact: true })).toBeEnabled({ timeout: 45_000 });
   await expect(page.locator('[data-testid="board-3d"] canvas')).toBeVisible();
+  await expect(page.getByText('Laster spillermodell og himmel …', { exact: true })).toHaveCount(0, { timeout: 45_000 });
 }
 async function savedTactics(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('taktikkboard-storage')!).state.tactics);
@@ -65,10 +66,18 @@ test('mobile 3D has a visible pitch and controls without page overflow', async (
   expect(box!.width).toBeGreaterThan(300); expect(box!.height).toBeGreaterThan(180);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('3d-mobile.png') });
+  for (const viewport of [{ width: 390, height: 560 }, { width: 844, height: 390 }, { width: 1024, height: 600 }]) {
+    await page.setViewportSize(viewport);
+    const play = page.getByRole('button', { name: 'Spill av fasene', exact: true });
+    await expect(play).toBeInViewport();
+    const position = await play.boundingBox();
+    expect(position!.y + position!.height).toBeLessThanOrEqual(viewport.height);
+  }
 });
 
 test('all equipment and drawing types render in 3D without altering the tactic', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
+  page.on('console', message => { if (message.type() === 'error' && /THREE|WebGL|shader/i.test(message.text())) errors.push(message.text()); });
   await openBoard(page);
   await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
   await page.evaluate(() => {
@@ -84,11 +93,14 @@ test('all equipment and drawing types render in 3D without altering the tactic',
       { id: 'f', type: 'label', color: '#fff', colorKey: 'white', at: { x: 440, y: 470 }, text: 'Press sammen' },
       { id: 'g', color: '#fff', colorKey: 'white', pts: [{ x: 650, y: 350 }, { x: 700, y: 370 }, { x: 730, y: 340 }] },
     ];
-    for (const phase of tactic.phases) {
+    for (const [index, phase] of tactic.phases.entries()) {
+      phase.name = index === 0 ? 'Bygg opp' : 'Vinn ballen';
+      phase.stickyNote = index === 0 ? 'Hold bredden og spill fremover.' : 'Press sammen når ballen går ut på kanten.';
       phase.drawings = drawings;
       phase.items = types.map((type, i) => ({ id: `item-${i}`, type, position: { x: 160 + i * 85, y: 100 }, rotation: i * 30 }));
       phase.players[0].name = 'Ola'; phase.players[1].name = 'Nora';
     }
+    tactic.phases.forEach(phase => { phase.ball = { ...phase.players[0].position }; });
     localStorage.setItem('taktikkboard-storage', JSON.stringify(storage));
   });
   await page.reload();
@@ -99,7 +111,56 @@ test('all equipment and drawing types render in 3D without altering the tactic',
   await page.waitForTimeout(1000);
   await expect(page.getByText('Tegningene kunne ikke lastes i 3D.', { exact: true })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('3d-equipment-drawings.png') });
+  await expect(page.getByText('Vinn ballen. Press sammen når ballen går ut på kanten.', { exact: true })).toHaveCount(1);
+  await page.getByRole('tab', { name: 'Bygg opp', exact: false }).click();
+  await expect(page.getByText('Bygg opp. Hold bredden og spill fremover.', { exact: true })).toHaveCount(1);
+  await page.getByRole('tab', { name: 'Vinn ballen', exact: false }).click();
+  await page.getByRole('button', { name: 'Følg ballen', exact: true }).click();
+  for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Zoom inn i 3D', exact: true }).click();
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: info.outputPath('player-kit-closeup.png') });
   expect(await savedTactics(page)).toEqual(before); expect(errors).toEqual([]);
+});
+
+test('missing model files keep 3D and playback usable with a small notice', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/models/*', route => route.abort());
+  await openBoard(page);
+  await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+  await open3D(page);
+  await expect(page.getByText(/Spillermodellen kunne ikke lastes/)).toBeVisible();
+  await expect(page.getByText(/Himmelen kunne ikke lastes/)).toBeVisible();
+  await page.getByRole('button', { name: 'Spill av fasene', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Stopp avspilling', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Eksporter 3D-video', exact: true })).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test('22 animated players reuse one model load across view switches', async ({ page }, info) => {
+  let models = 0, skies = 0;
+  page.on('request', request => {
+    if (request.url().endsWith('/models/spiller.glb')) models++;
+    if (request.url().endsWith('/models/himmel.hdr')) skies++;
+  });
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await openBoard(page);
+  await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+  await page.evaluate(() => {
+    const storage = JSON.parse(localStorage.getItem('taktikkboard-storage')!);
+    const tactic: Tactic = storage.state.tactics.find((t: Tactic) => t.id === storage.state.activeTacticId);
+    tactic.phases.forEach((phase, index) => {
+      phase.players = [...phase.players, ...phase.players.map(p => ({ ...p, id: `extra-${p.id}`, num: p.num + 11, position: { x: p.position.x, y: 560 - p.position.y } }))];
+      if (index) phase.players.forEach(p => { p.position.x += 65; });
+    });
+    localStorage.setItem('taktikkboard-storage', JSON.stringify(storage));
+  });
+  await page.reload();
+  await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Taktikk', exact: true }).click();
+  await open3D(page);
+  await page.getByRole('button', { name: '2D', exact: true }).click(); await open3D(page);
+  await page.getByRole('button', { name: 'Spill av fasene', exact: true }).click();
+  await page.screenshot({ path: info.outputPath('22-players-playing.png') });
+  expect(models).toBe(1); expect(skies).toBe(1); expect(errors).toEqual([]);
 });
 
 for (const format of ['mp4', 'webm'] as const) {
@@ -112,6 +173,23 @@ for (const format of ['mp4', 'webm'] as const) {
     });
     await openBoard(page);
     await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+    await page.evaluate(() => {
+      const storage = JSON.parse(localStorage.getItem('taktikkboard-storage')!);
+      const tactic: Tactic = storage.state.tactics.find((t: Tactic) => t.id === storage.state.activeTacticId);
+      tactic.phases.forEach((phase, index) => {
+        phase.name = index ? 'Press fremover' : 'Bygg opp';
+        phase.stickyNote = index ? 'Vinn ballen sammen.' : 'Hold bredden.';
+        phase.drawings = [
+          { id: 'video-arrow', type: 'arrow', color: '#F97316', colorKey: 'orange', pts: [{ x: 400, y: 300 }, { x: 650, y: 300 }] },
+          { id: 'video-label', type: 'label', color: '#fff', colorKey: 'white', at: { x: 440, y: 440 }, text: index ? 'Press sammen' : 'Spill fremover' },
+        ];
+        phase.items = [{ id: 'video-cone', type: 'cone', position: { x: 400, y: 160 } }];
+        if (index) phase.players.forEach(p => { p.position.x += 50; });
+      });
+      localStorage.setItem('taktikkboard-storage', JSON.stringify(storage));
+    });
+    await page.reload();
+    await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Taktikk', exact: true }).click();
     const before = await savedTactics(page);
     await open3D(page);
     const button = page.getByRole('button', { name: 'Eksporter 3D-video', exact: true });
@@ -138,10 +216,13 @@ for (const format of ['mp4', 'webm'] as const) {
         const pixels = ctx.getImageData(0, 0, 192, 108).data;
         let grassPixels = 0;
         for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 1] > pixels[i] * 1.25 && pixels[i + 1] > pixels[i + 2] * 1.1) grassPixels++;
-        return { width: video.videoWidth, height: video.videoHeight, duration: video.duration, ready: video.readyState, grassPixels };
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        return { width: video.videoWidth, height: video.videoHeight, duration: video.duration, ready: video.readyState, grassPixels, image: canvas.toDataURL('image/png').split(',')[1] };
       } finally { video.removeAttribute('src'); video.load(); URL.revokeObjectURL(url); }
     }, { base64: bytes.toString('base64'), format });
     expect(metadata.width).toBe(1920); expect(metadata.height).toBe(1080);
+    await writeFile(info.outputPath('decoded-video-frame.png'), Buffer.from(metadata.image, 'base64'));
     expect(metadata.duration).toBeCloseTo(2.3, 1); expect(metadata.ready).toBeGreaterThanOrEqual(2);
     expect(metadata.grassPixels).toBeGreaterThan(1500);
     expect(await savedTactics(page)).toEqual(before);

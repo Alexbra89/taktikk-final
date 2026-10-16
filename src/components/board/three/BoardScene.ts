@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VW, VH } from '@/data/formations';
-import type { BoardItem, Drawing, Position, Sport } from '@/types';
+import type { BoardItem, Drawing, Position, Sport, Player } from '@/types';
 import type { StagePlayer } from '../BoardStage';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import { KIT_COLORS } from '../svg/PlayerKit';
 import { PITCHES, boardToWorld, boardRotation, figureScale } from './coordinates';
-import { drawingTexture, textTexture, themeColor } from './textures';
+import { drawingTexture, textTexture, themeColor, grassTexture, phaseTexture } from './textures';
+import { drawingColorKey } from '../drawTools';
+import { loadPlayer, loadSky, clonePlayer, kitMaterial } from './assets';
+import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /** Slightly larger than a real ball (0.11 m), so it reads in the overview. */
 const BALL_RADIUS = .26;
@@ -17,6 +20,10 @@ export interface SceneFrame {
   ball: Position;
   items: BoardItem[];
   drawings: Drawing[];
+  phaseName?: string;
+  stickyNote?: string;
+  trails?: { from: Player[]; to: Player[] } | null;
+  progress?: number | null;
   /** Metres above the grass; see ballArcHeight. */
   ballHeight?: number;
 }
@@ -39,6 +46,11 @@ interface Figure {
   stride: number;
   motion: number;
   signature: string;
+  mixer?: THREE.AnimationMixer;
+  actions?: THREE.AnimationAction[];
+  speed: number;
+  resources: (THREE.Material | THREE.Texture)[];
+  displaced?: THREE.Mesh;
 }
 
 /** A read-only renderer. It knows nothing about the store, editing, or phase timers. */
@@ -47,6 +59,19 @@ export class BoardScene {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(44, 1, 0.08, 600);
   readonly controls: OrbitControls;
+  readonly assetsReady: Promise<void>;
+  readonly assetWarnings: string[] = [];
+  private playerAsset?: GLTF;
+  private environment?: THREE.WebGLRenderTarget;
+  private hud = new THREE.Scene();
+  private hudCamera = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
+  private phasePanel = new THREE.Sprite(new THREE.SpriteMaterial({ depthTest: false, toneMapped: false }));
+  private phaseKey = '';
+  private progressBar?: THREE.Mesh;
+  private labels = new THREE.Group();
+  private labelResources: (THREE.Material | THREE.Texture)[] = [];
+  private drawingLabelKey = '';
+  private kitMaterials = new Map<string, THREE.MeshStandardMaterial>();
   private geometry = new Map<string, THREE.BufferGeometry>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
   private ownedMaterials = new Set<THREE.Material>();
@@ -86,9 +111,11 @@ export class BoardScene {
 
   constructor(readonly sport: Sport, readonly playerStyle: PlayerStyle, mobile: boolean, private readonly exportMode = false) {
     // Offscreen export must retain the rendered pixels until VideoFrame copies them.
-    this.renderer = new THREE.WebGLRenderer({ antialias: !mobile, powerPreference: 'high-performance', preserveDrawingBuffer: exportMode });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: exportMode });
     this.renderer.setPixelRatio(mobile ? 1 : Math.min(devicePixelRatio, 1.75));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = .9;
     this.figureSize = figureScale(sport);
     this.renderer.shadowMap.enabled = !mobile;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -103,13 +130,19 @@ export class BoardScene {
     this.controls.addEventListener('start', this.onManual);
     this.scene.background = new THREE.Color('#17252c');
     this.scene.fog = new THREE.Fog('#17252c', 150, 340);
-    this.scene.add(new THREE.HemisphereLight('#e4f0ff', '#324528', 2.1));
-    const sun = new THREE.DirectionalLight('#fff4db', 2.6);
+    this.scene.add(new THREE.HemisphereLight('#e4f0ff', '#324528', .8));
+    const sun = new THREE.DirectionalLight('#fff4db', 1.8);
     sun.position.set(-35, 65, 25); sun.castShadow = !mobile;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 180 });
     sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.04;
     this.scene.add(sun);
+    this.hud.add(this.phasePanel); this.phasePanel.center.set(0, 1); this.phasePanel.visible = false;
+    const progressMaterial = new THREE.MeshBasicMaterial({ color: this.chipKit.fill, depthTest: false, toneMapped: false });
+    this.ownedMaterials.add(progressMaterial);
+    this.progressBar = new THREE.Mesh(this.geo('hud-progress', () => new THREE.PlaneGeometry(1, 4)), progressMaterial);
+    this.hud.add(this.progressBar); this.progressBar.visible = false;
+    this.scene.add(this.labels);
     this.buildPitch();
     this.ball = this.makeBall(); this.scene.add(this.ball);
     if (mobile) {
@@ -121,12 +154,46 @@ export class BoardScene {
       this.ownedMaterials.add(this.figureBlob);
     }
     const p = PITCHES[sport];
-    const mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 });
     this.ownedMaterials.add(mat);
     this.markings = new THREE.Mesh(this.geo('drawing-plane', () => new THREE.PlaneGeometry(p.length * VW / (VW - 64), p.width * VH / (VH - 64))), mat);
     this.markings.rotation.x = -Math.PI / 2; this.markings.position.y = 0.035; this.markings.visible = false;
     this.scene.add(this.markings);
     this.selectCamera('overview'); this.updateCamera(1, true);
+    this.assetsReady = this.loadAssets();
+  }
+
+  private async loadAssets() {
+    await Promise.all([
+      loadPlayer().then(asset => {
+        if (this.disposed) return;
+        this.playerAsset = asset;
+        this.figures.forEach(f => this.releaseFigure(f)); this.figures.clear();
+        // Rebuild numbered and additional players after the one shared load.
+        this.equipment.forEach((entry, id) => {
+          if (entry.type === 'player' || entry.type === 'opponent') { if (entry.group.userData.figure) this.releaseFigure(entry.group.userData.figure); this.scene.remove(entry.group); this.equipment.delete(id); }
+        });
+        this.setFrame(this.frame, false);
+      }).catch(() => { if (!this.disposed) this.assetWarnings.push('Spillermodellen kunne ikke lastes. Enkle figurer brukes.'); }),
+      loadSky().then(texture => {
+        if (this.disposed) return;
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        try {
+          this.environment = pmrem.fromEquirectangular(texture);
+          this.scene.environment = this.environment.texture;
+          this.scene.background = texture; texture.mapping = THREE.EquirectangularReflectionMapping;
+          this.scene.backgroundBlurriness = .12;
+          this.scene.environmentIntensity = .65;
+          this.scene.fog = new THREE.Fog('#b6c6cb', 180, 390);
+        } finally { pmrem.dispose(); }
+      }).catch(() => { if (!this.disposed) this.assetWarnings.push('Himmelen kunne ikke lastes. Vanlig lys brukes.'); }),
+    ]);
+  }
+
+  private releaseFigure(f: Figure) {
+    f.mixer?.stopAllAction(); f.mixer?.uncacheRoot(f.mixer.getRoot());
+    f.group.traverse(object => { if (object instanceof THREE.SkinnedMesh) object.skeleton.dispose(); });
+    f.resources.forEach(resource => resource.dispose()); this.scene.remove(f.group);
   }
 
   private geo(key: string, make: () => THREE.BufferGeometry) {
@@ -158,9 +225,20 @@ export class BoardScene {
     const p = PITCHES[this.sport];
     // The ground only receives shadows; casting would just cost shadow-map time.
     this.box(this.scene, 0, -0.28, 0, p.length + 28, 0.5, p.width + 24, '#21452e').castShadow = false;
-    for (let i = 0; i < 20; i++) {
-      this.box(this.scene, -p.length / 2 + (i + 0.5) * p.length / 20, -0.015, 0, p.length / 20, 0.025, p.width, i % 2 ? '#387d48' : '#317342').castShadow = false;
-    }
+    const grass = grassTexture(); grass.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy()); this.textures.add(grass);
+    const turf = new THREE.MeshStandardMaterial({ map: grass, roughness: .98, bumpMap: grass, bumpScale: .065 });
+    turf.onBeforeCompile = shader => {
+      shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 turfPosition;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nturfPosition = position;');
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 turfPosition;')
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          float stripe = mod(floor((turfPosition.x + ${p.length / 2}) / ${p.length / 18}), 2.0);
+          float variation = sin(turfPosition.x * .71 + sin(turfPosition.y * .34)) * sin(turfPosition.y * .83) * .035;
+          diffuseColor.rgb *= vec3(.65, .92, .59) * (.90 + stripe * .12 + variation);`);
+    };
+    this.ownedMaterials.add(turf);
+    const grassPlane = new THREE.Mesh(this.geo('turf', () => new THREE.PlaneGeometry(p.length + 10, p.width + 10)), turf);
+    grassPlane.rotation.x = -Math.PI / 2; grassPlane.receiveShadow = true; this.scene.add(grassPlane);
     // Pitch markings in metres, independently of the old SVG's illustrative proportions.
     const canvas = document.createElement('canvas'); canvas.width = 2048; canvas.height = 1536;
     const ctx = canvas.getContext('2d')!;
@@ -201,13 +279,15 @@ export class BoardScene {
   }
 
   /** Mouth lies on local z=0; net extends towards -z. */
-  private goal(width: number, height: number, depth: number) {
+  private goal(width: number, height: number, depth: number, color = '#f7f8f1') {
     const g = new THREE.Group();
     for (const x of [-width / 2, width / 2]) {
-      this.box(g, x, height / 2, 0, .12, height, .12, '#f7f8f1');
-      this.box(g, x, .06, -depth / 2, .1, .1, depth, '#dce1db');
+      this.box(g, x, height / 2, 0, .08, height, .08, color);
+      this.box(g, x, .04, -depth / 2, .07, .07, depth, color);
+      this.box(g, x, height / 2, -depth, .06, height, .06, color);
     }
-    this.box(g, 0, height, 0, width + .12, .12, .12, '#f7f8f1');
+    this.box(g, 0, height, 0, width + .08, .08, .08, color);
+    this.box(g, 0, height, -depth, width, .06, .06, color);
     const pts: number[] = [];
     for (let x = -width / 2; x <= width / 2 + .01; x += .25) pts.push(x, 0, -depth, x, height, -depth, x, height, -depth, x, height, 0);
     for (let y = 0; y <= height; y += .25) {
@@ -228,9 +308,29 @@ export class BoardScene {
     ball.position.y = BALL_RADIUS; ball.castShadow = true; return ball;
   }
 
-  private figure(color: string, number: string, name: string, foreground = '#ffffff'): Figure {
+  private figure(color: string, number: string, name: string, foreground = '#ffffff', role = ''): Figure {
     const group = new THREE.Group();
     const limbs: THREE.Group[] = [];
+    const resources: Figure['resources'] = [];
+    let mixer: THREE.AnimationMixer | undefined, actions: THREE.AnimationAction[] | undefined;
+    let spine: THREE.Object3D | undefined;
+    if (this.playerAsset) {
+      if (!this.kitMaterials.has(color)) {
+        const material = kitMaterial(color); this.kitMaterials.set(color, material); this.ownedMaterials.add(material);
+      }
+      const model = clonePlayer(this.playerAsset, this.kitMaterials.get(color)!);
+      const bounds = new THREE.Box3().setFromObject(model);
+      model.scale.setScalar(2 / Math.max(.1, bounds.max.y - bounds.min.y));
+      model.position.y = -bounds.min.y * model.scale.x;
+      group.add(model);
+      spine = model.getObjectByName('spine_03') ?? model.getObjectByName('spine_02');
+      mixer = new THREE.AnimationMixer(model);
+      actions = ['Idle_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop'].flatMap(name => {
+        const clip = this.playerAsset!.animations.find(c => c.name === name);
+        return clip ? [mixer!.clipAction(clip).setEffectiveWeight(name === 'Idle_Loop' ? 1 : 0).play()] : [];
+      });
+      mixer.update(0);
+    } else {
     this.box(group, 0, 1.17, 0, .6, .66, .34, color);
     this.box(group, 0, .79, 0, .56, .25, .32, '#19232e');
     this.sphere(group, 0, 1.77, 0, .23, '#d3a17e');
@@ -245,24 +345,36 @@ export class BoardScene {
       this.box(arm, 0, -.36, 0, .14, .27, .16, '#d3a17e');
       group.add(arm); limbs.push(arm);
     }
+    }
     if (this.figureBlob) {
       const blob = new THREE.Mesh(this.geo('blob', () => new THREE.CircleGeometry(.3, 20)), this.figureBlob);
       blob.rotation.x = -Math.PI / 2; blob.position.y = .02; blob.scale.setScalar(1.5); group.add(blob);
     }
     if (number) {
-      const tex = textTexture(number, foreground, color); this.textures.add(tex);
-      const mat = new THREE.MeshBasicMaterial({ map: tex }); this.ownedMaterials.add(mat);
+      const tex = textTexture(number, foreground, color); resources.push(tex);
+      const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }); resources.push(mat);
       for (const side of [-1, 1]) {
         const label = new THREE.Mesh(this.geo('number', () => new THREE.PlaneGeometry(.4, .4)), mat);
-        label.position.set(0, 1.23, side * .176); label.rotation.y = side < 0 ? Math.PI : 0; group.add(label);
+        label.position.set(0, 1.36, side * (this.playerAsset ? .235 : .176)); label.rotation.y = side < 0 ? Math.PI : 0; group.add(label);
+        if (spine) { group.updateMatrixWorld(true); spine.attach(label); }
       }
-      const tag = textTexture(name ? `${number} · ${name}` : number, '#ffffff'); this.textures.add(tag);
-      const tagMat = new THREE.SpriteMaterial({ map: tag, depthTest: true, depthWrite: false }); this.ownedMaterials.add(tagMat);
-      const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.6; sprite.scale.set(name ? 5 : 1.3, name ? 1.25 : 1.3, 1); group.add(sprite);
+      const title = `${number}${role ? ` · ${role.toUpperCase()}` : ''}`;
+      const tag = textTexture(title, '#ffffff'); resources.push(tag);
+      const tagMat = new THREE.SpriteMaterial({ map: tag, depthTest: true, depthWrite: false, toneMapped: false }); resources.push(tagMat);
+      const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.75; sprite.scale.set(role ? 3 : 1.3, .75, 1); group.add(sprite);
+      if (name) {
+        const texture = textTexture(name, '#ffffff'); resources.push(texture);
+        const material = new THREE.SpriteMaterial({ map: texture, depthWrite: false, toneMapped: false }); resources.push(material);
+        const label = new THREE.Sprite(material); label.position.y = 3.45; label.scale.set(4, 1, 1); group.add(label);
+      }
     }
+    const displacedMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .55, toneMapped: false });
+    resources.push(displacedMaterial);
+    const displaced = new THREE.Mesh(this.geo('out-of-position', () => new THREE.PlaneGeometry(.65, .055)), displacedMaterial);
+    displaced.rotation.x = -Math.PI / 2; displaced.position.set(0, .03, .55); displaced.visible = false; group.add(displaced);
     // Enlarged TV figures remain legible on phones and in the overview.
     group.scale.setScalar(this.figureSize);
-    return { group, limbs, target: new THREE.Vector3(), heading: Math.PI / 2, stride: 0, motion: 0, signature: '' };
+    return { group, limbs, mixer, actions, resources, displaced, speed: 0, target: new THREE.Vector3(), heading: Math.PI / 2, stride: 0, motion: 0, signature: '' };
   }
 
   private equipmentGroup(item: BoardItem) {
@@ -270,64 +382,118 @@ export class BoardScene {
     const ink = themeColor('--k-ink', '#eeeeee');
     switch (item.type) {
       case 'cone': {
-        const cone = new THREE.Mesh(this.geo('cone', () => new THREE.ConeGeometry(.5, 1, 16)), this.mat('#F97316'));
-        cone.position.y = .5; cone.castShadow = true; g.add(cone); this.box(g, 0, .05, 0, 1, .1, 1, '#F97316'); break;
+        const cone = new THREE.Mesh(this.geo('cone', () => new THREE.ConeGeometry(.19, .42, 20)), this.mat('#F97316'));
+        cone.position.y = .24; cone.castShadow = true; g.add(cone); this.box(g, 0, .025, 0, .46, .05, .46, '#F97316');
+        for (const y of [.15, .29]) {
+          const radius = .19 * (1 - (y - .03) / .42);
+          const band = new THREE.Mesh(this.geo(`cone-band-${y}`, () => new THREE.CylinderGeometry(radius - .014, radius + .014, .055, 20)), this.mat('#ffffff'));
+          band.position.y = y; g.add(band);
+        }
+        break;
       }
-      case 'opponent': g.add(this.figure(themeColor('--k-opponent', '#cbd5e1'), '', '').group); break;
-      case 'player': g.add(this.figure(themeColor('--k-signal', '#ff5a36'), '', '').group); break;
+      case 'opponent': case 'player': {
+        const figure = this.figure(item.type === 'opponent' ? themeColor('--k-opponent', '#cbd5e1') : this.chipKit.fill, '', '');
+        // Equipment is life-sized and keeps the rotation set in 2D.
+        figure.group.scale.setScalar(1); g.add(figure.group); g.userData.figure = figure; break;
+      }
       case 'ball': g.add(this.makeBall()); break;
-      case 'minigoal': g.add(this.goal(4, 1.6, 1.4)); break;
+      case 'minigoal': g.add(this.goal(3, 1.5, 1, ink)); break;
       case 'mannequin':
-        this.box(g, 0, .08, 0, 1, .16, .8, '#45334e'); this.box(g, 0, 1, 0, .7, 1.6, .16, '#A855F7'); this.sphere(g, 0, 2, 0, .28, '#A855F7'); break;
+        this.box(g, 0, .05, 0, .65, .1, .5, '#45334e');
+        for (const x of [-.19, .19]) this.box(g, x, .45, 0, .06, .8, .06, '#A855F7');
+        this.box(g, 0, 1.05, 0, .52, .78, .10, '#A855F7'); this.sphere(g, 0, 1.64, 0, .18, '#A855F7');
+        for (const x of [-.13, 0, .13]) this.box(g, x, 1.08, .056, .018, .60, .015, '#d6b5fa'); break;
       case 'ladder':
-        for (const z of [-.65, .65]) this.box(g, 0, .035, z, 8, .07, .08, '#FACC15');
-        for (let x = -4; x <= 4; x += 1) this.box(g, x, .035, 0, .08, .07, 1.3, '#FACC15'); break;
+        for (const z of [-.25, .25]) this.box(g, 0, .018, z, 4, .025, .035, '#FACC15');
+        for (let x = -2; x <= 2; x += .5) this.box(g, x, .022, 0, .045, .03, .5, '#FACC15'); break;
       case 'hurdle':
-        this.box(g, 0, .9, 0, 2.8, .12, .12, ink);
-        for (const x of [-1.35, 1.35]) { this.box(g, x, .45, 0, .1, .9, .1, ink); this.box(g, x, .06, 0, .12, .12, 1, ink); } break;
+        this.box(g, 0, .45, 0, 1.2, .065, .065, ink);
+        for (const x of [-.57, .57]) { this.box(g, x, .225, 0, .055, .45, .055, ink); this.box(g, x, .03, 0, .06, .06, .5, ink); } break;
     }
     return g;
   }
 
-  async prepareDrawings(drawings: Drawing[]) {
-    const key = JSON.stringify(drawings);
-    if (!this.drawingCache.has(key)) this.drawingCache.set(key, drawingTexture(drawings).then(texture => {
+  async prepareDrawings(drawings: Drawing[], trails?: SceneFrame['trails']) {
+    const key = JSON.stringify([drawings, trails ?? null]);
+    if (!this.drawingCache.has(key)) this.drawingCache.set(key, drawingTexture(drawings, trails).then(texture => {
       if (this.disposed) texture.dispose(); else this.textures.add(texture);
       return texture;
     }));
     return this.drawingCache.get(key)!;
   }
 
-  async setDrawings(drawings: Drawing[]) {
-    const key = JSON.stringify(drawings); this.currentDrawingKey = key;
-    const texture = await this.prepareDrawings(drawings);
+  async setDrawings(drawings: Drawing[], trails?: SceneFrame['trails']) {
+    const key = JSON.stringify([drawings, trails ?? null]); this.currentDrawingKey = key;
+    this.setDrawingLabels(drawings);
+    const texture = await this.prepareDrawings(drawings, trails);
     if (this.disposed || key !== this.currentDrawingKey) return;
     const material = this.markings.material as THREE.MeshBasicMaterial;
-    material.map = texture; material.needsUpdate = true; this.markings.visible = drawings.length > 0;
+    material.map = texture; material.needsUpdate = true; this.markings.visible = drawings.length > 0 || !!trails;
+  }
+
+  private setDrawingLabels(drawings: Drawing[]) {
+    const labels = drawings.filter(d => d.type === 'label');
+    const key = JSON.stringify(labels); if (key === this.drawingLabelKey) return;
+    this.drawingLabelKey = key; this.labels.clear(); this.labelResources.forEach(r => r.dispose()); this.labelResources = [];
+    for (const label of labels) {
+      if (label.type !== 'label' || !Number.isFinite(label.at.x) || !Number.isFinite(label.at.y)) continue;
+      const color = themeColor(`--k-draw-${drawingColorKey(label)}`, '#ffffff');
+      const texture = textTexture(label.text, color);
+      const material = new THREE.SpriteMaterial({ map: texture, depthWrite: false, toneMapped: false });
+      this.labelResources.push(texture, material);
+      const sprite = new THREE.Sprite(material), pos = boardToWorld(label.at, this.sport, .85);
+      sprite.position.set(pos.x, pos.y, pos.z); sprite.scale.set(8 * this.figureSize, 2 * this.figureSize, 1);
+      this.labels.add(sprite);
+    }
+  }
+
+  private setPhase(name = '', note = '') {
+    const key = JSON.stringify([name, note]); if (key === this.phaseKey) return;
+    this.phaseKey = key;
+    const material = this.phasePanel.material;
+    material.map?.dispose(); material.map = phaseTexture(name, note); material.needsUpdate = true;
+    this.phasePanel.visible = !!(name || note); this.layoutHud();
+  }
+  private layoutHud() {
+    const size = this.renderer.getSize(new THREE.Vector2());
+    this.hudCamera.right = size.x; this.hudCamera.top = size.y; this.hudCamera.updateProjectionMatrix();
+    if (this.progressBar) {
+      const width = Math.max(0, size.x - 24) * (this.frame.progress ?? 0);
+      this.progressBar.visible = this.frame.progress != null;
+      this.progressBar.scale.x = width; this.progressBar.position.set(12 + width / 2, 10, 0);
+    }
+    const image = this.phasePanel.material.map?.image as HTMLCanvasElement | undefined;
+    if (!image) return;
+    const width = Math.min(360, size.x - 24, (size.y * .42) * image.width / image.height);
+    this.phasePanel.position.set(12, size.y - 12, 0);
+    this.phasePanel.scale.set(width, width * image.height / image.width, 1);
   }
 
   setFrame(frame: SceneFrame, animate = true) {
     this.frame = frame;
+    this.setPhase(frame.phaseName, frame.stickyNote);
+    this.layoutHud();
     const ids = new Set(frame.players.map(p => p.id));
-    this.figures.forEach((f, id) => { if (!ids.has(id)) { this.scene.remove(f.group); this.figures.delete(id); } });
+    this.figures.forEach((f, id) => { if (!ids.has(id)) { this.releaseFigure(f); this.figures.delete(id); } });
     for (const p of frame.players) {
-      const kit = this.playerStyle === 'kit' ? KIT_COLORS[p.family] : this.chipKit;
-      const signature = `${kit.fill}/${p.num}/${p.name}`;
+      const kit = this.playerStyle === 'kit' || p.family === 'gk' ? KIT_COLORS[p.family] : this.chipKit;
+      const signature = `${kit.fill}/${p.num}/${p.name}/${p.label}`;
       let f = this.figures.get(p.id);
       const pos = boardToWorld(p.position, this.sport);
       if (!f || f.signature !== signature) {
         const old = f;
-        f = this.figure(kit.fill, String(p.num), p.name, kit.fg); f.signature = signature;
+        f = this.figure(kit.fill, String(p.num), p.name, kit.fg, p.label); f.signature = signature;
         // A changed name or kit keeps where the figure stands and faces.
-        if (old) { this.scene.remove(old.group); f.group.position.copy(old.group.position); f.heading = old.heading; f.group.rotation.y = old.group.rotation.y; }
+        if (old) { f.group.position.copy(old.group.position); f.heading = old.heading; f.group.rotation.y = old.group.rotation.y; this.releaseFigure(old); }
         else f.group.position.set(pos.x, 0, pos.z);
         this.figures.set(p.id, f); this.scene.add(f.group);
       }
       f.target.set(pos.x, 0, pos.z);
-      if (!animate) { f.group.position.copy(f.target); f.motion = 0; }
+      if (f.displaced) f.displaced.visible = !!p.outOfPos;
+      if (!animate) { f.group.position.copy(f.target); f.motion = 0; f.speed = 0; }
     }
     const itemIds = new Set(frame.items.map(i => i.id));
-    this.equipment.forEach((e, id) => { if (!itemIds.has(id)) { this.scene.remove(e.group); this.equipment.delete(id); } });
+    this.equipment.forEach((e, id) => { if (!itemIds.has(id)) { if (e.group.userData.figure) this.releaseFigure(e.group.userData.figure); this.scene.remove(e.group); this.equipment.delete(id); } });
     for (const item of frame.items) {
       let entry = this.equipment.get(item.id);
       const p = boardToWorld(item.position, this.sport);
@@ -365,11 +531,15 @@ export class BoardScene {
     this.figures.forEach(f => {
       const dx = (f.target.x - f.group.position.x) * follow, dz = (f.target.z - f.group.position.z) * follow;
       const moved = Math.hypot(dx, dz);
+      f.speed = THREE.MathUtils.lerp(f.speed, !snap && dt > 0 ? moved / dt : 0, this.exportMode || snap ? 1 : 1 - Math.exp(-dt * 14));
       f.group.position.x += dx; f.group.position.z += dz;
       // Faces where it runs; slower than walking pace counts as standing.
       if (!snap && moved > .0001 && moved / Math.max(dt, 1e-3) > .4) { f.heading = Math.atan2(dx, dz); f.stride += moved * 2.8; f.motion = 1; }
     });
     this.equipment.forEach(e => {
+      const figure: Figure | undefined = e.group.userData.figure;
+      const velocity = dt > 0 && !snap ? e.group.position.distanceTo(e.target) * follow / dt : 0;
+      if (figure) this.animateFigure(figure, dt, velocity);
       e.group.position.lerp(e.target, follow);
       const r = e.group.rotation.y;
       e.group.rotation.y = r + Math.atan2(Math.sin(e.turn - r), Math.cos(e.turn - r)) * follow;
@@ -478,6 +648,18 @@ export class BoardScene {
     if (pixelRatio !== undefined) this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(Math.max(1, width), Math.max(1, height), false);
     this.camera.aspect = width / Math.max(1, height); this.camera.updateProjectionMatrix();
+    this.layoutHud();
+  }
+  private animateFigure(f: Figure, dt: number, speed: number) {
+    if (!f.mixer || !f.actions?.length) return;
+    const moving = THREE.MathUtils.smoothstep(speed, .12, .65);
+    const sprint = THREE.MathUtils.smoothstep(speed, 4, 7);
+    const weights = [1 - moving, moving * (1 - sprint), moving * sprint];
+    f.actions.forEach((action, i) => {
+      action.setEffectiveWeight(weights[i]);
+      action.setEffectiveTimeScale(i === 0 ? 1 : THREE.MathUtils.clamp(speed / (i === 1 ? 3 : 6), .3, 3));
+    });
+    f.mixer.update(this.reducedMotion ? 0 : dt);
   }
   render(dt: number, snap = false) {
     this.advance(dt, snap);
@@ -487,6 +669,7 @@ export class BoardScene {
       const swing = this.reducedMotion ? 0 : Math.sin(f.stride) * .65 * f.motion;
       f.limbs.forEach((limb, i) => { limb.rotation.x = swing * (i === 0 || i === 3 ? 1 : -1); });
       f.motion *= Math.exp(-dt * 4);
+      this.animateFigure(f, dt, f.speed);
       f.group.visible = true;
     });
     this.updateCamera(dt, snap);
@@ -494,9 +677,15 @@ export class BoardScene {
     const pov = this.view === 'player' && !this.manual ? this.povFigure() : undefined;
     if (pov && pov.group.position.distanceTo(this.camera.position) < 2.5 * this.figureSize) pov.group.visible = false;
     this.renderer.render(this.scene, this.camera);
+    this.renderer.autoClear = false; this.renderer.clearDepth(); this.renderer.render(this.hud, this.hudCamera); this.renderer.autoClear = true;
   }
   dispose() {
     this.disposed = true; this.controls.removeEventListener('start', this.onManual); this.controls.dispose();
+    this.figures.forEach(f => this.releaseFigure(f));
+    this.equipment.forEach(e => { if (e.group.userData.figure) this.releaseFigure(e.group.userData.figure); });
+    this.labelResources.forEach(r => r.dispose());
+    this.phasePanel.material.map?.dispose(); this.phasePanel.material.dispose(); this.hud.clear();
+    this.environment?.dispose();
     this.geometry.forEach(g => g.dispose()); this.materials.forEach(m => m.dispose());
     this.ownedMaterials.forEach(m => m.dispose()); this.textures.forEach(t => t.dispose());
     this.scene.clear(); this.renderer.dispose(); this.renderer.forceContextLoss();

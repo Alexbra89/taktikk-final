@@ -638,7 +638,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     // Rot-div bruker IKKE overflow-hidden, og touch-action tillater pinch-zoom.
     <div
       className="flex flex-col h-full select-none bg-canvas"
-      style={{ touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
+        style={{ touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden', ...(boardView === '3d' ? { minHeight: 0, overflowY: 'auto' } : {}) }}
     >
       {/* --- EN LINJE OVER BANEN: taktikk + formasjon --- */}
       <div className="relative flex-shrink-0 flex items-center gap-2 px-2 py-1.5 bg-canvas-sunken border-b border-rule">
@@ -686,6 +686,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         tactic={tactic} players={stagePlayers} ball={displayBall} drawings={phase.drawings ?? []}
         items={shownItems} playerStyle={playerStyle} isPlaying={isPlaying} speed={playSpeed}
         teamName={teamName} isMobile={isMobile}
+        trails={showMovement && !isPlaying && activePhaseIdx > 0 ? { from: phases[activePhaseIdx - 1].players, to: phase.players } : null}
+        progress={isPlaying ? progressFrac : null}
         // Same clock as 2D; only the height of long passes is added in 3D.
         ballHeight={isPlaying && interpT > 0 && phases[interpFrom + 1]
           ? ballArcHeight(phases[interpFrom].ball, phases[interpFrom + 1].ball, interpT, sport) : 0}
@@ -804,7 +806,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       )}
 
       {/* --- EN LINJE UNDER BANEN: faser, angre, tegn, avspilling --- */}
-      <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar bg-canvas-sunken border-t border-rule">
+      <div className={cn('flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar bg-canvas-sunken border-t border-rule', boardView === '3d' && 'sticky bottom-0 z-10 flex-wrap')}>
 
         {isMobile ? (
           <select
@@ -812,7 +814,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             onChange={(e) => !isPlaying && setActivePhaseIdx(parseInt(e.target.value))}
             disabled={isPlaying}
             aria-label="Fase"
-            className="flex-shrink-0 rounded-ctl px-2 min-h-[40px] bg-canvas-raised text-body text-ink shadow-hair focus:outline-none disabled:opacity-40"
+            className={cn('flex-shrink-0 rounded-ctl px-2 min-h-[40px] bg-canvas-raised text-body text-ink shadow-hair focus:outline-none disabled:opacity-40', boardView === '3d' && 'w-full min-w-0')}
           >
             {phases.map((ph, idx) => (
               <option key={ph.id} value={idx}>
@@ -821,7 +823,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             ))}
           </select>
         ) : (
-          <div role="tablist" aria-label="Faser" className="flex items-center gap-1 flex-shrink-0">
+          <div role="tablist" aria-label="Faser" className={cn('flex items-center gap-1 flex-shrink-0', boardView === '3d' && 'w-full overflow-x-auto')}>
             {phases.map((ph, idx) => {
               const active = activePhaseIdx === idx;
               return (
