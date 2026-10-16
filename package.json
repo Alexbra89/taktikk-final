@@ -23,6 +23,8 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
     "@playwright/test": "^1.63.0",
     "@types/node": "^20",
     "@types/react": "^18",

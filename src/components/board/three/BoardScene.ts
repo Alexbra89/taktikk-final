@@ -7,6 +7,7 @@ import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import { KIT_COLORS } from '../svg/PlayerKit';
 import { PITCHES, boardToWorld, ballToWorld, boardRotation, figureScale, GOAL_DEPTH } from './coordinates';
 import { drawingTexture, textTexture, themeColor, grassTexture, phaseTexture } from './textures';
+import { DrawingCache } from './drawingCache';
 import { drawingColorKey } from '../drawTools';
 import { loadPlayer, loadSky, clonePlayer, kitMaterial, strideOffset } from './assets';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -83,9 +84,7 @@ export class BoardScene {
   private lineMaterials = new Map<string, THREE.LineBasicMaterial>();
   private ownedMaterials = new Set<THREE.Material>();
   private textures = new Set<THREE.Texture>();
-  private drawingCache = new Map<string, Promise<THREE.Texture>>();
-  private drawingTextures = new Map<string, THREE.Texture>();
-  private readonly drawingCacheLimit: number;
+  private readonly drawingCache: DrawingCache<THREE.Texture>;
   private readonly drawingResolution: number;
   private figures = new Map<string, Figure>();
   private equipment = new Map<string, { type: string; group: THREE.Group; target: THREE.Vector3; turn: number }>();
@@ -128,7 +127,7 @@ export class BoardScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = .9;
     this.figureSize = figureScale(sport);
-    this.drawingCacheLimit = mobile ? 3 : 6;
+    this.drawingCache = new DrawingCache<THREE.Texture>(mobile ? 3 : 6, () => this.currentDrawingKey);
     this.drawingResolution = mobile ? 2 : 3;
     this.renderer.shadowMap.enabled = !mobile;
     // three r186 removed PCFSoftShadowMap; PCF with a blur radius gives the soft edge.
@@ -452,13 +451,7 @@ export class BoardScene {
 
   async prepareDrawings(drawings: Drawing[], trails?: SceneFrame['trails']) {
     const key = JSON.stringify([drawings, trails ?? null]);
-    if (!this.drawingCache.has(key)) this.drawingCache.set(key, drawingTexture(drawings, trails, this.drawingResolution).then(texture => {
-      if (this.disposed) texture.dispose(); else this.drawingTextures.set(key, texture);
-      return texture;
-    }).catch(error => {
-      this.drawingCache.delete(key); throw error;
-    }));
-    return this.drawingCache.get(key)!;
+    return this.drawingCache.get(key, () => drawingTexture(drawings, trails, this.drawingResolution));
   }
 
   async setDrawings(drawings: Drawing[], trails?: SceneFrame['trails']) {
@@ -473,12 +466,7 @@ export class BoardScene {
     if (material.map !== texture) { material.map = texture; material.needsUpdate = true; }
     this.markings.visible = drawings.length > 0 || !!trails;
     // Keep recent phases warm, with a bounded GPU footprint on mobile.
-    this.drawingTextures.delete(key); this.drawingTextures.set(key, texture);
-    for (const [oldKey, oldTexture] of this.drawingTextures) {
-      if (this.drawingTextures.size <= this.drawingCacheLimit) break;
-      if (oldKey === key) continue;
-      oldTexture.dispose(); this.drawingTextures.delete(oldKey); this.drawingCache.delete(oldKey);
-    }
+    this.drawingCache.use(key, texture);
   }
 
   private setDrawingLabels(drawings: Drawing[]) {
@@ -763,7 +751,7 @@ export class BoardScene {
     this.labelResources.forEach(r => r.dispose());
     this.phasePanel.material.map?.dispose(); this.phasePanel.material.dispose(); this.hud.clear();
     this.environment?.dispose();
-    this.drawingTextures.forEach(texture => texture.dispose()); this.drawingTextures.clear(); this.drawingCache.clear();
+    this.drawingCache.dispose();
     this.geometry.forEach(g => g.dispose()); this.materials.forEach(m => m.dispose());
     this.ownedMaterials.forEach(m => m.dispose()); this.textures.forEach(t => t.dispose());
     this.scene.clear(); this.renderer.dispose(); this.renderer.forceContextLoss();

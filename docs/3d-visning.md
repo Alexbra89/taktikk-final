@@ -40,7 +40,8 @@ Spillformene bruker faste visningsmål, siden småbaner kan ha flere tillatte m�
 | 7er | 60 × 40 m | 5 × 2 m |
 | 5er | 40 × 30 m | 3 × 2 m |
 
-Spillerne vises forstørret (`figureScale`, 1,5–1,9×), og mål og minimål
+Spillerne vises forstørret (`figureScale` = 1,2 × (1,3 + 0,6 × banelengde / 105 m):
+omtrent 1,83× på 5er, 1,97× på 7er, 2,04× på 9er og 2,28× på 11er), og mål og minimål
 forstørres med samme faktor, så forholdet mellom mål og spiller er riktig.
 Banelinjene er i ekte mål. Målåpningen står alltid på mållinjen.
 Ligger ballen i 2D på eller bak mållinjen inne i målboksen, vises den inne i
@@ -99,7 +100,8 @@ timersteg gi noen millisekunders forskjell. Denne eksisterende klokken er ikke e
   Fasenavn og notat tegnes inne i videobildet, slik at de også følger eksporten.
 - Bare de siste tre tegnelagene beholdes på mobil (seks på PC). Videoen laster
   tegnelag etter behov, så lange sekvenser ikke forhåndslaster alle fasene i minnet.
-- Ingen nye pakker. MP4- og WebM-beholdere skrives lokalt i `videoMux.ts`.
+- Grenen legger til pakkene `three` og `@types/three`. MP4- og WebM-beholdere
+  skrives lokalt i `videoMux.ts`, uten egne pakker.
 
 ## Kontroller
 
