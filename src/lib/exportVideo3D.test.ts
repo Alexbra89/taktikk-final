@@ -5,6 +5,13 @@ vi.mock('./download', () => ({ downloadBlob: vi.fn(), slugify: (s: string) => s 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('3D encoding capability fallback', () => {
+  it('limits mobile export to 720p even when full HD is supported', async () => {
+    vi.stubGlobal('VideoFrame', class {});
+    vi.stubGlobal('VideoEncoder', { isConfigSupported: async (config: VideoEncoderConfig) => ({ supported: true, config }) });
+    const choice = await chooseEncoder(true);
+    expect(choice?.config.width).toBe(1280); expect(choice?.config.height).toBe(720);
+    expect(choice?.ext).toBe('mp4');
+  });
   it('prefers 720p H.264 over WebM when full HD H.264 is unavailable', async () => {
     vi.stubGlobal('VideoFrame', class {});
     vi.stubGlobal('VideoEncoder', { isConfigSupported: async (config: VideoEncoderConfig) => ({ supported: config.codec.startsWith('avc') ? config.height === 720 : true }) });
@@ -22,6 +29,7 @@ describe('3D encoding capability fallback', () => {
 });
 
 describe('offline frame scheduling', () => {
+  const pixels = { width: 1280, height: 720, data: new Uint8ClampedArray(1280 * 720 * 4) } as ImageData;
   function fakeEncoder() {
     const timestamps: number[] = [];
     let closed = false;
@@ -50,7 +58,7 @@ describe('offline frame scheduling', () => {
       onProgress: vi.fn(), draw: async (time, i) => {
         drawn.push(time);
         if (i % 7 === 0) await new Promise(r => setTimeout(r, 3));
-        return {} as HTMLCanvasElement;
+        return pixels;
       } });
     expect(encoder.timestamps).toHaveLength(45); // (0.5 + 1.2/3 + 0.6) seconds at 30 fps
     encoder.timestamps.forEach((timestamp, i) => expect(timestamp).toBe(Math.round(i * 1e6 / 30)));
@@ -60,7 +68,7 @@ describe('offline frame scheduling', () => {
   it('cancels without downloading and releases the encoder', async () => {
     const encoder = fakeEncoder(); const abort = new AbortController();
     await expect(exportVideo3D({ choice, phaseCount: 3, speed: 1, team: '', tactic: '', signal: abort.signal, onProgress: vi.fn(),
-      draw: async (_, i) => { if (i === 2) abort.abort(); return {} as HTMLCanvasElement; },
+      draw: async (_, i) => { if (i === 2) abort.abort(); return pixels; },
     })).rejects.toThrow();
     expect(encoder.timestamps).toHaveLength(2); expect(downloadBlob).not.toHaveBeenCalled(); expect(encoder.closed()).toBe(true);
   });

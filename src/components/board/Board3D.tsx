@@ -23,6 +23,8 @@ interface Props extends SceneFrame {
 const VIEWS: [CameraView, string][] = [['overview', 'Oversikt'], ['top', 'Ovenfra'], ['ball', 'Følg ballen'], ['player', 'Spillerperspektiv']];
 
 export default function Board3D(props: Props) {
+  // Landscape phones can be wider than the layout's mobile breakpoint.
+  const lowPower = props.isMobile || matchMedia('(pointer: coarse)').matches;
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<BoardScene | null>(null);
   const latest = useRef(props); latest.current = props;
@@ -52,15 +54,16 @@ export default function Board3D(props: Props) {
 
   useEffect(() => {
     let active = true;
-    chooseEncoder().then(result => { if (active) { setChoice(result); setChecking(false); } }).catch(() => { if (active) setChecking(false); });
+    setChecking(true); setChoice(null);
+    chooseEncoder(lowPower).then(result => { if (active) { setChoice(result); setChecking(false); } }).catch(() => { if (active) setChecking(false); });
     return () => { active = false; abort.current?.abort(); };
-  }, []);
+  }, [lowPower]);
 
   useEffect(() => {
     if (!host.current) return;
     let board: BoardScene;
     setReady(false); setError(''); setAssetNotice(''); setAssetsLoaded(false);
-    try { board = new BoardScene(props.tactic.sport, props.playerStyle, props.isMobile); }
+    try { board = new BoardScene(props.tactic.sport, props.playerStyle, lowPower); }
     catch { setError('3D kunne ikke startes. Prøv å slå på maskinvareakselerasjon i nettleseren. 2D kan fortsatt brukes.'); return; }
     scene.current = board;
     const element = host.current;
@@ -74,7 +77,7 @@ export default function Board3D(props: Props) {
     const render = (now: number) => {
       if (!active) return;
       raf = requestAnimationFrame(render);
-      if (document.hidden || (props.isMobile && now - last < 32)) return;
+      if (document.hidden || (lowPower && now - last < 32)) return;
       board.render(Math.min(.1, (now - last) / 1000)); last = now;
     };
     const lost = (event: Event) => { event.preventDefault(); setReady(false); setError('3D mistet forbindelsen til grafikkortet. Bytt til 2D og åpne 3D igjen.'); abort.current?.abort(); };
@@ -85,7 +88,7 @@ export default function Board3D(props: Props) {
       board.renderer.domElement.removeEventListener('webglcontextlost', lost);
       board.dispose(); board.renderer.domElement.remove(); scene.current = null;
     };
-  }, [props.tactic.id, props.tactic.sport, props.playerStyle, props.isMobile, theme]);
+  }, [props.tactic.id, props.tactic.sport, props.playerStyle, lowPower, theme]);
 
   useEffect(() => { scene.current?.setFrame(sceneFrame(props), props.isPlaying); }, [props]);
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function Board3D(props: Props) {
     scene.current?.setDrawings(props.drawings, props.trails).catch(() => { if (active) setError('Tegningene kunne ikke lastes i 3D.'); });
     return () => { active = false; };
   }, [props.drawings, props.trails]);
-  useEffect(() => { scene.current?.selectCamera(view, selectedId); }, [view, selectedId, props.tactic.id, props.tactic.sport, props.playerStyle, props.isMobile, theme]);
+  useEffect(() => { scene.current?.selectCamera(view, selectedId); }, [view, selectedId, props.tactic.id, props.tactic.sport, props.playerStyle, lowPower, theme]);
 
   const exportVideo = async () => {
     if (!scene.current || !choice || abort.current) return;
@@ -104,20 +107,20 @@ export default function Board3D(props: Props) {
       // Isolated scene and immutable snapshot: exporting never moves or seeks the board.
       const snapshot = structuredClone(props.tactic);
       const camera = scene.current.cameraState();
-      exporter = new BoardScene(snapshot.sport, props.playerStyle, false, true);
+      exporter = new BoardScene(snapshot.sport, props.playerStyle, lowPower, true);
       const board = exporter;
       board.resize(choice.config.width, choice.config.height, 1);
-      // A CPU-backed snapshot also works with H.264 hardware encoders that
-      // otherwise read a cleared/stale WebGL surface after multiple passes.
-      const capture = document.createElement('canvas');
-      capture.width = choice.config.width; capture.height = choice.config.height;
-      const captureContext = capture.getContext('2d', { alpha: false, willReadFrequently: true });
-      if (!captureContext) throw new Error('Nettleseren kunne ikke klargjøre videobildene.');
+      // Reuse one CPU buffer, including the HUD. Allocating a new full-HD
+      // canvas snapshot per frame can exhaust mobile memory before GC runs.
+      const pixels = new ImageData(choice.config.width, choice.config.height);
+      const bytes = new Uint8Array(pixels.data.buffer);
+      const stride = pixels.width * 4, row = new Uint8Array(stride);
+      const gl = board.renderer.getContext();
       board.controls.enabled = false;
       await board.assetsReady;
       controller.signal.throwIfAborted();
-      await Promise.all(snapshot.phases.map(p => board.prepareDrawings(p.drawings ?? [])));
       const first = snapshot.phases[0];
+      await board.setDrawings(first.drawings ?? []);
       board.setFrame({ phaseName: first.name, stickyNote: first.stickyNote, players: first.players.map(p => ({ ...p, label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family })), ball: first.ball, items: first.items ?? [], drawings: first.drawings }, false);
       board.restoreCamera(camera);
       await exportVideo3D({
@@ -134,8 +137,14 @@ export default function Board3D(props: Props) {
             label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
           })) }, index > 0);
           board.render(1 / 30, index === 0);
-          captureContext.drawImage(board.renderer.domElement, 0, 0);
-          return capture;
+          gl.readPixels(0, 0, pixels.width, pixels.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
+          // WebGL's origin is bottom-left; VideoFrame's is top-left.
+          for (let y = 0; y < Math.floor(pixels.height / 2); y++) {
+            const top = y * stride, bottom = (pixels.height - 1 - y) * stride;
+            row.set(bytes.subarray(top, top + stride));
+            bytes.copyWithin(top, bottom, bottom + stride); bytes.set(row, bottom);
+          }
+          return pixels;
         },
       });
       setNotice(choice.ext === 'mp4' ? '3D-videoen er lastet ned.' : '3D-videoen er lastet ned som WebM. Avspilling på iPhone og iPad kan være begrenset.');

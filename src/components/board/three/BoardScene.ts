@@ -74,9 +74,13 @@ export class BoardScene {
   private kitMaterials = new Map<string, THREE.MeshStandardMaterial>();
   private geometry = new Map<string, THREE.BufferGeometry>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
+  private lineMaterials = new Map<string, THREE.LineBasicMaterial>();
   private ownedMaterials = new Set<THREE.Material>();
   private textures = new Set<THREE.Texture>();
   private drawingCache = new Map<string, Promise<THREE.Texture>>();
+  private drawingTextures = new Map<string, THREE.Texture>();
+  private readonly drawingCacheLimit: number;
+  private readonly drawingResolution: number;
   private figures = new Map<string, Figure>();
   private equipment = new Map<string, { type: string; group: THREE.Group; target: THREE.Vector3; turn: number }>();
   private ball: THREE.Mesh;
@@ -117,8 +121,11 @@ export class BoardScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = .9;
     this.figureSize = figureScale(sport);
+    this.drawingCacheLimit = mobile ? 3 : 6;
+    this.drawingResolution = mobile ? 2 : 3;
     this.renderer.shadowMap.enabled = !mobile;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // three r186 removed PCFSoftShadowMap; PCF with a blur radius gives the soft edge.
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
     this.renderer.domElement.setAttribute('aria-label', 'Taktikktavle i 3D. Dra for å rotere, rull eller klyp for å zoome.');
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -135,7 +142,7 @@ export class BoardScene {
     sun.position.set(-35, 65, 25); sun.castShadow = !mobile;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 180 });
-    sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.04;
+    sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3;
     this.scene.add(sun);
     this.hud.add(this.phasePanel); this.phasePanel.center.set(0, 1); this.phasePanel.visible = false;
     const progressMaterial = new THREE.MeshBasicMaterial({ color: this.chipKit.fill, depthTest: false, toneMapped: false });
@@ -212,12 +219,18 @@ export class BoardScene {
     const mesh = new THREE.Mesh(this.geo('sphere', () => new THREE.SphereGeometry(1, 12, 8)), this.mat(color));
     mesh.position.set(x, y, z); mesh.scale.setScalar(radius); mesh.castShadow = true; parent.add(mesh); return mesh;
   }
-  private lines(parent: THREE.Object3D, points: number[], color: string, opacity = 1) {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-    this.geometry.set(`lines-${this.geometry.size}`, geometry);
-    const material = new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
-    this.ownedMaterials.add(material);
+  private lines(parent: THREE.Object3D, points: number[], color: string, opacity: number, key: string) {
+    const geometry = this.geo(key, () => {
+      const net = new THREE.BufferGeometry();
+      net.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+      return net;
+    });
+    const materialKey = `${color}/${opacity}`;
+    if (!this.lineMaterials.has(materialKey)) {
+      const material = new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
+      this.lineMaterials.set(materialKey, material); this.ownedMaterials.add(material);
+    }
+    const material = this.lineMaterials.get(materialKey)!;
     parent.add(new THREE.LineSegments(geometry, material));
   }
 
@@ -298,7 +311,7 @@ export class BoardScene {
       pts.push(-width / 2, height, z, width / 2, height, z);
       for (const x of [-width / 2, width / 2]) pts.push(x, 0, z, x, height, z);
     }
-    this.lines(g, pts, '#d4dfd8', .42); return g;
+    this.lines(g, pts, '#d4dfd8', .42, `goal-net/${width}/${height}/${depth}`); return g;
   }
 
   private makeBall() {
@@ -361,7 +374,9 @@ export class BoardScene {
       const title = `${number}${role ? ` · ${role.toUpperCase()}` : ''}`;
       const tag = textTexture(title, '#ffffff'); resources.push(tag);
       const tagMat = new THREE.SpriteMaterial({ map: tag, depthTest: true, depthWrite: false, toneMapped: false }); resources.push(tagMat);
-      const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.75; sprite.scale.set(role ? 3 : 1.3, .75, 1); group.add(sprite);
+      const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.75; group.add(sprite);
+      // textTexture is 4:1 with a role and square for a bare number; keep glyphs undistorted.
+      sprite.scale.set(role ? 3 : .75, .75, 1);
       if (name) {
         const texture = textTexture(name, '#ffffff'); resources.push(texture);
         const material = new THREE.SpriteMaterial({ map: texture, depthWrite: false, toneMapped: false }); resources.push(material);
@@ -385,16 +400,18 @@ export class BoardScene {
         const cone = new THREE.Mesh(this.geo('cone', () => new THREE.ConeGeometry(.19, .42, 20)), this.mat('#F97316'));
         cone.position.y = .24; cone.castShadow = true; g.add(cone); this.box(g, 0, .025, 0, .46, .05, .46, '#F97316');
         for (const y of [.15, .29]) {
-          const radius = .19 * (1 - (y - .03) / .42);
-          const band = new THREE.Mesh(this.geo(`cone-band-${y}`, () => new THREE.CylinderGeometry(radius - .014, radius + .014, .055, 20)), this.mat('#ffffff'));
+          // Follows the cone's slope (±.0125 over the band), a few mm proud of it so it never z-fights.
+          const radius = .19 * (1 - (y - .03) / .42) + .005;
+          const band = new THREE.Mesh(this.geo(`cone-band-${y}`, () => new THREE.CylinderGeometry(radius - .0125, radius + .0125, .055, 20, 1, true)), this.mat('#ffffff'));
           band.position.y = y; g.add(band);
         }
         break;
       }
       case 'opponent': case 'player': {
         const figure = this.figure(item.type === 'opponent' ? themeColor('--k-opponent', '#cbd5e1') : this.chipKit.fill, '', '');
-        // Equipment is life-sized and keeps the rotation set in 2D.
-        figure.group.scale.setScalar(1); g.add(figure.group); g.userData.figure = figure; break;
+        // Same enlarged TV scale as the numbered players, so opponents never look like children;
+        // unlike them, they keep the rotation set in 2D.
+        g.add(figure.group); g.userData.figure = figure; break;
       }
       case 'ball': g.add(this.makeBall()); break;
       case 'minigoal': g.add(this.goal(3, 1.5, 1, ink)); break;
@@ -415,20 +432,33 @@ export class BoardScene {
 
   async prepareDrawings(drawings: Drawing[], trails?: SceneFrame['trails']) {
     const key = JSON.stringify([drawings, trails ?? null]);
-    if (!this.drawingCache.has(key)) this.drawingCache.set(key, drawingTexture(drawings, trails).then(texture => {
-      if (this.disposed) texture.dispose(); else this.textures.add(texture);
+    if (!this.drawingCache.has(key)) this.drawingCache.set(key, drawingTexture(drawings, trails, this.drawingResolution).then(texture => {
+      if (this.disposed) texture.dispose(); else this.drawingTextures.set(key, texture);
       return texture;
+    }).catch(error => {
+      this.drawingCache.delete(key); throw error;
     }));
     return this.drawingCache.get(key)!;
   }
 
   async setDrawings(drawings: Drawing[], trails?: SceneFrame['trails']) {
-    const key = JSON.stringify([drawings, trails ?? null]); this.currentDrawingKey = key;
+    const key = JSON.stringify([drawings, trails ?? null]);
+    // Never display the previous phase's instructions while a new SVG decodes.
+    if (key !== this.currentDrawingKey) this.markings.visible = false;
+    this.currentDrawingKey = key;
     this.setDrawingLabels(drawings);
     const texture = await this.prepareDrawings(drawings, trails);
     if (this.disposed || key !== this.currentDrawingKey) return;
     const material = this.markings.material as THREE.MeshBasicMaterial;
-    material.map = texture; material.needsUpdate = true; this.markings.visible = drawings.length > 0 || !!trails;
+    if (material.map !== texture) { material.map = texture; material.needsUpdate = true; }
+    this.markings.visible = drawings.length > 0 || !!trails;
+    // Keep recent phases warm, with a bounded GPU footprint on mobile.
+    this.drawingTextures.delete(key); this.drawingTextures.set(key, texture);
+    for (const [oldKey, oldTexture] of this.drawingTextures) {
+      if (this.drawingTextures.size <= this.drawingCacheLimit) break;
+      if (oldKey === key) continue;
+      oldTexture.dispose(); this.drawingTextures.delete(oldKey); this.drawingCache.delete(oldKey);
+    }
   }
 
   private setDrawingLabels(drawings: Drawing[]) {
@@ -441,7 +471,10 @@ export class BoardScene {
       const texture = textTexture(label.text, color);
       const material = new THREE.SpriteMaterial({ map: texture, depthWrite: false, toneMapped: false });
       this.labelResources.push(texture, material);
-      const sprite = new THREE.Sprite(material), pos = boardToWorld(label.at, this.sport, .85);
+      const sprite = new THREE.Sprite(material), pos = boardToWorld(label.at, this.sport, .1);
+      // Anchored at the glyphs' baseline: a camera-facing sprite tilts its lower
+      // half towards the camera, which would otherwise sink into the grass.
+      sprite.center.set(.5, .18);
       sprite.position.set(pos.x, pos.y, pos.z); sprite.scale.set(8 * this.figureSize, 2 * this.figureSize, 1);
       this.labels.add(sprite);
     }
@@ -464,7 +497,9 @@ export class BoardScene {
     }
     const image = this.phasePanel.material.map?.image as HTMLCanvasElement | undefined;
     if (!image) return;
-    const width = Math.min(360, size.x - 24, (size.y * .42) * image.width / image.height);
+    // 360 px on screen; grows with the frame height so it stays legible in a 1080p video.
+    // On phones it may span the width; on wide frames at most half, leaving the pitch visible.
+    const width = Math.min(Math.max(360, size.y * .45), Math.max(size.x * .5, Math.min(360, size.x - 24)), (size.y * .42) * image.width / image.height);
     this.phasePanel.position.set(12, size.y - 12, 0);
     this.phasePanel.scale.set(width, width * image.height / image.width, 1);
   }
@@ -499,7 +534,10 @@ export class BoardScene {
       const p = boardToWorld(item.position, this.sport);
       const fresh = !entry || entry.type !== item.type;
       if (!entry || fresh) {
-        if (entry) this.scene.remove(entry.group);
+        if (entry) {
+          if (entry.group.userData.figure) this.releaseFigure(entry.group.userData.figure);
+          this.scene.remove(entry.group);
+        }
         entry = { type: item.type, group: this.equipmentGroup(item), target: new THREE.Vector3(), turn: 0 }; this.equipment.set(item.id, entry); this.scene.add(entry.group);
       }
       entry.target.set(p.x, 0, p.z); entry.turn = boardRotation(item.rotation);
@@ -652,12 +690,14 @@ export class BoardScene {
   }
   private animateFigure(f: Figure, dt: number, speed: number) {
     if (!f.mixer || !f.actions?.length) return;
-    const moving = THREE.MathUtils.smoothstep(speed, .12, .65);
-    const sprint = THREE.MathUtils.smoothstep(speed, 4, 7);
+    // Figures are drawn figureSize× life size; their stride is too, so cadence follows body lengths, not metres.
+    const pace = speed / this.figureSize;
+    const moving = THREE.MathUtils.smoothstep(pace, .08, .4);
+    const sprint = THREE.MathUtils.smoothstep(pace, 3, 5.5);
     const weights = [1 - moving, moving * (1 - sprint), moving * sprint];
     f.actions.forEach((action, i) => {
       action.setEffectiveWeight(weights[i]);
-      action.setEffectiveTimeScale(i === 0 ? 1 : THREE.MathUtils.clamp(speed / (i === 1 ? 3 : 6), .3, 3));
+      action.setEffectiveTimeScale(i === 0 ? 1 : THREE.MathUtils.clamp(pace / (i === 1 ? 3 : 6), .3, 3));
     });
     f.mixer.update(this.reducedMotion ? 0 : dt);
   }
@@ -686,6 +726,7 @@ export class BoardScene {
     this.labelResources.forEach(r => r.dispose());
     this.phasePanel.material.map?.dispose(); this.phasePanel.material.dispose(); this.hud.clear();
     this.environment?.dispose();
+    this.drawingTextures.forEach(texture => texture.dispose()); this.drawingTextures.clear(); this.drawingCache.clear();
     this.geometry.forEach(g => g.dispose()); this.materials.forEach(m => m.dispose());
     this.ownedMaterials.forEach(m => m.dispose()); this.textures.forEach(t => t.dispose());
     this.scene.clear(); this.renderer.dispose(); this.renderer.forceContextLoss();

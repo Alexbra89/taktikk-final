@@ -8,17 +8,17 @@ export interface EncoderChoice { config: VideoEncoderConfig; ext: 'mp4' | 'webm'
 /** Same format preference as exportVideo.ts, but WebCodecs rather than MediaRecorder
  * is required to assign timestamps without recording in real time.
  */
-export async function chooseEncoder(): Promise<EncoderChoice | null> {
+export async function chooseEncoder(lowPower = false): Promise<EncoderChoice | null> {
   if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return null;
   // Prefer H.264 at either resolution before falling back to WebM.
   for (const codec of ['avc1.420028', 'avc1.4d0028', 'vp09.00.10.08', 'vp8']) {
-    for (const [width, height] of [[1920, 1080], [1280, 720]]) {
+    for (const [width, height] of lowPower ? [[1280, 720]] : [[1920, 1080], [1280, 720]]) {
       const avc = codec.startsWith('avc');
       const config: VideoEncoderConfig = {
         codec, width, height, framerate: VIDEO_FPS, bitrate: width === 1920 ? 10_000_000 : 6_000_000,
-        // 'quality' never drops frames. Main profile may reorder frames (B-frames)
-        // in that mode, which the muxer does not support, so it stays realtime.
-        latencyMode: codec === 'avc1.4d0028' ? 'realtime' : 'quality',
+        // The MP4 muxer stores decode time equal to presentation time.
+        // Request AVC without frame reordering for every profile/driver.
+        latencyMode: avc ? 'realtime' : 'quality',
         ...(avc ? { avc: { format: 'avc' as const } } : {}),
       };
       try {
@@ -41,7 +41,7 @@ export async function exportVideo3D(options: {
   signal: AbortSignal;
   onProgress: (value: number) => void;
   /** Called once per frame, in order; may take arbitrarily long. */
-  draw: (elapsedMs: number, index: number) => Promise<HTMLCanvasElement>;
+  draw: (elapsedMs: number, index: number) => Promise<ImageData>;
 }) {
   const { choice, signal } = options;
   signal.throwIfAborted();
@@ -56,7 +56,7 @@ export async function exportVideo3D(options: {
       if (bytes > 512 * 1024 * 1024) { failure = new Error('Videoen er for stor. Del taktikken i kortere sekvenser.'); return; }
       samples.push({ data, timestamp: chunk.timestamp, key: chunk.type === 'key' });
       const d = metadata?.decoderConfig?.description;
-      if (d) description = ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength).slice() : new Uint8Array(d).slice();
+      if (d && !description) description = ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength).slice() : new Uint8Array(d).slice();
     },
     error() { failure = new Error('Videokoderen stoppet underveis. Prøv igjen, eller bruk en annen nettleser.'); },
   });
@@ -70,10 +70,15 @@ export async function exportVideo3D(options: {
     const count = Math.ceil(exportDuration(options.phaseCount, options.speed) * VIDEO_FPS / 1000);
     for (let i = 0; i < count; i++) {
       check();
-      const canvas = await options.draw(Math.max(0, i * 1000 / VIDEO_FPS - VIDEO_LEAD_MS), i);
+      const pixels = await options.draw(Math.max(0, i * 1000 / VIDEO_FPS - VIDEO_LEAD_MS), i);
       check();
       const timestamp = Math.round(i * 1e6 / VIDEO_FPS);
-      const frame = new VideoFrame(canvas, { timestamp, duration: Math.round((i + 1) * 1e6 / VIDEO_FPS) - timestamp });
+      // Explicit CPU pixels avoid stale/black frames from GPU-backed canvas
+      // snapshots on some H.264 drivers, including after a cancelled export.
+      const frame = new VideoFrame(pixels.data, {
+        format: 'RGBA', codedWidth: pixels.width, codedHeight: pixels.height,
+        timestamp, duration: Math.round((i + 1) * 1e6 / VIDEO_FPS) - timestamp,
+      });
       try { encoder.encode(frame, { keyFrame: i % (VIDEO_FPS * 2) === 0 }); } finally { frame.close(); }
       // Bounded queue prevents GPU/encoder/memory overload on slow PCs.
       if (encoder.encodeQueueSize >= 4) await encoder.flush();

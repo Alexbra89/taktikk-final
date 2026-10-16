@@ -1,15 +1,31 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+// HDRLoader is RGBELoader under its current name; the old one logs a deprecation warning in r186.
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 // Shared source assets survive view switches and are also used by the export scene.
 // Only the three useful clips are retained; geometry is shared by all skeletons.
 let player: Promise<GLTF> | undefined;
 let sky: Promise<THREE.DataTexture> | undefined;
+
+/** A stalled local asset must not leave the board/export waiting forever. */
+async function modelFile(name: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(`/models/${name}`, { signal: controller.signal });
+    if (!response.ok) throw new Error(`Could not load ${name}`);
+    return await response.arrayBuffer();
+  } finally { clearTimeout(timeout); }
+}
+
 export function loadPlayer() {
-  return player ??= new GLTFLoader().loadAsync('/models/spiller.glb').then(gltf => {
+  return player ??= modelFile('spiller.glb').then(data => new GLTFLoader().parseAsync(data, '/models/')).then(gltf => {
     gltf.animations = gltf.animations.filter(c => ['Idle_Loop', 'Jog_Fwd_Loop', 'Sprint_Loop'].includes(c.name));
+    if (!gltf.scene.getObjectByProperty('isSkinnedMesh', true) || gltf.animations.length !== 3) {
+      throw new Error('The player model is missing its skeleton or football animations.');
+    }
     // Remove horizontal root motion: the board's phase clock owns the position.
     for (const clip of gltf.animations) {
       clip.optimize();
@@ -31,9 +47,15 @@ export function loadPlayer() {
       }
     }
     return gltf;
-  });
+  }).catch(error => { player = undefined; throw error; });
 }
-export function loadSky() { return sky ??= new RGBELoader().loadAsync('/models/himmel.hdr'); }
+export function loadSky() {
+  return sky ??= modelFile('himmel.hdr').then(data => {
+    const texture = new HDRLoader().createDataTexture(data);
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    return texture;
+  }).catch(error => { sky = undefined; throw error; });
+}
 
 export function clonePlayer(source: GLTF, kit: THREE.MeshStandardMaterial) {
   const model = clone(source.scene);

@@ -18,6 +18,22 @@ async function savedTactics(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('taktikkboard-storage')!).state.tactics);
 }
 
+/** Read our single-track MP4 so every encoded frame can be verified directly.
+ * HTMLVideoElement-to-canvas readback can be black on headless Windows even
+ * after presentation; VideoDecoder verifies the actual file's pixels instead. */
+function mp4Frames(file: Buffer) {
+  const avcc = file.indexOf('avcC'), sizes = file.indexOf('stsz'), sync = file.indexOf('stss');
+  const description = file.subarray(avcc + 4, avcc - 4 + file.readUInt32BE(avcc - 4));
+  const keys = new Set(Array.from({ length: file.readUInt32BE(sync + 8) }, (_, i) => file.readUInt32BE(sync + 12 + i * 4) - 1));
+  let offset = file.indexOf('mdat') + 4;
+  const samples = Array.from({ length: file.readUInt32BE(sizes + 12) }, (_, i) => {
+    const length = file.readUInt32BE(sizes + 16 + i * 4);
+    const data = file.subarray(offset, offset + length).toString('base64'); offset += length;
+    return { data, key: keys.has(i), timestamp: Math.round(i * 1e6 / 30) };
+  });
+  return { description: description.toString('base64'), samples };
+}
+
 test('3D is read-only, camera controls work, and switching back preserves 2D', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await openBoard(page);
@@ -66,7 +82,7 @@ test('mobile 3D has a visible pitch and controls without page overflow', async (
   expect(box!.width).toBeGreaterThan(300); expect(box!.height).toBeGreaterThan(180);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('3d-mobile.png') });
-  for (const viewport of [{ width: 390, height: 560 }, { width: 844, height: 390 }, { width: 1024, height: 600 }]) {
+  for (const viewport of [{ width: 390, height: 560 }, { width: 320, height: 480 }, { width: 812, height: 280 }, { width: 844, height: 390 }, { width: 1024, height: 600 }]) {
     await page.setViewportSize(viewport);
     const play = page.getByRole('button', { name: 'Spill av fasene', exact: true });
     await expect(play).toBeInViewport();
@@ -198,19 +214,61 @@ for (const format of ['mp4', 'webm'] as const) {
     await page.getByRole('button', { name: 'Avbryt', exact: true }).click();
     await expect(page.getByText('Videoeksporten ble avbrutt.', { exact: true })).toBeVisible();
     const downloadPromise = page.waitForEvent('download'); await button.click();
+    // Resolve on either outcome so an encoder error is reported immediately.
+    await page.waitForFunction(() => {
+      const region = document.querySelector('section[aria-label="3D-visning"]');
+      return region?.querySelector('[role="alert"]') || Array.from(region?.querySelectorAll('[role="status"]') ?? [])
+        .some(el => el.textContent?.includes('3D-videoen er lastet ned'));
+    }, undefined, { timeout: 90_000 });
+    await expect(page.getByRole('region', { name: '3D-visning' }).getByRole('alert')).toHaveCount(0);
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(new RegExp(`-3d-.*\\.${format}$`));
     const file = await download.path(); const bytes = await readFile(file!);
     expect(bytes.length).toBeGreaterThan(20_000);
     await download.saveAs(info.outputPath(`3d-test.${format}`));
-    const metadata = await page.evaluate(async ({ base64, format }) => {
+    const metadata = await page.evaluate(async ({ base64, format, mp4 }) => {
       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const url = URL.createObjectURL(new Blob([bytes], { type: `video/${format}` }));
-      const video = document.createElement('video'); video.muted = true; video.src = url;
+      const video = document.createElement('video'); video.muted = true; video.playsInline = true;
+      video.style.cssText = 'position:fixed;bottom:0;left:0;width:192px;height:108px;z-index:9999';
+      document.body.appendChild(video); video.src = url;
+      const seekPresented = (time: number) => new Promise<void>((resolve, reject) => {
+        video.onerror = () => reject(new Error(video.error?.message));
+        video.onseeked = () => requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        video.currentTime = time;
+      });
       try {
         await new Promise<void>((resolve, reject) => { video.onloadeddata = () => resolve(); video.onerror = () => reject(new Error(video.error?.message)); });
-        video.currentTime = 1.8;
-        await new Promise<void>((resolve, reject) => { video.onseeked = () => resolve(); video.onerror = () => reject(new Error(video.error?.message)); });
+        if (mp4) {
+          const unpack = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+          const thumbnail = document.createElement('canvas'); thumbnail.width = 192; thumbnail.height = 108;
+          const ctx = thumbnail.getContext('2d', { willReadFrequently: true })!;
+          let decoded = 0, grassPixels = Infinity, endGrassPixels = 0, image = '', failure = '';
+          const decoder = new VideoDecoder({
+            output(frame) {
+              ctx.drawImage(frame, 0, 0, 192, 108);
+              const rgba = ctx.getImageData(0, 0, 192, 108).data;
+              let green = 0;
+              for (let i = 0; i < rgba.length; i += 4) if (rgba[i + 1] > rgba[i] * 1.25 && rgba[i + 1] > rgba[i + 2] * 1.1) green++;
+              grassPixels = Math.min(grassPixels, green); endGrassPixels = green; decoded++;
+              if (!image && frame.timestamp >= 1_800_000) {
+                const canvas = document.createElement('canvas'); canvas.width = frame.displayWidth; canvas.height = frame.displayHeight;
+                canvas.getContext('2d')!.drawImage(frame, 0, 0); image = canvas.toDataURL('image/png').split(',')[1];
+              }
+              frame.close();
+            }, error(error) { failure = error.message; },
+          });
+          try {
+            const description = unpack(mp4.description);
+            const codec = `avc1.${Array.from(description.slice(1, 4), n => n.toString(16).padStart(2, '0')).join('')}`;
+            decoder.configure({ codec, description, hardwareAcceleration: 'prefer-software' });
+            for (const sample of mp4.samples) decoder.decode(new EncodedVideoChunk({ type: sample.key ? 'key' : 'delta', timestamp: sample.timestamp, data: unpack(sample.data) }));
+            await decoder.flush();
+            if (failure || decoded !== mp4.samples.length) throw new Error(failure || 'Missing decoded MP4 frames');
+          } finally { if (decoder.state !== 'closed') decoder.close(); }
+          return { width: video.videoWidth, height: video.videoHeight, duration: video.duration, ready: video.readyState, grassPixels, endGrassPixels, image };
+        }
+        await seekPresented(1.8);
         const canvas = document.createElement('canvas'); canvas.width = 192; canvas.height = 108;
         const ctx = canvas.getContext('2d')!; ctx.drawImage(video, 0, 0, 192, 108);
         const pixels = ctx.getImageData(0, 0, 192, 108).data;
@@ -218,13 +276,20 @@ for (const format of ['mp4', 'webm'] as const) {
         for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 1] > pixels[i] * 1.25 && pixels[i + 1] > pixels[i + 2] * 1.1) grassPixels++;
         canvas.width = video.videoWidth; canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
-        return { width: video.videoWidth, height: video.videoHeight, duration: video.duration, ready: video.readyState, grassPixels, image: canvas.toDataURL('image/png').split(',')[1] };
-      } finally { video.removeAttribute('src'); video.load(); URL.revokeObjectURL(url); }
-    }, { base64: bytes.toString('base64'), format });
+        const image = canvas.toDataURL('image/png').split(',')[1];
+        await seekPresented(video.duration - .01);
+        canvas.width = 192; canvas.height = 108; ctx.drawImage(video, 0, 0, 192, 108);
+        const end = ctx.getImageData(0, 0, 192, 108).data;
+        let endGrassPixels = 0;
+        for (let i = 0; i < end.length; i += 4) if (end[i + 1] > end[i] * 1.25 && end[i + 1] > end[i + 2] * 1.1) endGrassPixels++;
+        return { width: video.videoWidth, height: video.videoHeight, duration: video.duration, ready: video.readyState, grassPixels, endGrassPixels, image };
+      } finally { video.removeAttribute('src'); video.load(); video.remove(); URL.revokeObjectURL(url); }
+    }, { base64: bytes.toString('base64'), format, mp4: format === 'mp4' ? mp4Frames(bytes) : null });
     expect(metadata.width).toBe(1920); expect(metadata.height).toBe(1080);
     await writeFile(info.outputPath('decoded-video-frame.png'), Buffer.from(metadata.image, 'base64'));
     expect(metadata.duration).toBeCloseTo(2.3, 1); expect(metadata.ready).toBeGreaterThanOrEqual(2);
     expect(metadata.grassPixels).toBeGreaterThan(1500);
+    expect(metadata.endGrassPixels).toBeGreaterThan(1500);
     expect(await savedTactics(page)).toEqual(before);
   });
 }

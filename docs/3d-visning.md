@@ -48,9 +48,11 @@ stopper uten å laste ned en halvferdig fil. Bytte tilbake til 2D avbryter også
 
 WebCodecs koder ett bilde om gangen med egne tidsstempler, 30 bilder/s.
 H.264/MP4 foretrekkes, med VP9/VP8/WebM som reserve. 1920 × 1080 foretrekkes;
-1280 × 720 brukes dersom koderen ikke støtter full HD. Nettlesere uten WebCodecs
+1280 × 720 brukes på mobil, eller dersom koderen ikke støtter full HD. Nettlesere uten WebCodecs
 får en forklaring. Eksporten bruker ikke MediaRecorder eller sanntidsopptak.
 En treg maskin bruker mer tid på å lage filen; antall bilder og videotempo beholdes.
+Videobildene leses direkte fra WebGL til ett gjenbrukt bildebuffer før koding.
+Dette unngår nye full-HD-kopier for hvert bilde og ustabil canvas-overføring.
 
 Eksportens interpolasjon gjenbruker `frameAt` og `interpolateItems` fra dagens
 eksport. Den følger det nominelle tempoet på 1200 ms per faseovergang ved 1×.
@@ -66,7 +68,23 @@ timersteg gi noen millisekunders forskjell. Denne eksisterende klokken er ikke e
 - Tegninger rasteriseres fra eksisterende `DrawingCanvas` til et flatt banelag.
 - Three-geometrier/materialer gjenbrukes; renderer, kontroller og teksturer ryddes opp.
 - Mobil bruker redusert pikseloppløsning, myke kontaktskygger i stedet for
-  skyggekart, og maksimalt 30 oppdateringer/s.
+  skyggekart, og maksimalt 30 oppdateringer/s. Berøringsenheter beholder denne
+  tilpasningen også i liggende format.
+- `public/models/spiller.glb` lastes én gang og klones med `SkeletonUtils`.
+  Spillerne deler geometri og draktmaterialer, men har hvert sitt skjelett og
+  animasjonsmiks. Stillestående, jogging og sprint blandes ut fra faktisk fart;
+  figurene snur seg i bevegelsesretningen. Keeperen har egen draktfarge.
+  Motspillere og ekstra spillere fra utstyret har samme størrelse som lagets spillere.
+- `public/models/himmel.hdr` gir himmel og miljølys via HDRLoader (det nye
+  navnet på RGBELoader i three r186) og PMREM.
+  Begge filene har 15 sekunders lastetidsgrense. Manglende eller ødelagte filer
+  gir en liten melding og reservefigurer/vanlig lys. Åpne 3D på nytt for å prøve igjen.
+- Gresset lages i kode med klippestriper, fargevariasjon og nærstruktur.
+  Kjegler, nett, stiger, hekker, dukker og baller lages også i kode.
+- Tegnefarger og pilhoder gjenbruker 2D-tegneren. Tekst vender mot kameraet.
+  Fasenavn og notat tegnes inne i videobildet, slik at de også følger eksporten.
+- Bare de siste tre tegnelagene beholdes på mobil (seks på PC). Videoen laster
+  tegnelag etter behov, så lange sekvenser ikke forhåndslaster alle fasene i minnet.
 - Ingen nye pakker. MP4- og WebM-beholdere skrives lokalt i `videoMux.ts`.
 
 ## Kontroller
@@ -83,3 +101,21 @@ Prosjektet har allerede `node_modules`; ingen installasjon er nødvendig her.
 Appens eksisterende Google Fonts-oppsett trenger nettverk ved et rent
 produksjonsbygg. I et nettverkssperret miljø kan utviklingsvisningen bruke
 reservefont, mens produksjonsbygget stopper på fonthentingen.
+I dette miljøet mangler også fontvariabelen `--font-mono`, slik at den eksisterende
+2D-eksporten til PNG stopper. 2D-koden er beholdt urørt.
+
+## Prøv selv
+
+1. Åpne prosjektets lokale forhåndsvisning og velg **Taktikk**.
+2. Lag minst to faser i 2D, med forskjellige tegninger, tekst, navn og fasenotater.
+   Ta med alle tegneverktøyene og litt utstyr. Flytt noen spillere og ballen.
+3. Velg **3D**, prøv kameraene og spill av. Sjekk draktfarger, nummer, navn,
+   løperetning og at tegninger og notater følger riktig fase.
+4. Prøv en smal skjerm og liggende telefon. Avspillingsknappen skal være synlig;
+   de øvrige kontrollene kan nås ved å rulle når høyden er liten.
+5. Eksporter en 3D-video og åpne den nedlastede filen. Sjekk også at de siste
+   sekundene spiller, og at tekst, utstyr og notater er med. Prøv **Avbryt**.
+6. Bytt tilbake til 2D og bekreft at innholdet og redigeringen er som før.
+
+Mobilens faktiske bildeflyt og videostøtte bør prøves på en vanlig telefon;
+en nettlesertest med mobilstørrelse måler ikke telefonens grafikkytelse.

@@ -31,9 +31,9 @@ export function textTexture(text: string, color: string, background?: string) {
 }
 
 /** Use the existing drawing renderer, so curves, arrowheads and legacy drawings match 2D. */
-export async function drawingTexture(drawings: Drawing[], trails?: { from: Player[]; to: Player[] } | null) {
+export async function drawingTexture(drawings: Drawing[], trails?: { from: Player[]; to: Player[] } | null, resolution = 3) {
   const css = getComputedStyle(document.documentElement);
-  let markup = renderToStaticMarkup(<svg xmlns="http://www.w3.org/2000/svg" width={VW * 3} height={VH * 3} viewBox={`0 0 ${VW} ${VH}`}>
+  let markup = renderToStaticMarkup(<svg xmlns="http://www.w3.org/2000/svg" width={VW * resolution} height={VH * resolution} viewBox={`0 0 ${VW} ${VH}`}>
     {trails && <PlayerTrails {...trails} />}
     {drawings.filter(d => d.type !== 'label').map(d => <DrawingCanvas key={d.id} drawing={d} />)}
   </svg>);
