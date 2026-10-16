@@ -1,5 +1,9 @@
 import { VW, VH } from '@/data/formations';
 import { frameAt, VIDEO_PHASE_MS, VIDEO_LEAD_MS, VIDEO_TAIL_MS } from '@/lib/exportVideo';
+
+// Stylised TV figures are drawn larger than life on big pitches, so they stay
+// readable from the overview camera.
+export const figureScale = (sport: Sport) => 1.3 + 0.6 * PITCHES[sport].length / 105;
 import type { Position, Sport, TacticPhase } from '@/types';
 
 // Representative pitch sizes in metres. Small-sided pitches allow a range;
@@ -26,6 +30,28 @@ export function worldToBoard(p: { x: number; z: number }, sport: Sport): Positio
 export const boardRotation = (degrees = 0) => -degrees * Math.PI / 180;
 export const playbackDuration = (phaseCount: number, speed: number) => Math.max(0, phaseCount - 1) * VIDEO_PHASE_MS / speed;
 export const exportDuration = (phaseCount: number, speed: number) => VIDEO_LEAD_MS + playbackDuration(phaseCount, speed) + VIDEO_TAIL_MS;
+
+/**
+ * The saved model has no pass height. Short moves roll along the grass; from
+ * about 15 m the ball is lifted in a gentle parabola, like a long pass. The
+ * ground path is still exactly the 2D path. Returns height in metres.
+ */
+export function ballArcHeight(from: Position, to: Position, t: number, sport: Sport) {
+  const a = boardToWorld(from, sport), b = boardToWorld(to, sport);
+  const distance = Math.hypot(b.x - a.x, b.z - a.z);
+  const lift = Math.min(1, Math.max(0, (distance - 15) / 15));
+  const peak = lift * Math.min(distance * 0.15, 9);
+  const k = Math.min(1, Math.max(0, t));
+  return 4 * peak * k * (1 - k);
+}
+
+/** Ball height at a playback time; same clock as playbackFrame. */
+export function playbackBallHeight(phases: TacticPhase[], elapsedMs: number, speed: number, sport: Sport) {
+  const time = Math.max(0, elapsedMs) * speed;
+  if (phases.length < 2 || time >= (phases.length - 1) * VIDEO_PHASE_MS) return 0;
+  const from = Math.min(phases.length - 2, Math.floor(time / VIDEO_PHASE_MS));
+  return ballArcHeight(phases[from].ball, phases[from + 1].ball, time / VIDEO_PHASE_MS - from, sport);
+}
 
 /** Reuses the 2D export's linear interpolation, including shortest-path equipment rotation. */
 export function playbackFrame(phases: TacticPhase[], elapsedMs: number, speed: number) {

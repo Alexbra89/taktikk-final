@@ -5,7 +5,7 @@ import type { BoardItem, Drawing, Position, Sport } from '@/types';
 import type { StagePlayer } from '../BoardStage';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import { KIT_COLORS } from '../svg/PlayerKit';
-import { PITCHES, boardToWorld, boardRotation } from './coordinates';
+import { PITCHES, boardToWorld, boardRotation, figureScale } from './coordinates';
 import { drawingTexture, textTexture, themeColor } from './textures';
 
 export type CameraView = 'overview' | 'top' | 'ball' | 'player';
@@ -14,6 +14,8 @@ export interface SceneFrame {
   ball: Position;
   items: BoardItem[];
   drawings: Drawing[];
+  /** Metres above the grass; see ballArcHeight. */
+  ballHeight?: number;
 }
 export interface CameraState {
   view: CameraView;
@@ -46,6 +48,9 @@ export class BoardScene {
   private figures = new Map<string, Figure>();
   private equipment = new Map<string, { type: string; group: THREE.Group }>();
   private ball: THREE.Mesh;
+  /** Soft contact shadow, only where real shadows are switched off (mobile). */
+  private ballBlob: THREE.Mesh | null = null;
+  private readonly figureSize: number;
   private markings: THREE.Mesh;
   private currentDrawingKey = '';
   private disposed = false;
@@ -56,6 +61,9 @@ export class BoardScene {
   private zoomFactor = 1;
   private desiredPosition = new THREE.Vector3();
   private desiredTarget = new THREE.Vector3();
+  private fromOffset = new THREE.Spherical();
+  private toOffset = new THREE.Spherical();
+  private offset = new THREE.Vector3();
   private ballPlaced = false;
   private reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private onManual = () => { this.manual = true; };
@@ -65,6 +73,7 @@ export class BoardScene {
     this.renderer = new THREE.WebGLRenderer({ antialias: !mobile, powerPreference: 'high-performance', preserveDrawingBuffer: exportMode });
     this.renderer.setPixelRatio(mobile ? 1 : Math.min(devicePixelRatio, 1.75));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.figureSize = figureScale(sport);
     this.renderer.shadowMap.enabled = !mobile;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
@@ -87,6 +96,12 @@ export class BoardScene {
     this.scene.add(sun);
     this.buildPitch();
     this.ball = this.makeBall(); this.scene.add(this.ball);
+    if (mobile) {
+      const blob = new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: .32, depthWrite: false });
+      this.ownedMaterials.add(blob);
+      this.ballBlob = new THREE.Mesh(this.geo('blob', () => new THREE.CircleGeometry(.3, 20)), blob);
+      this.ballBlob.rotation.x = -Math.PI / 2; this.ballBlob.position.y = .03; this.scene.add(this.ballBlob);
+    }
     const p = PITCHES[sport];
     const mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     this.ownedMaterials.add(mat);
@@ -222,8 +237,8 @@ export class BoardScene {
       const tagMat = new THREE.SpriteMaterial({ map: tag, depthTest: true, depthWrite: false }); this.ownedMaterials.add(tagMat);
       const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.6; sprite.scale.set(name ? 5 : 1.3, name ? 1.25 : 1.3, 1); group.add(sprite);
     }
-    // Slightly enlarged TV figures remain legible on phones.
-    group.scale.setScalar(1.35);
+    // Enlarged TV figures remain legible on phones and in the overview.
+    group.scale.setScalar(this.figureSize);
     return { group, limbs, heading: Math.PI / 2, stride: 0, motion: 0, signature: '' };
   }
 
@@ -300,14 +315,21 @@ export class BoardScene {
       const p = boardToWorld(item.position, this.sport);
       entry.group.position.set(p.x, 0, p.z); entry.group.rotation.y = boardRotation(item.rotation);
     }
-    const bp = boardToWorld(frame.ball, this.sport, .26);
+    const height = Math.max(0, frame.ballHeight ?? 0);
+    const bp = boardToWorld(frame.ball, this.sport, .26 + height);
     if (animate && this.ballPlaced) {
       const dx = bp.x - this.ball.position.x, dz = bp.z - this.ball.position.z;
       const d = Math.hypot(dx, dz);
-      if (d > .00001) this.ball.rotateOnWorldAxis(new THREE.Vector3(dz, 0, -dx).normalize(), d / .26);
+      // Rolls on the grass; keeps a lighter backspin-free spin in the air.
+      if (d > .00001) this.ball.rotateOnWorldAxis(new THREE.Vector3(dz, 0, -dx).normalize(), d / .26 * (height > .05 ? .35 : 1));
     }
-    // The saved model has no height/pass type. Keep the same ground trajectory as 2D.
+    // The ground path is always the 2D path; only the height is added.
     this.ball.position.set(bp.x, bp.y, bp.z); this.ballPlaced = true;
+    if (this.ballBlob) {
+      this.ballBlob.position.set(bp.x, .03, bp.z);
+      this.ballBlob.scale.setScalar(1 + height * .08);
+      (this.ballBlob.material as THREE.MeshBasicMaterial).opacity = .32 / (1 + height * .35);
+    }
   }
 
   selectCamera(view: CameraView, playerId = this.playerId) { this.view = view; this.playerId = playerId; this.manual = false; this.zoomFactor = 1; }
@@ -331,17 +353,31 @@ export class BoardScene {
     else if (this.view === 'ball') {
       target.copy(this.ball.position); position.copy(target).add(new THREE.Vector3(0, 17 * this.zoomFactor, 24 * this.zoomFactor));
     } else if (this.view === 'player' && this.figures.size) {
-      const f = this.figures.get(this.playerId) ?? this.figures.get(this.frame.players.find(p => p.num === 1)?.id ?? '') ?? this.figures.values().next().value!;
+      const f = this.povFigure()!;
       const direction = new THREE.Vector3(Math.sin(f.heading), 0, Math.cos(f.heading));
-      position.copy(f.group.position).add(new THREE.Vector3(0, 2.35, 0)).addScaledVector(direction, .55);
+      position.copy(f.group.position).add(new THREE.Vector3(0, 1.8 * this.figureSize, 0)).addScaledVector(direction, .2 * this.figureSize);
       target.copy(position).addScaledVector(direction, 15); target.y = 1.6;
     } else {
       const direction = new THREE.Vector3(p.length * .08, p.length * .55, p.width * 1.08).normalize();
       position.copy(direction).multiplyScalar(this.pitchFitDistance(direction) * this.zoomFactor);
     }
     const alpha = snap || this.reducedMotion ? 1 : 1 - Math.exp(-dt * 6);
-    this.camera.position.lerp(position, alpha); this.controls.target.lerp(target, alpha);
+    // Ease the camera's offset from its target in spherical coordinates: a
+    // crane-like swing that never spins around the pole on the way to Ovenfra.
+    this.fromOffset.setFromVector3(this.offset.copy(this.camera.position).sub(this.controls.target));
+    this.toOffset.setFromVector3(this.offset.copy(position).sub(target));
+    const turn = Math.atan2(Math.sin(this.toOffset.theta - this.fromOffset.theta), Math.cos(this.toOffset.theta - this.fromOffset.theta));
+    this.fromOffset.set(
+      THREE.MathUtils.lerp(this.fromOffset.radius, this.toOffset.radius, alpha),
+      THREE.MathUtils.lerp(this.fromOffset.phi, this.toOffset.phi, alpha),
+      this.fromOffset.theta + turn * alpha,
+    );
+    this.controls.target.lerp(target, alpha);
+    this.camera.position.setFromSpherical(this.fromOffset).add(this.controls.target);
     this.controls.update();
+  }
+  private povFigure() {
+    return this.figures.get(this.playerId) ?? this.figures.get(this.frame.players.find(p => p.num === 1)?.id ?? '') ?? this.figures.values().next().value;
   }
   /** Fit every pitch corner including runoff, at any container aspect ratio. */
   private pitchFitDistance(direction: THREE.Vector3) {
@@ -370,8 +406,13 @@ export class BoardScene {
       const swing = this.reducedMotion ? 0 : Math.sin(f.stride) * .65 * f.motion;
       f.limbs.forEach((limb, i) => { limb.rotation.x = swing * (i === 0 || i === 3 ? 1 : -1); });
       f.motion *= Math.exp(-dt * 4);
+      f.group.visible = true;
     });
-    this.updateCamera(dt, snap); this.renderer.render(this.scene, this.camera);
+    this.updateCamera(dt, snap);
+    // In Spillerperspektiv the camera sits in the player's head; hide that figure once there.
+    const pov = this.view === 'player' && !this.manual ? this.povFigure() : undefined;
+    if (pov && pov.group.position.distanceTo(this.camera.position) < 2.5 * this.figureSize) pov.group.visible = false;
+    this.renderer.render(this.scene, this.camera);
   }
   dispose() {
     this.disposed = true; this.controls.removeEventListener('start', this.onManual); this.controls.dispose();
