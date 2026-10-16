@@ -8,6 +8,9 @@ import { KIT_COLORS } from '../svg/PlayerKit';
 import { PITCHES, boardToWorld, boardRotation, figureScale } from './coordinates';
 import { drawingTexture, textTexture, themeColor } from './textures';
 
+/** Slightly larger than a real ball (0.11 m), so it reads in the overview. */
+const BALL_RADIUS = .26;
+
 export type CameraView = 'overview' | 'top' | 'ball' | 'player';
 export interface SceneFrame {
   players: StagePlayer[];
@@ -24,10 +27,14 @@ export interface CameraState {
   target: number[];
   manual: boolean;
   zoom: number;
+  /** The followed ground point, so a manual follow angle survives into the export. */
+  anchor: number[] | null;
 }
 interface Figure {
   group: THREE.Group;
   limbs: THREE.Group[];
+  /** Where the frame says the player is; the group glides there in render(). */
+  target: THREE.Vector3;
   heading: number;
   stride: number;
   motion: number;
@@ -46,7 +53,7 @@ export class BoardScene {
   private textures = new Set<THREE.Texture>();
   private drawingCache = new Map<string, Promise<THREE.Texture>>();
   private figures = new Map<string, Figure>();
-  private equipment = new Map<string, { type: string; group: THREE.Group }>();
+  private equipment = new Map<string, { type: string; group: THREE.Group; target: THREE.Vector3; turn: number }>();
   private ball: THREE.Mesh;
   /** Soft contact shadow, only where real shadows are switched off (mobile). */
   private ballBlob: THREE.Mesh | null = null;
@@ -64,11 +71,20 @@ export class BoardScene {
   private fromOffset = new THREE.Spherical();
   private toOffset = new THREE.Spherical();
   private offset = new THREE.Vector3();
+  private ballTarget = new THREE.Vector3();
   private ballPlaced = false;
+  /** Ground point the camera follows in Følg ballen / Spillerperspektiv, also after manual orbiting. */
+  private anchor = new THREE.Vector3();
+  private lastAnchor = new THREE.Vector3();
+  private anchorKnown = false;
   private reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /** Circle-style kit; read once, since a theme change rebuilds the scene. */
+  private readonly chipKit = { fill: themeColor('--k-signal', '#ff5a36'), fg: themeColor('--k-signal-fg', '#160704') };
+  /** Contact shadow under figures where real shadows are off (mobile). */
+  private figureBlob: THREE.MeshBasicMaterial | null = null;
   private onManual = () => { this.manual = true; };
 
-  constructor(readonly sport: Sport, readonly playerStyle: PlayerStyle, mobile: boolean, exportMode = false) {
+  constructor(readonly sport: Sport, readonly playerStyle: PlayerStyle, mobile: boolean, private readonly exportMode = false) {
     // Offscreen export must retain the rendered pixels until VideoFrame copies them.
     this.renderer = new THREE.WebGLRenderer({ antialias: !mobile, powerPreference: 'high-performance', preserveDrawingBuffer: exportMode });
     this.renderer.setPixelRatio(mobile ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -101,6 +117,8 @@ export class BoardScene {
       this.ownedMaterials.add(blob);
       this.ballBlob = new THREE.Mesh(this.geo('blob', () => new THREE.CircleGeometry(.3, 20)), blob);
       this.ballBlob.rotation.x = -Math.PI / 2; this.ballBlob.position.y = .03; this.scene.add(this.ballBlob);
+      this.figureBlob = new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: .26, depthWrite: false });
+      this.ownedMaterials.add(this.figureBlob);
     }
     const p = PITCHES[sport];
     const mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
@@ -138,9 +156,10 @@ export class BoardScene {
 
   private buildPitch() {
     const p = PITCHES[this.sport];
-    this.box(this.scene, 0, -0.28, 0, p.length + 28, 0.5, p.width + 24, '#21452e');
+    // The ground only receives shadows; casting would just cost shadow-map time.
+    this.box(this.scene, 0, -0.28, 0, p.length + 28, 0.5, p.width + 24, '#21452e').castShadow = false;
     for (let i = 0; i < 20; i++) {
-      this.box(this.scene, -p.length / 2 + (i + 0.5) * p.length / 20, -0.015, 0, p.length / 20, 0.025, p.width, i % 2 ? '#387d48' : '#317342');
+      this.box(this.scene, -p.length / 2 + (i + 0.5) * p.length / 20, -0.015, 0, p.length / 20, 0.025, p.width, i % 2 ? '#387d48' : '#317342').castShadow = false;
     }
     // Pitch markings in metres, independently of the old SVG's illustrative proportions.
     const canvas = document.createElement('canvas'); canvas.width = 2048; canvas.height = 1536;
@@ -203,10 +222,10 @@ export class BoardScene {
   }
 
   private makeBall() {
-    const ball = new THREE.Mesh(this.geo('ball', () => new THREE.IcosahedronGeometry(.26, 1)), [this.mat('#f7f7eb'), this.mat('#192126')]);
+    const ball = new THREE.Mesh(this.geo('ball', () => new THREE.IcosahedronGeometry(BALL_RADIUS, 1)), [this.mat('#f7f7eb'), this.mat('#192126')]);
     const geo = ball.geometry;
     if (!geo.groups.length) for (let i = 0; i < geo.attributes.position.count; i += 3) geo.addGroup(i, 3, (i / 3) % 5 === 0 ? 1 : 0);
-    ball.position.y = .26; ball.castShadow = true; return ball;
+    ball.position.y = BALL_RADIUS; ball.castShadow = true; return ball;
   }
 
   private figure(color: string, number: string, name: string, foreground = '#ffffff'): Figure {
@@ -226,6 +245,10 @@ export class BoardScene {
       this.box(arm, 0, -.36, 0, .14, .27, .16, '#d3a17e');
       group.add(arm); limbs.push(arm);
     }
+    if (this.figureBlob) {
+      const blob = new THREE.Mesh(this.geo('blob', () => new THREE.CircleGeometry(.3, 20)), this.figureBlob);
+      blob.rotation.x = -Math.PI / 2; blob.position.y = .02; blob.scale.setScalar(1.5); group.add(blob);
+    }
     if (number) {
       const tex = textTexture(number, foreground, color); this.textures.add(tex);
       const mat = new THREE.MeshBasicMaterial({ map: tex }); this.ownedMaterials.add(mat);
@@ -239,7 +262,7 @@ export class BoardScene {
     }
     // Enlarged TV figures remain legible on phones and in the overview.
     group.scale.setScalar(this.figureSize);
-    return { group, limbs, heading: Math.PI / 2, stride: 0, motion: 0, signature: '' };
+    return { group, limbs, target: new THREE.Vector3(), heading: Math.PI / 2, stride: 0, motion: 0, signature: '' };
   }
 
   private equipmentGroup(item: BoardItem) {
@@ -288,62 +311,117 @@ export class BoardScene {
     const ids = new Set(frame.players.map(p => p.id));
     this.figures.forEach((f, id) => { if (!ids.has(id)) { this.scene.remove(f.group); this.figures.delete(id); } });
     for (const p of frame.players) {
-      const kit = this.playerStyle === 'kit' ? KIT_COLORS[p.family] : { fill: themeColor('--k-signal', '#ff5a36'), fg: themeColor('--k-signal-fg', '#160704') };
+      const kit = this.playerStyle === 'kit' ? KIT_COLORS[p.family] : this.chipKit;
       const signature = `${kit.fill}/${p.num}/${p.name}`;
       let f = this.figures.get(p.id);
       const pos = boardToWorld(p.position, this.sport);
       if (!f || f.signature !== signature) {
-        if (f) this.scene.remove(f.group);
+        const old = f;
         f = this.figure(kit.fill, String(p.num), p.name, kit.fg); f.signature = signature;
-        f.group.position.set(pos.x, 0, pos.z); this.figures.set(p.id, f); this.scene.add(f.group);
+        // A changed name or kit keeps where the figure stands and faces.
+        if (old) { this.scene.remove(old.group); f.group.position.copy(old.group.position); f.heading = old.heading; f.group.rotation.y = old.group.rotation.y; }
+        else f.group.position.set(pos.x, 0, pos.z);
+        this.figures.set(p.id, f); this.scene.add(f.group);
       }
-      const dx = pos.x - f.group.position.x, dz = pos.z - f.group.position.z;
-      const distance = Math.hypot(dx, dz);
-      if (animate && distance > .0001) {
-        f.heading = Math.atan2(dx, dz); f.stride += distance * 2.8; f.motion = 1;
-      } else if (!animate) f.motion = 0;
-      f.group.position.set(pos.x, 0, pos.z);
+      f.target.set(pos.x, 0, pos.z);
+      if (!animate) { f.group.position.copy(f.target); f.motion = 0; }
     }
     const itemIds = new Set(frame.items.map(i => i.id));
     this.equipment.forEach((e, id) => { if (!itemIds.has(id)) { this.scene.remove(e.group); this.equipment.delete(id); } });
     for (const item of frame.items) {
       let entry = this.equipment.get(item.id);
-      if (!entry || entry.type !== item.type) {
-        if (entry) this.scene.remove(entry.group);
-        entry = { type: item.type, group: this.equipmentGroup(item) }; this.equipment.set(item.id, entry); this.scene.add(entry.group);
-      }
       const p = boardToWorld(item.position, this.sport);
-      entry.group.position.set(p.x, 0, p.z); entry.group.rotation.y = boardRotation(item.rotation);
+      const fresh = !entry || entry.type !== item.type;
+      if (!entry || fresh) {
+        if (entry) this.scene.remove(entry.group);
+        entry = { type: item.type, group: this.equipmentGroup(item), target: new THREE.Vector3(), turn: 0 }; this.equipment.set(item.id, entry); this.scene.add(entry.group);
+      }
+      entry.target.set(p.x, 0, p.z); entry.turn = boardRotation(item.rotation);
+      if (!animate || fresh) { entry.group.position.copy(entry.target); entry.group.rotation.y = entry.turn; }
     }
     const height = Math.max(0, frame.ballHeight ?? 0);
-    const bp = boardToWorld(frame.ball, this.sport, .26 + height);
-    if (animate && this.ballPlaced) {
-      const dx = bp.x - this.ball.position.x, dz = bp.z - this.ball.position.z;
-      const d = Math.hypot(dx, dz);
-      // Rolls on the grass; keeps a lighter backspin-free spin in the air.
-      if (d > .00001) this.ball.rotateOnWorldAxis(new THREE.Vector3(dz, 0, -dx).normalize(), d / .26 * (height > .05 ? .35 : 1));
-    }
     // The ground path is always the 2D path; only the height is added.
-    this.ball.position.set(bp.x, bp.y, bp.z); this.ballPlaced = true;
-    if (this.ballBlob) {
-      this.ballBlob.position.set(bp.x, .03, bp.z);
-      this.ballBlob.scale.setScalar(1 + height * .08);
-      (this.ballBlob.material as THREE.MeshBasicMaterial).opacity = .32 / (1 + height * .35);
-    }
+    const bp = boardToWorld(frame.ball, this.sport, BALL_RADIUS + height);
+    this.ballTarget.set(bp.x, bp.y, bp.z);
+    if (!animate || !this.ballPlaced) { this.ball.position.copy(this.ballTarget); this.placeBallBlob(); }
+    this.ballPlaced = true;
   }
 
-  selectCamera(view: CameraView, playerId = this.playerId) { this.view = view; this.playerId = playerId; this.manual = false; this.zoomFactor = 1; }
+  private placeBallBlob() {
+    if (!this.ballBlob) return;
+    const height = Math.max(0, this.ball.position.y - BALL_RADIUS);
+    this.ballBlob.position.set(this.ball.position.x, .03, this.ball.position.z);
+    this.ballBlob.scale.setScalar(1 + height * .08);
+    (this.ballBlob.material as THREE.MeshBasicMaterial).opacity = .32 / (1 + height * .35);
+  }
+
+  /**
+   * Moves figures and ball towards the frame. Live playback updates the frame
+   * ~33 times a second; easing over that bridges the steps so it looks smooth
+   * at any refresh rate. Export frames are exact, so they are never eased.
+   */
+  private advance(dt: number, snap: boolean) {
+    const follow = snap || this.exportMode ? 1 : 1 - Math.exp(-dt * 30);
+    this.figures.forEach(f => {
+      const dx = (f.target.x - f.group.position.x) * follow, dz = (f.target.z - f.group.position.z) * follow;
+      const moved = Math.hypot(dx, dz);
+      f.group.position.x += dx; f.group.position.z += dz;
+      // Faces where it runs; slower than walking pace counts as standing.
+      if (!snap && moved > .0001 && moved / Math.max(dt, 1e-3) > .4) { f.heading = Math.atan2(dx, dz); f.stride += moved * 2.8; f.motion = 1; }
+    });
+    this.equipment.forEach(e => {
+      e.group.position.lerp(e.target, follow);
+      const r = e.group.rotation.y;
+      e.group.rotation.y = r + Math.atan2(Math.sin(e.turn - r), Math.cos(e.turn - r)) * follow;
+    });
+    const bx = (this.ballTarget.x - this.ball.position.x) * follow, bz = (this.ballTarget.z - this.ball.position.z) * follow;
+    const rolled = Math.hypot(bx, bz);
+    const airborne = this.ball.position.y > BALL_RADIUS + .05;
+    // Rolls on the grass; keeps a lighter spin in the air.
+    if (!snap && rolled > .00001) this.ball.rotateOnWorldAxis(this.offset.set(bz, 0, -bx).normalize(), rolled / BALL_RADIUS * (airborne ? .35 : 1));
+    this.ball.position.x += bx; this.ball.position.z += bz;
+    this.ball.position.y += (this.ballTarget.y - this.ball.position.y) * follow;
+    this.placeBallBlob();
+  }
+
+  selectCamera(view: CameraView, playerId = this.playerId) { this.view = view; this.playerId = playerId; this.manual = false; this.zoomFactor = 1; this.anchorKnown = false; }
   zoom(factor: number) {
     if (this.manual) this.camera.position.sub(this.controls.target).multiplyScalar(factor).add(this.controls.target);
-    else this.zoomFactor = THREE.MathUtils.clamp(this.zoomFactor * factor, .3, 2.2);
+    // Spillerperspektiv starts in the player's eyes; it can only step back over the shoulder.
+    else this.zoomFactor = THREE.MathUtils.clamp(this.zoomFactor * factor, this.view === 'player' ? 1 : .3, 2.2);
   }
-  cameraState(): CameraState { return { view: this.view, playerId: this.playerId, position: this.camera.position.toArray(), target: this.controls.target.toArray(), manual: this.manual, zoom: this.zoomFactor }; }
+  cameraState(): CameraState {
+    return {
+      view: this.view, playerId: this.playerId, position: this.camera.position.toArray(), target: this.controls.target.toArray(),
+      manual: this.manual, zoom: this.zoomFactor, anchor: this.anchorKnown ? this.anchor.toArray() : null,
+    };
+  }
   restoreCamera(state: CameraState) {
     this.view = state.view; this.playerId = state.playerId; this.manual = state.manual; this.zoomFactor = state.zoom;
     this.camera.position.fromArray(state.position); this.controls.target.fromArray(state.target); this.controls.update();
+    // A manual follow angle is kept relative to the ball/player: the first
+    // render moves the camera from the live anchor to the restored one.
+    this.anchorKnown = state.anchor !== null;
+    if (state.anchor) this.lastAnchor.fromArray(state.anchor);
+  }
+  /** The ground point Følg ballen and Spillerperspektiv track. */
+  private followPoint(out: THREE.Vector3) {
+    if (this.view === 'ball') { out.set(this.ball.position.x, 0, this.ball.position.z); return true; }
+    const f = this.view === 'player' ? this.povFigure() : undefined;
+    if (f) { out.copy(f.group.position); return true; }
+    return false;
   }
   private updateCamera(dt: number, snap = false) {
-    if (this.manual) { this.controls.update(); return; }
+    const hasAnchor = this.followPoint(this.anchor);
+    // How far the followed ball/player moved since the last frame.
+    const moved = hasAnchor && this.anchorKnown;
+    this.offset.subVectors(this.anchor, this.lastAnchor);
+    this.lastAnchor.copy(this.anchor); this.anchorKnown = hasAnchor;
+    if (this.manual) {
+      // After dragging or wheel-zooming, the user's angle is kept, but the camera still follows.
+      if (moved) { this.camera.position.add(this.offset); this.controls.target.add(this.offset); }
+      this.controls.update(); return;
+    }
     const p = PITCHES[this.sport]; const target = this.desiredTarget; const position = this.desiredPosition;
     target.set(0, 0, 0);
     if (this.view === 'top') {
@@ -351,12 +429,14 @@ export class BoardScene {
       position.copy(direction).multiplyScalar(this.pitchFitDistance(direction) * this.zoomFactor);
     }
     else if (this.view === 'ball') {
-      target.copy(this.ball.position); position.copy(target).add(new THREE.Vector3(0, 17 * this.zoomFactor, 24 * this.zoomFactor));
-    } else if (this.view === 'player' && this.figures.size) {
+      target.copy(this.anchor); position.copy(target).add(new THREE.Vector3(0, 17 * this.zoomFactor, 24 * this.zoomFactor));
+    } else if (this.view === 'player' && hasAnchor) {
       const f = this.povFigure()!;
       const direction = new THREE.Vector3(Math.sin(f.heading), 0, Math.cos(f.heading));
-      position.copy(f.group.position).add(new THREE.Vector3(0, 1.8 * this.figureSize, 0)).addScaledVector(direction, .2 * this.figureSize);
-      target.copy(position).addScaledVector(direction, 15); target.y = 1.6;
+      // Zooming out steps back over the shoulder; fully in is the player's own eyes.
+      const back = Math.max(0, this.zoomFactor - 1) * 7 * this.figureSize;
+      position.copy(f.group.position).add(new THREE.Vector3(0, 1.8 * this.figureSize + back * .35, 0)).addScaledVector(direction, .2 * this.figureSize - back);
+      target.copy(f.group.position).addScaledVector(direction, 15); target.y = 1.6;
     } else {
       const direction = new THREE.Vector3(p.length * .08, p.length * .55, p.width * 1.08).normalize();
       position.copy(direction).multiplyScalar(this.pitchFitDistance(direction) * this.zoomFactor);
@@ -400,6 +480,7 @@ export class BoardScene {
     this.camera.aspect = width / Math.max(1, height); this.camera.updateProjectionMatrix();
   }
   render(dt: number, snap = false) {
+    this.advance(dt, snap);
     this.figures.forEach(f => {
       const delta = Math.atan2(Math.sin(f.heading - f.group.rotation.y), Math.cos(f.heading - f.group.rotation.y));
       f.group.rotation.y += delta * (snap ? 1 : 1 - Math.exp(-dt * 14));

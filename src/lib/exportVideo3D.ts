@@ -16,7 +16,10 @@ export async function chooseEncoder(): Promise<EncoderChoice | null> {
       const avc = codec.startsWith('avc');
       const config: VideoEncoderConfig = {
         codec, width, height, framerate: VIDEO_FPS, bitrate: width === 1920 ? 10_000_000 : 6_000_000,
-        latencyMode: 'realtime', ...(avc ? { avc: { format: 'avc' as const } } : {}),
+        // 'quality' never drops frames. Main profile may reorder frames (B-frames)
+        // in that mode, which the muxer does not support, so it stays realtime.
+        latencyMode: codec === 'avc1.4d0028' ? 'realtime' : 'quality',
+        ...(avc ? { avc: { format: 'avc' as const } } : {}),
       };
       try {
         const support = await VideoEncoder.isConfigSupported(config);
@@ -55,7 +58,7 @@ export async function exportVideo3D(options: {
       const d = metadata?.decoderConfig?.description;
       if (d) description = ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength).slice() : new Uint8Array(d).slice();
     },
-    error(error) { failure = error; },
+    error() { failure = new Error('Videokoderen stoppet underveis. Prøv igjen, eller bruk en annen nettleser.'); },
   });
   const check = () => { signal.throwIfAborted(); if (failure) throw failure; };
   // Closing also rejects a pending flush, so cancellation never waits for a

@@ -18,6 +18,11 @@ export function textTexture(text: string, color: string, background?: string) {
   if (background) { ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, 128); }
   ctx.fillStyle = color; ctx.font = 'bold 72px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // Floating name tags have no backdrop; a dark edge keeps them readable on grass and sky.
+  if (!background) {
+    ctx.strokeStyle = 'rgba(10, 18, 22, 0.85)'; ctx.lineWidth = 12; ctx.lineJoin = 'round';
+    ctx.strokeText(text, canvas.width / 2, 68, canvas.width - 16);
+  }
   ctx.fillText(text, canvas.width / 2, 68, canvas.width - 16);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

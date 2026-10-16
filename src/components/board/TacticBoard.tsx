@@ -30,6 +30,7 @@ import { usePlayerStyle } from '../../hooks/usePlayerStyle';
 import { ItemControls } from './ItemControls';
 import { useBoardItems } from '../../hooks/useBoardItems';
 import { interpolateItems } from '../../lib/exportVideo';
+import { ballArcHeight } from './three/coordinates';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
   StickyNote, Minus, X, Plus as PlusIcon, Footprints,
@@ -685,6 +686,9 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         tactic={tactic} players={stagePlayers} ball={displayBall} drawings={phase.drawings ?? []}
         items={shownItems} playerStyle={playerStyle} isPlaying={isPlaying} speed={playSpeed}
         teamName={teamName} isMobile={isMobile}
+        // Same clock as 2D; only the height of long passes is added in 3D.
+        ballHeight={isPlaying && interpT > 0 && phases[interpFrom + 1]
+          ? ballArcHeight(phases[interpFrom].ball, phases[interpFrom + 1].ball, interpT, sport) : 0}
       />}
       <div className={cn('flex-1 min-h-0 overflow-hidden', boardView === '2d' ? 'flex' : 'hidden')} style={isMobile ? { touchAction: 'none' } : undefined}>
         <div

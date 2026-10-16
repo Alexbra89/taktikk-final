@@ -11,13 +11,17 @@ fase. Bytte mellom 2D og 3D stopper eller starter ikke avspillingen.
 - Dra for å rotere. Rull eller klyp for å zoome.
 - Velg Oversikt, Ovenfra, Følg ballen eller Spillerperspektiv.
 - Spiller 1 er merket Keeper i spillervelgeren.
-- Manuell kamerabevegelse slipper følgekameraet. Velg vinkelen på nytt for å følge igjen.
-- Pluss/minus zoomer; tilbakestill går til oversiktsbildet.
+- Drar eller zoomer du selv i Følg ballen eller Spillerperspektiv, beholdes din
+  vinkel, og kameraet fortsetter å følge. Velg vinkelen på nytt for standardvinkelen.
+- Pluss/minus zoomer; tilbakestill går til oversiktsbildet. I Spillerperspektiv
+  starter kameraet i spillerens øyne, og minus går bakover til en vinkel over skulderen.
+- Videoen bruker samme vinkel, også en vinkel du har dratt deg til selv.
 
 3D bruker eksisterende draktfarger, nummer og valgfrie navn. Sirkelstilen bruker
 lagets signalfarge på figurene. Temaendringer oppdaterer også tegninger og utstyr.
-Ballens høyde eller type pasning finnes ikke i datamodellen. Den ruller derfor
-langs den samme banen som i 2D; det legges ikke til oppdiktede luftpasninger.
+Ballens høyde finnes ikke i datamodellen. Bakkebanen er alltid den samme som i 2D.
+Korte pasninger ruller; fra omtrent 15 m løftes ballen i en bue som lander der
+2D sier (`ballArcHeight` i `three/coordinates.ts`).
 
 ## Banevalg
 
@@ -61,7 +65,8 @@ timersteg gi noen millisekunders forskjell. Denne eksisterende klokken er ikke e
 - `BoardScene` mottar ferdig beregnede posisjoner fra TacticBoard; ingen egen store.
 - Tegninger rasteriseres fra eksisterende `DrawingCanvas` til et flatt banelag.
 - Three-geometrier/materialer gjenbrukes; renderer, kontroller og teksturer ryddes opp.
-- Mobil bruker redusert pikseloppløsning, ingen skygger og maksimalt 30 oppdateringer/s.
+- Mobil bruker redusert pikseloppløsning, myke kontaktskygger i stedet for
+  skyggekart, og maksimalt 30 oppdateringer/s.
 - Ingen nye pakker. MP4- og WebM-beholdere skrives lokalt i `videoMux.ts`.
 
 ## Kontroller

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { boardRotation, boardToWorld, worldToBoard, PITCHES, playbackDuration, playbackFrame, exportDuration } from './coordinates';
+import {
+  ballArcHeight, boardRotation, boardToWorld, worldToBoard, PITCHES, playbackBallHeight, playbackDuration, playbackFrame, exportDuration,
+} from './coordinates';
 import { frameAt, VIDEO_LEAD_MS, VIDEO_TAIL_MS } from '@/lib/exportVideo';
 import type { Sport, TacticPhase } from '@/types';
 
@@ -65,5 +67,28 @@ describe('3D playback and fixed-frame export', () => {
   });
   it('takes the short rotation path for equipment', () => {
     expect(playbackFrame(phases, 600, 1).items[0].rotation).toBe(360);
+  });
+});
+
+describe('ball flight between phases', () => {
+  const left = { x: 32, y: 280 }, right = { x: 848, y: 280 };
+  it('keeps short passes on the grass', () => {
+    for (const t of [0, .25, .5, 1]) expect(ballArcHeight({ x: 440, y: 280 }, { x: 500, y: 280 }, t, 'football')).toBe(0);
+  });
+  it('lifts long passes in a symmetric arc that lands where 2D does', () => {
+    expect(ballArcHeight(left, right, 0, 'football')).toBe(0);
+    expect(ballArcHeight(left, right, 1, 'football')).toBe(0);
+    expect(ballArcHeight(left, right, .5, 'football')).toBeCloseTo(9);
+    expect(ballArcHeight(left, right, .2, 'football')).toBeCloseTo(ballArcHeight(left, right, .8, 'football'));
+    expect(ballArcHeight(left, right, .5, 'football5')).toBeLessThan(ballArcHeight(left, right, .5, 'football'));
+    expect(ballArcHeight(left, right, -1, 'football')).toBe(0);
+  });
+  it.each([1, 2, 3])('follows the playback clock at speed %s', speed => {
+    expect(playbackBallHeight(phases, 600 / speed, speed, 'football'))
+      .toBeCloseTo(ballArcHeight(phases[0].ball, phases[1].ball, .5, 'football'));
+    expect(playbackBallHeight(phases, 1800 / speed, speed, 'football'))
+      .toBeCloseTo(ballArcHeight(phases[1].ball, phases[2].ball, .5, 'football'));
+    expect(playbackBallHeight(phases, 99999, speed, 'football')).toBe(0);
+    expect(playbackBallHeight([phases[0]], 300, speed, 'football')).toBe(0);
   });
 });

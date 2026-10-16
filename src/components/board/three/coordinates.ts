@@ -1,9 +1,5 @@
 import { VW, VH } from '@/data/formations';
 import { frameAt, VIDEO_PHASE_MS, VIDEO_LEAD_MS, VIDEO_TAIL_MS } from '@/lib/exportVideo';
-
-// Stylised TV figures are drawn larger than life on big pitches, so they stay
-// readable from the overview camera.
-export const figureScale = (sport: Sport) => 1.3 + 0.6 * PITCHES[sport].length / 105;
 import type { Position, Sport, TacticPhase } from '@/types';
 
 // Representative pitch sizes in metres. Small-sided pitches allow a range;
@@ -14,6 +10,10 @@ export const PITCHES = {
   football7: { length: 60, width: 40, goal: 5, goalHeight: 2, areaDepth: 8, areaWidth: 21, spot: 8, circle: 5 },
   football5: { length: 40, width: 30, goal: 3, goalHeight: 2, areaDepth: 6, areaWidth: 15, spot: 6, circle: 5 },
 } satisfies Record<Sport, object>;
+
+// Stylised TV figures are drawn larger than life on big pitches, so they stay
+// readable from the overview camera.
+export const figureScale = (sport: Sport) => 1.3 + 0.6 * PITCHES[sport].length / 105;
 
 /** SVG x goes along the pitch; SVG y goes across it. Y in Three is height. */
 export function boardToWorld(p: Position, sport: Sport, height = 0) {

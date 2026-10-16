@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Minus, Plus, RotateCcw, Video, X } from 'lucide-react';
 import { Button, IconButton } from '../ui/Button';
 import { BoardScene, type CameraView, type SceneFrame } from './three/BoardScene';
-import { PITCHES, playbackFrame } from './three/coordinates';
+import { PITCHES, playbackBallHeight, playbackFrame } from './three/coordinates';
 import { chooseEncoder, exportVideo3D, type EncoderChoice } from '@/lib/exportVideo3D';
 import { getSlot, SPORT_LABELS } from '@/store/selectors';
 import { ROLE_INFO } from '@/data/roleInfo';
@@ -111,7 +111,7 @@ export default function Board3D(props: Props) {
           const f = playbackFrame(snapshot.phases, elapsed, props.speed);
           const drawings = snapshot.phases[f.fromIdx].drawings ?? [];
           await board.setDrawings(drawings);
-          board.setFrame({ ...f, drawings, players: f.players.map(p => ({
+          board.setFrame({ ...f, drawings, ballHeight: playbackBallHeight(snapshot.phases, elapsed, props.speed, snapshot.sport), players: f.players.map(p => ({
             id: p.id, num: p.num, name: p.name.trim(), position: p.position,
             label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
           })) }, index > 0);
@@ -122,7 +122,8 @@ export default function Board3D(props: Props) {
       setNotice(choice.ext === 'mp4' ? '3D-videoen er lastet ned.' : '3D-videoen er lastet ned som WebM. Avspilling på iPhone og iPad kan være begrenset.');
     } catch (e) {
       if (controller.signal.aborted) setNotice('Videoeksporten ble avbrutt.');
-      else setError(e instanceof Error ? e.message : 'Videoen kunne ikke lages. Prøv igjen.');
+      // Our own errors are in Norwegian; browser/encoder exceptions (DOMException) are not.
+      else setError(e instanceof Error && !(e instanceof DOMException) ? e.message : 'Videoen kunne ikke lages. Prøv igjen, eller bruk en annen nettleser.');
     } finally { exporter?.dispose(); abort.current = null; setProgress(null); }
   };
 
@@ -155,7 +156,7 @@ export default function Board3D(props: Props) {
           <p className="font-mono text-meta text-ink-subtle">{SPORT_LABELS[props.tactic.sport]} · {pitch.length} × {pitch.width} m · Rediger i 2D</p>
         </div>
         <Button size="sm" icon={<Video size={15} />} disabled={!ready || !choice || progress !== null || props.tactic.phases.length < 2}
-          title={choice?.label} onClick={exportVideo}>Eksporter 3D-video</Button>
+          title={props.tactic.phases.length < 2 ? 'Legg til en fase til for å lage video' : choice?.label} onClick={exportVideo}>Eksporter 3D-video</Button>
         {choice && <span className="text-meta text-ink-subtle">{choice.label}</span>}
         {!checking && !choice && <p className="w-full text-caption text-ink-muted">Denne nettleseren støtter ikke bildefor-bilde-eksport. Prøv nyere Chrome eller Edge.</p>}
       </div>
