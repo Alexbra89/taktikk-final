@@ -12,8 +12,8 @@ export const PITCHES = {
 } satisfies Record<Sport, object>;
 
 // Stylised TV figures are drawn larger than life on big pitches, so they stay
-// readable from the overview camera.
-export const figureScale = (sport: Sport) => 1.3 + 0.6 * PITCHES[sport].length / 105;
+// readable from the overview camera. Equipment and goals share the scale, so proportions stay real.
+export const figureScale = (sport: Sport) => 1.2 * (1.3 + 0.6 * PITCHES[sport].length / 105);
 
 /** SVG x goes along the pitch; SVG y goes across it. Y in Three is height. */
 export function boardToWorld(p: Position, sport: Sport, height = 0) {

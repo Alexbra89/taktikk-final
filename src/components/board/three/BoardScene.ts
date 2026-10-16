@@ -444,6 +444,9 @@ export class BoardScene {
         this.box(g, 0, .45, 0, 1.2, .065, .065, ink);
         for (const x of [-.57, .57]) { this.box(g, x, .225, 0, .055, .45, .055, ink); this.box(g, x, .03, 0, .06, .06, .5, ink); } break;
     }
+    // Same enlarged TV scale as the figures, so a cone or dummy keeps its real size next to a player.
+    // Scaled from the ground point, so it still stands on the grass. The ball keeps BALL_RADIUS like the match ball.
+    if (['cone', 'mannequin', 'ladder', 'hurdle'].includes(item.type)) g.scale.setScalar(this.figureSize);
     return g;
   }
 
