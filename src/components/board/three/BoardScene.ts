@@ -731,9 +731,12 @@ export class BoardScene {
     // legs go stiff and slide. Cadence is as before: natural speed at pace 3 / 6.
     const jogTime = jog.getClip().duration, runTime = run.getClip().duration;
     const rate = THREE.MathUtils.lerp(THREE.MathUtils.clamp(pace / 3, .3, 3) / jogTime, THREE.MathUtils.clamp(pace / 6, .3, 3) / runTime, sprint);
-    if (!this.reducedMotion) f.cycle = (f.cycle + rate * dt) % 1;
+    // The stride always follows the figure's own movement: with reduced motion,
+    // frozen legs on a gliding body read as sliding. Only the idle sway rests,
+    // and never in an export, which is watched elsewhere.
+    f.cycle = (f.cycle + rate * dt) % 1;
     jog.time = f.cycle * jogTime; run.time = (f.cycle + this.sprintPhase) % 1 * runTime;
-    f.mixer.update(this.reducedMotion ? 0 : dt);
+    f.mixer.update(this.reducedMotion && !this.exportMode ? 0 : dt);
   }
   render(dt: number, snap = false) {
     this.advance(dt, snap);
