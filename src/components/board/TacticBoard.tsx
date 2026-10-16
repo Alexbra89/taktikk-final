@@ -1,4 +1,5 @@
 'use client';
+import dynamic from 'next/dynamic';
 import React, {
   useRef, useState, useEffect, useCallback, useMemo,
 } from 'react';
@@ -29,6 +30,7 @@ import { usePlayerStyle } from '../../hooks/usePlayerStyle';
 import { ItemControls } from './ItemControls';
 import { useBoardItems } from '../../hooks/useBoardItems';
 import { interpolateItems } from '../../lib/exportVideo';
+import { ballArcHeight } from './three/coordinates';
 import {
   Plus, Trash2, Undo2, Redo2, PenLine, SkipBack, SkipForward, Play, Pause, ChevronDown, Eraser, Maximize2,
   StickyNote, Minus, X, Plus as PlusIcon, Footprints,
@@ -36,6 +38,22 @@ import {
 import { cn } from '../../lib/cn';
 import { Modal } from '../ui';
 import { LABEL_CLASS, TEXTAREA_CLASS, PRIMARY_BTN, SECONDARY_BTN } from '../../lib/formClasses';
+import { Button } from '../ui/Button';
+
+// Three and the video encoder stay out of the initial 2D bundle.
+const Board3D = dynamic(() => import('./Board3D'), {
+  ssr: false,
+  loading: () => <div role="status" className="flex-1 flex items-center justify-center text-caption text-ink-subtle">Laster 3D-visning …</div>,
+});
+
+// Hopper over nye tegninger så lenge `hold` er sann. Brukes på det skjulte
+// 2D-brettet under 3D-avspilling: klokka og fasen ligger i TacticBoard, så
+// brettet tegnes med gjeldende tilstand straks det vises igjen eller
+// avspillingen stopper.
+const HoldWhileHidden = React.memo(
+  function HoldWhileHidden({ children }: { hold: boolean; children: React.ReactNode }) { return <>{children}</>; },
+  (_prev, next) => next.hold,
+);
 
 // ══════════════════════════════════════════════════════════════
 //  TACTIC BOARD – KALK
@@ -158,6 +176,8 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const [showNote,         setShowNote]          = useState(false);
   const [undoDepth,        setUndoDepth]         = useState(0);
   const [redoDepth,        setRedoDepth]         = useState(0);
+  const [boardView, setBoardView] = useState<'2d' | '3d'>('2d');
+  const teamName = useAppStore(s => s.homeTeamName);
 
   const {
     setActivePhaseIdx, addPhase, removePhase,
@@ -242,6 +262,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   useEffect(() => {
     const h = (e:KeyboardEvent) => {
+      if (boardView === '3d') return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
       if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey) { e.preventDefault(); doUndo(); }
@@ -249,7 +270,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [doUndo, doRedo]);
+  }, [doUndo, doRedo, boardView]);
 
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
@@ -359,7 +380,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   // Utstyret: kjegler, motstandere osv. Samme logikk som i fullskjerm.
   const items = useBoardItems({
     phase,
-    enabled: !isPlaying && !drawMode,
+    enabled: boardView === '2d' && !isPlaying && !drawMode,
     toSVG, toSVGRaw,
     isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
     dragThreshold: DRAG_THRESH,
@@ -367,7 +388,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const itemsCancel = items.cancel;
 
   const draw = useDrawingInput({
-    enabled: drawMode && !isPlaying,
+    enabled: boardView === '2d' && drawMode && !isPlaying,
     svgRef,
     toSVG,
     isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
@@ -626,7 +647,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
     // Rot-div bruker IKKE overflow-hidden, og touch-action tillater pinch-zoom.
     <div
       className="flex flex-col h-full select-none bg-canvas"
-      style={{ touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden' }}
+        style={{ touchAction: 'pan-x pan-y pinch-zoom', overflowX: 'hidden', ...(boardView === '3d' ? { minHeight: 0, overflowY: 'auto' } : {}) }}
     >
       {/* --- EN LINJE OVER BANEN: taktikk + formasjon --- */}
       <div className="relative flex-shrink-0 flex items-center gap-2 px-2 py-1.5 bg-canvas-sunken border-b border-rule">
@@ -635,7 +656,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         ) : (
           <span className="pl-1 font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">{tactic.empty ? 'Bane' : 'Formasjon'}</span>
         )}
-        <button
+        {boardView === '2d' ? <button
           onClick={() => setShowPanel(v => !v)}
           aria-expanded={showPanel}
           aria-haspopup="dialog"
@@ -644,15 +665,21 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         >
           <span className="font-mono text-body">{tactic.empty ? 'Tom bane' : formation}</span>
           <ChevronDown size={14} strokeWidth={1.75} className="text-ink-subtle" />
-        </button>
+        </button> : <span className="font-mono text-body text-ink-muted">{tactic.empty ? 'Tom bane' : formation}</span>}
 
-        {onFullscreen && (
+        <div role="group" aria-label="Visning av tavla" className="flex items-center gap-1 ml-auto">
+          <Button size="sm" variant={boardView === '2d' ? 'primary' : 'ghost'} aria-pressed={boardView === '2d'} onClick={() => setBoardView('2d')}>2D</Button>
+          <span aria-hidden className="text-ink-faint">|</span>
+          <Button size="sm" variant={boardView === '3d' ? 'primary' : 'ghost'} aria-pressed={boardView === '3d'} onClick={() => { drawCancel(); itemsCancel(); setShowPanel(false); setBoardView('3d'); }}>3D</Button>
+        </div>
+
+        {onFullscreen && boardView === '2d' && (
           <button onClick={onFullscreen} aria-label="Fullskjerm" title="Fullskjerm (F)" className={iconBtn}>
             <Maximize2 size={16} strokeWidth={1.75} />
           </button>
         )}
 
-        {showPanel && (
+        {showPanel && boardView === '2d' && (
           <BoardPanel
             isMobile={isMobile}
             onClose={() => setShowPanel(false)}
@@ -664,7 +691,17 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
       {/* touchAction none rundt selve banen på mobil – forhindrer at siden scroller
           under drag. Linjene over og under ligger utenfor, så de kan rulles. */}
-      <div className="flex flex-1 min-h-0 overflow-hidden" style={isMobile ? { touchAction: 'none' } : undefined}>
+      {boardView === '3d' && <Board3D
+        tactic={tactic} players={stagePlayers} ball={displayBall} drawings={phase.drawings ?? []}
+        items={shownItems} playerStyle={playerStyle} isPlaying={isPlaying} speed={playSpeed}
+        teamName={teamName} isMobile={isMobile}
+        trails={showMovement && !isPlaying && activePhaseIdx > 0 ? { from: phases[activePhaseIdx - 1].players, to: phase.players } : null}
+        progress={isPlaying ? progressFrac : null}
+        // Same clock as 2D; only the height of long passes is added in 3D.
+        ballHeight={isPlaying && interpT > 0 && phases[interpFrom + 1]
+          ? ballArcHeight(phases[interpFrom].ball, phases[interpFrom + 1].ball, interpT, sport) : 0}
+      />}
+      <div className={cn('flex-1 min-h-0 overflow-hidden', boardView === '2d' ? 'flex' : 'hidden')} style={isMobile ? { touchAction: 'none' } : undefined}>
         <div
           ref={zoomCtl.containerRef}
           className="flex-1 min-w-0 h-full flex flex-col items-stretch p-1 overflow-hidden"
@@ -703,6 +740,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           >
             <SvgDefs/>
 
+            <HoldWhileHidden hold={boardView === '3d' && isPlaying}>
             <BoardStage
               players={stagePlayers}
               playerStyle={playerStyle}
@@ -744,18 +782,19 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
                 {items.rotHandle}
               </>}
             />
+            </HoldWhileHidden>
           </svg>
           </div>
         </div>
       </div>
 
-      {selectedPlayer&&(
+      {boardView === '2d' && selectedPlayer&&(
         <PlayerNameBar key={selectedPlayer.id} player={selectedPlayer}
           label={getSlot(tactic, selectedPlayer.slotIdx).label}
           onClose={()=>stableOnSelectPlayer(null)}/>
       )}
 
-      {drawMode&&(
+      {boardView === '2d' && drawMode&&(
         <DrawToolbar
           tool={draw.tool} onTool={draw.setTool}
           color={draw.color} onColor={draw.setColor}
@@ -778,7 +817,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       )}
 
       {/* --- EN LINJE UNDER BANEN: faser, angre, tegn, avspilling --- */}
-      <div className="flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar bg-canvas-sunken border-t border-rule">
+      <div className={cn('flex-shrink-0 flex items-center gap-1 px-2 py-1.5 overflow-x-auto no-scrollbar bg-canvas-sunken border-t border-rule', boardView === '3d' && 'sticky bottom-0 z-10 flex-wrap')}>
 
         {isMobile ? (
           <select
@@ -786,7 +825,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             onChange={(e) => !isPlaying && setActivePhaseIdx(parseInt(e.target.value))}
             disabled={isPlaying}
             aria-label="Fase"
-            className="flex-shrink-0 rounded-ctl px-2 min-h-[40px] bg-canvas-raised text-body text-ink shadow-hair focus:outline-none disabled:opacity-40"
+            className={cn('flex-shrink-0 rounded-ctl px-2 min-h-[40px] bg-canvas-raised text-body text-ink shadow-hair focus:outline-none disabled:opacity-40', boardView === '3d' && 'w-full min-w-0')}
           >
             {phases.map((ph, idx) => (
               <option key={ph.id} value={idx}>
@@ -795,7 +834,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             ))}
           </select>
         ) : (
-          <div role="tablist" aria-label="Faser" className="flex items-center gap-1 flex-shrink-0">
+          <div role="tablist" aria-label="Faser" className={cn('flex items-center gap-1 flex-shrink-0', boardView === '3d' && 'w-full overflow-x-auto')}>
             {phases.map((ph, idx) => {
               const active = activePhaseIdx === idx;
               return (
@@ -814,6 +853,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           </div>
         )}
 
+        {boardView === '2d' && <>
         <button onClick={() => !isPlaying && addPhase()} disabled={isPlaying}
           aria-label="Legg til fase" title="Legg til fase" className={iconBtn}>
           <Plus size={16} strokeWidth={1.75} />
@@ -833,9 +873,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
             <Trash2 size={16} strokeWidth={1.75} />
           </button>
         )}
+        </>}
 
         <div className="flex-1 min-w-[4px]"/>
 
+        {boardView === '2d' && <>
         <button onClick={zoomCtl.zoomOut} disabled={!zoomCtl.canZoomOut}
           aria-label="Zoom ut" title="Zoom ut" className={iconBtn}>
           <Minus size={16} strokeWidth={1.75} />
@@ -901,7 +943,13 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               ? `Spill inn avspillingen som ${videoExport.format.label} (${videoLengthText(phases.length)})`
               : 'Nettleseren din støtter ikke videoeksport'}
           className={iconBtn}/>
+        </>}
 
+        {boardView === '3d' && <select aria-label="Avspillingsfart" value={playSpeed} disabled={isPlaying}
+          onChange={e => setPlaySpeed(Number(e.target.value))}
+          className="min-h-[40px] rounded-ctl bg-canvas-raised px-2 font-mono text-caption text-ink shadow-hair focus-ring disabled:opacity-40">
+          {[0.5, 1, 1.5, 2, 3].map(speed => <option key={speed} value={speed}>{speed}×</option>)}
+        </select>}
         <div className="flex items-center gap-0.5 flex-shrink-0 pl-1 ml-1 border-l border-rule">
           <button onClick={()=>!isPlaying&&setActivePhaseIdx(Math.max(0,activePhaseIdx-1))}
             disabled={isPlaying||activePhaseIdx===0}

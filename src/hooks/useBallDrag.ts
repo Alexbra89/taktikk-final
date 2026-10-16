@@ -2,11 +2,14 @@
 import type React from 'react';
 import { useCallback, useRef } from 'react';
 import type { Position } from '@/types';
+import { CLAMP_X } from '@/components/board/constants';
 
 // ══════════════════════════════════════════════════════════════
 //  DRAG AV BALLEN – lå før inne i Ball-komponenten i BoardElements.
 //  Ballen tegnes nå av BoardStage; denne hooken gir håndtererne som
-//  legges på ballgruppa. Samme utregning og samme grenser som før.
+//  legges på ballgruppa. Samme utregning som før. På langs går grensa
+//  til CLAMP_X, som for spillere og på fullskjerm, så ballen kan legges
+//  over mållinjen og inn i målet.
 // ══════════════════════════════════════════════════════════════
 
 const MOVE_THROTTLE_MS = 16;
@@ -37,7 +40,7 @@ export function useBallDrag(
     const offsetY   = (rect.height - renderedH) / 2;
 
     return {
-      x: Math.max(45, Math.min(vbW - 45, ((clientX - rect.left - offsetX) / renderedW) * vbW)),
+      x: Math.max(CLAMP_X, Math.min(vbW - CLAMP_X,((clientX - rect.left - offsetX) / renderedW) * vbW)),
       y: Math.max(45, Math.min(vbH - 45, ((clientY - rect.top  - offsetY) / renderedH) * vbH)),
     };
   }, [svgRef]);
