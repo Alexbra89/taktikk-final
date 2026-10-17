@@ -1,4 +1,4 @@
-## Oppgave 21–23: oppdeling av TacticBoard (17.10.2026) – kode ferdig, kontroller ikke kjørt
+## Oppgave 21–23: oppdeling av TacticBoard (17.10.2026) – ferdig, kontrollert
 
 TacticBoard er delt etter planen, og den rene dupliseringen mot
 FullscreenBoard (avspilling, mellomposisjoner og koordinater) ligger nå i
@@ -55,22 +55,39 @@ fullskjerm) er ikke laget i denne omgangen.
   4000 ms. Fasenavn vises som `ph.name` uten reserven «Fase n» som TacticBoard
   har.
 
-**Kontroller: ikke kjørt i denne økten.** Økten hadde ikke terminaltilgang,
-så ingen av de fem kommandoene kunne kjøres, verken før eller etter.
-Utgangspunktet er siste dokumenterte kjøring på samme commit (`96bdfaa`, se
-oppgave 17–19 nedenfor). Etter-kolonnen må fylles ut når kommandoene er kjørt.
+**Kontroller (etterkontroll 17.10.2026).** Oppdelingen ble laget i en økt
+uten terminaltilgang. Utgangspunktet er siste dokumenterte kjøring på
+`96bdfaa` (se oppgave 17–19 nedenfor); etter-kolonnen er kjørt på koden fra
+commit `a90a0ae`.
 
 | Kommando | Før (siste dokumenterte kjøring) | Etter |
 | --- | --- | --- |
-| `npx tsc --noEmit` | Grønn, kode 0 | Ikke kjørt |
-| `npx vitest --run` | 29 filer / 304 tester, kode 0 | Ikke kjørt (forventet 29 / 304) |
-| `npm run build` | Grønn, kode 0 | Ikke kjørt |
-| `npm run test:e2e -- --workers=1` | 36 tester, kode 0 | Ikke kjørt (forventet 36) |
-| `npm run test:offline` | 3 tester, kode 0 | Ikke kjørt (forventet 3) |
+| `npx tsc --noEmit` | Grønn, kode 0 | Grønn, kode 0 |
+| `npx vitest --run` | 29 filer / 304 tester, kode 0 | 29 filer / 304 tester, kode 0 |
+| `npm run build` | Grønn, kode 0 | Grønn, kode 0 |
+| `npm run test:e2e -- --workers=1` | 36 tester, kode 0 | 36 tester, kode 0 (fullskjerm-3D 108/108 unike, negativ kontroll 55/108) |
+| `npm run test:offline` | 3 tester, kode 0 | 3 tester, kode 0 |
+
+**Gjennomgang av `git diff main` linje for linje:** Ingen endret oppførsel
+funnet, så ingen kode er rettet. Kontrollert: alle funksjonskropper er
+ordrett like; avhengighetslistene er de samme (`toSVGRaw` har nå `[svgRef]`
+i stedet for `[]`, men ref-objektet er stabilt; `stopPlayback` er stabil i
+effekten som stopper avspilling). Tider (30 ms, 0,025 per steg, 200 ms
+avstand, 400 ms sprett, 160 ms skygge, `LONG_PRESS`) og terskler
+(`DRAG_THRESH`, 54 for treff) er uendret. Langtrykk på berøring,
+`setPointerCapture`, `preventDefault`/`stopPropagation`, valg ved trykk,
+bytte med samlet angring, Ctrl+Z/Ctrl+Y (av i 3D, av i tekstfelt) og
+nullstilling ved fase-/taktikkbytte virker som før. Fullskjerm brukte vanlige
+funksjoner for avspilling; de er nå `useCallback` med `phases`/`playSpeed`
+som avhengigheter, og brukes bare fra knappen, så de er like ferske. Alle
+hooks kalles før brettenes tidlige `return`. Klemmingen i fullskjerm er
+matematisk lik den felles. Det eneste som er annerledes er rekkefølgen
+effektene registreres og ryddes i (nevnt over); det påvirker bare når
+tidtakere stoppes, ikke hva som skjer. Bygg og tester endret ingen sporede
+filer.
 
 Ingen testfiler importerer `TacticBoard`, `FullscreenBoard` eller de flyttede
-delene direkte, så testantallet skal være uendret. Typer og importer er bare
-kontrollert ved gjennomlesing. Ingen genererte filer inngår, og ingenting er
+delene direkte, og testantallet er uendret. Ingen genererte filer inngår, og ingenting er
 publisert, deployet, committet eller pushet.
 
 Manuell prøve: Åpne Taktikk i 2D. Dra en spiller (på mobil: hold litt først),
