@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Download } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { sceneCrop } from '../test-support/sceneCrop';
 
 test.use({ viewport: { width: 844, height: 390 }, hasTouch: true });
 
@@ -65,20 +66,41 @@ function mp4Track(bytes: Buffer) {
   };
 }
 
-/** Decodes every frame in order and hashes its pixels (FNV-1a). */
+/** Decode first, then hash only the central pitch, excluding both HUD overlays.
+ * Also construct a negative control from decoded pixels: repeat each scene
+ * twice while retaining the current frame's overlays. This tests the actual
+ * crop/hash path, not a duplicated list of already computed hashes.
+ */
 async function frameHashes(page: Page, bytes: Buffer, track: ReturnType<typeof mp4Track>) {
-  return page.evaluate(async ({ base64, track }) => {
+  return page.evaluate(async ({ base64, track, crop }) => {
     const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
     const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 222;
     const context = canvas.getContext('2d', { willReadFrequently: true })!;
-    const hashes: string[] = []; let failure = '';
+    const hashes: number[] = [], repeated: number[] = [], repeatedFull: number[] = [];
+    let previous: ImageData | undefined, failure = '';
+    const hash = (data: Uint8ClampedArray) => {
+      let value = 0x811c9dc5;
+      for (let i = 0; i < data.length; i++) value = Math.imul(value ^ data[i], 0x01000193);
+      return value >>> 0;
+    };
+    const pitchPixels = () => context.getImageData(crop.x, crop.y, crop.width, crop.height);
     const decoder = new VideoDecoder({
       output: frame => {
         context.drawImage(frame, 0, 0, canvas.width, canvas.height); frame.close();
-        const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-        let hash = 0x811c9dc5;
-        for (let i = 0; i < data.length; i++) hash = Math.imul(hash ^ data[i], 0x01000193);
-        hashes.push((hash >>> 0).toString(16));
+        hashes.push(hash(pitchPixels().data));
+        if (hashes.length % 2 === 1) previous = context.getImageData(0, 0, canvas.width, canvas.height);
+        else {
+          // Freeze the scene but keep this frame's HUD. At 480 × 222,
+          // layoutHud's pill fits inside 168 × 45 at top-left, and the
+          // progress stripe inside the last 8 rows, well outside the crop.
+          const pill = context.getImageData(0, 0, 168, 45);
+          const progress = context.getImageData(0, canvas.height - 8, canvas.width, 8);
+          context.putImageData(previous!, 0, 0);
+          context.putImageData(pill, 0, 0);
+          context.putImageData(progress, 0, canvas.height - 8);
+        }
+        repeated.push(hash(pitchPixels().data));
+        repeatedFull.push(hash(context.getImageData(0, 0, canvas.width, canvas.height).data));
       },
       error: error => { failure = error.message; },
     });
@@ -90,8 +112,8 @@ async function frameHashes(page: Page, bytes: Buffer, track: ReturnType<typeof m
     });
     await decoder.flush(); decoder.close();
     if (failure) throw new Error(failure);
-    return hashes;
-  }, { base64: bytes.toString('base64'), track });
+    return { hashes, repeated, repeatedFull };
+  }, { base64: bytes.toString('base64'), track, crop: sceneCrop(480, 222) });
 }
 
 test('3D fullscreen: 30 fps and unique frames while the board moves, also when drawing is slow', async ({ page }, info) => {
@@ -135,13 +157,22 @@ test('3D fullscreen: 30 fps and unique frames while the board moves, also when d
   // 0.5 s opening hold + 3 × 1.2 s playback + 0.6 s closing hold, at exactly 30 fps.
   expect(track.fps).toBe(30);
   expect(track.frames).toBe(141); expect(track.sizes).toHaveLength(141);
-  const hashes = await frameHashes(page, bytes, track);
+  const { hashes, repeated, repeatedFull } = await frameHashes(page, bytes, track);
   expect(hashes).toHaveLength(141);
-  // The ball, the camera following it and the progress bar move in every frame of the playback.
+  // Only the pitch counts; the opening/closing holds are intentionally excluded.
   const moving = hashes.slice(15, hashes.length - 18);
   const unique = new Set(moving).size;
   info.annotations.push({ type: 'Unike bilder under bevegelse', description: `${unique} av ${moving.length}` });
-  expect(unique / moving.length).toBeGreaterThanOrEqual(.95);
+  const assertUniqueScenes = (frames: number[]) => expect(new Set(frames).size / frames.length).toBeGreaterThanOrEqual(.95);
+  assertUniqueScenes(moving);
+  const repeatedMoving = repeated.slice(15, repeated.length - 18);
+  const repeatedUnique = new Set(repeatedMoving).size;
+  info.annotations.push({ type: 'Negativ kontroll: gjentatt scene', description: `${repeatedUnique} av ${repeatedMoving.length}` });
+  console.info(`3D scene crop: ${unique}/${moving.length} unique; repeated scene: ${repeatedUnique}/${repeatedMoving.length}`);
+  expect(repeatedUnique).toBeLessThanOrEqual(Math.ceil(repeatedMoving.length / 2) + 1);
+  expect(() => assertUniqueScenes(repeatedMoving)).toThrow();
+  // Demonstrates why hashing the whole image was insufficient.
+  assertUniqueScenes(repeatedFull.slice(15, repeatedFull.length - 18));
   expect(await saved(page)).toEqual(before); expect(errors).toEqual([]);
 });
 

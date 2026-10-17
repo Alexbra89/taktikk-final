@@ -3,6 +3,7 @@ import { chooseEncoder, exportVideo3D } from './exportVideo3D';
 import { downloadBlob } from './download';
 import { cameraAt, recordCameraTrack } from '@/components/board/three/cameraTrack';
 import { exportDuration } from '@/components/board/three/coordinates';
+import { sceneCrop } from '../../test-support/sceneCrop';
 vi.mock('./download', () => ({ downloadBlob: vi.fn(), slugify: (s: string) => s }));
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
@@ -67,16 +68,23 @@ describe('3D encoding capability fallback', () => {
 describe('offline frame scheduling', () => {
   const pixels = { width: 1280, height: 720, data: new Uint8ClampedArray(1280 * 720 * 4) } as ImageData;
   function fakeEncoder() {
-    const timestamps: number[] = [], hashes: number[] = [];
+    const timestamps: number[] = [], hashes: number[] = [], fullHashes: number[] = [];
     let closed = false;
     vi.stubGlobal('VideoFrame', class {
       timestamp: number; hash: number;
-      constructor(data: Uint8ClampedArray, options: VideoFrameInit) {
+      constructor(data: Uint8ClampedArray, options: VideoFrameBufferInit) {
         this.timestamp = options.timestamp!;
-        // FNV-1a over the pixels, so tests can count unique video frames.
+        // Only pitch pixels count. HUD/progress changes must not mask repeats.
+        const crop = sceneCrop(options.codedWidth, options.codedHeight);
         let hash = 0x811c9dc5;
-        for (let i = 0; i < data.length; i++) hash = Math.imul(hash ^ data[i], 0x01000193);
+        for (let y = crop.y; y < crop.y + crop.height; y++) {
+          const start = (y * options.codedWidth + crop.x) * 4;
+          for (let i = start; i < start + crop.width * 4; i++) hash = Math.imul(hash ^ data[i], 0x01000193);
+        }
         this.hash = hash >>> 0;
+        let full = 0x811c9dc5;
+        for (const value of data) full = Math.imul(full ^ value, 0x01000193);
+        fullHashes.push(full >>> 0);
       }
       close() {}
     });
@@ -91,7 +99,7 @@ describe('offline frame scheduling', () => {
       async flush() {}
       close() { this.state = 'closed'; closed = true; }
     });
-    return { timestamps, hashes, closed: () => closed };
+    return { timestamps, hashes, fullHashes, closed: () => closed };
   }
   const choice = { config: { codec: 'vp8', width: 1280, height: 720 }, ext: 'webm' as const, label: 'WebM' };
   it('assigns exact frame timestamps even when rendering takes variable time', async () => {
@@ -123,7 +131,7 @@ describe('offline frame scheduling', () => {
     expect(downloadBlob).toHaveBeenCalledOnce(); expect(encoder.closed()).toBe(true);
   });
 
-  it('fullscreen 3D: 30 fps with ≥ 95 % unique frames while the camera moves, also when drawing is slow', async () => {
+  it.each([false, true])('fullscreen 3D: at least 95 percent unique scene frames with slow drawing (repeat every other scene: %s)', async (repeatScene) => {
     const encoder = fakeEncoder(); let now = 0;
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
     const small = { width: 64, height: 36, data: new Uint8ClampedArray(64 * 36 * 4) } as ImageData;
@@ -148,8 +156,14 @@ describe('offline frame scheduling', () => {
         draw: async (_, index) => {
           now += 250;
           // A frame's pixels are a function of the camera it is drawn with.
-          const pose = cameraAt(track, index * 1000 / 30).pose;
-          new Float32Array(small.data.buffer).set([...pose.position, ...pose.quaternion]);
+          const sceneIndex = repeatScene ? index - index % 2 : index;
+          const pose = cameraAt(track, sceneIndex * 1000 / 30).pose;
+          const crop = sceneCrop(small.width, small.height);
+          new Float32Array(small.data.buffer, (crop.y * small.width + crop.x) * 4)
+            .set([...pose.position, ...pose.quaternion]);
+          // Artificial HUD changes on EVERY frame, including repeated scenes.
+          new Uint32Array(small.data.buffer)[0] = index;
+          new Uint32Array(small.data.buffer)[small.width * small.height - 1] = index;
           return small;
         },
       });
@@ -157,7 +171,13 @@ describe('offline frame scheduling', () => {
     // 0.5 + 3 × 1.2 + 0.6 seconds at exactly 30 frames per second.
     expect(encoder.timestamps).toHaveLength(141);
     encoder.timestamps.forEach((timestamp, i) => expect(timestamp).toBe(Math.round(i * 1e6 / 30)));
-    expect(new Set(encoder.hashes).size / encoder.hashes.length).toBeGreaterThanOrEqual(.95);
+    const assertUniqueScenes = () => expect(new Set(encoder.hashes).size / encoder.hashes.length).toBeGreaterThanOrEqual(.95);
+    if (repeatScene) {
+      // The old full-image check would pass; the real 95 % assertion must fail.
+      expect(new Set(encoder.fullHashes).size).toBe(141);
+      expect(new Set(encoder.hashes).size).toBe(71);
+      expect(assertUniqueScenes).toThrow();
+    } else assertUniqueScenes();
     expect(downloadBlob).toHaveBeenCalledOnce(); expect(encoder.closed()).toBe(true);
   });
 });
