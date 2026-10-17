@@ -12,6 +12,8 @@
 //  byttes ut med en fast tekst.
 // ══════════════════════════════════════════════════════════════
 
+import { readCode } from '@/lib/ai/accessCode';
+
 export const ERROR_LOG_KEY = 'taktikk:error-log';
 /** Sendes på window når loggen endres, så Innstillinger kan vise den nye tilstanden. */
 export const ERROR_LOG_EVENT = 'taktikk:error-log';
@@ -263,13 +265,20 @@ function writeErrorLog(list: ErrorEntry[]) {
 /** Lagrer feilen øverst i loggen. Kaster aldri. */
 export function logError(error: unknown, area: string, source: ErrorSource = 'skjerm'): void {
   try {
+    // Også en kode som tilfeldigvis er et gyldig kodenavn skal skjules.
+    const code = readCode();
+    const redact = (text: string) => {
+      const clean = text.replace(/([?&]kode=)[^\s&#)]*/gi, '$1[skjult]');
+      if (!code) return clean;
+      return clean.split(code).join('[tilgangskode]').split(encodeURIComponent(code)).join('[tilgangskode]');
+    };
     const entry: ErrorEntry = {
       at: new Date().toISOString(),
       version: process.env.NEXT_PUBLIC_APP_VERSION || 'ukjent',
       area,
       source,
-      message: shortMessage(error),
-      stack: shortStack(error),
+      message: redact(shortMessage(error)),
+      stack: redact(shortStack(error)),
       device: describeDevice(),
     };
     const list = readErrorLog();

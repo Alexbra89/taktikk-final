@@ -2,8 +2,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { DrillExercise, DrillAgeBand } from '@/types';
 import { AI_DRILL_LABEL, DRILL_BANDS, repairCustomDrill } from '@/lib/customDrills';
-import { AI_ACCESS_HEADER, AI_LIMITS } from '@/lib/ai/request';
-import { readCode, writeCode } from '@/lib/ai/accessCode';
+import { AI_ACCESS_HEADER, AI_ACCESS_ERROR, AI_LIMITS } from '@/lib/ai/request';
+import { useAiAccessCode } from '@/hooks/useAiAccessCode';
 import { INPUT_CLASS, LABEL_CLASS, TEXTAREA_CLASS } from '@/lib/formClasses';
 import { CATEGORY_LABELS } from '@/data/drills';
 import { Modal } from './Modal';
@@ -12,7 +12,8 @@ import { Button } from './Button';
 export function AiDrillModal({ ageGroup, baseDrill, onClose, onEdit }: {
   ageGroup: 'youth' | 'adult'; baseDrill?: DrillExercise; onClose: () => void; onEdit: (d: DrillExercise) => void;
 }) {
-  const [code, setCode] = useState('');
+  const [code, saveCode] = useAiAccessCode();
+  const [codeInput, setCodeInput] = useState('');
   const [group, setGroup] = useState(baseDrill?.ageGroup ?? ageGroup);
   const [band, setBand] = useState<DrillAgeBand>(baseDrill?.ageBand[0] ?? (ageGroup === 'adult' ? '17+' : '8-9'));
   const [wish, setWish] = useState(baseDrill ? `Lag en enklere variant av «${baseDrill.name}».` : '');
@@ -20,24 +21,25 @@ export function AiDrillModal({ ageGroup, baseDrill, onClose, onEdit }: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const abort = useRef<AbortController | null>(null);
-  useEffect(() => { setCode(readCode()); return () => abort.current?.abort(); }, []);
+  useEffect(() => () => abort.current?.abort(), []);
 
   async function suggest() {
     if (loading) return;
     setError(''); setResult(null); setLoading(true);
     const ctrl = new AbortController(); abort.current = ctrl;
     const timer = setTimeout(() => ctrl.abort(), 50_000);
-    writeCode(code.trim());
+    const accessCode = code || codeInput.trim();
+    saveCode(accessCode); setCodeInput('');
     try {
       const res = await fetch('/api/ai', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', [AI_ACCESS_HEADER]: code.trim() },
+        method: 'POST', headers: { 'Content-Type': 'application/json', [AI_ACCESS_HEADER]: accessCode },
         body: JSON.stringify({ mode: 'SUGGEST_DRILL', question: wish.trim(), area: 'training',
           appContext: { ageGroup: group, ageBand: band, baseDrillId: baseDrill?.id,
             ...(baseDrill?.isCustom ? { baseDrill } : {}) } }),
         signal: ctrl.signal,
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 401) { writeCode(''); setCode(''); }
+      if (res.status === 401) { saveCode(''); setError(AI_ACCESS_ERROR); return; }
       if (!res.ok) { setError(typeof data.error === 'string' ? data.error : 'AI svarte ikke. Prøv igjen.'); return; }
       const drill = repairCustomDrill({ ...data.drill, aiGenerated: true, id: '' });
       if (!drill || drill.ageGroup !== group || !drill.ageBand.includes(band)) {
@@ -59,9 +61,10 @@ export function AiDrillModal({ ageGroup, baseDrill, onClose, onEdit }: {
       <p className="text-body text-warn-300">{AI_DRILL_LABEL}</p>
       <p className="text-body text-ink-subtle">Bygger på appens øvelser og vanlig fotballtrening. Ingenting lagres automatisk. Du får redigere før lagring.</p>
       <form className="space-y-4" onSubmit={e => { e.preventDefault(); void suggest(); }}>
-        <label className={LABEL_CLASS}>Tilgangskode (samme som AI-treneren)
-          <input type="password" autoComplete="off" className={INPUT_CLASS} required value={code} disabled={loading} onChange={e => setCode(e.target.value)} />
-        </label>
+        {code ? <p className="text-body text-ink-muted">AI-tilgang er aktiv på denne enheten.</p> :
+          <label className={LABEL_CLASS}>Tilgangskode (samme som AI-treneren)
+            <input type="password" autoComplete="off" className={INPUT_CLASS} required value={codeInput} disabled={loading} onChange={e => setCodeInput(e.target.value)} />
+          </label>}
         {baseDrill && <p className="text-body text-ink-muted">Variant av: <strong>{baseDrill.name}</strong></p>}
         <div className="grid grid-cols-2 gap-3">
           <label className={LABEL_CLASS}>Aldersgruppe
@@ -84,7 +87,7 @@ export function AiDrillModal({ ageGroup, baseDrill, onClose, onEdit }: {
           <textarea className={TEXTAREA_CLASS} rows={3} required maxLength={AI_LIMITS.question} disabled={loading}
             placeholder="Pasningsøvelse for 10 spillere, 9 år, 15 min" value={wish} onChange={e => setWish(e.target.value)} />
         </label>
-        <Button type="submit" variant={result ? 'secondary' : 'primary'} disabled={loading || !code.trim() || !wish.trim()}>
+        <Button type="submit" variant={result ? 'secondary' : 'primary'} disabled={loading || !(code || codeInput.trim()) || !wish.trim()}>
           {loading ? 'AI foreslår …' : result ? 'Foreslå på nytt' : 'Hent AI-forslag'}
         </Button>
       </form>

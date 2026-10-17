@@ -1,5 +1,28 @@
 import { test, expect } from '@playwright/test';
 
+test('nye appikoner forhåndslagres, og delingskode havner ikke i cache eller adresse', async ({ page, context }) => {
+  await page.goto('/?kode=kun-testkode');
+  await expect(page).toHaveURL('/');
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated');
+  await page.goto('/?kode=ny-testkode');
+  await expect(page).toHaveURL('/');
+  const urls = await page.evaluate(async () => {
+    const cachesByName = await Promise.all((await caches.keys()).map(name => caches.open(name)));
+    const requests = (await Promise.all(cachesByName.map(cache => cache.keys()))).flat();
+    return requests.map(r => r.url);
+  });
+  expect(urls.some(url => new URL(url).searchParams.has('kode'))).toBe(false);
+  for (const path of ['/icon-pitch-v2-192.png', '/icon-pitch-v2-512.png', '/icon-maskable-pitch-v2-512.png', '/apple-touch-icon-pitch-v2.png', '/favicon-pitch-v2.ico']) {
+    expect(urls.some(url => new URL(url).pathname === path), `${path} i forhåndslageret`).toBe(true);
+  }
+  expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('/apple-touch-icon-pitch-v2.png');
+  await context.setOffline(true);
+  for (const path of ['/manifest.json', '/icon-pitch-v2-192.png', '/icon-pitch-v2-512.png', '/icon-maskable-pitch-v2-512.png', '/apple-touch-icon-pitch-v2.png', '/favicon-pitch-v2.ico']) {
+    expect(await page.evaluate(async path => (await fetch(path)).ok, path), `${path} uten nett`).toBe(true);
+  }
+});
+
 test('forside, 2D og øvelser virker offline; tilbakekobling laster ikke siden på nytt', async ({ page, context }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));

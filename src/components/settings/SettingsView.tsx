@@ -1,13 +1,13 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { Sun, Moon, Baby, User, Check, AlertTriangle, Download, Upload, Users, Palette, Database, Info, Bug, Copy, Trash2 } from 'lucide-react';
+import { Sun, Moon, Baby, User, Check, AlertTriangle, Download, Upload, Users, Palette, Database, Info, Bug, Copy, Trash2, KeyRound } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, TEXTAREA_CLASS, toggleClass } from '@/lib/formClasses';
 import { buildBackup, backupFilename, parseBackup, describeBackup, downloadJson, isBackupDue, type BackupFile } from '@/lib/backup';
 import { readErrorLog, clearErrorLog, formatErrorReport, ERROR_LOG_EVENT, MAX_ERRORS, type ErrorEntry } from '@/lib/errorLog';
 import { useTheme } from '@/hooks/useTheme';
 import { usePlayerStyle } from '@/hooks/usePlayerStyle';
-import { readCode, writeCode } from '@/lib/ai/accessCode';
+import { useAiAccessCode } from '@/hooks/useAiAccessCode';
 import { cn } from '@/lib/cn';
 import { ViewHeader, Tile, TileHeader } from '@/components/layout/Surface';
 
@@ -33,7 +33,7 @@ const DataSection: React.FC = () => {
     setError(''); setDone('');
     try {
       const backup = buildBackup({ data: exportSnapshot(), teamName: homeTeamName, theme,
-        settings: { playerStyle, aiAccessCode: readCode() } });
+        settings: { playerStyle } });
       downloadJson(backupFilename(homeTeamName), JSON.stringify(backup, null, 2));
       markExported();
       setDone('Sikkerhetskopien er lastet ned. Ta vare på filen et trygt sted.');
@@ -73,7 +73,6 @@ const DataSection: React.FC = () => {
     if (pending.theme) setTheme(pending.theme);
     if (pending.settings) {
       setPlayerStyle(pending.settings.playerStyle);
-      writeCode(pending.settings.aiAccessCode);
     }
     setPending(null);
     setDone('Dataene er importert.');
@@ -89,7 +88,7 @@ const DataSection: React.FC = () => {
     <div>
       <p className="text-body text-ink-muted">
         Alt lagres bare på denne enheten. Ta vare på en sikkerhetskopi et annet trygt sted.
-        Filen inneholder også innstillinger og eventuell tilgangskode til AI.
+        Filen inneholder også innstillinger. Tilgangskoden til AI er aldri med.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -226,6 +225,7 @@ const ErrorReportSection: React.FC = () => {
 };
 
 export const SettingsView: React.FC = () => {
+  const [aiCode, setAiCode] = useAiAccessCode();
   const { homeTeamName, setHomeTeamName, ageGroup, setAgeGroup } = useAppStore();
   const { theme, setTheme } = useTheme();
 
@@ -309,6 +309,21 @@ export const SettingsView: React.FC = () => {
                 </button>
               ))}
             </div>
+          </Tile>
+
+          <Tile aria-label="AI-tilgang">
+            <TileHeader icon={KeyRound} tone="bg-signal/15 text-signal" title="AI-tilgang" />
+            <p className="text-body text-ink-muted">
+              {aiCode ? 'AI-tilgang er aktiv på denne enheten.' : 'AI-tilgang er ikke aktiv på denne enheten.'}
+            </p>
+            <p className="mt-1.5 text-caption text-ink-subtle">
+              Koden kontrolleres når du bruker AI. Åpne lenken fra treneren eller skriv koden i AI-treneren én gang.
+              Koden er ikke med i sikkerhetskopien.
+            </p>
+            <button onClick={() => setAiCode('')} disabled={!aiCode}
+              className={`mt-3 ${SECONDARY_BTN} disabled:opacity-40 disabled:cursor-not-allowed`}>
+              Glem tilgangskode
+            </button>
           </Tile>
 
           <Tile aria-label="Feilrapport">

@@ -14,7 +14,6 @@ import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 
 export interface BackupSettings {
   playerStyle: PlayerStyle;
-  aiAccessCode: string;
 }
 
 export function isBackupDue(lastExportedAt: string | null, now = Date.now()): boolean {
@@ -52,7 +51,7 @@ export function buildBackup(args: {
     exportedAt: new Date().toISOString(),
     teamName: args.teamName,
     theme: args.theme,
-    ...(args.settings ? { settings: { ...args.settings } } : {}),
+    ...(args.settings ? { settings: { playerStyle: args.settings.playerStyle } } : {}),
     data: JSON.parse(JSON.stringify(args.data)),
   };
 }
@@ -107,7 +106,7 @@ export function parseBackup(text: string, filename?: string): ParseResult {
   }
   const settings = o.settings as BackupSettings | undefined;
   if (settings !== undefined && (!settings || typeof settings !== 'object' || Array.isArray(settings) ||
-      !['kit', 'chip'].includes(settings.playerStyle) || typeof settings.aiAccessCode !== 'string')) {
+      !['kit', 'chip'].includes(settings.playerStyle))) {
     return fail('Sikkerhetskopien inneholder ugyldige innstillinger.');
   }
   return {
@@ -118,7 +117,8 @@ export function parseBackup(text: string, filename?: string): ParseResult {
       exportedAt: typeof o.exportedAt === 'string' ? o.exportedAt : '',
       teamName: typeof o.teamName === 'string' ? o.teamName : '',
       theme: o.theme === 'dark' || o.theme === 'light' ? o.theme : null,
-      ...(settings ? { settings } : {}),
+      // Gamle kopier kan inneholde aiAccessCode. Ignorer den; importer aldri tilgang.
+      ...(settings ? { settings: { playerStyle: settings.playerStyle } } : {}),
       data,
     },
   };

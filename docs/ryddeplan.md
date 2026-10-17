@@ -1,4 +1,56 @@
-Status: oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19), oppgave 4 (trygg appoppdatering og ChunkLoadError) og oppgave 5 (sikkerhetskopi) er ferdige, 17. oktober 2026. Backup-delen av oppgave 11 er også dekket. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+Status: appikon og enklere, fortsatt beskyttet AI-tilgang er lagt til 17. oktober 2026. Oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19), oppgave 4 (trygg appoppdatering og ChunkLoadError) og oppgave 5 (sikkerhetskopi) er ferdige. Backup-delen av oppgave 11 er også dekket. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+
+## Appikon og AI-tilgang (17.10.2026)
+
+- Oransje ikon med hvit bane, tegnet fra sidemenyens eksisterende SVG.
+  PNG 192/512, eget maskable 512 med trygg marg, apple-touch-icon 180 og
+  favicon 16/32/48. Manifest og metadata bruker nye filnavn; byggingen
+  oppdaterer service workerens innholdshasher automatisk.
+- Koden huskes på enheten og deles mellom begge AI-funksjonene og
+  Innstillinger. `?kode=…` lagres og fjernes med `history.replaceState`
+  tidlig i dokumentet. «Glem tilgangskode» og tilgangsstatus finnes i
+  Innstillinger, også på mobil. Koden kontrolleres først ved AI-bruk.
+- Ved HTTP 401 fjernes koden, med norsk beskjed om å be treneren om ny
+  lenke. HTTP 429 viser norsk forklaring uten å glemme gyldig kode.
+- `/api/ai` har minnebasert grense på 30 forespørsler per rullerende time
+  per IP/prosess, før tilgangskontroll og AI-kall. Egen ventetid i HTTP-header.
+  Vercel-instanser deler ikke telleren, og omstart nullstiller den.
+- Tilgangskoden er nå **utelatt fra sikkerhetskopier**, som endrer det
+  tidligere valget i oppgave 5. Eldre kopier kan leses, men deres kode
+  ignoreres. Enhetens kode beholdes ved import. Koden skjules også hvis
+  den tilfeldigvis ligner et teknisk navn i feilloggen. Servernøkkel og
+  miljøvariabler er uendret. Ingen ny lagringsnøkkel, pakke eller database.
+- [Kort bruksveiledning](ai-tilgang-og-ikoner.md) forklarer delingslenke,
+  bytte av kode i Vercel, begrensningen ved minnetelleren og ikontest på telefon.
+
+Alle sluttkontroller er grønne, uten ekte AI-kall:
+
+| Kommando | Resultat |
+| --- | --- |
+| `npx tsc --noEmit` | Grønn, ingen typefeil |
+| `npx vitest --run` | Grønn, 29 filer / 290 tester |
+| `npm run build` | Grønn; også bygget på nytt av offline-kontrollen |
+| `npm run test:e2e -- --workers=1` | Grønn, alle 31 tester |
+| `npm run test:offline` | Grønn, alle 3 produksjonstester |
+
+Testene dekker lagret og manuelt skrevet kode, lenke og renset adresse,
+omlasting, deling mellom AI-funksjonene, glem på mobil, feil/byttet kode,
+fartsgrense uten AI-kall, bevarte data og kode utenfor sikkerhetskopi og
+feillogg. Produksjonstesten bekrefter nye ikonfiler i forhåndslageret og
+uten nett, samt at delingskoden ikke ligger i cachen. De eksisterende
+testene for offline og trygg oppdatering er beholdt. Ikon og mobilvisning
+er også kontrollert visuelt.
+
+Første e2e-kjøring fant én for bred testvelger som traff både AI-meldingen
+og Next sitt skjulte varselfelt. Velgeren er avgrenset til AI-panelet;
+hele serien er deretter kjørt grønn. Som tidligere måtte bare de kjente
+testserverne stoppes etter ferdige tester for at Playwright skulle avslutte
+på Windows. Sluttkjøringene avsluttet med kode 0. Varsler om Browserslist,
+webpack-cache og terminalfarger hindret ikke kontrollene.
+
+Ingen pakker eller låsefiler er endret, og ingenting er publisert,
+committet eller pushet. Genererte endringer i `public/sw.js` og Workbox
+er tatt ut av leveransen; ikoncache bygges fra kildefilene ved neste bygg.
 
 ## Oppgave 5: sikkerhetskopi (17.10.2026)
 
@@ -23,7 +75,8 @@ Status: oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19), oppga
   rotasjon 0. Gamle notater med tittelen «✅ Fremmøte» bevares nå med hele
   teksten, også etter ny innlasting, og finnes i den eldre eksempelkopien.
   Valgfrie fasefelt bevares også når de ikke finnes i originalen.
-  «Vis bevegelse», spillerutseende og AI-tilgangskode blir nå med. Tema og
+  «Vis bevegelse» og spillerutseende blir med. AI-tilgangskoden er senere
+  tatt ut av sikkerhetskopien, se oppdateringen om AI-tilgang øverst. Tema og
   lagnavn oppdateres straks i Innstillinger etter import.
 - Ingen ny lagringsnøkkel eller versjonsendring: Zustand-lageret er fortsatt
   versjon 2 og sikkerhetskopien versjon 1. Nye innstillingsfelt er valgfrie;
@@ -38,7 +91,7 @@ Status: oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19), oppga
 - «Sist eksportert: dato» / «Sist eksportert: aldri» vises under knappene.
   En rolig tekst minner om eksport etter mer enn 30 dager eller ved aldri
   eksportert, uten popup eller blokkering. Oversikten bruker samme grense.
-  Innstillinger forklarer at filen også inneholder eventuell AI-tilgangskode.
+  Innstillinger forklarer nå at filen ikke inneholder AI-tilgangskoden.
 - `e2e/backup.spec.ts` kontrollerer ekte nedlastet fil, åpning av filvelgeren,
   avbryt, bekreftet import, bevart innhold etter omlasting, tema og øvrige
   innstillinger, feil uten noen endring i lokal lagring, eldre kopi og mobil.

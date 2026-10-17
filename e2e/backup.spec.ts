@@ -43,7 +43,8 @@ test('ekte nedlasting, avbryt og bekreftet import bevarer innhold og innstilling
   const { lastExportedAt: _last, ...data } = before;
   expect(saved.data).toEqual(data);
   expect(saved.theme).toBe('light');
-  expect(saved.settings).toEqual({ playerStyle: 'chip', aiAccessCode: 'testkode-kun-for-test' });
+  expect(saved.settings).toEqual({ playerStyle: 'chip' });
+  expect(JSON.stringify(saved)).not.toMatch(/aiAccessCode|testkode-kun-for-test/);
   expect(JSON.stringify(saved)).not.toMatch(/error-log|errorLog|lastExportedAt|matchTimer|FEILLOGG-KUN-LOKALT/);
   await expect(page.getByText(/Sist eksportert:.*2026/)).toBeVisible();
   await expect(page.getByText(/Ta gjerne en sikkerhetskopi når det passer/)).toHaveCount(0);
@@ -79,7 +80,7 @@ test('ekte nedlasting, avbryt og bekreftet import bevarer innhold og innstilling
   expect(restoredData).toEqual(saved.data);
   expect(restoredDate).toBe(JSON.parse(destination['taktikkboard-storage']).state.lastExportedAt);
   expect(await page.evaluate(() => [localStorage.getItem('taktikk:theme'), localStorage.getItem('taktikk:player-style'), localStorage.getItem('taktikk:ai-access-code')]))
-    .toEqual(['light', 'chip', 'testkode-kun-for-test']);
+    .toEqual(['light', 'chip', 'annen kode']);
   expect(await page.evaluate(() => localStorage.getItem('taktikk:error-log'))).toBe(destination['taktikk:error-log']);
 });
 
