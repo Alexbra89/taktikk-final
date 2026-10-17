@@ -81,8 +81,8 @@ test('en visning som krasjer: resten av appen virker, feilen kan kopieres og tø
   expect(log.length).toBeGreaterThanOrEqual(1);
   expect(log[0]).toMatchObject({ area: 'reports', source: 'skjerm' });
 
-  // Innstillinger → Feilrapport.
-  await nav(page, 'Innstillinger');
+  // Innstillinger → Feilrapport. Knappen står nederst i sidefeltet, utenfor Hovedmeny.
+  await page.getByRole('complementary', { name: 'Sidefelt' }).getByRole('button', { name: 'Innstillinger', exact: true }).click();
   const section = page.getByRole('region', { name: 'Feilrapport' });
   await expect(section).toContainText(`${log.length} feil lagret`);
   await section.getByRole('button', { name: 'Kopier feilrapport' }).click();
