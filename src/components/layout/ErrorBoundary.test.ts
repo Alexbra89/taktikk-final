@@ -3,6 +3,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ERROR_TITLE, ErrorFallback, SectionErrorBoundary, webglSupported } from './ErrorBoundary';
 import { ERROR_LOG_KEY, HIDDEN_MESSAGE, readErrorLog } from '@/lib/errorLog';
+import { UPDATE_ERROR_TITLE } from '@/lib/appUpdate';
 
 // Testene kjører i Node uten DOM, og React sin server-renderer kjører ikke
 // feilgrenser. Derfor kjøres grensens egne steg (getDerivedStateFromError,
@@ -16,7 +17,7 @@ function crash(boundary: SectionErrorBoundary) {
   let thrown: unknown;
   try { renderToStaticMarkup(React.createElement(Boom)); } catch (e) { thrown = e; }
   expect(thrown).toBeInstanceOf(Error);
-  boundary.state = SectionErrorBoundary.getDerivedStateFromError();
+  boundary.state = SectionErrorBoundary.getDerivedStateFromError(thrown);
   boundary.componentDidCatch(thrown);
   return boundary.render() as React.ReactElement;
 }
@@ -30,6 +31,36 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('feilskjermen', () => {
+  it.each([
+    Object.assign(new Error('Loading chunk 123 failed.'), { name: 'ChunkLoadError' }),
+    new TypeError('Failed to fetch dynamically imported module: https://example.test/private'),
+  ])('lastefeil gir oppdateringsmelding, reload-knapp og lokal logg: %s', async error => {
+    const reload = vi.fn();
+    Object.assign(window, { location: { reload } });
+    const boundary = new SectionErrorBoundary({ area: 'reports', children: null });
+    boundary.state = SectionErrorBoundary.getDerivedStateFromError(error);
+    boundary.componentDidCatch(error);
+    const fallback = boundary.render() as React.ReactElement;
+    const html = renderToStaticMarkup(fallback);
+    expect(html).toContain(UPDATE_ERROR_TITLE);
+    expect(html).toContain('Last inn på nytt');
+    expect(html).not.toContain('Prøv igjen');
+    expect(reload).not.toHaveBeenCalled();
+    // Ingen automatisk reload: gjentatte feil kan heller ikke lage løkker.
+    boundary.componentDidCatch(error);
+    expect(reload).not.toHaveBeenCalled();
+    expect(readErrorLog()[0].message).toContain(error.message.split(':')[0].replace(/\.$/, ''));
+    expect(JSON.stringify(readErrorLog())).not.toContain('example.test');
+    const tree = await ErrorFallback(fallback.props as React.ComponentProps<typeof ErrorFallback>);
+    function buttons(node: React.ReactNode): React.ReactElement<{ onClick: () => void; children?: React.ReactNode }>[] {
+      if (!React.isValidElement<{ children?: React.ReactNode }>(node)) return [];
+      if (node.type === 'button') return [node as React.ReactElement<{ onClick: () => void }>];
+      return React.Children.toArray(node.props.children).flatMap(buttons);
+    }
+    buttons(tree)[0].props.onClick();
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
   it('viser barna så lenge ingenting feiler', () => {
     const child = React.createElement('p', null, 'Treningen');
     const b = new SectionErrorBoundary({ area: 'training', children: child });
