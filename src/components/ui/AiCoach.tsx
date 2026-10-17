@@ -6,14 +6,14 @@ import { useActiveTactic, formationLabel } from '@/store/selectors';
 import { buildAiContext } from '@/lib/ai/context';
 import { buildAppContext } from '@/lib/ai/appContext';
 import {
-  AI_ACCESS_HEADER, AI_LIMITS, BOARD_MODES, type AiArea, type AiHistoryMessage, type AiMode,
+  AI_ACCESS_HEADER, AI_ACCESS_ERROR, AI_LIMITS, BOARD_MODES, type AiArea, type AiHistoryMessage, type AiMode,
 } from '@/lib/ai/request';
 import { QUICK_ACTIONS, TRAINING_THEMES, ASK_ACTION_ID, themeAction, type QuickAction } from '@/lib/ai/quickActions';
 import { Modal } from './Modal';
 import { DockPanel } from '@/components/layout/DockPanel';
 import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, TEXTAREA_CLASS } from '@/lib/formClasses';
 import { cn } from '@/lib/cn';
-import { readCode, writeCode } from '@/lib/ai/accessCode';
+import { useAiAccessCode } from '@/hooks/useAiAccessCode';
 
 // ══════════════════════════════════════════════════════════════
 //  AI-TRENER – en assistenttrener som leser appen og svarer.
@@ -72,7 +72,7 @@ export const AiCoach: React.FC<AiCoachProps> = ({ onClose, variant = 'modal', ar
   const events       = useAppStore(s => s.events);
   const matchReports = useAppStore(s => s.matchReports);
 
-  const [code, setCode] = useState('');
+  const [code, setCode] = useAiAccessCode();
   const [codeInput, setCodeInput] = useState('');
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -82,7 +82,6 @@ export const AiCoach: React.FC<AiCoachProps> = ({ onClose, variant = 'modal', ar
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { setCode(readCode()); }, []);
   useEffect(() => () => abortRef.current?.abort(), []);
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [turns, loading]);
 
@@ -116,9 +115,9 @@ export const AiCoach: React.FC<AiCoachProps> = ({ onClose, variant = 'modal', ar
   const saveCode = () => {
     const v = codeInput.trim();
     if (!v) return;
-    writeCode(v); setCode(v); setCodeInput(''); setError('');
+    setCode(v); setCodeInput(''); setError('');
   };
-  const forgetCode = () => { writeCode(''); setCode(''); };
+  const forgetCode = () => { setCode(''); };
 
   const send = async (mode: AiMode, text: string, label?: string) => {
     if (loading || !code || !text.trim()) return;
@@ -155,7 +154,7 @@ export const AiCoach: React.FC<AiCoachProps> = ({ onClose, variant = 'modal', ar
         signal: ctrl.signal,
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 401) forgetCode();
+      if (res.status === 401) { forgetCode(); setError(AI_ACCESS_ERROR); return; }
       if (!res.ok || typeof data.answer !== 'string') {
         setError(typeof data.error === 'string' ? data.error : 'AI-tjenesten er midlertidig utilgjengelig. Prøv igjen.');
         return;

@@ -81,7 +81,8 @@ test('AI-forslag: bruker eksisterende oppsett og lagrer først etter gjennomlesi
   await page.evaluate(() => localStorage.setItem('taktikk:ai-access-code', 'test-kode'));
   await page.getByRole('button', { name: 'Foreslå øvelse med AI' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByLabel('Tilgangskode', { exact: false })).toHaveValue('test-kode');
+  await expect(dialog.getByText('AI-tilgang er aktiv på denne enheten.', { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel('Tilgangskode', { exact: false })).toHaveCount(0);
   await dialog.getByLabel('Hva ønsker du?').fill('Pasningsøvelse for 10 spillere, 9 år, 15 min');
   await dialog.getByRole('button', { name: 'Hent AI-forslag' }).click();
   await expect(dialog.getByRole('heading', { name: fakeDrill.name })).toBeVisible();
@@ -137,7 +138,7 @@ test('AI-feil er forståelige og lagrer ingenting', async ({ page }) => {
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Fikk ikke kontakt');
   await page.route('**/api/ai', route => route.fulfill({ status: 401, json: { error: 'AI-tilgang mangler eller er feil.' } }));
   await page.getByRole('button', { name: 'Hent AI-forslag' }).click();
-  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('AI-tilgang mangler');
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Tilgangskoden virker ikke lenger. Be treneren som delte appen om en ny lenke.');
   await expect(page.getByLabel('Tilgangskode', { exact: false })).toHaveValue('');
   await page.getByLabel('Tilgangskode', { exact: false }).fill('test-kode');
   await page.clock.install();

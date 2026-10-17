@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { AI_ACCESS_HEADER, AI_LIMITS, validateAiRequest } from '@/lib/ai/request';
+import { AI_ACCESS_HEADER, AI_ACCESS_ERROR, AI_LIMITS, validateAiRequest } from '@/lib/ai/request';
+import { aiRateLimiter, clientIp } from '@/lib/ai/server/rateLimit';
 import { buildMessages, MODE_MAX_TOKENS } from '@/lib/ai/server/prompt';
 import { AiProviderError, callOpenRouter } from '@/lib/ai/server/openrouter';
 import { parseAiDrill } from '@/lib/customDrills';
@@ -18,7 +19,7 @@ export const maxDuration = 60;
 const PROVIDER_TIMEOUT_MS = 45_000;
 
 const MSG = {
-  access: 'AI-tilgang mangler eller er feil.',
+  access: AI_ACCESS_ERROR,
   notConfigured: 'AI er ikke konfigurert på serveren.',
   tooLarge: 'Forespørselen er for stor.',
   badJson: 'Ugyldig forespørsel.',
@@ -55,6 +56,12 @@ export async function POST(req: Request): Promise<Response> {
   if (!expectedCode || !apiKey || !model) return json({ error: MSG.notConfigured }, 503);
 
   const code = req.headers.get(AI_ACCESS_HEADER) ?? '';
+  const limit = aiRateLimiter.take(clientIp(req));
+  if (!limit.allowed) {
+    const response = json({ error: 'Du har nådd grensen på 30 AI-forespørsler per time fra dette nettet. Vent opptil én time og prøv igjen.' }, 429);
+    response.headers.set('Retry-After', String(limit.retryAfter));
+    return response;
+  }
   if (!code || !sameCode(code, expectedCode)) return json({ error: MSG.access }, 401);
 
   const declared = Number(req.headers.get('content-length'));

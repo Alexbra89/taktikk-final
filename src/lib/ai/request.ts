@@ -15,6 +15,7 @@ export const AI_AREAS = ['dashboard', 'board', 'training', 'calendar', 'general'
 export type AiArea = typeof AI_AREAS[number];
 
 export const AI_ACCESS_HEADER = 'x-ai-access-code';
+export const AI_ACCESS_ERROR = 'Tilgangskoden virker ikke lenger. Be treneren som delte appen om en ny lenke.';
 
 export const AI_LIMITS = {
   /** Hele forespørselen, i tegn. Stopper store eller manipulerte kall før de koster noe. */
