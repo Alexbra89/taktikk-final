@@ -79,7 +79,7 @@ export default function Board3D(props: Props) {
   const historyEntry = useRef(false);
   /** Where focus goes back to when fullscreen closes (normally the fullscreen button). */
   const returnFocus = useRef<HTMLElement | null>(null);
-  const hideTimer = useRef<ReturnType<typeof setTimeout>>();
+  const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const selectedId = props.players.some(p => p.id === playerId) ? playerId : props.players.find(p => p.num === 1)?.id ?? props.players[0]?.id ?? '';
   const sceneFrame = (p: Props): SceneFrame => ({ ...p,
     phaseName: p.tactic.phases[p.tactic.activePhaseIdx]?.name,

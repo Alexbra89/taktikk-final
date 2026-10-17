@@ -1,4 +1,4 @@
-Status: oppgave 1 (feilhåndtering) er ferdig, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+Status: oppgave 1 (feilhåndtering) og oppgave 2 (Next 15.5.28 og React 19) er ferdige, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
 
 
 
@@ -238,7 +238,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 \*\*Byggefiler\*\*
 
-\- `public/sw.js` og `public/workbox-\*.js` lages av `next-pwa` når appen bygges, men står ikke i `.gitignore`. Sjekk med `git ls-files public` om de ligger i git. I så fall bør de tas ut og legges i `.gitignore`.
+\- `public/sw.js` og `public/workbox-\*.js` lages av `next-pwa` når appen bygges, men står ikke i `.gitignore`. Sjekket i oppgave 2: `public/sw.js` og `public/workbox-4754cb34.js` ligger i git, og `sw.js` endres ved hvert bygg. De bør tas ut og legges i `.gitignore` (oppgave 7).
 
 
 
@@ -334,17 +334,29 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 
 
-\## 6. Next.js 14.2.5
+\## 6. Next.js 15.5.28 (oppgradert fra 14.2.5 i oppgave 2)
 
 
 
-\- \*\*Pakken er berørt:\*\* 14.x får ikke lenger støtte, og varsler fra i år omfatter ifølge gjennomgangen også 14.x. Nye hull vil ikke bli tettet.
+\- \*\*Nå:\*\* Next 15.5.28, React og React DOM 19.3.1, `sharp` 0.35.5. 15.5.28 er rettelsen for 15.5 i [varselet fra 14. oktober 2026](https://nextjs.org/blog/nextjs-security-update-october-14-2026) (sjekket mot varselet 17.10.2026). Varselet gjelder `use cache` med typede tabeller (kritisk), bildeoptimalisering med SVG, CVE-2026-96889 (kritisk, krever `sharp` 0.35.5 eller nyere), og DoS via Server Actions (høy).
 
-\- \*\*Dokumentert eksponering i denne appen er lavere enn «kjent sikkerhetshull» tilsier.\*\* Appen har ingen `middleware`, bruker ikke `next/image`, har ingen Server Actions og bare én API-route med egen validering. Bildeoptimaliseringen (`/\_next/image`) er likevel aktiv som standard. Den kan slås av med `images.unoptimized: true`. Oppgrader uansett.
+\- \*\*Eksponering i denne appen:\*\* ingen `middleware`, ingen `next/image`, ingen Server Actions, ingen `use cache` og bare én API-route (POST, med egen validering). Bildeoptimaliseringen er nå slått av med `images.unoptimized: true`, så `/\_next/image` svarer 404.
 
-\- \*\*Mål: siste sikkerhetsrettede 16.x.\*\* Gjennomgangen oppgir 16.4.1, men sjekk tallet mot varselet når oppgraderingen gjøres. Mellomsteget er siste rettede 15.5.x, oppgitt som 15.5.28. Vil du heller ta færre steg, kan du gå direkte til 16.
+\- \*\*`lucide-react` 0.400, `framer-motion` 11, `zustand` 4 og `next-pwa` 5.6\*\* godtar alle React 19 og Next 15, og trengte ingen endring. Appen bruker ikke `@react-three`, bare ren `three`.
 
-\- \*\*Felles for 15 og 16:\*\* App Router krever React 19. Sjekk peer-avhengigheter. `lucide-react` 0.400 må trolig oppdateres. `swcMinify` og `images.domains` er utgått.
+\- \*\*Service workeren ble ikke registrert (gjaldt også før oppgraderingen), rettet i oppgave 2.\*\* `next-pwa` 5.6 legger registreringen i `main.js`, men App Router-sider laster bare `main-app.js`. Det gjaldt både i 14.2.5 og i 15.5.28, så appen virket i praksis ikke uten nett. Nå kjører `components/layout/ServiceWorkerRegister.tsx` (fra `layout.tsx`) `next-pwa` sitt eget skript `next-pwa/register` i produksjon. Skriptet registrerer `/sw.js` og legger startsiden i cachen ved første installasjon. `reloadOnOnline: false` er satt, så siden ikke lastes på nytt midt i en tegning eller video-eksport når nettet kommer tilbake. Ingen ny pakke og ikke noe bibliotekbytte. Merk: med `skipWaiting: true` tar en ny versjon over med en gang, så `ChunkLoadError` (oppgave 4) er nå reelt i åpne faner etter en deploy.
+
+\- \*\*`npm audit` etter oppgave 2:\*\* 25 funn (0 kritiske, 21 høye, 3 moderate og 1 lav). Før var det 29 (1 kritisk, 25 høye, 2 moderate og 1 lav). Ingen av funnene gjelder kode som kjører i nettleseren eller i API-routen. Alle er byggeverktøy:
+
+&#x20; - `next` (moderat): en gammel PostCSS som følger med Next og bare brukes under bygging. Rettes først i Next 16 (oppgave 3).
+
+&#x20; - `next-pwa` → `workbox-webpack-plugin`/`workbox-build`/`rollup-plugin-terser`/`serialize-javascript`, og `globby`/`fast-glob`: rettes bare ved å bytte ut `next-pwa` (oppgave 27).
+
+&#x20; - `tailwindcss` 3 → `chokidar`/`micromatch`/`braces`: krever Tailwind 4 (egen, større oppgave).
+
+&#x20; - `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob`: følger med ESLint-oppsettet (oppgave 3).
+
+&#x20; - Ti indirekte pakker kan rettes uten å endre `package.json`, med `npm audit fix` uten `--force`: `@babel/core`, `@babel/plugin-transform-modules-systemjs`, `baseline-browser-mapping`, `brace-expansion`, `browserslist`, `fast-uri`, `lodash`, `picomatch`, `postcss-selector-parser` og `source-map-js`. Det er ikke gjort i oppgave 2, fordi bare Next, React og typene skulle endres.
 
 \- \*\*Ekstra for 16:\*\*
 
@@ -352,11 +364,11 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 &#x20; - `next lint` er fjernet. Bruk ESLint 9 med flat config og `eslint-config-next@16`.
 
-&#x20; - Node 20.9 eller nyere kreves.
+&#x20; - Node 20.9 eller nyere kreves. Maskinen der oppgave 2 ble testet, har Node 24.18.
 
 &#x20; - Sjekk at `npx next dev` i Playwright-oppsettet fortsatt fungerer med PWA-innpakningen.
 
-\- \*\*Risiko:\*\* middels. React 19 og byggeverktøyet er de største endringene. Dagens 22 e2e-kjøringer gir god dekning for brett og 3D.
+\- \*\*Risiko for 16:\*\* middels. React 19 er allerede på plass, så byggeverktøyet (Turbopack og webpack) og ESLint 9 er de største endringene. Dagens 24 e2e-kjøringer gir god dekning for brett og 3D.
 
 
 
@@ -381,9 +393,16 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
    - \*Test:\* `src/lib/errorLog.test.ts`, `src/components/layout/ErrorBoundary.test.ts`, `e2e/errors.spec.ts`.
    - Gjenstår: feil som 3D selv viser i sin egen melding (f.eks. «mistet forbindelsen til grafikkortet»), kommer ikke i loggen, fordi 3D-koden ikke skulle endres. En visning som ikke kan lastes etter en ny versjon (`ChunkLoadError`) viser nå feilskjermen, men «Prøv igjen» hjelper ikke før siden lastes på nytt. Det er oppgave 4.
 
-2\. \*\*Sikkerhet: oppgrader til Next 15.5.x (siste rettede) og React 19.\*\* Kjør `npm audit` før og etter. Fjern `swcMinify` og vurder `images.unoptimized`. \*Test:\* `npm run build`, Vitest og alle e2e. \*Risiko: middels.\*
+2\. ✅ \*\*FERDIG (17.10.2026): Next 15.5.28 og React 19.\*\* Se del 6 for bakgrunn og `npm audit`.
+   - Pakker: `next` 15.5.28 (låst), `react`/`react-dom` ^19.3.1, `@types/react`/`@types/react-dom` ^19.3.0 og `eslint-config-next` ^15.5.28. Ingen nye pakker. `sharp` 0.35.5 følger med Next.
+   - `next.config.mjs`: `swcMinify` (fjernet i 15) og `images.domains` (utgått) er tatt bort. `images.unoptimized: true` slår av `/\_next/image`, som appen ikke bruker.
+   - Kode: bare typer for React 19. `useRef` må ha en startverdi (`Board3D.tsx`), og refs som sendes til hookene, kan være `null` (`useImageExport`, `useDrawingInput`, `useBallDrag` og `useBoardZoom`). Ingen endret oppførsel.
+   - Guiden til 15 er sjekket: ingen `cookies`/`headers`/`params`/`searchParams`, ingen `useFormState` og ingen GET-route. Den eneste routen (`/api/ai`, POST) er allerede `force-dynamic` og sender `no-store`. Bygget bruker webpack (standard i 15), så `next-pwa` virker som før.
+   - \*Test:\* `npx tsc --noEmit`, Vitest (24 filer, 240 tester), `npm run build` og alle 24 e2e-kjøringer med `--workers=1`. Alt er grønt. `npm run lint` virker og gir én advarsel i `TacticBoard.tsx:494`, i kode som ikke er endret. Produksjonsbygget er også prøvd i Edge: alle visninger og 3D vises uten konsollfeil, og `/api/ai` svarer som før.
+   - Underveis: `pitch-depth (mobile)` feilet én gang fordi WebGL ikke startet, mens maskinen var tom for minne. Den gikk grønt 3 av 3 ganger alene og i en ny full kjøring.
+   - Funnet underveis og rettet etter review: service workeren ble ikke registrert, verken før eller etter oppgraderingen (se del 6). `ServiceWorkerRegister.tsx` kjører nå registreringen fra `next-pwa`, og `reloadOnOnline` er slått av. Playwright kjører i utviklingsmodus, der PWA er av, så dette er ikke dekket av e2e. Test for hånd: `npm run build` og `npm start`, åpne appen, vent til service workeren er aktiv (DevTools → Application), slå av nettet og last inn på nytt.
 
-3\. \*\*Next 16.x (siste rettede).\*\* Bygg med `--webpack`, flytt linting til ESLint 9 og sjekk Node-versjonen. \*Test:\* som i oppgave 2, pluss at service workeren registreres i produksjonsbygget. \*Risiko: middels.\*
+3\. \*\*Next 16.x (siste rettede).\*\* Bygg med `--webpack`, flytt linting til ESLint 9 og sjekk Node-versjonen. \*Test:\* som i oppgave 2. Sjekk at service workeren fortsatt registreres i produksjonsbygget og at appen kan lastes uten nett (se del 6). \*Risiko: middels.\*
 
 4\. \*\*Håndter `ChunkLoadError`.\*\* Ved feil i en dynamisk import: vis «Ny versjon – last inn på nytt». \*Test:\* e2e som blokkerer én JavaScript-fil. \*Risiko: lav.\*
 
@@ -431,7 +450,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 26\. \*(Valgfritt)\* \*\*Board3D:\*\* `useFullscreen3D` og `use3DExport`. \*Risiko: middels.\*
 
-27\. \*\*Erstatt `next-pwa`\*\* med for eksempel Serwist eller en egen service worker, slik at `--webpack` ikke trengs lenger. \*Risiko: middels.\* Bare når det trengs.
+27\. \*\*Erstatt `next-pwa`\*\* med for eksempel Serwist eller en egen service worker, slik at `--webpack` ikke trengs lenger. \*Risiko: middels.\* Bare når det trengs. Dette retter også de fleste gjenstående funnene i `npm audit`, og `ServiceWorkerRegister.tsx` kan da erstattes av registreringen i det nye oppsettet (del 6).
 
 28\. \*\*Øvelsesfilene etter aldersgruppe:\*\* én gren per kategori, seks små oppgaver. \*Risiko: lav, lav prioritet.\*
 

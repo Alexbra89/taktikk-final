@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Schibsted_Grotesk, Instrument_Serif, IBM_Plex_Mono } from 'next/font/google';
+import { ServiceWorkerRegister } from '@/components/layout/ServiceWorkerRegister';
 import './globals.css';
 
 // Kalk-typografi. next/font selvhoster filene, så PWA-en fungerer offline.
@@ -77,6 +78,7 @@ export default function RootLayout({
         "
       >
         {children}
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

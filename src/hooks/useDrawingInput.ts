@@ -15,7 +15,7 @@ interface Options {
   /** Tegnemodus er på, og ingenting annet (avspilling) eier brettet. */
   enabled: boolean;
   /** Brettet håndtererne kobles på. Trengs for touch-sperren under, som React ikke kan sette opp. */
-  svgRef: React.RefObject<SVGSVGElement>;
+  svgRef: React.RefObject<SVGSVGElement | null>;
   toSVG: (clientX: number, clientY: number) => Position;
   /** Knip eller panorering eier pekeren. En funksjon, så verdien leses ved hvert trykk. */
   isGesturing: () => boolean;

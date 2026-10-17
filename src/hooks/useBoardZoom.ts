@@ -37,7 +37,7 @@ export interface BoardZoom {
   zoom: number;
   pan: Pan;
   /** Settes på elementet som omslutter SVG-en. */
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   /** style for wrapperen som skal transformeres. */
   transformStyle: React.CSSProperties;
   zoomIn: () => void;

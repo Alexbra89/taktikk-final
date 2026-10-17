@@ -15,7 +15,7 @@ import { CLAMP_X } from '@/components/board/constants';
 const MOVE_THROTTLE_MS = 16;
 
 export function useBallDrag(
-  svgRef: React.RefObject<SVGSVGElement>,
+  svgRef: React.RefObject<SVGSVGElement | null>,
   isDraggable: boolean,
   onPositionChange: (pos: Position) => void,
 ): React.SVGProps<SVGGElement> {
