@@ -8,8 +8,8 @@ Status: appikon og enklere, fortsatt beskyttet AI-tilgang er lagt til 17. oktobe
   oppdaterer service workerens innholdshasher automatisk.
 - Koden huskes på enheten og deles mellom begge AI-funksjonene og
   Innstillinger. `?kode=…` lagres og fjernes med `history.replaceState`
-  tidlig i dokumentet. «Glem tilgangskode» og tilgangsstatus finnes i
-  Innstillinger, også på mobil. Koden kontrolleres først ved AI-bruk.
+  tidlig i dokumentet. Tilgangsstatus finnes i Innstillinger, også på mobil.
+  «Glem tilgangskode» er fjernet i oppgave 6. Koden kontrolleres først ved AI-bruk.
 - Ved HTTP 401 fjernes koden, med norsk beskjed om å be treneren om ny
   lenke. HTTP 429 viser norsk forklaring uten å glemme gyldig kode.
 - `/api/ai` har minnebasert grense på 30 forespørsler per rullerende time
@@ -34,7 +34,7 @@ Alle sluttkontroller er grønne, uten ekte AI-kall:
 | `npm run test:offline` | Grønn, alle 3 produksjonstester |
 
 Testene dekker lagret og manuelt skrevet kode, lenke og renset adresse,
-omlasting, deling mellom AI-funksjonene, glem på mobil, feil/byttet kode,
+omlasting, deling mellom AI-funksjonene, tilgangsstatus på mobil, feil/byttet kode,
 fartsgrense uten AI-kall, bevarte data og kode utenfor sikkerhetskopi og
 feillogg. Produksjonstesten bekrefter nye ikonfiler i forhåndslageret og
 uten nett, samt at delingskoden ikke ligger i cachen. De eksisterende
@@ -51,6 +51,49 @@ webpack-cache og terminalfarger hindret ikke kontrollene.
 Ingen pakker eller låsefiler er endret, og ingenting er publisert,
 committet eller pushet. Genererte endringer i `public/sw.js` og Workbox
 er tatt ut av leveransen; ikoncache bygges fra kildefilene ved neste bygg.
+
+## Oppgave 6: rydding med lav risiko (17.10.2026)
+
+- Søkt etter filnavn, importstier og symboler i kildekode, tester,
+  konfigurasjon og øvrige prosjektfiler før sletting. Ingen brukere av
+  `src/data/drills.ts.backup`, `SwapOverlay` eller `getDrillsByAgeBand`.
+- Fjernet den ubrukte komponenten `SketchPreview`, parseren, typene og
+  tegnehjelperne. Bare `hasSketch` brukes av `DrillsView`; funksjonen og
+  importstien er beholdt uendret.
+- Fjernet `public/file.svg`, `globe.svg`, `next.svg`, `vercel.svg` og
+  `window.svg`. Bare den genererte `public/sw.js` refererte til dem som
+  forhåndslagrede filer. Appikonet `icon.svg` brukes i manifestet og beholdes.
+- AI-delen er nå fullført etter at ikon- og tilgangsendringene kom med.
+  Fjernet «Glem tilgangskode» i Innstillinger, men beholdt linjen
+  «AI-tilgang er aktiv på denne enheten» og automatisk sletting av feil
+  kode ved HTTP 401 i `AiCoach` og `AiDrillModal`. Fartsgrensemeldingen
+  bygger nå tallet fra `AI_RATE_LIMIT`, samme konstant som begrenser kallene.
+  Det tidligere avviksnotatet gjaldt prosjektversjonen før AI-endringene.
+- Ny oppgave 6a om opptak fra fullskjerm står rett etter denne oppgaven,
+  før oppdelingen av store filer. Ingen store filer er delt opp.
+
+Alle fem kontroller er kjørt på nytt etter fullføring av AI-delen og passerer:
+
+| Kommando | Resultat for oppgave 6 |
+| --- | --- |
+| `npx tsc --noEmit` | Grønn, ingen typefeil |
+| `npx vitest --run` | Grønn, 29 filer / 290 tester |
+| `npm run build` | Grønn |
+| `npm run test:e2e -- --workers=1` | Grønn, 31 tester |
+| `npm run test:offline` | Grønn, 3 produksjonstester med nytt bygg |
+
+Som tidligere måtte bare testenes egne, identifiserte serverprosesser
+stoppes etter ferdige nettlesertester på Windows. Begge kommandoene
+avsluttet deretter med kode 0. Varsler om gammel Browserslist-database og
+webpack-cache hindret ikke bygg eller tester. Ingen tester er fjernet,
+hoppet over eller svekket. Ingen pakker, låsefiler, lagring eller brukerdata
+er endret. Ingenting er publisert, deployet, committet eller pushet.
+Den genererte `public/sw.js` er tilbakeført og inngår ikke i leveransen.
+
+Manuell kontroll: åpne appen som vanlig og prøv Øvelser, bane-ikonet ved
+øvelser med skissetekst, 2D, 3D, fullskjerm og videoeksport. Appen skal virke
+som før. I Innstillinger skal aktiv AI-tilgang fortsatt vises, uten
+«Glem tilgangskode». Feil kode skal fortsatt slettes automatisk ved AI-bruk.
 
 ## Oppgave 5: sikkerhetskopi (17.10.2026)
 
@@ -474,13 +517,13 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 \*\*Død kode\*\*
 
-\- `src/data/drills.ts.backup` (531 linjer). Ingen importerer den.
+\- `src/data/drills.ts.backup` (531 linjer) er slettet i oppgave 6. Ingen importerte den.
 
-\- `src/components/board/svg/SwapOverlay.tsx` brukes ingen steder.
+\- `src/components/board/svg/SwapOverlay.tsx` er slettet i oppgave 6. Ingen brukte den.
 
-\- `getDrillsByAgeBand` (`src/data/drills.ts:47`) brukes ikke.
+\- `getDrillsByAgeBand` og den tilhørende typeimporten er fjernet i oppgave 6. Ingen brukte funksjonen.
 
-\- Komponenten `SketchPreview` (`SketchPreview.tsx:179`) blir aldri vist. Bare `hasSketch` importeres. Avklar om den skal tas i bruk eller fjernes.
+\- Komponenten `SketchPreview` og den tilhørende parseren er fjernet i oppgave 6 etter kontroll av alle referanser. `hasSketch` beholdes uendret for bane-ikonet i øvelseslista.
 
 \- Ubrukte CSS-klasser i `globals.css`: `pulse-gold`, `glow-selected`, `swap-bounce`, `glass-fm`, `skeleton`, `drag-mode`, `player-dragging`, `player-grab`, `text-readable`, `transition-smooth`, `input-base`, `scroll-smooth` og `clickable`. I tillegg er det en utkommentert blokk for rullefelt (`:220–237`).
 
@@ -658,7 +701,9 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 5\. ✅ \*\*FERDIG (17.10.2026): Tester og trygg import for `lib/backup.ts`.\*\* Hele eksport/import, eldre format, feil uten endring av data, feillogg utenfor kopien, 50 taktikker, alle innstillinger, tydelige knapper/bekreftelse og rolig 30-dagerspåminnelse. Se egen etterkontroll øverst.
 
-6\. \*\*Slett død kode:\*\* `drills.ts.backup`, `SwapOverlay.tsx` og `getDrillsByAgeBand`. Avklar `SketchPreview`. \*Test:\* build og Vitest. \*Risiko: lav.\*
+6\. **Rydding med lav risiko (17.10.2026):** Fjernet ubrukt reservefil, `SwapOverlay`, `getDrillsByAgeBand`, fem gamle SVG-er og de ubrukte delene av `SketchPreview`. `hasSketch` og alle brukte filer beholdes. Se etterkontrollen øverst. **Risiko: lav.**
+
+6a. **Opptak fra fullskjerm i 2D og 3D:** en opptaksknapp inne i fullskjermvisningen. Videoen bruker visningen brukeren ser (kameravinkel, zoom og kameravalg i 3D, samme utsnitt i 2D), med samme kvalitet og formater som dagens videoeksport. Begrunnelse for plassering: berører samme filer som skal deles opp, så den bør bygges først.
 
 7\. \*\*Ta byggefilene for PWA ut av git\*\* og legg dem i `.gitignore`. \*Risiko: lav.\*
 
@@ -718,7 +763,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 
 
-Oppgave 5 er gjennomført: sikkerhetskopiering er tydelig øverst i Innstillinger, hele innholdet kontrolleres ved import, og feil i filen skal la eksisterende data stå urørt. Eldre kopier, alle datatyper og store samlinger har egne tester. Fremgangsmåte for manuell kontroll og kontrollresultater står øverst i dokumentet, sammen med de tidligere etterkontrollene.
+Ryddedelen av oppgave 6 er gjennomført: bekreftet ubrukt kode og gamle bildefiler er fjernet. Funksjonen som viser bane-ikonet i øvelseslista er beholdt. Opptak fra fullskjerm i 2D og 3D står som ny oppgave 6a før oppdelingen av store filer. AI-delen er også fullført: glemmeknappen i Innstillinger er fjernet, tilgangsstatus og automatisk sletting ved feil kode er beholdt, og tallet i fartsgrensemeldingen følger den faktiske grensen.
 
 
 
@@ -742,5 +787,5 @@ Dette må et menneske bestemme:
 
 \- Om feil fra brukerne skal sendes til en ekstern tjeneste. Det handler om personvern. Uten det får dere ikke vite når appen krasjer hos noen.
 
-\- Om den ubrukte forhåndsvisningen av øvelsesskisser skal tas i bruk eller slettes.
+\- Opptak fra fullskjerm er lagt inn som oppgave 6a før oppdeling av store filer; funksjonen bygges i en egen oppgave.
 

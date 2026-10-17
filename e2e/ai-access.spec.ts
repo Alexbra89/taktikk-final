@@ -33,7 +33,7 @@ test('lenke renser adressen, huskes etter omlasting og deles med AI-øvelser ute
   await expect(page.getByRole('dialog').getByLabel('Tilgangskode', { exact: false })).toHaveCount(0);
 });
 
-test('manuell kode huskes; Innstillinger på mobil lar brukeren glemme den', async ({ page }) => {
+test('manuell kode huskes; Innstillinger på mobil viser aktiv tilgang uten glemmeknapp', async ({ page }) => {
   await page.goto('/');
   await ai(page);
   await page.getByLabel('Tilgangskode', { exact: true }).fill(CODE);
@@ -48,13 +48,13 @@ test('manuell kode huskes; Innstillinger på mobil lar brukeren glemme den', asy
   await expect(access.getByText('AI-tilgang er aktiv på denne enheten.', { exact: true })).toBeVisible();
   await access.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'test-results/ai-access-mobile.png' });
-  await access.getByRole('button', { name: 'Glem tilgangskode' }).click();
-  await expect(access.getByText('AI-tilgang er ikke aktiv på denne enheten.', { exact: true })).toBeVisible();
-  expect(await stored(page)).toBeNull();
+  await expect(access.getByRole('button', { name: 'Glem tilgangskode' })).toHaveCount(0);
+  expect(await stored(page)).toBe(CODE);
   await page.reload();
   await page.setViewportSize({ width: 1400, height: 900 });
   await ai(page);
-  await expect(page.getByLabel('Tilgangskode', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Melding til AI-treneren')).toBeVisible();
+  await expect(page.getByLabel('Tilgangskode', { exact: true })).toHaveCount(0);
 });
 
 test('utgått kode fjernes, norsk beskjed vises, og 429 beholder gyldig kode', async ({ page }) => {

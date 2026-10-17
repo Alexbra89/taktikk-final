@@ -225,7 +225,7 @@ const ErrorReportSection: React.FC = () => {
 };
 
 export const SettingsView: React.FC = () => {
-  const [aiCode, setAiCode] = useAiAccessCode();
+  const [aiCode] = useAiAccessCode();
   const { homeTeamName, setHomeTeamName, ageGroup, setAgeGroup } = useAppStore();
   const { theme, setTheme } = useTheme();
 
@@ -320,10 +320,6 @@ export const SettingsView: React.FC = () => {
               Koden kontrolleres når du bruker AI. Åpne lenken fra treneren eller skriv koden i AI-treneren én gang.
               Koden er ikke med i sikkerhetskopien.
             </p>
-            <button onClick={() => setAiCode('')} disabled={!aiCode}
-              className={`mt-3 ${SECONDARY_BTN} disabled:opacity-40 disabled:cursor-not-allowed`}>
-              Glem tilgangskode
-            </button>
           </Tile>
 
           <Tile aria-label="Feilrapport">

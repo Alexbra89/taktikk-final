@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { AI_ACCESS_HEADER, AI_ACCESS_ERROR, AI_LIMITS, validateAiRequest } from '@/lib/ai/request';
-import { aiRateLimiter, clientIp } from '@/lib/ai/server/rateLimit';
+import { AI_RATE_LIMIT, aiRateLimiter, clientIp } from '@/lib/ai/server/rateLimit';
 import { buildMessages, MODE_MAX_TOKENS } from '@/lib/ai/server/prompt';
 import { AiProviderError, callOpenRouter } from '@/lib/ai/server/openrouter';
 import { parseAiDrill } from '@/lib/customDrills';
@@ -58,7 +58,7 @@ export async function POST(req: Request): Promise<Response> {
   const code = req.headers.get(AI_ACCESS_HEADER) ?? '';
   const limit = aiRateLimiter.take(clientIp(req));
   if (!limit.allowed) {
-    const response = json({ error: 'Du har nådd grensen på 30 AI-forespørsler per time fra dette nettet. Vent opptil én time og prøv igjen.' }, 429);
+    const response = json({ error: `Du har nådd grensen på ${AI_RATE_LIMIT} AI-forespørsler per time fra dette nettet. Vent opptil én time og prøv igjen.` }, 429);
     response.headers.set('Retry-After', String(limit.retryAfter));
     return response;
   }
