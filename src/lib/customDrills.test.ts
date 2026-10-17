@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ALL_DRILLS } from '@/data/drills';
-import { emptyDrill, parseAiDrill, repairCustomDrill } from './customDrills';
+import { emptyDrill, parseAiDrill, parseStepLines, repairCustomDrill } from './customDrills';
 import { repairPersisted, useAppStore } from '@/store/useAppStore';
 
 const valid = () => ({ ...emptyDrill('youth'), name: 'Min pasningslek', description: 'To og to med ball.',
@@ -58,5 +58,19 @@ describe('egne øvelser', () => {
       JSON.stringify({ ...valid(), description: 'Kilde: oppdiktet bok' }), JSON.stringify({ ...valid(), steps: [] })]) {
       expect(parseAiDrill(answer)).toBeNull();
     }
+  });
+
+  it('godtar ordet «ifølge» i AI-svar', () => {
+    const drill = parseAiDrill(JSON.stringify({ ...valid(), description: 'Spill ifølge reglene for småbane.' }));
+    expect(drill?.description).toBe('Spill ifølge reglene for småbane.');
+  });
+
+  it('beholder stegnavn ved redigering ved å dele på første kolon', () => {
+    const text = valid().steps.map(s => `${s.name}: ${s.description}`).join('\n') + '\nBytt: hvert 2. minutt: tell høyt\nBare tekst';
+    expect(parseStepLines(text)).toEqual([
+      { id: 'step-0', name: 'Spill', description: 'Spill i korte serier med pauser.' },
+      { id: 'step-1', name: 'Bytt', description: 'hvert 2. minutt: tell høyt' },
+      { id: 'step-2', name: '', description: 'Bare tekst' },
+    ]);
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import type { DrillExercise } from '@/types';
-import { AI_DRILL_LABEL, DRILL_BANDS, DRILL_CATEGORIES, repairCustomDrill } from '@/lib/customDrills';
+import { AI_DRILL_LABEL, DRILL_BANDS, DRILL_CATEGORIES, parseStepLines, repairCustomDrill } from '@/lib/customDrills';
 import { CATEGORY_LABELS } from '@/data/drills';
 import { INPUT_CLASS, LABEL_CLASS, TEXTAREA_CLASS } from '@/lib/formClasses';
 import { Modal } from './Modal';
@@ -82,7 +82,7 @@ export function DrillEditor({ initial, onClose, onSave }: {
       <label className={LABEL_CLASS}>Slik gjøres det (ett steg per linje)
         <textarea className={TEXTAREA_CLASS} rows={4} maxLength={6000}
           defaultValue={draft.steps.map(s => s.name ? `${s.name}: ${s.description}` : s.description).join('\n')}
-          onChange={e => patch({ steps: lines(e.target.value).map((description, i) => ({ id: `step-${i}`, name: '', description })) })} />
+          onChange={e => patch({ steps: parseStepLines(e.target.value) })} />
       </label>
       {listField('Coachingpunkter', 'coachingPoints')}
       {listField('Vanlige feil', 'commonMistakes')}

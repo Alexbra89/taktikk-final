@@ -40,13 +40,23 @@ export function repairCustomDrill(raw: unknown): DrillExercise | null {
   };
 }
 
+/** Ett steg per linje; «Navn: beskrivelse» deles på første kolon så stegnavnet beholdes. */
+export function parseStepLines(text: string): DrillExercise['steps'] {
+  return text.split('\n').map(x => x.trim()).filter(Boolean).map((line, i) => {
+    const at = line.indexOf(':');
+    const name = at > 0 ? line.slice(0, at).trim() : '';
+    const description = at > 0 ? line.slice(at + 1).trim() : '';
+    return name && description ? { id: `step-${i}`, name, description } : { id: `step-${i}`, name: '', description: line };
+  });
+}
+
 export function parseAiDrill(answer: string): DrillExercise | null {
   try {
     const raw = JSON.parse(answer.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
     const drill = repairCustomDrill({ ...raw, aiGenerated: true });
     if (!drill || !drill.steps.length) return null;
     // Avvis synlige lenker og kildehenvisninger; vis aldri modellens råsvar ved feil.
-    if (/https?:|www\.|\b(kilde(?:r)?|sources?|references?|referanser)\s*[:：]|\bifølge\b|\[\d+\]/i.test(JSON.stringify(drill))) return null;
+    if (/https?:|www\.|\b(kilde(?:r)?|sources?|references?|referanser)\s*[:：]|\[\d+\]/i.test(JSON.stringify(drill))) return null;
     return drill;
   } catch { return null; }
 }
