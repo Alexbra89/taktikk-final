@@ -2,7 +2,10 @@
 import React, { useState, useMemo } from 'react';
 import { Swords, Activity, Search, X, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { CalendarEvent, DrillExercise, DrillCategory, DrillDifficulty } from '@/types';
-import { ALL_DRILLS, getDrillsByCategory, CATEGORY_LABELS } from '@/data/drills';
+import { CATEGORY_LABELS } from '@/data/drills';
+import { useDrillLibrary } from '@/hooks/useDrillLibrary';
+import { AI_DRILL_LABEL } from '@/lib/customDrills';
+import { DrillOrigin } from '@/components/ui/DrillOrigin';
 import { Modal, FilterChip } from '@/components/ui';
 import {
   DRILL_CATEGORIES, FOCUS_OPTIONS, INPUT_CLASS, TEXTAREA_CLASS, LABEL_CLASS, toggleClass,
@@ -21,6 +24,7 @@ export const NewEventForm: React.FC<{
   onSave: (ev: Omit<CalendarEvent, 'id'>) => void;
   onCancel: () => void;
 }> = ({ date, ageGroup, onSave, onCancel }) => {
+  const library = useDrillLibrary();
   const [type, setType]         = useState<'training' | 'match'>('training');
   const [title, setTitle]       = useState('');
   const [evDate, setEvDate]     = useState(date);
@@ -39,7 +43,7 @@ export const NewEventForm: React.FC<{
   const [drillDifficulty, setDrillDifficulty] = useState<DrillDifficulty | 'alle'>('alle');
 
   const filteredDrills = useMemo(() => {
-    let drills = (drillCategory === 'alle' ? ALL_DRILLS : getDrillsByCategory(drillCategory))
+    let drills = library.filter(d => drillCategory === 'alle' || d.category === drillCategory)
       .filter(d => d.ageGroup === ageGroup);
     if (drillDifficulty !== 'alle') drills = drills.filter(d => d.difficulty === drillDifficulty);
     if (drillSearch.trim()) {
@@ -49,7 +53,7 @@ export const NewEventForm: React.FC<{
       );
     }
     return drills;
-  }, [ageGroup, drillCategory, drillDifficulty, drillSearch]);
+  }, [ageGroup, drillCategory, drillDifficulty, drillSearch, library]);
 
   const addDrill = (drill: DrillExercise) => {
     if (!selectedDrills.some(d => d.id === drill.id)) {
@@ -67,13 +71,13 @@ export const NewEventForm: React.FC<{
     setError('');
     setSaving(true);
 
-    const drillNotes = selectedDrills.map(d => `\n${d.name}\n${d.description}`).join('');
+    const drillNotes = selectedDrills.map(d => `\n${d.name}\n${d.aiGenerated ? AI_DRILL_LABEL + '\n' : ''}${d.description}`).join('');
     const focusNote  = focusTags.length > 0 ? `Fokus: ${focusTags.join(', ')}` : '';
     const trainingNotes = selectedDrills.map(drill => ({
       id: `tn-${Date.now()}-${drill.id}`,
       createdAt: new Date().toISOString(),
       title: drill.name,
-      content: drill.description,
+      content: `${drill.aiGenerated ? AI_DRILL_LABEL + '\n' : ''}${drill.description}`,
       focus: focusTags,
     }));
 
@@ -182,6 +186,7 @@ export const NewEventForm: React.FC<{
                   <li key={drill.id} className="flex items-center gap-2 rounded-ctl bg-canvas-raised px-3 py-2 shadow-hair">
                     <div className="flex-1 min-w-0">
                       <div className="text-body font-bold text-ink truncate">{drill.name}</div>
+                      <DrillOrigin drill={drill} />
                       <div className="font-mono text-meta text-ink-subtle">
                         {drill.duration} min · {drill.players} spillere · {drill.difficulty}
                       </div>
@@ -268,6 +273,7 @@ export const NewEventForm: React.FC<{
                               <div className={`text-body font-bold truncate ${isSelected ? 'text-signal' : 'text-ink'}`}>
                                 {drill.name}
                               </div>
+                              <DrillOrigin drill={drill} />
                               <div className="font-mono text-meta text-ink-subtle truncate">
                                 {CATEGORY_LABELS[drill.category]} · {drill.duration} min · {drill.players} spillere · {drill.difficulty}
                               </div>

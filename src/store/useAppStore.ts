@@ -11,6 +11,8 @@ import { safeStorage, createTabGuardedStorage } from '../lib/safeStorage';
 import { buildTemplatePhases, type TacticTemplate } from '../data/tacticTemplates';
 import { drawingColorKey } from '../components/board/drawTools';
 import { BOARD_ITEM_TYPES, ITEM_RADIUS, normalizeRotation } from '../data/boardItems';
+import type { DrillExercise } from '../types';
+import { repairCustomDrill } from '../lib/customDrills';
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -432,6 +434,8 @@ export function repairPersisted(persisted: unknown, current: AppStore): Partial<
     awayTeamColor: str(p.awayTeamColor, current.awayTeamColor),
     rosterNames: arr<unknown>(p.rosterNames).filter((n): n is string => typeof n === 'string'),
     events: uniqueIds(arr<unknown>(p.events).map(repairEvent).filter((e): e is CalendarEvent => e !== null), uid),
+    customDrills: uniqueIds(arr<unknown>(p.customDrills).map(repairCustomDrill).filter((d): d is DrillExercise => d !== null)
+      .map(d => ({ ...d, id: d.id.startsWith('custom-') ? d.id : `custom-${uid()}` })), () => `custom-${uid()}`),
     matchReports: uniqueIds(arr<unknown>(p.matchReports).map(repairReport).filter((r): r is MatchReport => r !== null), uid),
     moments: uniqueIds(arr<unknown>(p.moments).map(repairMoment).filter((m): m is TacticMoment => m !== null), uid),
     currentView: VALID_VIEWS.includes(p.currentView as AppView) ? p.currentView as AppView : current.currentView,
@@ -445,6 +449,9 @@ export function repairPersisted(persisted: unknown, current: AppStore): Partial<
 // ═══════════════════════════════════════════════════════════════
 
 export interface AppStore {
+  customDrills: DrillExercise[];
+  saveCustomDrill: (drill: DrillExercise) => DrillExercise;
+  deleteCustomDrill: (id: string) => void;
   currentView: AppView;
   setView: (v: AppView) => void;
 
@@ -770,6 +777,18 @@ export const useAppStore = create<AppStore>()(
 
       // ─── Kalender og trening ───────────────────────────────
       events: [],
+      customDrills: [],
+      saveCustomDrill: (drill) => {
+        const clean = repairCustomDrill(drill);
+        if (!clean) throw new Error('Fyll ut navn, beskrivelse, spillere, alder og gyldig varighet.');
+        const existing = get().customDrills.find(d => d.id === clean.id);
+        const saved = { ...clean, id: existing?.id ?? `custom-${uid()}`, aiGenerated: existing?.aiGenerated || clean.aiGenerated };
+        set(s => ({ customDrills: existing
+          ? s.customDrills.map(d => d.id === saved.id ? saved : d)
+          : [...s.customDrills, saved] }));
+        return saved;
+      },
+      deleteCustomDrill: (id) => set(s => ({ customDrills: s.customDrills.filter(d => d.id !== id) })),
       addEvent: (ev) => {
         const newEv = { id: uid(), ...ev };
         set(s => ({ events: [...s.events, newEv] }));
@@ -867,6 +886,7 @@ export const useAppStore = create<AppStore>()(
           awayTeamColor: s.awayTeamColor,
           rosterNames: s.rosterNames,
           events: s.events,
+          customDrills: s.customDrills,
           matchReports: s.matchReports,
           moments: s.moments,
           currentView: s.currentView,
@@ -912,6 +932,7 @@ export const useAppStore = create<AppStore>()(
         awayTeamColor: state.awayTeamColor,
         rosterNames: state.rosterNames,
         events: state.events,
+        customDrills: state.customDrills,
         matchReports: state.matchReports,
         moments: state.moments,
         currentView: state.currentView,

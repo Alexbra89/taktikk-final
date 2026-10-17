@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { AI_DRILL_LABEL } from '@/lib/customDrills';
 import { AlertTriangle, Clock, Users, Cake, Package } from 'lucide-react';
 import type { DrillExercise } from '@/types';
 import { CATEGORY_LABELS } from '@/data/drills';
@@ -62,6 +63,8 @@ export const DrillDetailModal: React.FC<{
       }
     >
       <div className="space-y-5">
+        {drill.isCustom && <Badge tone="neutral">Min øvelse</Badge>}
+        {drill.aiGenerated && <p className="text-body text-warn-300">{AI_DRILL_LABEL}</p>}
         {drill.warning && (
           <div className="flex gap-3 rounded-panel border border-warn-500/40 bg-warn-500/10 p-3">
             <AlertTriangle size={16} strokeWidth={1.75} aria-hidden className="text-warn-400 flex-shrink-0 mt-0.5" />
@@ -148,7 +151,7 @@ export const DrillDetailModal: React.FC<{
           </Section>
         )}
 
-        {(drill.source || drill.unverifiedSource) && (
+        {!drill.isCustom && !drill.aiGenerated && (drill.source || drill.unverifiedSource) && (
           <div className="text-meta text-ink-faint space-y-1 break-all pt-2 border-t border-rule">
             {[
               { label: 'Kilde', value: drill.source },

@@ -13,6 +13,7 @@ import { Modal } from './Modal';
 import { DockPanel } from '@/components/layout/DockPanel';
 import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, TEXTAREA_CLASS } from '@/lib/formClasses';
 import { cn } from '@/lib/cn';
+import { readCode, writeCode } from '@/lib/ai/accessCode';
 
 // ══════════════════════════════════════════════════════════════
 //  AI-TRENER – en assistenttrener som leser appen og svarer.
@@ -26,14 +27,7 @@ import { cn } from '@/lib/cn';
 //  Rammen velges av den som åpner: modal/bunnark eller dokket panel.
 // ══════════════════════════════════════════════════════════════
 
-const CODE_KEY = 'taktikk:ai-access-code';
-
 interface Turn { role: 'user' | 'assistant'; content: string; label?: string; truncated?: boolean }
-
-const readCode = () => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
-const writeCode = (v: string) => {
-  try { if (v) localStorage.setItem(CODE_KEY, v); else localStorage.removeItem(CODE_KEY); } catch { /* gjelder denne økten */ }
-};
 
 const localToday = () => {
   const d = new Date();

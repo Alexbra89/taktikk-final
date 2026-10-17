@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { AI_ACCESS_HEADER, AI_LIMITS, validateAiRequest } from '@/lib/ai/request';
 import { buildMessages, MODE_MAX_TOKENS } from '@/lib/ai/server/prompt';
 import { AiProviderError, callOpenRouter } from '@/lib/ai/server/openrouter';
+import { parseAiDrill } from '@/lib/customDrills';
 
 // ══════════════════════════════════════════════════════════════
 //  POST /api/ai – AI-treneren
@@ -79,6 +80,11 @@ export async function POST(req: Request): Promise<Response> {
       timeoutMs: PROVIDER_TIMEOUT_MS,
     });
     logUsage({ mode, area, model, ok: true, ms: Date.now() - started, in: result.usage.input, out: result.usage.output, truncated: result.truncated });
+    if (mode === 'SUGGEST_DRILL') {
+      const drill = result.truncated ? null : parseAiDrill(result.text);
+      if (!drill) return json({ error: 'AI-svaret var ufullstendig eller kunne ikke brukes. Prøv igjen med et tydeligere ønske.' }, 502);
+      return json({ drill });
+    }
     return json({ answer: result.text, truncated: result.truncated });
   } catch (e) {
     const kind = e instanceof AiProviderError ? e.kind : 'unavailable';

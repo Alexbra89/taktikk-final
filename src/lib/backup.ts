@@ -102,6 +102,7 @@ export function describeBackup(b: BackupFile): string {
     `${n('events')} hendelser`,
     `${n('matchReports')} rapporter`,
     `${n('moments')} øyeblikk`,
+    `${n('customDrills')} egne øvelser`,
   ];
   return parts.join(' · ');
 }

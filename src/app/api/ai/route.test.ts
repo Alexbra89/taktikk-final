@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 import { AI_ACCESS_HEADER, AI_LIMITS } from '@/lib/ai/request';
 import { OPENROUTER_URL } from '@/lib/ai/server/openrouter';
+import { emptyDrill } from '@/lib/customDrills';
+import { ALL_DRILLS } from '@/data/drills';
 
 const KEY = 'sk-or-test-HEMMELIG';
 const CODE = 'riktig-kode';
@@ -61,6 +63,43 @@ describe('/api/ai – validering', () => {
 });
 
 describe('/api/ai – OpenRouter', () => {
+  it('øvelsesforslag bruker samme AI og ekte bibliotek uten kildefelt; alle svar er falske', async () => {
+    const fakeDrill = { ...emptyDrill('youth'), name: 'Pasningslek', description: 'Mye ballkontakt.', players: '10',
+      steps: [{ name: 'Lek', description: 'Tre minutter, så pause.' }], source: 'skal fjernes' };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(fakeDrill) }, finish_reason: 'stop' }],
+    })));
+    vi.stubGlobal('fetch', fetchMock);
+    const base = ALL_DRILLS.find(d => d.ageGroup === 'youth')!;
+    const res = await call({ mode: 'SUGGEST_DRILL', question: 'Enklere variant for 9 år',
+      appContext: { ageGroup: 'youth', ageBand: '8-9', baseDrillId: base.id } });
+    expect(res.status).toBe(200);
+    const response = await res.json();
+    expect(response.drill.aiGenerated).toBe(true);
+    expect(response.drill).not.toHaveProperty('source');
+    const sent = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(sent.model).toBe('test/model');
+    expect(sent.messages[0].content).toContain('Ikke finn på kilder');
+    expect(sent.messages[0].content).toContain('Ingen hard kroppskontakt');
+    expect(sent.messages[0].content).toContain('korte arbeidsperioder');
+    expect(sent.messages[1].content).toContain(base.name);
+    expect(sent.messages[1].content).toContain('<library_data>');
+    expect(sent.messages[1].content).not.toContain('"source"');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('øvelsesforslag: krever ønske og gir tydelig feil for ugyldig/avkortet AI-svar', async () => {
+    vi.stubGlobal('fetch', okProvider());
+    expect((await call({ mode: 'SUGGEST_DRILL', question: '' })).status).toBe(400);
+    const res = await call({ mode: 'SUGGEST_DRILL', question: 'Lag en øvelse' });
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toContain('ufullstendig');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ message: { content: '{}' }, finish_reason: 'length' }],
+    }))));
+    expect((await call({ mode: 'SUGGEST_DRILL', question: 'Lag en øvelse' })).status).toBe(502);
+  });
+
   it('sender nøkkelen bare til OpenRouter og returnerer rent svar', async () => {
     const fetchMock = okProvider();
     vi.stubGlobal('fetch', fetchMock);

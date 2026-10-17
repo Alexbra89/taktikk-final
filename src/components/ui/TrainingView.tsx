@@ -1,7 +1,10 @@
 'use client';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { ALL_DRILLS, getDrillsByCategory, CATEGORY_LABELS } from '@/data/drills';
+import { CATEGORY_LABELS } from '@/data/drills';
+import { useDrillLibrary } from '@/hooks/useDrillLibrary';
+import { AI_DRILL_LABEL } from '@/lib/customDrills';
+import { DrillOrigin } from './DrillOrigin';
 import type { CalendarEvent, DrillExercise, DrillCategory, DrillDifficulty, Tactic, TrainingNote } from '@/types';
 import { SPORT_LABELS } from '@/store/selectors';
 import { TACTIC_DEFAULT_MIN, totalMinutes, sessionShareText } from '@/lib/trainingSession';
@@ -227,6 +230,7 @@ const NewTrainingForm: React.FC<{
   onCancel: () => void;
   ageGroup: 'youth' | 'adult';
 }> = ({ onSave, onCancel, ageGroup }) => {
+  const library = useDrillLibrary();
   const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle]       = useState('');
   const [date, setDate]         = useState(today);
@@ -248,7 +252,7 @@ const NewTrainingForm: React.FC<{
   const [customDrillError, setCustomDrillError] = useState('');
 
   const filteredDrills = useMemo(() => {
-    let drills = (drillCategory === 'alle' ? ALL_DRILLS : getDrillsByCategory(drillCategory))
+    let drills = library.filter(d => drillCategory === 'alle' || d.category === drillCategory)
       .filter(d => d.ageGroup === ageGroup);
     if (drillDifficulty !== 'alle') drills = drills.filter(d => d.difficulty === drillDifficulty);
     if (drillSearch.trim()) {
@@ -258,7 +262,7 @@ const NewTrainingForm: React.FC<{
       );
     }
     return drills;
-  }, [ageGroup, drillCategory, drillDifficulty, drillSearch]);
+  }, [ageGroup, drillCategory, drillDifficulty, drillSearch, library]);
 
   const addDrill = (drill: DrillExercise) => {
     if (!selectedDrills.some(d => d.id === drill.id)) {
@@ -307,7 +311,7 @@ const NewTrainingForm: React.FC<{
     setSaving(true);
 
     const drillNotes = selectedDrills.map(d =>
-      `\n${d.name}\n${d.description}\nVarighet: ${d.duration} min${d.warning ? `\nAdvarsel: ${d.warning}` : ''}`
+      `\n${d.name}\n${d.aiGenerated ? AI_DRILL_LABEL + '\n' : ''}${d.description}\nVarighet: ${d.duration} min${d.warning ? `\nAdvarsel: ${d.warning}` : ''}`
     ).join('');
 
     const focusNote = focusTags.length > 0 ? `Fokus: ${focusTags.join(', ')}` : '';
@@ -316,7 +320,7 @@ const NewTrainingForm: React.FC<{
       id: `tn-${Date.now()}-${drill.id}`,
       createdAt: new Date().toISOString(),
       title: drill.name,
-      content: drill.description,
+      content: `${drill.aiGenerated ? AI_DRILL_LABEL + '\n' : ''}${drill.description}`,
       duration: drill.duration || 5,
       focus: focusTags,
       completed: false,
@@ -403,6 +407,7 @@ const NewTrainingForm: React.FC<{
                 <div key={drill.id} className="flex items-center justify-between bg-canvas-sunken rounded-ctl px-3 py-2 border border-rule">
                   <div className="flex-1">
                     <div className="text-body font-semibold text-ink">{drill.name}</div>
+                    <DrillOrigin drill={drill} />
                     <div className="text-meta text-ink-subtle">{drill.duration} min · {drill.players} spillere</div>
                     {drill.warning && <div className="mt-1"><DrillWarning text={drill.warning} compact /></div>}
                   </div>
@@ -534,6 +539,7 @@ const NewTrainingForm: React.FC<{
                           </span>
                           <div className="flex-1">
                             <div className="font-semibold">{drill.name}</div>
+                            <DrillOrigin drill={drill} />
                             <div className="text-meta text-ink-subtle">
                               {CATEGORY_LABELS[drill.category]} · {drill.duration} min · {drill.players} spillere ·
                               <span className={drill.difficulty === 'enkel' ? 'text-signal' : drill.difficulty === 'middels' ? 'text-warn-400' : 'text-bad-400'}> {drill.difficulty}</span>
@@ -696,6 +702,7 @@ const TrainingDetail: React.FC<{
   onDeleteNote: (nid: string) => void;
   onSaveRoster: (names: string[]) => void;
 }> = ({ event, rosterNames, ageGroup, onBack, onUpdate, onAddNote, onDeleteNote, onSaveRoster }) => {
+  const library = useDrillLibrary();
   const [showAttendance, setShowAttendance] = useState(false);
   const [showAddNote, setShowAddNote]       = useState(false);
   const [noteTitle, setNoteTitle]           = useState('');
@@ -744,7 +751,7 @@ const TrainingDetail: React.FC<{
     setTimeout(() => setShareMsg(''), 3000);
   };
 
-  const drills = useMemo(() => ALL_DRILLS.filter(d => d.ageGroup === ageGroup), [ageGroup]);
+  const drills = useMemo(() => library.filter(d => d.ageGroup === ageGroup), [ageGroup, library]);
   const dateStr = new Date(event.date + 'T12:00:00').toLocaleDateString('nb-NO', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
@@ -767,7 +774,7 @@ const TrainingDetail: React.FC<{
     if (!noteTitle.trim() && !selectedDrill) return;
     onAddNote({
       title: selectedDrill ? selectedDrill.name : noteTitle.trim(),
-      content: selectedDrill ? selectedDrill.description : noteContent.trim(),
+      content: selectedDrill ? `${selectedDrill.aiGenerated ? AI_DRILL_LABEL + '\n' : ''}${selectedDrill.description}` : noteContent.trim(),
       duration: selectedDrill?.duration || 5,
       completed: false,
       focus: [],
@@ -792,7 +799,7 @@ const TrainingDetail: React.FC<{
     const searchTitle = title.trim().toLowerCase();
     const matches = (d: DrillExercise) => d.name.trim().toLowerCase() === searchTitle;
     // Aldersgruppen først; øktene kan være laget for den andre gruppen.
-    return drills.find(matches) ?? ALL_DRILLS.find(matches);
+    return drills.find(matches) ?? library.find(matches);
   };
 
   return (
@@ -928,6 +935,7 @@ const TrainingDetail: React.FC<{
                         {d.warning && <AlertTriangle size={12} strokeWidth={1.75} aria-hidden className="text-warn-400" />}
                         {d.name}
                       </div>
+                      <DrillOrigin drill={d} />
                       <div className="text-meta text-ink-subtle">{CATEGORY_LABELS[d.category]} · {d.duration} min · {d.difficulty}</div>
                     </button>
                   ))}

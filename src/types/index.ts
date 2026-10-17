@@ -175,6 +175,9 @@ export interface DrillExercise {
   unverifiedSource?: string;
   sketch?: string;
   warning?: string;
+  /** Egne øvelser lagres separat fra det innebygde biblioteket. */
+  isCustom?: boolean;
+  aiGenerated?: boolean;
 }
 
 export interface MatchTimer {
