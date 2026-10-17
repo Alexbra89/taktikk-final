@@ -1,5 +1,5 @@
 // src/data/drills.ts
-import type { DrillCategory, DrillAgeBand, DrillExercise } from '../types';
+import type { DrillCategory, DrillExercise } from '../types';
 
 import { KEEPER_YOUTH, KEEPER_ADULT } from './drills/keeper';
 import { FORSVAR_YOUTH, FORSVAR_ADULT } from './drills/forsvar';
@@ -38,14 +38,6 @@ export function getDrillsByAgeGroup(
   ageGroup: 'youth' | 'adult',
 ): DrillExercise[] {
   return ALL_DRILLS.filter((drill) => drill.ageGroup === ageGroup);
-}
-
-/**
- * Alle øvelser som passer for et aldersbånd.
- * En øvelse kan ha flere bånd (f.eks. ['6-7', '8-9']), og treffer da begge.
- */
-export function getDrillsByAgeBand(ageBand: DrillAgeBand): DrillExercise[] {
-  return ALL_DRILLS.filter((drill) => drill.ageBand.includes(ageBand));
 }
 
 /** ISO-ukenummer. */
