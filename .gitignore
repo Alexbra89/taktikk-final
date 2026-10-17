@@ -23,6 +23,16 @@
 # production
 /build
 
+# next-pwa (generated into public/ by npm run build)
+/public/sw.js
+/public/sw.js.map
+/public/workbox-*.js
+/public/workbox-*.js.map
+/public/worker-*.js
+/public/worker-*.js.map
+/public/fallback-*.js
+/public/fallback-*.js.map
+
 # misc
 .DS_Store
 *.pem
