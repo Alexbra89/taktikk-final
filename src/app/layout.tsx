@@ -1,12 +1,28 @@
 import type { Metadata, Viewport } from 'next';
-import { Schibsted_Grotesk, Instrument_Serif, IBM_Plex_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
+import { ServiceWorkerRegister } from '@/components/layout/ServiceWorkerRegister';
 import './globals.css';
 
-// Kalk-typografi. next/font selvhoster filene, så PWA-en fungerer offline.
-// Schibsted Grotesk er variabel – én fil dekker alle vekter.
-const sans = Schibsted_Grotesk({ subsets: ['latin'], display: 'swap', variable: '--font-sans' });
-const serif = Instrument_Serif({ subsets: ['latin'], weight: '400', style: ['normal', 'italic'], display: 'swap', variable: '--font-serif' });
-const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], display: 'swap', variable: '--font-mono' });
+// Samme Kalk-skrifter, lagret i prosjektet: heller ikke byggingen krever nett.
+// Latin-utgavene inkluderer æ, ø og å. Lisens og opphav står i fonts/.
+const sans = localFont({
+  src: './fonts/schibsted-grotesk-latin.woff2',
+  weight: '400 900', style: 'normal', display: 'swap', variable: '--font-sans',
+});
+const serif = localFont({
+  src: [
+    { path: './fonts/instrument-serif-latin.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/instrument-serif-italic-latin.woff2', weight: '400', style: 'italic' },
+  ],
+  display: 'swap', variable: '--font-serif',
+});
+const mono = localFont({
+  src: [
+    { path: './fonts/ibm-plex-mono-400-latin.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/ibm-plex-mono-500-latin.woff2', weight: '500', style: 'normal' },
+  ],
+  display: 'swap', variable: '--font-mono',
+});
 
 // 1. Metadata - themeColor er FJERNET herfra (flyttet til viewport)
 export const metadata: Metadata = {
@@ -77,6 +93,7 @@ export default function RootLayout({
         "
       >
         {children}
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

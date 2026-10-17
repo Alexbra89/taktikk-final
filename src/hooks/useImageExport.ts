@@ -10,7 +10,7 @@ import { downloadBlob } from '@/lib/download';
  * Last ned fasen som vises i `svgRef` som PNG. Felles for vanlig brett og
  * fullskjerm; fullskjerm har sin egen fase-indeks, derfor tas den inn.
  */
-export function useImageExport(svgRef: React.RefObject<SVGSVGElement>, phaseIdx: number) {
+export function useImageExport(svgRef: React.RefObject<SVGSVGElement | null>, phaseIdx: number) {
   const teamName = useAppStore(s => s.homeTeamName);
   const tactic   = useActiveTactic();
 

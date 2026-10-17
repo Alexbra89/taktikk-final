@@ -11,9 +11,10 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },
-  swcMinify: true,
+  // Appen bruker ikke next/image. Da trengs ikke bildeoptimaliseringen
+  // (/_next/image), og den svarer 404 i stedet for å stå åpen.
   images: {
-    domains: [], 
+    unoptimized: true,
   },
   // ESLint er en egen sjekk (npm run lint), ikke en del av bygget: en lint-regel
   // skal ikke kunne stoppe en deploy. Typene sjekkes fortsatt av bygget.
@@ -24,12 +25,19 @@ const nextConfig = {
 
 export default withPWA({
   dest: 'public',
+  // Registreringen kjøres av ServiceWorkerRegister i layout.tsx (App Router laster ikke main.js).
   register: true,
   skipWaiting: true,
+  // Ikke last siden på nytt når nettet kommer tilbake: det ville avbrutt
+  // tegning eller video-eksport som er i gang. Standard i next-pwa er true.
+  reloadOnOnline: false,
   disable: process.env.NODE_ENV === 'development',
   // 3D-modellene (ca. 2,3 MB) forhåndslastes ikke for alle; de caches først når 3D åpnes.
   // Cachen under er CacheFirst: en endret modell må få nytt filnavn (spiller-v2.glb osv.).
   publicExcludes: ['!noprecache/**/*', '!models/**/*'],
+  // Next 15 lager dette interne manifestet, men serverer det ikke som en URL.
+  // En 404 i forhåndslageret avbryter hele installasjonen av service workeren.
+  buildExcludes: [/app-build-manifest\.json$/],
   runtimeCaching: [
     {
       urlPattern: /\/models\/[^/?]+\.(?:glb|hdr)$/i,
