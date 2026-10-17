@@ -30,6 +30,15 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('feilloggen', () => {
+  it('skjuler tilgangskoden også når den ligner et teknisk kodenavn', () => {
+    storage.setItem('taktikk:ai-access-code', 'hemmeligkode');
+    const error = new TypeError('hemmeligkode is not a function');
+    error.stack = 'TypeError: hemmeligkode is not a function\n at hemmeligkode (https://app.example/app.js?kode=hemmeligkode:1:2)';
+    logError(error, 'ai');
+    const saved = storage.getItem(ERROR_LOG_KEY)!;
+    expect(saved).not.toContain('hemmeligkode');
+    expect(formatErrorReport(readErrorLog())).not.toContain('hemmeligkode');
+  });
   it('lagrer tidspunkt, versjon, del, melding, kort stack og enhet – og ikke mer', () => {
     logError(new TypeError("Cannot read properties of undefined (reading 'phases')"), 'board');
     const [e] = readErrorLog();

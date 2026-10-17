@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
-import { AI_ACCESS_HEADER, AI_LIMITS } from '@/lib/ai/request';
+import { AI_ACCESS_HEADER, AI_ACCESS_ERROR, AI_LIMITS } from '@/lib/ai/request';
+import { aiRateLimiter } from '@/lib/ai/server/rateLimit';
 import { OPENROUTER_URL } from '@/lib/ai/server/openrouter';
 import { emptyDrill } from '@/lib/customDrills';
 import { ALL_DRILLS } from '@/data/drills';
@@ -8,9 +9,10 @@ import { ALL_DRILLS } from '@/data/drills';
 const KEY = 'sk-or-test-HEMMELIG';
 const CODE = 'riktig-kode';
 
-function call(body: unknown, code: string | null = CODE) {
+function call(body: unknown, code: string | null = CODE, ip?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (code !== null) headers[AI_ACCESS_HEADER] = code;
+  if (ip) headers['x-forwarded-for'] = ip;
   return POST(new Request('http://localhost/api/ai', {
     method: 'POST', headers, body: typeof body === 'string' ? body : JSON.stringify(body),
   }));
@@ -24,6 +26,7 @@ const okProvider = () => vi.fn(async () => new Response(JSON.stringify({
 const general = { mode: 'GENERAL', question: 'Hvordan trener jeg høyt press med 12 spillere?' };
 
 beforeEach(() => {
+  vi.spyOn(aiRateLimiter, 'take').mockReturnValue({ allowed: true, retryAfter: 0 });
   vi.stubEnv('OPENROUTER_API_KEY', KEY);
   vi.stubEnv('AI_MODEL', 'test/model');
   vi.stubEnv('AI_ACCESS_CODE', CODE);
@@ -32,13 +35,43 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('/api/ai – tilgang', () => {
+  it('ekte minneteller i routen stopper kall 31 og teller også feil kode', async () => {
+    vi.mocked(aiRateLimiter.take).mockRestore();
+    const fetchMock = okProvider(); vi.stubGlobal('fetch', fetchMock);
+    for (let i = 0; i < 30; i++) expect((await call(general, CODE, '192.0.2.21')).status).toBe(200);
+    expect((await call(general, CODE, '192.0.2.21')).status).toBe(429);
+    expect(fetchMock).toHaveBeenCalledTimes(30);
+    for (let i = 0; i < 30; i++) expect((await call(general, 'feil', '192.0.2.22')).status).toBe(401);
+    expect((await call(general, CODE, '192.0.2.22')).status).toBe(429);
+    expect(fetchMock).toHaveBeenCalledTimes(30);
+  });
+  it('fartsgrensen avviser før AI-kall og gir ventetid uten å logge koden', async () => {
+    vi.mocked(aiRateLimiter.take).mockReturnValue({ allowed: false, retryAfter: 123 });
+    const fetchMock = okProvider(); vi.stubGlobal('fetch', fetchMock);
+    const res = await call(general);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('123');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect((await res.json()).error).toContain('30 AI-forespørsler per time');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(console.info).not.toHaveBeenCalled();
+  });
+
+  it('ny kode stenger den gamle uten å endre nøkkelen eller logge koder', async () => {
+    vi.stubEnv('AI_ACCESS_CODE', 'ny-kode');
+    vi.stubGlobal('fetch', okProvider());
+    expect((await call(general, CODE)).status).toBe(401);
+    expect(console.info).not.toHaveBeenCalled();
+    expect((await call(general, 'ny-kode')).status).toBe(200);
+    expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toMatch(/riktig-kode|ny-kode|sk-or/);
+  });
   it('uten eller med feil kode: 401, og ingen kall til OpenRouter', async () => {
     const fetchMock = okProvider();
     vi.stubGlobal('fetch', fetchMock);
     for (const code of [null, '', 'feil']) {
       const res = await call(general, code);
       expect(res.status).toBe(401);
-      expect((await res.json()).error).toBe('AI-tilgang mangler eller er feil.');
+      expect((await res.json()).error).toBe(AI_ACCESS_ERROR);
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });

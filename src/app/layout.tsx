@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { ServiceWorkerRegister } from '@/components/layout/ServiceWorkerRegister';
+import { ACCESS_LINK_SCRIPT } from '@/lib/ai/accessCode';
 import './globals.css';
 
 // Samme Kalk-skrifter, lagret i prosjektet: heller ikke byggingen krever nett.
@@ -39,8 +40,11 @@ export const metadata: Metadata = {
     title: 'Taktikkboard',
   },
   icons: {
-    icon: '/icon-192.png',
-    apple: '/icon-192.png',
+    icon: [
+      { url: '/icon.svg?v=pitch-2', type: 'image/svg+xml' },
+      { url: '/favicon-pitch-v2.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
+    ],
+    apple: { url: '/apple-touch-icon-pitch-v2.png', sizes: '180x180' },
   },
 };
 
@@ -67,12 +71,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: ACCESS_LINK_SCRIPT }} />
+        <meta name="referrer" content="no-referrer" />
         {/* PWA / Mobile optimalisering - beholdes for eldre nettlesere */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="format-detection" content="telephone=no" />
-        <meta name="apple-touch-icon" content="/icon-192.png" />
         {/* Kalk-tema settes før første maling, så dagslys ikke blinker mørkt. Nøkkel: useTheme.ts */}
         <script
           dangerouslySetInnerHTML={{

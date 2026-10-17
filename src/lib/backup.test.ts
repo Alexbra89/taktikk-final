@@ -64,6 +64,14 @@ function fillData(count = 4) {
 }
 
 describe('sikkerhetskopi gjennom ekte eksport, JSON og import', () => {
+  it('utelater tilgangskode både ved eksport og lesing av eldre kopier', () => {
+    const settings = { playerStyle: 'chip' as const, aiAccessCode: 'HEMMELIG-KODE' };
+    const backup = buildBackup({ data: s().exportSnapshot(), teamName: 'Lag', theme: null, settings });
+    expect(JSON.stringify(backup)).not.toMatch(/aiAccessCode|HEMMELIG-KODE/);
+    const parsed = parseBackup(JSON.stringify({ ...backup, settings }));
+    expect(parsed.ok).toBe(true);
+    expect(JSON.stringify(parsed)).not.toMatch(/aiAccessCode|HEMMELIG-KODE/);
+  });
   it('beholder også standardtaktikk uten utstyr og et utstyrselement med rotasjon 0', () => {
     const check = () => {
       const before = json(s().exportSnapshot());
@@ -80,7 +88,7 @@ describe('sikkerhetskopi gjennom ekte eksport, JSON og import', () => {
     fillData(count);
     const before = json(s().exportSnapshot());
     const backup = buildBackup({ data: s().exportSnapshot(), teamName: s().homeTeamName, theme: 'light',
-      settings: { playerStyle: 'chip', aiAccessCode: 'min-kode' } });
+      settings: { playerStyle: 'chip' } });
     // Importen skal faktisk erstatte en annen samling, ikke sammenligne mot seg selv.
     useAppStore.setState(initial, true);
     s().markExported(); const deviceExportDate = s().lastExportedAt;
@@ -94,7 +102,7 @@ describe('sikkerhetskopi gjennom ekte eksport, JSON og import', () => {
     expect(s().customDrills.map(d => d.aiGenerated)).toEqual([false, true]);
     expect(s().customDrills[0].steps[0].id).toBe('mitt-steg');
     expect(parsed.backup.theme).toBe('light');
-    expect(parsed.backup.settings).toEqual({ playerStyle: 'chip', aiAccessCode: 'min-kode' });
+    expect(parsed.backup.settings).toEqual({ playerStyle: 'chip' });
     expect(s().lastExportedAt).toBe(deviceExportDate);
     expect(s().matchTimer).toEqual({ running: false, startedAt: null, elapsed: 0 });
     expect(json(s().exportSnapshot())).not.toHaveProperty('lastExportedAt');

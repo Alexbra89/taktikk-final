@@ -40,6 +40,8 @@ export default withPWA({
   // En 404 i forhåndslageret avbryter hele installasjonen av service workeren.
   buildExcludes: [/app-build-manifest\.json$/],
   runtimeCaching: [
+    // Delingslenker med hemmelig kode skal ikke havne i runtime-cachen.
+    { urlPattern: ({ url }) => url.searchParams.has('kode'), handler: 'NetworkOnly' },
     {
       urlPattern: /\/models\/[^/?]+\.(?:glb|hdr)$/i,
       handler: 'CacheFirst',
