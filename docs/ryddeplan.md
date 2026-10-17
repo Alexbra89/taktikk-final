@@ -1,4 +1,4 @@
-Status: ingen oppgaver gjort ennå. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging skal være lokal, ingen ekstern tjeneste.
+Status: oppgave 1 (feilhåndtering) er ferdig, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
 
 
 
@@ -268,7 +268,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 \*\*Hva som mangler\*\*
 
-\- \*\*Ingen error boundaries.\*\* Det finnes ingen `src/app/error.tsx` eller `global-error.tsx`. En kodefeil som oppstår mens en visning tegnes, gir hvit skjerm med Next sin engelske standardtekst. Det gjelder også data som har sluppet forbi reparasjonen.
+\- ~~\*\*Ingen error boundaries.\*\*~~ \*\*Løst i oppgave 1.\*\* Hver hoveddel, 3D-visningen og dialogene har nå sin egen feilskjerm (`components/layout/ErrorBoundary.tsx`), i tillegg til `src/app/error.tsx` og `global-error.tsx`.
 
 \- \*\*Dynamiske importer uten reserveløsning\*\* (`page.tsx:17–30`). Etter en ny versjon kan en gammel service worker eller fane be om en fil som ikke finnes lenger (`ChunkLoadError`). Da blir skjermen hvit. Risikoen øker med `skipWaiting: true`.
 
@@ -288,7 +288,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 
 
-\*\*Logging.\*\* På klienten finnes bare `console.warn` i `safeStorage` og en sjekk som bare kjører under utvikling. På serveren logges bare bruksdata for AI (`route.ts:44`). Krasj som brukerne opplever, oppdager du derfor aldri.
+\*\*Logging.\*\* ~~Krasj som brukerne opplever, oppdager du aldri.~~ \*\*Løst i oppgave 1, lokalt:\*\* `lib/errorLog.ts` lagrer de siste 30 feilene på enheten (også `window.onerror` og `unhandledrejection`). Brukeren kan kopiere rapporten under Innstillinger → Feilrapport og sende den selv. Ingenting sendes automatisk.
 
 
 
@@ -328,7 +328,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 7\. \*\*Ekte berøring:\*\* Playwright kjører bare Desktop Edge med mindre vindu. Det finnes ingen `hasTouch`, ingen WebKit (iPhone) og ingen test av langt trykk for å dra.
 
-8\. \*\*Krasj:\*\* test at en error boundary viser en forståelig melding. Dette kan først gjøres når oppgave 1 er ferdig.
+8\. ~~\*\*Krasj:\*\* test at en error boundary viser en forståelig melding.~~ \*\*Dekket i oppgave 1\*\* (`ErrorBoundary.test.ts`, `errorLog.test.ts` og `e2e/errors.spec.ts`).
 
 9\. Chatpanelet i AI-treneren (`AiCoach`). Selve route-en er testet, panelet er ikke.
 
@@ -372,7 +372,14 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 
 
-1\. \*\*Error boundary.\*\* Lag `app/error.tsx` og `global-error.tsx` med norsk melding og knappene «Last inn på nytt» og «Eksporter backup». Feilen skrives til `console.error`. \*Test:\* en visning som kaster feil med vilje viser meldingen. \*Risiko: lav.\*
+1\. ✅ \*\*FERDIG (17.10.2026): Error boundary og lokal feillogg.\*\* Endret etter ønske: knappene er «Prøv igjen» og «Gå til forsiden» (ikke «Last inn på nytt» og «Eksporter backup»), og feilen lagres i en lokal feillogg i stedet for bare `console.error`.
+   - Feilskjerm «Noe gikk galt i denne delen» rundt Oversikt, Taktikk (2D), 3D, Trening, Kalender, Øvelser, Rapporter, Innstillinger, AI-treneren, Smart Coach, kamprapporten og 2D-fullskjerm, pluss `app/error.tsx` og `app/global-error.tsx`. Resten av appen virker videre.
+   - 3D: uten WebGL 2 (som Three krever) monteres ikke 3D-visningen; feilskjermen foreslår «Bytt til 2D». Feil inne i 3D gir det samme.
+   - Feillogg (`lib/errorLog.ts`, nøkkel `taktikk:error-log`): maks 30, med tidspunkt, appversjon, del, melding, kort stack og nettleser/enhet. Bare kjente tekniske feilmeldinger (fra nettleseren, React og Next) lagres; all annen meldingstekst skjules. Egenskapsnavn fra kjøringen («reading 'Ola'») byttes ut med «…». I stacken fjernes adresser, mappestier, tekst i anførselstegn og e-post. Ligger utenfor storen, og er derfor ikke med i backupen.
+   - Innstillinger → Feilrapport: «Kopier feilrapport» (lesbar tekst) og «Tøm logg».
+   - Data, lagring, 2D og 3D er ikke endret, bare pakket inn.
+   - \*Test:\* `src/lib/errorLog.test.ts`, `src/components/layout/ErrorBoundary.test.ts`, `e2e/errors.spec.ts`.
+   - Gjenstår: feil som 3D selv viser i sin egen melding (f.eks. «mistet forbindelsen til grafikkortet»), kommer ikke i loggen, fordi 3D-koden ikke skulle endres. En visning som ikke kan lastes etter en ny versjon (`ChunkLoadError`) viser nå feilskjermen, men «Prøv igjen» hjelper ikke før siden lastes på nytt. Det er oppgave 4.
 
 2\. \*\*Sikkerhet: oppgrader til Next 15.5.x (siste rettede) og React 19.\*\* Kjør `npm audit` før og etter. Fjern `swcMinify` og vurder `images.unoptimized`. \*Test:\* `npm run build`, Vitest og alle e2e. \*Risiko: middels.\*
 

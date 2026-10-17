@@ -1,9 +1,10 @@
 'use client';
-import React, { useRef, useState } from 'react';
-import { Sun, Moon, Baby, User, Check, AlertTriangle, Download, Upload, Users, Palette, Database, Info } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Sun, Moon, Baby, User, Check, AlertTriangle, Download, Upload, Users, Palette, Database, Info, Bug, Copy, Trash2 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, toggleClass } from '@/lib/formClasses';
+import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, TEXTAREA_CLASS, toggleClass } from '@/lib/formClasses';
 import { buildBackup, backupFilename, parseBackup, describeBackup, downloadJson, type BackupFile } from '@/lib/backup';
+import { readErrorLog, clearErrorLog, formatErrorReport, ERROR_LOG_EVENT, MAX_ERRORS, type ErrorEntry } from '@/lib/errorLog';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/cn';
 import { ViewHeader, Tile, TileHeader } from '@/components/layout/Surface';
@@ -130,6 +131,87 @@ const DataSection: React.FC = () => {
   );
 };
 
+// ─── FEILRAPPORT ─────────────────────────────────────────────
+// De siste feilene ligger lokalt (lib/errorLog.ts), ikke i backupen.
+// Brukeren kopierer rapporten selv og sender den til den som skal hjelpe.
+const ErrorReportSection: React.FC = () => {
+  const [entries, setEntries] = useState<ErrorEntry[]>([]);
+  const [done, setDone] = useState('');
+  const [error, setError] = useState('');
+  const reportRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const update = () => setEntries(readErrorLog());
+    update();
+    window.addEventListener(ERROR_LOG_EVENT, update);
+    return () => window.removeEventListener(ERROR_LOG_EVENT, update);
+  }, []);
+
+  const report = formatErrorReport(entries);
+
+  const copy = async () => {
+    setDone(''); setError('');
+    try {
+      await navigator.clipboard.writeText(report);
+      setDone('Feilrapporten er kopiert. Lim den inn i en e-post eller melding.');
+      return;
+    } catch { /* eldre nettlesere og http: prøv den gamle måten */ }
+    const el = reportRef.current;
+    if (el) {
+      el.closest('details')?.setAttribute('open', '');
+      el.select();
+      try {
+        if (document.execCommand('copy')) { setDone('Feilrapporten er kopiert. Lim den inn i en e-post eller melding.'); return; }
+      } catch { /* faller til meldingen under */ }
+    }
+    setError('Klarte ikke å kopiere. Åpne «Vis rapporten», merk teksten og kopier den selv.');
+  };
+
+  const clear = () => {
+    if (!window.confirm('Tømme feilloggen? Rapporten blir tom.')) return;
+    clearErrorLog();
+    setError('');
+    setDone('Feilloggen er tømt.');
+  };
+
+  const newest = entries[0]
+    ? new Date(entries[0].at).toLocaleString('nb-NO', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  return (
+    <div>
+      <p className="text-body text-ink-muted">
+        Appen noterer de siste {MAX_ERRORS} feilene, bare på denne enheten. Rapporten har tidspunkt, appversjon,
+        hvilken del som feilet og nettleser – ikke taktikker, notater eller navn. Den er ikke med i backupen.
+      </p>
+      <p className="mt-1.5 text-meta text-ink-subtle">
+        {entries.length
+          ? `${entries.length} feil lagret · sist ${newest}`
+          : 'Ingen feil registrert.'}
+      </p>
+
+      <div className="mt-3 flex gap-2">
+        <button onClick={copy} className={`flex-1 ${SECONDARY_BTN}`}>
+          <Copy size={15} strokeWidth={1.75} aria-hidden /> Kopier feilrapport
+        </button>
+        <button onClick={clear} disabled={!entries.length} className={`${SECONDARY_BTN} disabled:opacity-40 disabled:cursor-not-allowed`}>
+          <Trash2 size={15} strokeWidth={1.75} aria-hidden /> Tøm logg
+        </button>
+      </div>
+
+      <details className="mt-2">
+        <summary className="cursor-pointer text-caption text-ink-subtle hover:text-ink">Vis rapporten</summary>
+        <label htmlFor="sett-feilrapport" className="sr-only">Feilrapport</label>
+        <textarea id="sett-feilrapport" ref={reportRef} readOnly value={report} rows={8}
+          className={`${TEXTAREA_CLASS} font-mono`} />
+      </details>
+
+      {error && <p role="alert" className="mt-2 text-caption text-signal">{error}</p>}
+      {done && !error && <p role="status" className="mt-2 text-caption text-ink-muted">{done}</p>}
+    </div>
+  );
+};
+
 export const SettingsView: React.FC = () => {
   const { homeTeamName, setHomeTeamName, ageGroup, setAgeGroup } = useAppStore();
   const { theme, setTheme } = useTheme();
@@ -214,6 +296,11 @@ export const SettingsView: React.FC = () => {
           <Tile aria-label="Data">
             <TileHeader icon={Database} tone="bg-area-calendar/15 text-area-calendar" title="Data og backup" />
             <DataSection />
+          </Tile>
+
+          <Tile aria-label="Feilrapport">
+            <TileHeader icon={Bug} tone="bg-canvas-raised text-ink-muted" title="Feilrapport" subtitle="Lagres bare her, sendes ingen steder" />
+            <ErrorReportSection />
           </Tile>
 
           <Tile aria-label="Om appen" className="md:col-span-2">

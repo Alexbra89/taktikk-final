@@ -12,6 +12,8 @@ import { MobileTopBar, MobileTabBar, MoreSheet } from '@/components/layout/Mobil
 import { ViewHeader } from '@/components/layout/Surface';
 import { VALID_VIEWS, type NavTarget } from '@/components/layout/navigation';
 import { TacticsHeader } from '@/components/board/TacticsHeader';
+import { SectionErrorBoundary } from '@/components/layout/ErrorBoundary';
+import { installGlobalErrorHandlers } from '@/lib/errorLog';
 
 // ─── ALLE DYNAMISKE IMPORTER ─────────────────────────────────
 const TacticBoard = dynamic(() => import('@/components/board/TacticBoard').then(mod => mod.TacticBoard), {
@@ -87,6 +89,9 @@ export default function Home() {
     return () => window.removeEventListener(STORAGE_ERROR_EVENT, onStorageError);
   }, []);
 
+  // Feil som ingen feilskjerm fanger, havner også i den lokale feilloggen, merket med visningen.
+  useEffect(() => installGlobalErrorHandlers(() => useAppStore.getState().currentView), []);
+
   // Et lagret view fra en fjernet fane skal ikke gi blank side.
   useEffect(() => {
     if (!VALID_VIEWS.includes(currentView)) setView('dashboard');
@@ -119,7 +124,15 @@ export default function Home() {
     : 'dashboard';
 
   // ─── VISNINGENE ──────────────────────────────────────────────
-  const renderView = (mobile: boolean) => {
+  // Hver visning har sin egen feilskjerm. key: en ny for hver visning, så en
+  // feil i én del ikke henger igjen når du går til en annen.
+  const renderView = (mobile: boolean) => (
+    <SectionErrorBoundary key={currentView} area={currentView} onHome={() => navigate('dashboard')}>
+      {viewContent(mobile)}
+    </SectionErrorBoundary>
+  );
+
+  const viewContent = (mobile: boolean) => {
     switch (currentView) {
       case 'dashboard':
         return (
@@ -213,7 +226,9 @@ export default function Home() {
             {renderView(false)}
           </main>
           {aiOpen && dockAi && (
-            <AiCoach variant="panel" area={aiArea} trainingId={currentView === 'training' ? openTrainingId : null} onClose={() => setAiOpen(false)} />
+            <SectionErrorBoundary area="ai" overlay onHome={() => { setAiOpen(false); navigate('dashboard'); }}>
+              <AiCoach variant="panel" area={aiArea} trainingId={currentView === 'training' ? openTrainingId : null} onClose={() => setAiOpen(false)} />
+            </SectionErrorBoundary>
           )}
         </div>
       ) : (
@@ -242,13 +257,26 @@ export default function Home() {
           onOpenSmartCoach={() => setShowSmartCoach(true)}
         />
       )}
-      {showSmartCoach && <SmartCoach onClose={() => setShowSmartCoach(false)} />}
-      {aiOpen && !dockAi && (
-        <AiCoach area={aiArea} trainingId={currentView === 'training' ? openTrainingId : null} onClose={() => setAiOpen(false)} />
+      {/* Dialogene og fullskjermen ligger over visningen: feiler de, lukker «Gå til forsiden» dem. */}
+      {showSmartCoach && (
+        <SectionErrorBoundary area="smartcoach" overlay onHome={() => { setShowSmartCoach(false); navigate('dashboard'); }}>
+          <SmartCoach onClose={() => setShowSmartCoach(false)} />
+        </SectionErrorBoundary>
       )}
-      {reportFor && <MatchReportModal initialEventId={reportFor.eventId} onClose={() => setReportFor(null)} />}
+      {aiOpen && !dockAi && (
+        <SectionErrorBoundary area="ai" overlay onHome={() => { setAiOpen(false); navigate('dashboard'); }}>
+          <AiCoach area={aiArea} trainingId={currentView === 'training' ? openTrainingId : null} onClose={() => setAiOpen(false)} />
+        </SectionErrorBoundary>
+      )}
+      {reportFor && (
+        <SectionErrorBoundary area="report" overlay onHome={() => { setReportFor(null); navigate('dashboard'); }}>
+          <MatchReportModal initialEventId={reportFor.eventId} onClose={() => setReportFor(null)} />
+        </SectionErrorBoundary>
+      )}
       {showFullscreenBoard && (
-        <FullscreenBoard onClose={() => setShowFullscreenBoard(false)} interactive />
+        <SectionErrorBoundary area="fullscreen" overlay onHome={() => { setShowFullscreenBoard(false); navigate('dashboard'); }}>
+          <FullscreenBoard onClose={() => setShowFullscreenBoard(false)} interactive />
+        </SectionErrorBoundary>
       )}
     </>
   );

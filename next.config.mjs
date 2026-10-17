@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs';
 import withPWA from 'next-pwa';
 import defaultCache from 'next-pwa/cache.js';
+
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Appversjonen står i den lokale feilrapporten (lib/errorLog.ts).
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+  },
   swcMinify: true,
   images: {
     domains: [], 
