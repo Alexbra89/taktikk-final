@@ -1,3 +1,101 @@
+## Oppgave 6a, rettelse: jevnt 3D-opptak fra fullskjerm (17.10.2026)
+
+Problemet: 3D-opptak fra fullskjerm hakket på PC. En ekte video fra
+brukerens PC (1920 × 1200, H.264, 30 fps, 8,3 s) hadde 249 bilder, men bare
+136 unike: 96 bilder var gjentatt, så reell bildetakt var ca. 15 fps, og
+starten frøs to ganger i ca. 0,25 s. Årsaken var sanntidsopptaket: hvert
+videobilde måtte tegnes i full størrelse mens klokka gikk.
+
+- **Opptaket tar nå opp kamerabanen, ikke bildene.** Mens brukeren ser på
+  og flytter kameraet, noteres kameraets posisjon, mål, retning, projeksjon,
+  zoom og kameravalg per tidspunkt (`components/board/three/cameraTrack.ts`).
+  Det er lett, også på en treg PC. Det levende bildet tegnes av opptaket
+  selv; den vanlige tegnesløyfen står i mellomtiden.
+- **Videoen lages etterpå** med samme motor som vanlig 3D-eksport
+  (`exportVideo3D`, eksakte tidsstempler, ikke sanntid), når brukeren
+  trykker «Stopp opptak» eller avspillingen er ferdig. Hvert videobilde får
+  kameraet fra banen på sitt eksakte tidspunkt; mellom to avlesninger glir
+  kameraet jevnt (posisjon lineært, retning med slerp). Kontrollraden viser
+  «Lager video … 45 %» med «Avbryt». Stopp gir bare den delen som er sett.
+- **Forvarming før klokka starter** («Gjør klar …»): modeller og himmel,
+  tegningene til de første fasene i både video- og visningsscenen,
+  shaderne i videoscenen (ett prøvebilde) og koderen (`warmEncoder` koder
+  ett svart bilde). Det levende bildet venter aldri på en tegning.
+- **Beholdt:** samme utsnitt, kameravinkel, fasepille og fremdriftsstripe,
+  MP4 med H.264 nivå 5.1-støtte, sideforhold som skjermen, 1920 piksler på
+  lengste side. Avbryt (også under «Lager video») gir ingen fil og setter
+  kamera og kameravalg tilbake. Vanlig 3D-eksport bruker samme løkke som før
+  uten kamerabane. 2D-opptak, 2D-data, lagring og pakker er uendret.
+- Sanntidsmodusen (`realtime`, `shouldStop`, `onElapsed`) i `exportVideo3D`
+  er fjernet; den erstattes av `frameCount`. Testen for den gamle modusen
+  er byttet ut med en strengere test (under). Testen for tidlig stopp
+  bruker nå `frameCount`.
+
+Tester som er lagt til:
+
+- `src/lib/exportVideo3D.test.ts`: fullskjerm-3D der det levende bildet
+  bare rekker ca. 14 bilder/s (70 ms per bilde) og hvert videobilde tar
+  250 ms å tegne, mens kameraet roterer hele tiden. Krever 141 bilder med
+  eksakte 30 fps-tidsstempler og minst 95 % unike scenebilder (FNV-hash av
+  det sentrale utsnittet: 25–75 % av bredden og høyden, uten overlegg).
+  I tillegg tester for glidning mellom avlesninger, kameravalg, endepunkter,
+  tidlig stopp og avbryt.
+- `e2e/fullscreen-recording.spec.ts`: ny test med kunstig treg WebGL (hver
+  `clear` venter 30 ms) i 3D-fullskjerm med «Følg ballen» og kamerarotasjon
+  under opptak. MP4-filens tidsskala og bildelengde må gi 30 fps og 141
+  bilder; alle bildene dekodes med `VideoDecoder`, og minst 95 % av bildene
+  i bevegelsesdelen må ha unik hash i samme baneutsnitt, uten fasepille og
+  fremdriftsstripe. Den eksisterende 3D-testen venter nå
+  opptil 45 s på at forvarmingen blir ferdig.
+- Begge tester har en negativ kontroll som gjentar annethvert scenebilde,
+  mens overleggene fortsatt endres. Enhetstesten flytter kameradataene inn
+  i baneutsnittet; nettlesertesten kopierer dekodede bildepiksler før hashing,
+  men beholder den aktuelle fasepillen og fremdriftsstripen. Det samme
+  95 %-kravet må da feile, mens den gamle helbildehashingen fortsatt passerer.
+- **Feilen er også fremprovosert i den ordinære testen:** midlertidig tvunget
+  gjentakelse ga 71/141 unike scenebilder (50,35 %), og
+  `npx vitest --run src/lib/exportVideo3D.test.ts -t 'slow drawing'`
+  avsluttet med kode 1 på kravet om minst 95 %. Mutasjonen er fjernet;
+  den permanente negative kontrollen er beholdt.
+
+| | Før (brukerens PC) | Etter (automatisert kontroll i Edge) |
+| --- | --- | --- |
+| Bildetakt i filen | 30 fps, men reelt ca. 15 | 30 fps, 141 bilder i filen |
+| Unike bilder | 136 av 249 (55 %, hele bildet) | 108 av 108 baneutsnitt i bevegelsesdelen (100 %) |
+| Kunstig gjentakelse | Ikke målt | 55 av 108 baneutsnitt (50,93 %), avvist av samme 95 %-krav |
+| Frys i starten | 2 × ca. 0,25 s | Etterrendering testet; opplevd flyt på brukerens PC må fortsatt prøves |
+| Ventetid | Ingen etter Stopp | «Lager video …» etter opptaket |
+
+**Etterkontroll 17.10.2026:** Alle fem kommandoer er kjørt og avsluttet med kode 0.
+
+| Kommando | Resultat |
+| --- | --- |
+| `npx tsc --noEmit` | Grønn, ingen typefeil |
+| `npx vitest --run` | Grønn, 29 filer / 304 tester, inkludert negativ kontroll |
+| `npm run build` | Grønn; offline-kontrollen bygget også på nytt |
+| `npm run test:e2e -- --workers=1` | Grønn, alle 36 tester |
+| `npm run test:offline` | Grønn, alle 3 produksjonstester |
+
+Etter at den kunstige gjentakelsen i nettlesertesten ble utvidet fra bare
+baneutsnittet til hele bildet utenom HUD-områdene, ble den berørte testen
+kjørt på nytt med `npm run test:e2e -- --workers=1 e2e/fullscreen-recording.spec.ts -g 'unique frames'`:
+grønn, kode 0, 108/108 unike baneutsnitt; negativ kontroll 55/108.
+Kravene til 95 %, 30 fps, antall bilder, stopp og avbryt er beholdt.
+Ingen feil i appkoden ble funnet i disse kjøringene.
+
+Som i tidligere økter måtte de identifiserte testserverne på Windows stoppes
+etter at alle testene var ferdige, før Playwright avsluttet. Varsler om
+Browserslist, webpack-cache og terminalfarger hindret ikke kontrollene.
+Ingen pakker er installert eller endret. Genererte endringer i `public/sw.js`
+og Workbox er tilbakeført og inngår ikke i leveransen. Ingenting er publisert,
+deployet, committet eller pushet.
+
+Manuell kontroll på PC: Åpne Taktikk → 3D → fullskjerm og trykk «Ta opp».
+Etter «Gjør klar …» går opptaket som før; flytt og zoom kameraet. Etter
+siste fase (eller «Stopp opptak») vises «Lager video … %». Filen skal spille
+jevnt hele veien, også i første sekund. Prøv også «Avbryt» under
+«Lager video»: ingen fil, og kameraet står som før opptaket.
+
 ## Oppgave 6a: opptak fra fullskjerm i 2D og 3D (17.10.2026)
 
 - «Ta opp» finnes i fullskjermens kontrollrad i både 2D og 3D, også på
@@ -23,9 +121,10 @@
   og utsnitt. Vanlig videoeksport utenfor fullskjerm beholder sine mål,
   tempo og formatvalg. Å lukke fullskjerm eller legge appen i bakgrunnen
   avbryter opptaket og frigjør ressurser.
-- Sanntidsmodusen i den eksisterende 3D-motoren beholder 30 bilder/s og
+- ~~Sanntidsmodusen i den eksisterende 3D-motoren beholder 30 bilder/s og
   videoens avspillingstid også når telefonen tegner tregt: bildet holdes
-  mens neste bilde lages, uten å fremskynde kamerabevegelsene i filen.
+  mens neste bilde lages.~~ Erstattet: 3D tar nå opp kamerabanen og lager
+  videoen etterpå, se rettelsen øverst.
 - `e2e/fullscreen-recording.spec.ts` bruker liggende mobilstørrelse og
   berøring, og tester avbryt uten nedlasting, fullføring, tidlig stopp,
   dekoding, varighet, sideforhold, bevart 2D-zoom/utsnitt og uendrede
