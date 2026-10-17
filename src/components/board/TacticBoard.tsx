@@ -39,6 +39,7 @@ import { cn } from '../../lib/cn';
 import { Modal } from '../ui';
 import { LABEL_CLASS, TEXTAREA_CLASS, PRIMARY_BTN, SECONDARY_BTN } from '../../lib/formClasses';
 import { Button } from '../ui/Button';
+import { Board3DBoundary } from '../layout/ErrorBoundary';
 
 // Three and the video encoder stay out of the initial 2D bundle.
 const Board3D = dynamic(() => import('./Board3D'), {
@@ -691,7 +692,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
       {/* touchAction none rundt selve banen på mobil – forhindrer at siden scroller
           under drag. Linjene over og under ligger utenfor, så de kan rulles. */}
-      {boardView === '3d' && <Board3D
+      {boardView === '3d' && <Board3DBoundary onSwitchTo2D={() => setBoardView('2d')}><Board3D
         tactic={tactic} players={stagePlayers} ball={displayBall} drawings={phase.drawings ?? []}
         items={shownItems} playerStyle={playerStyle} isPlaying={isPlaying} speed={playSpeed}
         teamName={teamName} isMobile={isMobile}
@@ -704,7 +705,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         // Same clock as 2D; only the height of long passes is added in 3D.
         ballHeight={isPlaying && interpT > 0 && phases[interpFrom + 1]
           ? ballArcHeight(phases[interpFrom].ball, phases[interpFrom + 1].ball, interpT, sport) : 0}
-      />}
+      /></Board3DBoundary>}
       <div className={cn('flex-1 min-h-0 overflow-hidden', boardView === '2d' ? 'flex' : 'hidden')} style={isMobile ? { touchAction: 'none' } : undefined}>
         <div
           ref={zoomCtl.containerRef}
