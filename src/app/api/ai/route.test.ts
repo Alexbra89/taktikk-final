@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 import { AI_ACCESS_HEADER, AI_ACCESS_ERROR, AI_LIMITS } from '@/lib/ai/request';
-import { aiRateLimiter } from '@/lib/ai/server/rateLimit';
+import { AI_RATE_LIMIT, aiRateLimiter } from '@/lib/ai/server/rateLimit';
 import { OPENROUTER_URL } from '@/lib/ai/server/openrouter';
 import { emptyDrill } from '@/lib/customDrills';
 import { ALL_DRILLS } from '@/data/drills';
@@ -52,7 +52,7 @@ describe('/api/ai – tilgang', () => {
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('123');
     expect(res.headers.get('Cache-Control')).toBe('no-store');
-    expect((await res.json()).error).toContain('30 AI-forespørsler per time');
+    expect((await res.json()).error).toContain(`${AI_RATE_LIMIT} AI-forespørsler per time`);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(console.info).not.toHaveBeenCalled();
   });

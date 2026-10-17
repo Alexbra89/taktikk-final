@@ -8,8 +8,8 @@ Status: appikon og enklere, fortsatt beskyttet AI-tilgang er lagt til 17. oktobe
   oppdaterer service workerens innholdshasher automatisk.
 - Koden huskes på enheten og deles mellom begge AI-funksjonene og
   Innstillinger. `?kode=…` lagres og fjernes med `history.replaceState`
-  tidlig i dokumentet. «Glem tilgangskode» og tilgangsstatus finnes i
-  Innstillinger, også på mobil. Koden kontrolleres først ved AI-bruk.
+  tidlig i dokumentet. Tilgangsstatus finnes i Innstillinger, også på mobil.
+  «Glem tilgangskode» er fjernet i oppgave 6. Koden kontrolleres først ved AI-bruk.
 - Ved HTTP 401 fjernes koden, med norsk beskjed om å be treneren om ny
   lenke. HTTP 429 viser norsk forklaring uten å glemme gyldig kode.
 - `/api/ai` har minnebasert grense på 30 forespørsler per rullerende time
@@ -34,7 +34,7 @@ Alle sluttkontroller er grønne, uten ekte AI-kall:
 | `npm run test:offline` | Grønn, alle 3 produksjonstester |
 
 Testene dekker lagret og manuelt skrevet kode, lenke og renset adresse,
-omlasting, deling mellom AI-funksjonene, glem på mobil, feil/byttet kode,
+omlasting, deling mellom AI-funksjonene, tilgangsstatus på mobil, feil/byttet kode,
 fartsgrense uten AI-kall, bevarte data og kode utenfor sikkerhetskopi og
 feillogg. Produksjonstesten bekrefter nye ikonfiler i forhåndslageret og
 uten nett, samt at delingskoden ikke ligger i cachen. De eksisterende
@@ -63,23 +63,24 @@ er tatt ut av leveransen; ikoncache bygges fra kildefilene ved neste bygg.
 - Fjernet `public/file.svg`, `globe.svg`, `next.svg`, `vercel.svg` og
   `window.svg`. Bare den genererte `public/sw.js` refererte til dem som
   forhåndslagrede filer. Appikonet `icon.svg` brukes i manifestet og beholdes.
-- Denne prosjektversjonen har ingen «Glem tilgangskode»-knapp, ingen linje
-  «AI-tilgang er aktiv på denne enheten» og ingen `AI_RATE_LIMIT` eller
-  fartsgrensemelding med tallet 30. Disse endringene kan derfor ikke gjøres
-  som beskrevet uten å legge til ny oppførsel. AI-koden er urørt,
-  inkludert automatisk sletting ved 401 i `AiCoach` og `AiDrillModal`.
+- AI-delen er nå fullført etter at ikon- og tilgangsendringene kom med.
+  Fjernet «Glem tilgangskode» i Innstillinger, men beholdt linjen
+  «AI-tilgang er aktiv på denne enheten» og automatisk sletting av feil
+  kode ved HTTP 401 i `AiCoach` og `AiDrillModal`. Fartsgrensemeldingen
+  bygger nå tallet fra `AI_RATE_LIMIT`, samme konstant som begrenser kallene.
+  Det tidligere avviksnotatet gjaldt prosjektversjonen før AI-endringene.
 - Ny oppgave 6a om opptak fra fullskjerm står rett etter denne oppgaven,
   før oppdelingen av store filer. Ingen store filer er delt opp.
 
-Alle fem kontroller er kjørt og passerer:
+Alle fem kontroller er kjørt på nytt etter fullføring av AI-delen og passerer:
 
 | Kommando | Resultat for oppgave 6 |
 | --- | --- |
 | `npx tsc --noEmit` | Grønn, ingen typefeil |
-| `npx vitest --run` | Grønn, 26 filer / 276 tester |
+| `npx vitest --run` | Grønn, 29 filer / 290 tester |
 | `npm run build` | Grønn |
-| `npm run test:e2e -- --workers=1` | Grønn, 28 tester |
-| `npm run test:offline` | Grønn, 2 produksjonstester med nytt bygg |
+| `npm run test:e2e -- --workers=1` | Grønn, 31 tester |
+| `npm run test:offline` | Grønn, 3 produksjonstester med nytt bygg |
 
 Som tidligere måtte bare testenes egne, identifiserte serverprosesser
 stoppes etter ferdige nettlesertester på Windows. Begge kommandoene
@@ -91,8 +92,8 @@ Den genererte `public/sw.js` er tilbakeført og inngår ikke i leveransen.
 
 Manuell kontroll: åpne appen som vanlig og prøv Øvelser, bane-ikonet ved
 øvelser med skissetekst, 2D, 3D, fullskjerm og videoeksport. Appen skal virke
-som før. AI-avviket ovenfor må avklares mot riktig prosjektversjon før den
-etterspurte tekstendringen kan gjøres.
+som før. I Innstillinger skal aktiv AI-tilgang fortsatt vises, uten
+«Glem tilgangskode». Feil kode skal fortsatt slettes automatisk ved AI-bruk.
 
 ## Oppgave 5: sikkerhetskopi (17.10.2026)
 
@@ -762,7 +763,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 
 
-Ryddedelen av oppgave 6 er gjennomført: bekreftet ubrukt kode og gamle bildefiler er fjernet. Funksjonen som viser bane-ikonet i øvelseslista er beholdt. Opptak fra fullskjerm i 2D og 3D står som ny oppgave 6a før oppdelingen av store filer. AI-endringene som ble etterspurt, viser til kode som ikke finnes i denne prosjektversjonen; avviket er dokumentert øverst sammen med kontrollresultatene.
+Ryddedelen av oppgave 6 er gjennomført: bekreftet ubrukt kode og gamle bildefiler er fjernet. Funksjonen som viser bane-ikonet i øvelseslista er beholdt. Opptak fra fullskjerm i 2D og 3D står som ny oppgave 6a før oppdelingen av store filer. AI-delen er også fullført: glemmeknappen i Innstillinger er fjernet, tilgangsstatus og automatisk sletting ved feil kode er beholdt, og tallet i fartsgrensemeldingen følger den faktiske grensen.
 
 
 

@@ -11,7 +11,7 @@ URL-kodes, for eksempel `+` som `%2B` og `&` som `%26`.
 Mottakeren åpner lenken én gang. Koden huskes på enheten og fjernes fra
 adresselinjen med `history.replaceState` før appen og feilloggen starter.
 Manuell inntasting i AI-treneren eller AI-øvelsesforslag huskes også.
-Innstillinger → AI-tilgang viser status og knappen «Glem tilgangskode».
+Innstillinger → AI-tilgang viser om tilgang er aktiv på enheten.
 Koden kontrolleres først ved bruk av AI; oppstart gjør ingen AI-kall.
 
 Privat nettlesing og slettede nettleserdata kan kreve ny lenke. Ved blokkert
