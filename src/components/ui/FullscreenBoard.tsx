@@ -63,6 +63,27 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         clipX: clip.left - screen.left, clipY: clip.top - screen.top, clipWidth: clip.width, clipHeight: clip.height };
     },
   });
+  const startRecordingRef = useRef<HTMLButtonElement>(null);
+  const stopRecordingRef = useRef<HTMLButtonElement>(null);
+  const wasRecordingRef = useRef(false);
+  useEffect(() => {
+    if (video.busy !== wasRecordingRef.current) {
+      (video.busy ? stopRecordingRef : startRecordingRef).current?.focus();
+      wasRecordingRef.current = video.busy;
+    }
+  }, [video.busy]);
+
+  const { clearError: clearVideoError, clearNotice: clearVideoNotice } = video;
+  const clearNotice = useCallback(() => {
+    clearVideoError();
+    clearVideoNotice();
+  }, [clearVideoError, clearVideoNotice]);
+  useEffect(() => {
+    if (!video.error && !video.notice) return;
+    const timeout = setTimeout(clearNotice, 5000);
+    return () => clearTimeout(timeout);
+  }, [video.error, video.notice, clearNotice]);
+
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const zoomCtl = useBoardZoom(!video.busy);
@@ -328,6 +349,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         showControls || video.busy ? 'opacity-100' : 'opacity-0 pointer-events-none',
       )}>
         <RecordingControls busy={video.busy} seconds={video.seconds} disabled={!video.format || isPlaying}
+          startButtonRef={startRecordingRef} stopButtonRef={stopRecordingRef}
           onStart={() => { cancelDrag(); video.exportVideo(); }} onStop={video.stop} onCancel={video.cancel} />
         <div role="tablist" aria-label="Faser" className="flex items-center gap-1 flex-1 overflow-x-auto no-scrollbar">
           {phases.map((ph: any, idx: number) => {
@@ -425,7 +447,15 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
       {imageExport.error && (
         <ExportError message={imageExport.error} onClose={imageExport.clearError} className="border-b" />
       )}
-      {(video.error || video.notice) && <p role={video.error ? 'alert' : 'status'} className="absolute top-14 right-3 max-w-[65%] rounded-ctl bg-canvas-panel px-3 py-2 text-caption">{video.error || video.notice}</p>}
+      {(video.error || video.notice) && (
+        <div role={video.error ? 'alert' : 'status'} className="absolute top-14 right-3 max-w-[65%] rounded-ctl bg-canvas-panel px-3 py-2 text-caption flex items-start gap-2">
+          <span>{video.error || video.notice}</span>
+          <button type="button" onClick={clearNotice} aria-label="Lukk videobeskjed"
+            className="shrink-0 rounded-ctl focus-ring active:scale-[0.97]">
+            <X size={17} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {!video.format && <p className="px-3 text-caption">Denne nettleseren støtter ikke videoopptak. Prøv nyere Safari, Chrome eller Edge.</p>}
 
       {interactive && drawMode && (
