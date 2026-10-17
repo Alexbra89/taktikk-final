@@ -1,5 +1,4 @@
 'use client';
-import dynamic from 'next/dynamic';
 import React, {
   useRef, useState, useEffect, useCallback, useMemo,
 } from 'react';
@@ -12,8 +11,8 @@ import { DrawToolbar } from './DrawToolbar';
 import { TextLabelModal } from './TextLabelModal';
 import { ExportImageButton, ExportVideoButton, ExportError } from './ExportImage';
 import { ROLE_INFO } from '../../data/roleInfo';
-import { LONG_PRESS, DRAG_THRESH, MAX_UNDO, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM, PITCH_BOX } from './constants';
-import { SvgPos, separatePlayers, nearestSlotPos } from '../../lib/geometry';
+import { DRAG_THRESH, PITCH_BOX } from './constants';
+import { SvgPos } from '../../lib/geometry';
 import { DragGhost } from './svg/DragGhost';
 import { SnapIndicator } from './svg/SnapIndicator';
 import { SvgDefs } from './svg/SvgDefs';
@@ -29,6 +28,10 @@ import { useVideoExport, videoLengthText } from '../../hooks/useVideoExport';
 import { usePlayerStyle } from '../../hooks/usePlayerStyle';
 import { ItemControls } from './ItemControls';
 import { useBoardItems } from '../../hooks/useBoardItems';
+import { useUndoRedo } from '../../hooks/useUndoRedo';
+import { usePhasePlayback, interpolatePlayers, interpolateBall } from '../../hooks/usePhasePlayback';
+import { usePlayerDrag } from '../../hooks/usePlayerDrag';
+import { useSvgCoordinates } from '../../hooks/useSvgCoordinates';
 import { interpolateItems } from '../../lib/exportVideo';
 import { ballArcHeight } from './three/coordinates';
 import {
@@ -36,30 +39,16 @@ import {
   StickyNote, Minus, X, Plus as PlusIcon, Footprints,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Modal } from '../ui';
-import { LABEL_CLASS, TEXTAREA_CLASS, PRIMARY_BTN, SECONDARY_BTN } from '../../lib/formClasses';
 import { Button } from '../ui/Button';
-import { Board3DBoundary } from '../layout/ErrorBoundary';
-
-// Three and the video encoder stay out of the initial 2D bundle.
-const Board3D = dynamic(() => import('./Board3D'), {
-  ssr: false,
-  loading: () => <div role="status" className="flex-1 flex items-center justify-center text-caption text-ink-subtle">Laster 3D-visning …</div>,
-});
-
-// Hopper over nye tegninger så lenge `hold` er sann. Brukes på det skjulte
-// 2D-brettet under 3D-avspilling: klokka og fasen ligger i TacticBoard, så
-// brettet tegnes med gjeldende tilstand straks det vises igjen eller
-// avspillingen stopper.
-const HoldWhileHidden = React.memo(
-  function HoldWhileHidden({ children }: { hold: boolean; children: React.ReactNode }) { return <>{children}</>; },
-  (_prev, next) => next.hold,
-);
+import { PhaseNoteModal } from './PhaseNoteModal';
+import { Board3DSlot, HoldWhileHidden } from './Board3DSlot';
 
 // ══════════════════════════════════════════════════════════════
 //  TACTIC BOARD – KALK
 //  Banen er helten: én linje over (taktikk + formasjon) og én under
 //  (faser, angre, tegn, avspilling). Alt annet ligger i BoardPanel.
+//  Dra/bytte, angre, avspilling, koordinater, notat og 3D-plassen
+//  ligger i egne filer; her settes de sammen med verktøylinjene.
 // ══════════════════════════════════════════════════════════════
 
 interface TacticBoardProps {
@@ -68,71 +57,6 @@ interface TacticBoardProps {
   /** Vises som knapp i linja over banen når den er satt (desktop). */
   onFullscreen?:    () => void;
 }
-
-interface ActiveDrag {
-  playerId:       string;
-  pointerId:      number;
-  startClientX:   number;
-  startClientY:   number;
-  started:        boolean;
-  longPressReady: boolean;
-  isTouch:        boolean;
-}
-
-interface GhostPos { x: number; y: number; scaleIn: boolean }
-
-/**
- * Én handling som kan angres. Et bytte flytter to spillere og må angres
- * samlet – ellers går bare den ene tilbake, og de havner oppå hverandre.
- */
-interface UndoEntry {
-  moves: { playerId: string; prevPos: { x: number; y: number } }[];
-}
-
-// ══════════════════════════════════════════════════════════════
-//  NOTAT FOR FASEN – lå tidligere i BoardPanel. Ligger nå på verktøy-
-//  linja sammen med fasene, fordi notatet hører til fasen man står i.
-// ══════════════════════════════════════════════════════════════
-const PhaseNoteModal: React.FC<{
-  phaseName: string;
-  note: string;
-  onSave: (note: string) => void;
-  onClose: () => void;
-}> = ({ phaseName, note, onSave, onClose }) => {
-  const [draft, setDraft] = useState(note);
-
-  const save = () => { onSave(draft); onClose(); };
-
-  return (
-    <Modal
-      onClose={onClose}
-      size="sm"
-      title={<span className="font-serif text-[1.5rem] leading-tight">Notat</span>}
-      subtitle={<span className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">{phaseName}</span>}
-      footer={
-        <div className="flex gap-2">
-          <button onClick={save} className={`flex-1 ${PRIMARY_BTN}`}>Lagre</button>
-          {note && (
-            <button onClick={() => { onSave(''); onClose(); }} className={SECONDARY_BTN}>
-              Tøm
-            </button>
-          )}
-        </div>
-      }
-    >
-      <label className={LABEL_CLASS} htmlFor="fase-notat">Hva skal spillerne huske?</label>
-      <textarea
-        id="fase-notat"
-        autoFocus
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        rows={5}
-        placeholder="F.eks. Hold linja høy til ballen er vunnet."
-        className={TEXTAREA_CLASS}
-      />
-    </Modal>
-  );
-};
 
 // ══════════════════════════════════════════════════════════════
 //  HOVED-KOMPONENT
@@ -152,31 +76,11 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   useEffect(() => { setIsMounted(true); }, []);
 
   const svgRef        = useRef<SVGSVGElement>(null);
-  const timerRef      = useRef<ReturnType<typeof setInterval>|null>(null);
-  const playRef       = useRef({ from:0, t:0 });
-  const spacingDebRef = useRef<ReturnType<typeof setTimeout>|null>(null);
-  const longPressRef  = useRef<ReturnType<typeof setTimeout>|null>(null);
-  const rafRef        = useRef<number|null>(null);
-  const undoStack     = useRef<UndoEntry[]>([]);
-  const redoStack     = useRef<UndoEntry[]>([]);
 
-  const lastClientRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const activeDragRef = useRef<ActiveDrag|null>(null);
-
-  const [ghostPos,         setGhostPos]         = useState<GhostPos|null>(null);
-  const [snapTarget,       setSnapTarget]        = useState<SvgPos|null>(null);
-  const [dragOverId,       setDragOverId]        = useState<string|null>(null);
-  const [draggingPlayerId, setDraggingPlayerId]  = useState<string|null>(null);
-  const [bounceId,         setBounceId]          = useState<string|null>(null);
   const [drawMode,         setDrawMode]          = useState(false);
-  const [isPlaying,        setIsPlaying]         = useState(false);
   const [playSpeed,        setPlaySpeed]         = useState(1);
-  const [interpFrom,       setInterpFrom]        = useState(0);
-  const [interpT,          setInterpT]           = useState(0);
   const [showPanel,        setShowPanel]         = useState(false);
   const [showNote,         setShowNote]          = useState(false);
-  const [undoDepth,        setUndoDepth]         = useState(0);
-  const [redoDepth,        setRedoDepth]         = useState(0);
   const [boardView, setBoardView] = useState<'2d' | '3d'>('2d');
   const teamName = useAppStore(s => s.homeTeamName);
 
@@ -191,6 +95,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const tactic = useActiveTactic();
   const { sport, formation, phases, activePhaseIdx } = tactic;
   const phase = phases[activePhaseIdx] ?? null;
+
+  const {
+    isPlaying, interpFrom, interpT, startPlayback, stopPlayback,
+  } = usePhasePlayback(phases, playSpeed, setActivePhaseIdx);
 
   const { isMobile } = useViewport();
   const zoomCtl = useBoardZoom();
@@ -208,175 +116,39 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const gestureRef = useRef({ isGesturing: false, spaceHeld: false });
   gestureRef.current = { isGesturing: zoomCtl.isGesturing, spaceHeld: zoomCtl.spaceHeld };
 
-
-  const clamp = useCallback((v:number,lo:number,hi:number) => Math.max(lo,Math.min(hi,v)), []);
-  const clampToPitch = useCallback((x:number, y:number): SvgPos => ({
-    x: clamp(x, CLAMP_X, VW - CLAMP_X),
-    y: clamp(y, CLAMP_Y_TOP, VH - CLAMP_Y_BOTTOM),
-  }), [clamp]);
+  // Pekerposisjon → banekoordinater (se useSvgCoordinates).
+  const { toSVGRaw, toSVG, clampToPitch } = useSvgCoordinates(svgRef);
 
   // Slotene i aktiv formasjon: brukes til snapping når en spiller dras.
   const currentHomePlayers = useMemo(() => getFormationSlots(sport, formation), [sport, formation]);
 
-  useEffect(() => {
-    if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
-  }, [tactic.id, activePhaseIdx]);
-
-  useEffect(() => () => {
-    if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
-    if (longPressRef.current)  clearTimeout(longPressRef.current);
-    if (rafRef.current)        cancelAnimationFrame(rafRef.current);
-    if (timerRef.current)      clearInterval(timerRef.current);
-  }, []);
-
-  // Stablene ligger i refs (de skal ikke utløse ny tegning under drag), men
-  // knappene må vite om det finnes noe å angre. Dybden speiles derfor i state.
-  const syncDepths = useCallback(() => {
-    setUndoDepth(undoStack.current.length);
-    setRedoDepth(redoStack.current.length);
-  }, []);
-
-  const pushUndo = useCallback((e:UndoEntry) => {
-    undoStack.current = [...undoStack.current.slice(-MAX_UNDO+1), e];
-    redoStack.current = [];
-    syncDepths();
-  }, [syncDepths]);
-
-  /** Flytter alle spillerne i øverste oppføring tilbake, og legger stillingen nå på den andre stakken. */
-  const restore = useCallback((from: React.MutableRefObject<UndoEntry[]>, to: React.MutableRefObject<UndoEntry[]>) => {
-    const e = from.current.pop();
-    if (e && phase) {
-      const moves = e.moves.flatMap(m => {
-        const p = phase.players.find(pl => pl.id === m.playerId);
-        return p ? [{ m, now: { ...p.position } }] : [];
-      });
-      if (moves.length) {
-        to.current.push({ moves: moves.map(({ m, now }) => ({ playerId: m.playerId, prevPos: now })) });
-        moves.forEach(({ m }) => movePlayer(m.playerId, m.prevPos));
-      }
-    }
-    syncDepths();
-  }, [phase, movePlayer, syncDepths]);
-
-  const doUndo = useCallback(() => restore(undoStack, redoStack), [restore]);
-  const doRedo = useCallback(() => restore(redoStack, undoStack), [restore]);
-
-  useEffect(() => {
-    const h = (e:KeyboardEvent) => {
-      if (boardView === '3d') return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
-      if ((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey) { e.preventDefault(); doUndo(); }
-      if ((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))) { e.preventDefault(); doRedo(); }
-    };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [doUndo, doRedo, boardView]);
-
-  const startPlayback = useCallback(() => {
-    if (phases.length < 2) return;
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
-    playRef.current = { from:0, t:0 };
-    setInterpFrom(0); setInterpT(0); setActivePhaseIdx(0); setIsPlaying(true);
-    timerRef.current = setInterval(() => {
-      playRef.current.t += 0.025 * playSpeed;
-      if (playRef.current.t >= 1) {
-        const next = playRef.current.from + 1;
-        if (next >= phases.length - 1) {
-          clearInterval(timerRef.current!); timerRef.current=null;
-          setIsPlaying(false); setActivePhaseIdx(phases.length-1); setInterpT(0); return;
-        }
-        playRef.current.from=next; playRef.current.t=0;
-        setInterpFrom(next); setInterpT(0); setActivePhaseIdx(next);
-      } else {
-        setInterpT(playRef.current.t); setInterpFrom(playRef.current.from);
-      }
-    }, 30);
-  }, [phases, playSpeed, setActivePhaseIdx]);
-
-  const stopPlayback = useCallback(() => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
-    setIsPlaying(false); setInterpT(0);
-  }, []);
+  const {
+    undoDepth, redoDepth, pushUndo, doUndo, doRedo, resetHistory,
+  } = useUndoRedo(phase, movePlayer, boardView === '3d');
 
   // Angre/gjør om gjelder bare fasen spilleren ble flyttet i: nullstilles når taktikk, fase,
   // formasjon eller sport byttes, slik at «angre» aldri flytter en spiller i feil fase.
   useEffect(() => {
-    undoStack.current = [];
-    redoStack.current = [];
-    syncDepths();
+    resetHistory();
     // Zoomen følger samme regime: den beskriver hvor du står i én fase,
     // ikke noe som skal henge igjen når brettet bytter innhold.
     zoomResetRef.current();
-  }, [tactic.id, activePhaseIdx, formation, sport, syncDepths]);
+  }, [tactic.id, activePhaseIdx, formation, sport, resetHistory]);
 
   // Formasjon, sport eller taktikk kan byttes utenfra (Controls/faner) mens avspilling pågår.
   useEffect(() => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setIsPlaying(false); setInterpT(0);
-  }, [tactic.id, formation, sport]);
+    stopPlayback();
+  }, [tactic.id, formation, sport, stopPlayback]);
 
   const getDisplayPlayers = useCallback((): Player[] => {
     if (!phase) return [];
-    if (!isPlaying || interpT===0) return phase.players;
-    const from = phases[interpFrom], to = phases[Math.min(interpFrom+1,phases.length-1)];
-    if (!from||!to) return phase.players;
-    return from.players.map(fp => {
-      const tp = to.players.find(p=>p.id===fp.id); if (!tp) return fp;
-      return { ...fp, position:{
-        x: fp.position.x + (tp.position.x - fp.position.x) * interpT,
-        y: fp.position.y + (tp.position.y - fp.position.y) * interpT,
-      }};
-    });
+    return interpolatePlayers(phase, phases, interpFrom, interpT, isPlaying);
   }, [phase, phases, interpFrom, interpT, isPlaying]);
 
   const getDisplayBall = useCallback((): SvgPos => {
     if (!phase) return { x:VW/2, y:VH/2 };
-    if (!isPlaying||interpT===0) return phase.ball;
-    const from=phases[interpFrom], to=phases[Math.min(interpFrom+1,phases.length-1)];
-    if (!from||!to) return phase.ball;
-    return {
-      x: from.ball.x + (to.ball.x - from.ball.x) * interpT,
-      y: from.ball.y + (to.ball.y - from.ball.y) * interpT,
-    };
+    return interpolateBall(phase, phases, interpFrom, interpT, isPlaying);
   }, [phase, phases, interpFrom, interpT, isPlaying]);
-
-  // ─── toSVG med letter-box-korreksjon ──────────────────────────
-  // Må speile <svg preserveAspectRatio="xMidYMid meet"> nøyaktig (letterbox, skala=min).
-  // Banen vises alltid i sin helhet: med faner, kontroller og verktøylinje rundt blir
-  // brettet lavt i liggende format, og "slice" (skala=max) ville beskåret vinger og backer.
-  const toSVGRaw = useCallback((cx: number, cy: number): SvgPos => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-
-    const rect = svg.getBoundingClientRect();
-    const rectW = rect.width;
-    const rectH = rect.height;
-
-    const scaleX = rectW / VW;
-    const scaleY = rectH / VH;
-    const scale  = Math.min(scaleX, scaleY);
-
-    const renderedW = VW * scale;
-    const renderedH = VH * scale;
-
-    // Sentrert offset (xMidYMid)
-    const offsetX = (rectW - renderedW) / 2;
-    const offsetY = (rectH - renderedH) / 2;
-
-    // Klientkoordinater relativt til SVG-rektangelet
-    const localX = cx - rect.left - offsetX;
-    const localY = cy - rect.top  - offsetY;
-
-    return { x: (localX / renderedW) * VW, y: (localY / renderedH) * VH };
-  }, []);
-
-  // Det meste skal holde seg innenfor banen. Rotasjonshåndtaket bruker den
-  // rå posisjonen, så vinkelen blir riktig også når pekeren er utenfor.
-  const toSVG = useCallback((cx: number, cy: number): SvgPos => {
-    const p = toSVGRaw(cx, cy);
-    return clampToPitch(p.x, p.y);
-  }, [toSVGRaw, clampToPitch]);
 
   // Utstyret: kjegler, motstandere osv. Samme logikk som i fullskjerm.
   const items = useBoardItems({
@@ -400,174 +172,25 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   const videoExport = useVideoExport();
   const [playerStyle] = usePlayerStyle();
 
-  const findPlayerAt = useCallback((sx:number, sy:number, excludeId?:string): Player|null => {
-    let best:Player|null=null, bestD=54;
-    for (const p of (phase?.players??[])) {
-      if (p.id===excludeId) continue;
-      const d = Math.hypot(p.position.x - sx, p.position.y - sy);
-      if (d<bestD) { bestD=d; best=p; }
-    }
-    return best;
-  }, [phase]);
-
-  const scheduleSpacing = useCallback((movedId:string) => {
-    if (spacingDebRef.current) clearTimeout(spacingDebRef.current);
-    spacingDebRef.current = setTimeout(() => {
-      if (!phase) return;
-      const others = phase.players.filter(p=>p.id!==movedId);
-      const pts    = others.map(p=>({x:p.position.x,y:p.position.y}));
-      const sep    = separatePlayers(pts);
-      sep.forEach((sp,i) => {
-        const o=others[i]; if (!o) return;
-        if (Math.abs(sp.x-o.position.x)>1||Math.abs(sp.y-o.position.y)>1)
-          movePlayer(o.id, {x:sp.x,y:sp.y});
-      });
-    }, 200);
-  }, [phase, movePlayer]);
-
-  const swapPlayers = useCallback((aId:string, bId:string) => {
-    if (!phase) return;
-    const a=phase.players.find(p=>p.id===aId), b=phase.players.find(p=>p.id===bId);
-    if (!a||!b) return;
-    pushUndo({ moves: [
-      { playerId:aId, prevPos:{...a.position} },
-      { playerId:bId, prevPos:{...b.position} },
-    ] });
-    const [ap,bp] = [{...a.position},{...b.position}];
-    movePlayer(aId, bp);
-    movePlayer(bId, ap);
-    setBounceId(bId); setTimeout(()=>setBounceId(null),400);
-  }, [phase, movePlayer, pushUndo]);
-
-  const resolveDrop = useCallback((
-    draggedId:string,
-    targetId:string|undefined,
-    svgX:number, svgY:number,
-  ) => {
-    if (!phase) return;
-    const dragged = phase.players.find(p=>p.id===draggedId); if (!dragged) return;
-    const target  = targetId ? phase.players.find(p=>p.id===targetId) : null;
-
-    if (target && target.id !== dragged.id) {
-      swapPlayers(dragged.id, target.id);
-      return;
-    }
-
-    let pos: SvgPos = clampToPitch(svgX, svgY);
-    const snap = nearestSlotPos(pos, currentHomePlayers);
-    if (snap) pos = snap;
-
-    pushUndo({ moves: [{ playerId:dragged.id, prevPos:{...dragged.position} }] });
-    movePlayer(dragged.id, pos);
-    scheduleSpacing(dragged.id);
-    setBounceId(dragged.id); setTimeout(()=>setBounceId(null),400);
-  }, [phase, swapPlayers, currentHomePlayers, pushUndo, movePlayer, scheduleSpacing, clampToPitch]);
-
-  const startDrag = useCallback((
-    e: React.PointerEvent, playerId:string,
-  ) => {
-    if (isPlaying||drawMode) return;
-    // Knipebevegelse eller panorering eier pekeren – ikke start et drag.
-    if (gestureRef.current.isGesturing || gestureRef.current.spaceHeld) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    lastClientRef.current = { x: e.clientX, y: e.clientY };
-
-    const isTouch = e.pointerType !== 'mouse';
-    activeDragRef.current = {
-      playerId, pointerId:e.pointerId,
-      startClientX:e.clientX, startClientY:e.clientY,
-      started:false, longPressReady:!isTouch,
-      isTouch,
-    };
-
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
-
-    if (isTouch) {
-      if (longPressRef.current) clearTimeout(longPressRef.current);
-      longPressRef.current = setTimeout(() => {
-        if (activeDragRef.current?.playerId===playerId)
-          activeDragRef.current.longPressReady = true;
-      }, LONG_PRESS);
-    }
-  }, [isPlaying, drawMode, phase]);
-
-  const moveDrag = useCallback((e: React.PointerEvent) => {
-    const ad = activeDragRef.current;
-    if (!ad) return;
-    if (gestureRef.current.isGesturing) return;
-    e.preventDefault();
-
-    lastClientRef.current = { x: e.clientX, y: e.clientY };
-
-    const moved = Math.hypot(e.clientX - ad.startClientX, e.clientY - ad.startClientY);
-
-    if (!ad.started) {
-      if (moved > DRAG_THRESH && ad.longPressReady) {
-        ad.started = true;
-        setDraggingPlayerId(ad.playerId);
-        const sp = toSVG(e.clientX, e.clientY);
-        setGhostPos({ x:sp.x, y:sp.y, scaleIn:true });
-        setTimeout(()=>setGhostPos(s=>s?{...s,scaleIn:false}:null), 160);
-      }
-      return;
-    }
-
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    const cx = e.clientX, cy = e.clientY;
-    rafRef.current = requestAnimationFrame(() => {
-      const sp   = toSVG(cx, cy);
-      const snap = nearestSlotPos(sp, currentHomePlayers);
-      setSnapTarget(snap);
-      setGhostPos(s => s ? { ...s, x: snap ? snap.x : sp.x, y: snap ? snap.y : sp.y } : null);
-      const near = findPlayerAt(sp.x, sp.y, ad.playerId);
-      setDragOverId(near?.id ?? null);
-    });
-  }, [toSVG, currentHomePlayers, findPlayerAt]);
-
-  const endDrag = useCallback((e: React.PointerEvent) => {
-    const ad = activeDragRef.current;
-    if (!ad) return;
-    e.preventDefault();
-
-    if (longPressRef.current) clearTimeout(longPressRef.current);
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current=null; }
-
-    const wasDragging = ad.started;
-    const targetId    = dragOverId;
-
-    activeDragRef.current = null;
-    setGhostPos(null);
-    setDragOverId(null);
-    setDraggingPlayerId(null);
-    setSnapTarget(null);
-
-    if (!wasDragging) {
-      stableOnSelectPlayer(selectedPlayerId === ad.playerId ? null : ad.playerId);
-      return;
-    }
-    if (!phase) return;
-
-    const finalPos = toSVG(lastClientRef.current.x, lastClientRef.current.y);
-    resolveDrop(ad.playerId, targetId ?? undefined, finalPos.x, finalPos.y);
-  }, [dragOverId, phase, selectedPlayerId, resolveDrop, stableOnSelectPlayer, toSVG]);
+  // Dra og bytte av spillere (se usePlayerDrag).
+  const {
+    ghostPos, snapTarget, dragOverId, draggingPlayerId, bounceId,
+    startDrag, moveDrag, endDrag, cancelPlayerDrag,
+  } = usePlayerDrag({
+    phase, tacticId: tactic.id, activePhaseIdx, isPlaying, drawMode, gestureRef,
+    toSVG, clampToPitch, currentHomePlayers, movePlayer, pushUndo,
+    selectedPlayerId, onSelectPlayer: stableOnSelectPlayer,
+  });
 
   /** Avbryter et pågående spillerdrag uten å flytte noe. Brukes når en
    *  andre finger lander: da er dette en knipebevegelse, ikke et drag. */
   const cancelDrag = useCallback(() => {
-    if (longPressRef.current) clearTimeout(longPressRef.current);
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-    activeDragRef.current = null;
-    setGhostPos(null);
-    setDragOverId(null);
-    setDraggingPlayerId(null);
-    setSnapTarget(null);
+    cancelPlayerDrag();
     // Utstyr som dras slippes der det sto.
     itemsCancel();
     // Også en påbegynt strek skal forkastes, ikke lagres halvferdig.
     drawCancel();
-  }, [drawCancel, itemsCancel]);
+  }, [cancelPlayerDrag, drawCancel, itemsCancel]);
 
   const onZoomPtrDown = useCallback((e: React.PointerEvent) => {
     if (zoomCtl.onPointerDown(e)) cancelDrag();
@@ -692,7 +315,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
       {/* touchAction none rundt selve banen på mobil – forhindrer at siden scroller
           under drag. Linjene over og under ligger utenfor, så de kan rulles. */}
-      {boardView === '3d' && <Board3DBoundary onSwitchTo2D={() => setBoardView('2d')}><Board3D
+      {boardView === '3d' && <Board3DSlot onSwitchTo2D={() => setBoardView('2d')}
         tactic={tactic} players={stagePlayers} ball={displayBall} drawings={phase.drawings ?? []}
         items={shownItems} playerStyle={playerStyle} isPlaying={isPlaying} speed={playSpeed}
         teamName={teamName} isMobile={isMobile}
@@ -705,7 +328,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         // Same clock as 2D; only the height of long passes is added in 3D.
         ballHeight={isPlaying && interpT > 0 && phases[interpFrom + 1]
           ? ballArcHeight(phases[interpFrom].ball, phases[interpFrom + 1].ball, interpT, sport) : 0}
-      /></Board3DBoundary>}
+      />}
       <div className={cn('flex-1 min-h-0 overflow-hidden', boardView === '2d' ? 'flex' : 'hidden')} style={isMobile ? { touchAction: 'none' } : undefined}>
         <div
           ref={zoomCtl.containerRef}
