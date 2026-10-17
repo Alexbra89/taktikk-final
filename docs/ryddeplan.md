@@ -1,3 +1,71 @@
+## Oppgave 17–19: oppdeling av BoardScene (17.10.2026) – ferdig
+
+Den eksisterende 3D-motoren er beholdt og delt etter planen. Ingen pakker,
+tester eller brukere av `BoardScene` er endret. `Board3D.tsx`, vanlig
+videoeksport og fullskjermopptak bruker samme klasse og importsti som før.
+Alle nye kildefiler har en kort ansvarskommentar øverst.
+
+| Fil i `src/components/board/three/` | Linjer før → etter | Ansvar |
+| --- | --- | --- |
+| `BoardScene.ts` | 780 → 287 | Setter sammen modulene; beholder konstruktør, lasting, scenedata, bevegelse, tegning, størrelse og oppryddingsrekkefølge. |
+| `resourcePool.ts` | Ny → 46 | Geometri, materialer, teksturer, enkle former/linjer og frigjøring av delte ressurser. |
+| `pitchBuilder.ts` | Ny → 102 | Gress, banestreker, mål/nett og tribuner. |
+| `equipment.ts` | Ny → 57 | Bygging av ekstra spillere og treningsutstyr. |
+| `figures.ts` | Ny → 153 | Figurtype, figurer/drakter, frigjøring, animasjon og bygging av ballen. |
+| `hud.ts` | Ny → 62 | Fasepille og fremdriftslinje med plassering, tegning og frigjøring. |
+| `drawingLayer.ts` | Ny → 88 | Tegningsplan, asynkron teksturlasting, mellomlager og tekstetiketter. |
+| `cameraRig.ts` | Ny → 152 | Kameratyper, valg, zoom, tilstand/posering, følgepunkt, grenser og innramming. |
+
+**Tilpasninger til forslaget:** `CameraPose` flyttes sammen med de andre
+kameratypene; alle tre eksporteres fortsatt fra `BoardScene.ts`.
+`equipment.ts` er en byggfunksjon, mens modulene med egen tilstand er klasser.
+`BoardScene` beholder 287 linjer, fremfor anslaget på rundt 200, for å la
+samspillet mellom lasting, faseoppdatering, objektbevegelse, kamerabane og
+opprydding stå samlet. Ballens bevegelige kontaktskygge blir ved bevegelsen.
+Delte ressurser, mellomlagergrenser, shaderkode, kamera-/animasjonsberegninger,
+objektrekkefølge i scenen og frigjøringsrekkefølge er beholdt.
+Kameramodulen deler den eksisterende midlertidige vektoren med ballbevegelsen.
+HUD og kamera beholder referansen til samme `SceneFrame`.
+
+**Ekstra kontroll av ren flytting:** Alle 34 opprinnelige metodekropper er
+sammenlignet med TypeScript-parseren etter normalisering av modulhenvisninger
+og utvidelse av delegerte kall. De er syntaktisk identiske. TypeScript bekrefter
+samme konstruktørsignatur og alle 19 offentlige medlemmer med samme typer og
+`readonly`-egenskaper. `pitchFitDistance` gir nøyaktig samme resultat i 144
+kombinasjoner av sport, sideforhold, synsfelt og kameraretning. Denne separate
+kontrollen erstatter planens foreslåtte nye enhetstest, slik at testfilene og
+testantallet er uendret. Midlertidige kontrollskript inngår ikke i leveransen.
+
+| Kommando | Før | Etter |
+| --- | --- | --- |
+| `npx tsc --noEmit` | Grønn, kode 0 | Grønn, kode 0 |
+| `npx vitest --run` | 29 filer / 304 tester, kode 0 | 29 filer / 304 tester, kode 0 |
+| `npm run build` | Grønn, kode 0 | Grønn, kode 0 |
+| `npm run test:e2e -- --workers=1` | 36 tester, kode 0 | 36 tester, kode 0 |
+| `npm run test:offline` | 3 tester, kode 0 | 3 tester, kode 0 |
+
+Førkjøringene ble fullført før kildekoden ble flyttet. Alle fem kontroller er
+grønne både før og etter, med samme testantall. Offline-kontrollen bygget også
+produksjonsversjonen på nytt i begge kjøringene.
+
+`board3d.spec.ts`, `pitch-depth.spec.ts`, MP4-/WebM-videoeksport og
+fullskjermopptak (inkludert stopp/avbryt) er grønne før og etter.
+Fullskjermtesten med treg tegning ga 108/108 unike baneutsnitt i begge
+kjøringene; den negative kontrollen ga 55/108 og ble avvist som forventet.
+På Windows ble bare testenes identifiserte Next-servere stoppet etter at
+testtilfellene var ferdige, slik at Playwright kunne avslutte. Alle fire
+nettleserkommandoer før/etter avsluttet med kode 0. Varsler om Browserslist og
+terminalfarger hindret ikke kontrollene.
+
+Manuell prøve: Åpne appen lokalt som før, velg Taktikk → 3D og prøv kameravalg,
+rotasjon og zoom. Eksporter MP4/WebM og prøv fullskjermopptak med stopp og
+avbryt. Bytt tilbake til 2D og kontroller at taktikken er bevart.
+
+Et kort filkart for feilsøking er lagt til i [AGENTS.md](../AGENTS.md).
+Ingen feil er rettet som del av oppdelingen. Ingen nye pakker eller endringer
+i låsefiler, og ingen genererte filer inngår. Ingenting er publisert,
+deployet, committet eller pushet.
+
 ## Oppgave 7: PWA-byggefiler ut av Git (17.10.2026) – delvis, venter på terminal
 
 - `.gitignore` har nå en egen next-pwa-blokk for `public/sw.js`,
@@ -566,7 +634,7 @@ Ingen funn er avvist.
 
 | 8 | `src/data/drills/cardio.ts` | 798 | Kondisjonsøvelser (data) |
 
-| 9 | `src/components/board/three/BoardScene.ts` | 768 | 3D-motoren (three.js): bane, figurer, utstyr, kamera, HUD og opprydding |
+| 9 | `src/components/board/three/BoardScene.ts` | 780 → 287 | 3D-motoren er delt opp; se oppgave 17–19 øverst og filkartet i AGENTS.md |
 
 | 10 | `src/data/drills/keeper.ts` | 766 | Keeperøvelser (data) |
 
@@ -580,7 +648,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 
 
-\*\*BoardScene.ts (768).\*\* Flyttes til egne filer i `components/board/three/`:
+**BoardScene.ts (780 før → 287 etter, oppdeling gjennomført 17.10.2026).** Opprinnelig forslag følger; linjehenvisningene nedenfor gjelder den eldre filen på 768 linjer. Faktisk oppdeling og kontroller står i oppgave 17–19 øverst. Flyttet til egne filer i `components/board/three/`:
 
 \- `resourcePool.ts`: `geo/mat/box/sphere/lines`, sporing av eide materialer og teksturer, og opprydding av dem (`:219–248`, deler av `:756–767`).
 
@@ -938,11 +1006,11 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 16\. \*\*Skill ut `store/tacticModel.ts`, `reportText.ts` og `types.ts`.\*\* \*Risiko: lav–middels.\*
 
-17\. \*\*BoardScene trinn 1:\*\* `resourcePool.ts`, `pitchBuilder.ts` og `equipment.ts`. \*Test:\* `board3d` og `pitch-depth`. \*Risiko: lav–middels.\*
+17. **Gjennomført 17.10.2026: BoardScene trinn 1.** `resourcePool.ts`, `pitchBuilder.ts` og `equipment.ts`. Kontroller og linjetall før/etter står øverst.
 
-18\. \*\*BoardScene trinn 2:\*\* `figures.ts`, `hud.ts` og `drawingLayer.ts`. \*Test:\* som trinn 1, pluss videoeksport. \*Risiko: middels.\*
+18. **Gjennomført 17.10.2026: BoardScene trinn 2.** `figures.ts`, `hud.ts` og `drawingLayer.ts`. Kontroller og linjetall før/etter står øverst.
 
-19\. \*\*BoardScene trinn 3:\*\* `cameraRig.ts`, med enhetstest for `pitchFitDistance`. \*Risiko: middels.\*
+19. **Gjennomført 17.10.2026: BoardScene trinn 3.** `cameraRig.ts`; `pitchFitDistance` er sammenlignet direkte før/etter i 144 tilfeller, uten å endre testantallet. Kontroller og begrunnelse står øverst.
 
 20\. \*\*Del opp TrainingView\*\* som beskrevet i del 2. Krever oppgave 10. \*Risiko: middels.\*
 
