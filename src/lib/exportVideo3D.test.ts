@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { chooseEncoder, exportVideo3D } from './exportVideo3D';
 import { downloadBlob } from './download';
+import { cameraAt, recordCameraTrack } from '@/components/board/three/cameraTrack';
+import { exportDuration } from '@/components/board/three/coordinates';
 vi.mock('./download', () => ({ downloadBlob: vi.fn(), slugify: (s: string) => s }));
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
@@ -65,25 +67,31 @@ describe('3D encoding capability fallback', () => {
 describe('offline frame scheduling', () => {
   const pixels = { width: 1280, height: 720, data: new Uint8ClampedArray(1280 * 720 * 4) } as ImageData;
   function fakeEncoder() {
-    const timestamps: number[] = [];
+    const timestamps: number[] = [], hashes: number[] = [];
     let closed = false;
     vi.stubGlobal('VideoFrame', class {
-      timestamp: number;
-      constructor(_: unknown, options: VideoFrameInit) { this.timestamp = options.timestamp!; }
+      timestamp: number; hash: number;
+      constructor(data: Uint8ClampedArray, options: VideoFrameInit) {
+        this.timestamp = options.timestamp!;
+        // FNV-1a over the pixels, so tests can count unique video frames.
+        let hash = 0x811c9dc5;
+        for (let i = 0; i < data.length; i++) hash = Math.imul(hash ^ data[i], 0x01000193);
+        this.hash = hash >>> 0;
+      }
       close() {}
     });
     vi.stubGlobal('VideoEncoder', class {
       state = 'configured'; encodeQueueSize = 0;
       constructor(private callbacks: VideoEncoderInit) {}
       configure() {}
-      encode(frame: VideoFrame) {
-        timestamps.push(frame.timestamp);
+      encode(frame: VideoFrame & { hash: number }) {
+        timestamps.push(frame.timestamp); hashes.push(frame.hash);
         this.callbacks.output({ timestamp: frame.timestamp, byteLength: 4, type: 'key', copyTo: (d: Uint8Array) => d.set([0, 0, 0, 0]) } as unknown as EncodedVideoChunk, {});
       }
       async flush() {}
       close() { this.state = 'closed'; closed = true; }
     });
-    return { timestamps, closed: () => closed };
+    return { timestamps, hashes, closed: () => closed };
   }
   const choice = { config: { codec: 'vp8', width: 1280, height: 720 }, ext: 'webm' as const, label: 'WebM' };
   it('assigns exact frame timestamps even when rendering takes variable time', async () => {
@@ -107,22 +115,80 @@ describe('offline frame scheduling', () => {
     expect(encoder.timestamps).toHaveLength(2); expect(downloadBlob).not.toHaveBeenCalled(); expect(encoder.closed()).toBe(true);
   });
   it('finishes a stopped recording with only the recorded frames', async () => {
-    const encoder = fakeEncoder(); let stop = false;
+    const encoder = fakeEncoder(); const drawn: number[] = [];
     await exportVideo3D({ choice, phaseCount: 3, speed: 1, team: '', tactic: '', signal: new AbortController().signal,
-      onProgress: vi.fn(), shouldStop: () => stop,
-      draw: async (_, i) => { if (i === 4) stop = true; return pixels; },
+      onProgress: vi.fn(), frameCount: 5, draw: async (_, i) => { drawn.push(i); return pixels; },
     });
-    expect(encoder.timestamps).toHaveLength(5); expect(downloadBlob).toHaveBeenCalledOnce(); expect(encoder.closed()).toBe(true);
+    expect(encoder.timestamps).toHaveLength(5); expect(drawn).toEqual([0, 1, 2, 3, 4]);
+    expect(downloadBlob).toHaveBeenCalledOnce(); expect(encoder.closed()).toBe(true);
   });
-  it('holds slow live frames without speeding up playback or camera gestures in the file', async () => {
-    const encoder = fakeEncoder(); let now = 0, draws = 0;
+
+  it('fullscreen 3D: 30 fps with ≥ 95 % unique frames while the camera moves, also when drawing is slow', async () => {
+    const encoder = fakeEncoder(); let now = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const small = { width: 64, height: 36, data: new Uint8ClampedArray(64 * 36 * 4) } as ImageData;
+    // The user orbits the camera through the whole recording.
+    const orbit = (time: number) => {
+      const angle = time / 1000;
+      return {
+        state: { view: 'overview' as const, playerId: '', position: [Math.sin(angle) * 60, 40, Math.cos(angle) * 60], target: [0, 0, 0], manual: true, zoom: 1, anchor: null },
+        pose: { position: [Math.sin(angle) * 60, 40, Math.cos(angle) * 60], quaternion: [0, Math.sin(angle / 2), 0, Math.cos(angle / 2)], projection: Array.from({ length: 16 }, (_, i) => i % 5 ? 0 : 1) },
+      };
+    };
+    try {
+      // Live: a slow PC draws only about 14 frames per second (70 ms each).
+      const { track, durationMs } = await recordCameraTrack({
+        durationMs: exportDuration(4, 1), signal: new AbortController().signal, shouldStop: () => false,
+        show: time => { now += 70; return orbit(time); },
+      });
+      expect(track.length).toBeLessThan(75);
+      // Afterwards: each video frame takes 250 ms to draw, and the result is still exact.
+      await exportVideo3D({ choice, phaseCount: 4, speed: 1, team: '', tactic: '', signal: new AbortController().signal,
+        onProgress: vi.fn(), frameCount: Math.ceil(durationMs * 30 / 1000 - 1e-6),
+        draw: async (_, index) => {
+          now += 250;
+          // A frame's pixels are a function of the camera it is drawn with.
+          const pose = cameraAt(track, index * 1000 / 30).pose;
+          new Float32Array(small.data.buffer).set([...pose.position, ...pose.quaternion]);
+          return small;
+        },
+      });
+    } finally { clock.mockRestore(); }
+    // 0.5 + 3 × 1.2 + 0.6 seconds at exactly 30 frames per second.
+    expect(encoder.timestamps).toHaveLength(141);
+    encoder.timestamps.forEach((timestamp, i) => expect(timestamp).toBe(Math.round(i * 1e6 / 30)));
+    expect(new Set(encoder.hashes).size / encoder.hashes.length).toBeGreaterThanOrEqual(.95);
+    expect(downloadBlob).toHaveBeenCalledOnce(); expect(encoder.closed()).toBe(true);
+  });
+});
+
+describe('fullscreen camera path', () => {
+  const sample = (time: number, x: number, turn: number, view: 'overview' | 'top' = 'overview') => ({
+    time,
+    state: { view, playerId: 'p1', position: [x, 10, 0], target: [x, 0, 0], manual: false, zoom: 1, anchor: null },
+    pose: { position: [x, 10, 0], quaternion: [0, Math.sin(turn / 2), 0, Math.cos(turn / 2)], projection: new Array(16).fill(1) },
+  });
+  it('glides between slow live readings and holds the ends', () => {
+    const track = [sample(0, 0, 0), sample(100, 10, Math.PI / 2, 'top'), sample(200, 10, Math.PI / 2, 'top')];
+    const middle = cameraAt(track, 50);
+    expect(middle.pose.position[0]).toBeCloseTo(5); expect(middle.state.target[0]).toBeCloseTo(5);
+    // Halfway through a quarter turn is an eighth turn, still a unit quaternion.
+    expect(middle.pose.quaternion[1]).toBeCloseTo(Math.sin(Math.PI / 8));
+    expect(Math.hypot(...middle.pose.quaternion)).toBeCloseTo(1);
+    // Camera choice switches at the reading where it changed.
+    expect(middle.state.view).toBe('overview'); expect(cameraAt(track, 150).state.view).toBe('top');
+    expect(cameraAt(track, -5).pose.position[0]).toBe(0); expect(cameraAt(track, 900).pose.position[0]).toBe(10);
+  });
+  it('stops early with what was shown, and cancels without a path', async () => {
+    let now = 0, shown = 0;
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
     try {
-      await exportVideo3D({ choice, phaseCount: 2, speed: 3, team: '', tactic: '', signal: new AbortController().signal,
-        realtime: true, onProgress: vi.fn(), draw: async () => { draws++; now += 250; return pixels; },
-      });
-      expect(draws).toBeLessThan(10); expect(encoder.timestamps).toHaveLength(45);
-      encoder.timestamps.forEach((timestamp, i) => expect(timestamp).toBe(Math.round(i * 1e6 / 30)));
+      const stopped = await recordCameraTrack({ durationMs: 4700, signal: new AbortController().signal,
+        shouldStop: () => shown === 20, show: time => { shown++; now += 50; return sample(time, 0, 0); } });
+      expect(stopped.track).toHaveLength(20); expect(stopped.durationMs).toBe(950);
+      const abort = new AbortController();
+      await expect(recordCameraTrack({ durationMs: 4700, signal: abort.signal, shouldStop: () => false,
+        show: time => { now += 50; if (time > 300) abort.abort(); return sample(time, 0, 0); } })).rejects.toThrow();
     } finally { clock.mockRestore(); }
   });
 });

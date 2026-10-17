@@ -34,6 +34,30 @@ export async function chooseEncoder(lowPower = false, size?: { width: number; he
 
 const yieldToBrowser = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 
+/**
+ * Starts the (often hardware) encoder once before a fullscreen recording, so
+ * driver start-up is done before the recording clock starts. Only a warm-up:
+ * real encoder errors are reported by exportVideo3D.
+ */
+export async function warmEncoder(choice: EncoderChoice) {
+  if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') return;
+  const { width, height } = choice.config;
+  let encoder: VideoEncoder | undefined;
+  try {
+    encoder = new VideoEncoder({ output() {}, error() {} });
+    encoder.configure(choice.config);
+    const frame = new VideoFrame(new Uint8ClampedArray(width * height * 4), { format: 'RGBA', codedWidth: width, codedHeight: height, timestamp: 0 });
+    try { encoder.encode(frame, { keyFrame: true }); } finally { frame.close(); }
+    await encoder.flush();
+  } catch { /* The export itself configures a fresh encoder. */ }
+  finally { if (encoder && encoder.state !== 'closed') encoder.close(); }
+}
+
+/**
+ * Renders every frame at its exact time, however long each takes, so the file
+ * always plays at an even 30 frames per second. Fullscreen recordings come here
+ * too, after the live camera path has been recorded (cameraTrack.ts).
+ */
 export async function exportVideo3D(options: {
   choice: EncoderChoice;
   phaseCount: number;
@@ -44,10 +68,8 @@ export async function exportVideo3D(options: {
   onProgress: (value: number) => void;
   /** Called once per frame, in order; may take arbitrarily long. */
   draw: (elapsedMs: number, index: number) => Promise<ImageData>;
-  /** Fullscreen recording remains interactive; standard export is still offline. */
-  realtime?: boolean;
-  shouldStop?: () => boolean;
-  onElapsed?: (seconds: number) => void;
+  /** Fewer frames than the whole tactic, e.g. a fullscreen recording stopped early. */
+  frameCount?: number;
 }) {
   const { choice, signal } = options;
   signal.throwIfAborted();
@@ -73,46 +95,25 @@ export async function exportVideo3D(options: {
   signal.addEventListener('abort', cancel, { once: true });
   try {
     encoder.configure(choice.config);
-    const count = Math.ceil(exportDuration(options.phaseCount, options.speed) * VIDEO_FPS / 1000);
-    const started = performance.now();
-    let recorded = 0;
+    const whole = Math.ceil(exportDuration(options.phaseCount, options.speed) * VIDEO_FPS / 1000);
+    const count = Math.min(whole, Math.max(1, options.frameCount ?? whole));
     for (let i = 0; i < count; i++) {
       check();
-      if (i > 0 && options.shouldStop?.()) break;
-      if (options.realtime) {
-        const delay = i * 1000 / VIDEO_FPS - (performance.now() - started);
-        if (delay > 0) await new Promise<void>(resolve => {
-          const done = () => { clearTimeout(timer); signal.removeEventListener('abort', done); resolve(); };
-          const timer = setTimeout(done, delay); signal.addEventListener('abort', done, { once: true });
-        });
-        check();
-        if (i > 0 && options.shouldStop?.()) break;
-      }
       const pixels = await options.draw(Math.max(0, i * 1000 / VIDEO_FPS - VIDEO_LEAD_MS), i);
       check();
-      // On slow phones hold the displayed frame for the slots spent rendering it.
-      // The next draw catches up to wall time, so gestures and playback do not
-      // get sped up in the file. Offline exports still render every single slot.
-      const end = options.realtime ? Math.min(count, Math.max(i + 1, Math.floor((performance.now() - started) * VIDEO_FPS / 1000) + 1)) : i + 1;
-      for (; i < end; i++) {
-        check();
-        const timestamp = Math.round(i * 1e6 / VIDEO_FPS);
-        // CPU pixels avoid stale/black GPU snapshots on some H.264 drivers.
-        const frame = new VideoFrame(pixels.data, {
-          format: 'RGBA', codedWidth: pixels.width, codedHeight: pixels.height,
-          timestamp, duration: Math.round((i + 1) * 1e6 / VIDEO_FPS) - timestamp,
-        });
-        try { encoder.encode(frame, { keyFrame: i % (VIDEO_FPS * 2) === 0 }); } finally { frame.close(); }
-        recorded++;
-        if (encoder.encodeQueueSize >= 4) await encoder.flush();
-      }
-      i--;
-      options.onElapsed?.(recorded / VIDEO_FPS);
+      const timestamp = Math.round(i * 1e6 / VIDEO_FPS);
+      // CPU pixels avoid stale/black GPU snapshots on some H.264 drivers.
+      const frame = new VideoFrame(pixels.data, {
+        format: 'RGBA', codedWidth: pixels.width, codedHeight: pixels.height,
+        timestamp, duration: Math.round((i + 1) * 1e6 / VIDEO_FPS) - timestamp,
+      });
+      try { encoder.encode(frame, { keyFrame: i % (VIDEO_FPS * 2) === 0 }); } finally { frame.close(); }
+      if (encoder.encodeQueueSize >= 4) await encoder.flush();
       options.onProgress((i + 1) / count * .98);
       await yieldToBrowser();
     }
     await encoder.flush(); check();
-    if (samples.length !== recorded) throw new Error('Ikke alle videobildene ble kodet. Prøv igjen med en annen nettleser.');
+    if (samples.length !== count) throw new Error('Ikke alle videobildene ble kodet. Prøv igjen med en annen nettleser.');
     const { width, height } = choice.config;
     const blob = choice.ext === 'mp4'
       ? muxMp4(samples, description ?? new Uint8Array(), width, height, VIDEO_FPS)

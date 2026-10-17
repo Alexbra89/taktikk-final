@@ -4,9 +4,10 @@ import { Maximize2, Minimize2, Minus, Pause, Play, Plus, RotateCcw, SkipBack, Sk
 import { Button, IconButton } from '../ui/Button';
 import { cn } from '@/lib/cn';
 import { BoardScene, type CameraView, type SceneFrame } from './three/BoardScene';
-import { PITCHES, playbackBallHeight, playbackFrame } from './three/coordinates';
-import { chooseEncoder, exportVideo3D, type EncoderChoice } from '@/lib/exportVideo3D';
-import { VIDEO_PHASE_MS, fullscreenVideoSize } from '@/lib/exportVideo';
+import { PITCHES, exportDuration, playbackBallHeight, playbackFrame } from './three/coordinates';
+import { cameraAt, recordCameraTrack, type CameraSample } from './three/cameraTrack';
+import { chooseEncoder, exportVideo3D, warmEncoder, type EncoderChoice } from '@/lib/exportVideo3D';
+import { VIDEO_FPS, VIDEO_LEAD_MS, VIDEO_PHASE_MS, fullscreenVideoSize } from '@/lib/exportVideo';
 import { RecordingControls } from './RecordingControls';
 import { getSlot, SPORT_LABELS } from '@/store/selectors';
 import { ROLE_INFO } from '@/data/roleInfo';
@@ -62,6 +63,9 @@ export default function Board3D(props: Props) {
   const abort = useRef<AbortController | null>(null);
   const recording = useRef(false);
   const stopped = useRef(false);
+  /** The recording draws the live view itself, then the video gets the GPU alone. */
+  const livePaused = useRef(false);
+  const [recordStage, setRecordStage] = useState<'preparing' | 'recording' | 'rendering' | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordingPhase, setRecordingPhase] = useState<number | null>(null);
   const [view, setView] = useState<CameraView>('overview');
@@ -124,7 +128,7 @@ export default function Board3D(props: Props) {
     const render = (now: number) => {
       if (!active) return;
       raf = requestAnimationFrame(render);
-      if (document.hidden || (lowPower && now - last < 32)) return;
+      if (document.hidden || livePaused.current || (lowPower && now - last < 32)) return;
       board.render(Math.min(.1, (now - last) / 1000)); last = now;
     };
     const lost = (event: Event) => { event.preventDefault(); setReady(false); setError('3D mistet forbindelsen til grafikkortet. Bytt til 2D og åpne 3D igjen.'); abort.current?.abort(); };
@@ -256,6 +260,7 @@ export default function Board3D(props: Props) {
     if (!scene.current || !choice || abort.current) return;
     const controller = new AbortController(); abort.current = controller;
     recording.current = fromFullscreen; stopped.current = false; setRecordingSeconds(0);
+    setRecordStage(fromFullscreen ? 'preparing' : null);
     const live = scene.current;
     const initialCamera = live.cameraState();
     const hidden = () => { if (document.hidden && fromFullscreen) controller.abort(); };
@@ -265,11 +270,14 @@ export default function Board3D(props: Props) {
     try {
       // Isolated scene and immutable snapshot: exporting never moves or seeks the board.
       const snapshot = structuredClone(props.tactic);
+      const speed = props.speed;
       const camera = scene.current.cameraState();
       const size = fromFullscreen ? fullscreenVideoSize(host.current!.clientWidth, host.current!.clientHeight) : null;
       const selectedChoice = size ? await chooseEncoder(false, size) : choice;
       controller.signal.throwIfAborted();
       if (!selectedChoice) throw new Error('Nettleseren støtter ikke opptak i denne skjermstørrelsen. Prøv en annen nettleser.');
+      // The encoder starts up while models and sky load, before any clock runs.
+      const encoderWarm = fromFullscreen ? warmEncoder(selectedChoice) : Promise.resolve();
       exporter = new BoardScene(snapshot.sport, props.playerStyle, lowPower, true);
       const board = exporter;
       board.resize(selectedChoice.config.width, selectedChoice.config.height, 1);
@@ -282,37 +290,71 @@ export default function Board3D(props: Props) {
       board.controls.enabled = false;
       await board.assetsReady;
       controller.signal.throwIfAborted();
-      const first = snapshot.phases[0];
-      await board.setDrawings(first.drawings ?? []);
-      board.setFrame({ phaseName: first.name || 'Fase 1', stickyNote: first.stickyNote, players: first.players.map(p => ({ ...p, label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family })), ball: first.ball, items: first.items ?? [], drawings: first.drawings }, false);
+      /** The same frame for the live preview and the video, `elapsed` ms into playback. */
+      const frameAt = (elapsed: number) => {
+        const f = playbackFrame(snapshot.phases, elapsed, speed);
+        const drawings = snapshot.phases[f.fromIdx].drawings ?? [];
+        const frame: SceneFrame = { ...f, drawings, phaseName: snapshot.phases[f.fromIdx].name || `Fase ${f.fromIdx + 1}`, stickyNote: snapshot.phases[f.fromIdx].stickyNote,
+          progress: snapshot.phases.length > 1 ? Math.min(1, elapsed * speed / ((snapshot.phases.length - 1) * VIDEO_PHASE_MS)) : null,
+          ballHeight: playbackBallHeight(snapshot.phases, elapsed, speed, snapshot.sport), players: f.players.map(p => ({
+          id: p.id, num: p.num, name: p.name.trim(), position: p.position,
+          label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
+        })) };
+        return { frame, drawings, phase: f.fromIdx };
+      };
+      const first = frameAt(0);
+      await board.setDrawings(first.drawings);
+      controller.signal.throwIfAborted();
+      board.setFrame(first.frame, false);
       board.restoreCamera(camera);
+      let track: CameraSample[] | null = null, frameCount: number | undefined;
+      if (fromFullscreen) {
+        // Warm-up: decode the first phases' drawings (the earliest last, so the
+        // bounded caches keep them), compile the video's shaders and wait for the
+        // encoder. Otherwise the first second could freeze.
+        const early = snapshot.phases.slice(0, 3).reverse().map(phase => phase.drawings ?? []);
+        await Promise.all([encoderWarm, ...early.flatMap(drawings => [board.prepareDrawings(drawings), live.prepareDrawings(drawings)])]);
+        controller.signal.throwIfAborted();
+        await Promise.all([board.setDrawings(first.drawings), live.setDrawings(first.drawings)]);
+        controller.signal.throwIfAborted();
+        board.render(0, true);
+        // Live: only the camera path is recorded, which is cheap even on a slow PC.
+        livePaused.current = true; setRecordStage('recording');
+        const recorded = await recordCameraTrack({
+          durationMs: exportDuration(snapshot.phases.length, speed), signal: controller.signal,
+          shouldStop: () => stopped.current, onElapsed: setRecordingSeconds,
+          show: (time, dt, index) => {
+            const { frame, drawings, phase } = frameAt(Math.max(0, time - VIDEO_LEAD_MS));
+            // Prepared above; the live view never waits for a drawing layer.
+            live.setDrawings(drawings).catch(() => {});
+            live.setFrame(frame, index > 0);
+            live.render(dt);
+            setRecordingPhase(phase);
+            return { state: live.cameraState(), pose: live.cameraPose() };
+          },
+        });
+        track = recorded.track;
+        frameCount = Math.ceil(recorded.durationMs * VIDEO_FPS / 1000 - 1e-6);
+        // The video is made next; the live board shows the tactic as before meanwhile.
+        live.setFrame(sceneFrame(latest.current), false);
+        await live.setDrawings(latest.current.drawings, latest.current.trails);
+        controller.signal.throwIfAborted();
+        live.render(0); setRecordingPhase(null);
+        setProgress(0); setRecordStage('rendering');
+      }
+      const path = track;
       await exportVideo3D({
-        choice: selectedChoice, phaseCount: snapshot.phases.length, speed: props.speed, team: props.teamName, tactic: snapshot.name,
-        signal: controller.signal, onProgress: setProgress,
-        realtime: fromFullscreen, shouldStop: () => stopped.current, onElapsed: setRecordingSeconds,
+        choice: selectedChoice, phaseCount: snapshot.phases.length, speed, team: props.teamName, tactic: snapshot.name,
+        signal: controller.signal, onProgress: setProgress, frameCount,
         draw: async (elapsed, index) => {
-          const f = playbackFrame(snapshot.phases, elapsed, props.speed);
-          const drawings = snapshot.phases[f.fromIdx].drawings ?? [];
+          const { frame, drawings } = frameAt(elapsed);
           await board.setDrawings(drawings);
           controller.signal.throwIfAborted();
-          const frame: SceneFrame = { ...f, drawings, phaseName: snapshot.phases[f.fromIdx].name || `Fase ${f.fromIdx + 1}`, stickyNote: snapshot.phases[f.fromIdx].stickyNote,
-            progress: snapshot.phases.length > 1 ? Math.min(1, elapsed * props.speed / ((snapshot.phases.length - 1) * VIDEO_PHASE_MS)) : null,
-            ballHeight: playbackBallHeight(snapshot.phases, elapsed, props.speed, snapshot.sport), players: f.players.map(p => ({
-            id: p.id, num: p.num, name: p.name.trim(), position: p.position,
-            label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
-          })) };
           board.setFrame(frame, index > 0);
-          if (fromFullscreen) {
-            await live.setDrawings(drawings);
-            controller.signal.throwIfAborted();
-            live.setFrame(frame, index > 0);
-            // RAF normally advances the live camera; render once here as well so the
-            // recorded frame and preview have the same phase and follow target.
-            live.render(1 / 30);
-            board.restoreCamera(live.cameraState());
-            setRecordingPhase(f.fromIdx);
-          }
-          board.render(1 / 30, index === 0, fromFullscreen ? live.camera : undefined);
+          // Fullscreen: the recorded live camera path at this frame's exact time.
+          const sample = path ? cameraAt(path, index * 1000 / VIDEO_FPS) : null;
+          if (sample) board.restoreCamera(sample.state);
+          board.render(1 / 30, index === 0, sample?.pose);
           gl.readPixels(0, 0, pixels.width, pixels.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
           // WebGL's origin is bottom-left; VideoFrame's is top-left.
           for (let y = 0; y < Math.floor(pixels.height / 2); y++) {
@@ -342,8 +384,8 @@ export default function Board3D(props: Props) {
           }
         }
       } finally {
-        exporter?.dispose(); abort.current = null; recording.current = false;
-        setRecordingPhase(null); setProgress(null);
+        exporter?.dispose(); abort.current = null; recording.current = false; livePaused.current = false;
+        setRecordingPhase(null); setProgress(null); setRecordStage(null);
       }
     }
   };
@@ -389,6 +431,7 @@ export default function Board3D(props: Props) {
         {!ready && !error && <p role="status" className="absolute inset-0 flex items-center justify-center text-caption text-ink-muted">Laster 3D-banen …</p>}
         {fullscreen && <div role="group" aria-label="Kontroller" className={cn('board3d-fsbar no-scrollbar', !controlsShown && !recording.current && 'is-hidden')}>
           <RecordingControls busy={recording.current} seconds={recordingSeconds} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.isPlaying}
+            preparing={recordStage === 'preparing'} progress={recordStage === 'rendering' ? progress : null}
             onStart={() => exportVideo(true)} onStop={() => { stopped.current = true; }} onCancel={() => abort.current?.abort()} />
           <select aria-label="Fase" className="board3d-fsselect" value={recordingPhase ?? phaseIdx} disabled={props.isPlaying || recording.current}
             onChange={e => props.onSelectPhase(Number(e.target.value))}>

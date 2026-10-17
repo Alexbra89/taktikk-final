@@ -38,6 +38,8 @@ export interface CameraState {
   /** The followed ground point, so a manual follow angle survives into the export. */
   anchor: number[] | null;
 }
+/** The camera exactly as drawn, so a fullscreen recording can replay the live view. */
+export interface CameraPose { position: number[]; quaternion: number[]; projection: number[] }
 interface Figure {
   group: THREE.Group;
   limbs: THREE.Group[];
@@ -621,6 +623,9 @@ export class BoardScene {
       manual: this.manual, zoom: this.zoomFactor, anchor: this.anchorKnown ? this.anchor.toArray() : null,
     };
   }
+  cameraPose(): CameraPose {
+    return { position: this.camera.position.toArray(), quaternion: this.camera.quaternion.toArray(), projection: this.camera.projectionMatrix.toArray() };
+  }
   restoreCamera(state: CameraState) {
     this.view = state.view; this.playerId = state.playerId; this.manual = state.manual; this.zoomFactor = state.zoom;
     this.camera.position.fromArray(state.position); this.controls.target.fromArray(state.target); this.controls.update();
@@ -735,7 +740,7 @@ export class BoardScene {
     jog.time = f.cycle * jogTime; run.time = (f.cycle + this.sprintPhase) % 1 * runTime;
     f.mixer.update(this.reducedMotion && !this.exportMode ? 0 : dt);
   }
-  render(dt: number, snap = false, liveCamera?: THREE.PerspectiveCamera) {
+  render(dt: number, snap = false, pose?: CameraPose) {
     this.advance(dt, snap);
     this.figures.forEach(f => {
       const delta = Math.atan2(Math.sin(f.heading - f.group.rotation.y), Math.cos(f.heading - f.group.rotation.y));
@@ -747,11 +752,11 @@ export class BoardScene {
       f.group.visible = true;
     });
     this.updateCamera(dt, snap);
-    // Fullscreen exports use the live camera after its orbit/follow update.
-    if (liveCamera) {
-      this.camera.position.copy(liveCamera.position); this.camera.quaternion.copy(liveCamera.quaternion);
-      this.camera.projectionMatrix.copy(liveCamera.projectionMatrix);
-      this.camera.projectionMatrixInverse.copy(liveCamera.projectionMatrixInverse);
+    // Fullscreen recordings follow the live camera's recorded path (cameraTrack.ts).
+    if (pose) {
+      this.camera.position.fromArray(pose.position); this.camera.quaternion.fromArray(pose.quaternion);
+      this.camera.projectionMatrix.fromArray(pose.projection);
+      this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
       this.camera.updateMatrixWorld();
     }
     // In Spillerperspektiv the camera sits in the player's head; hide that figure once there.

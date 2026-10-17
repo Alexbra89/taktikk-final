@@ -2,19 +2,26 @@
 import React from 'react';
 
 /** Kept outside the SVG/WebGL renderers, so controls never enter the video. */
-export function RecordingControls({ busy, seconds, disabled, onStart, onStop, onCancel, startButtonRef, stopButtonRef }: {
+export function RecordingControls({ busy, seconds, disabled, onStart, onStop, onCancel, startButtonRef, stopButtonRef, preparing, progress }: {
   busy: boolean; seconds: number; disabled?: boolean;
   onStart: () => void; onStop: () => void; onCancel: () => void;
   startButtonRef?: React.Ref<HTMLButtonElement>; stopButtonRef?: React.Ref<HTMLButtonElement>;
+  /** 3D: models, drawings and encoder are warmed up before the clock starts. */
+  preparing?: boolean;
+  /** 3D: the video is rendered after the live recording; 0–1. */
+  progress?: number | null;
 }) {
   const button = 'shrink-0 min-h-[40px] px-3 rounded-ctl text-caption font-semibold shadow-hair focus-ring active:scale-[0.97] disabled:opacity-40';
+  const rendering = progress != null;
   return <div role="group" aria-label="Videoopptak" className="sticky left-0 z-10 flex shrink-0 items-center gap-2 rounded-ctl bg-canvas-panel px-1">
     {busy ? <>
-      <span role="status" aria-label="Opptak pågår" className="inline-flex items-center gap-1.5 whitespace-nowrap text-caption tabular-nums">
-        <span aria-hidden className="h-2 w-2 rounded-full bg-red-500" />
-        {Math.floor(seconds / 60)}:{String(Math.floor(seconds % 60)).padStart(2, '0')}
-      </span>
-      <button ref={stopButtonRef} type="button" className={button} onClick={onStop}>Stopp opptak</button>
+      {preparing ? <span role="status" aria-label="Gjør klar opptak" className="whitespace-nowrap text-caption">Gjør klar …</span>
+        : progress != null ? <span role="status" aria-label="Lager video" className="whitespace-nowrap text-caption tabular-nums">Lager video … {Math.round(progress * 100)} %</span>
+        : <span role="status" aria-label="Opptak pågår" className="inline-flex items-center gap-1.5 whitespace-nowrap text-caption tabular-nums">
+          <span aria-hidden className="h-2 w-2 rounded-full bg-red-500" />
+          {Math.floor(seconds / 60)}:{String(Math.floor(seconds % 60)).padStart(2, '0')}
+        </span>}
+      {!preparing && !rendering && <button ref={stopButtonRef} type="button" className={button} onClick={onStop}>Stopp opptak</button>}
       <button type="button" className={button} onClick={onCancel}>Avbryt</button>
     </> : <button ref={startButtonRef} type="button" className={`${button} bg-signal text-signal-fg`} disabled={disabled} onClick={onStart}>Ta opp</button>}
   </div>;
