@@ -118,7 +118,7 @@ test('en visning som krasjer: resten av appen virker, feilen kan kopieres og tø
 
   // Backupen har ikke feilloggen.
   const download = page.waitForEvent('download');
-  await page.getByRole('region', { name: 'Data' }).getByRole('button', { name: 'Eksporter' }).click();
+  await page.getByRole('region', { name: 'Sikkerhetskopi' }).getByRole('button', { name: 'Eksporter sikkerhetskopi', exact: true }).click();
   const backup = await readFile((await (await download).path())!, 'utf8');
   expect(backup).not.toContain(LOG_KEY);
   expect(backup).not.toContain(log[0].message);

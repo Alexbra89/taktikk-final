@@ -1,4 +1,5 @@
 import type { CalendarEvent, MatchReport } from '@/types';
+import { isBackupDue } from '@/lib/backup';
 
 // ══════════════════════════════════════════════════════════════
 //  OPPGAVER PÅ DASHBORDET – utledes fra data som allerede finnes.
@@ -74,14 +75,14 @@ export function deriveTasks(input: {
       detail: shortDate(e.date),
     }));
 
-  // Backup: aldri tatt, eller eldre enn 14 dager – bare når det finnes noe å miste.
+  // Samme diskrete 30-dagersgrense som i Innstillinger.
   const hasData = events.length > 0 || matchReports.length > 0;
-  const stale = !lastExportedAt || now - new Date(lastExportedAt).getTime() > 14 * DAY_MS;
+  const stale = isBackupDue(lastExportedAt, now);
   if (hasData && stale) {
     tasks.push({
       id: 'backup', kind: 'backup',
       title: 'Ta backup av dataene',
-      detail: lastExportedAt ? 'Mer enn 14 dager siden sist' : 'Aldri eksportert',
+      detail: lastExportedAt ? 'Mer enn 30 dager siden sist' : 'Aldri eksportert',
     });
   }
 

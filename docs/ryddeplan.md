@@ -1,4 +1,81 @@
-Status: oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19) og oppgave 4 (trygg appoppdatering og ChunkLoadError) er ferdige, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+Status: oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19), oppgave 4 (trygg appoppdatering og ChunkLoadError) og oppgave 5 (sikkerhetskopi) er ferdige, 17. oktober 2026. Backup-delen av oppgave 11 er også dekket. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+
+## Oppgave 5: sikkerhetskopi (17.10.2026)
+
+- Ny `src/lib/backup.test.ts` tester bygging, lesing, beskrivelse, filnavn og
+  nedlasting. Eksport → JSON-fil → import sammenlignes mot hele datasettet,
+  både med 4 og 50 taktikker: alle fire fotballtyper, tom bane, flere faser,
+  spillere, alle tegneverktøy, alle utstyrstyper, notater, egne øvelser med
+  AI-merking, treningsinnhold og fremmøte, kalender, kamprapporter,
+  lagrede øyeblikk og innstillinger.
+- Historisk versjon 1 er fortsatt lesbar uten utstyr, temafarger, egne
+  øvelser eller nye innstillingsfelt. En fast eksempelkopi ligger i
+  `src/lib/__fixtures__/backup-v1.json`. Versjon 0, som den gamle leseren
+  også godtok, kontrolleres separat; den påstås ikke å ha vært utgitt.
+  Manglende nye felter får standardverdier. Eksisterende innhold beholdes.
+- Import bruker fortsatt de eksisterende reparasjonsfunksjonene, men
+  kontrollerer nå først at ingen verdier eller listeelementer blir borte.
+  En delvis skadet fil avvises helt før lagring, også ved skader inne i
+  faser, tegninger, utstyr, treninger, øvelser og rapporter. Reparasjon ved
+  vanlig oppstart er fortsatt tolerant. Utgåtte tekniske hjelpefelter
+  filtreres som før, og duplikate id-er får fortsatt unike id-er.
+- Rettet tap av tomme lag-/motstandernavn, øvelsesstegenes id-er og eksplisitt
+  rotasjon 0. Gamle notater med tittelen «✅ Fremmøte» bevares nå med hele
+  teksten, også etter ny innlasting, og finnes i den eldre eksempelkopien.
+  Valgfrie fasefelt bevares også når de ikke finnes i originalen.
+  «Vis bevegelse», spillerutseende og AI-tilgangskode blir nå med. Tema og
+  lagnavn oppdateres straks i Innstillinger etter import.
+- Ingen ny lagringsnøkkel eller versjonsendring: Zustand-lageret er fortsatt
+  versjon 2 og sikkerhetskopien versjon 1. Nye innstillingsfelt er valgfrie;
+  gamle kopier fungerer, og gamle lesere kan ignorere tilleggene. Kamptid er
+  flyktig og nullstilles ved import. «Sist eksportert» gjelder enheten og
+  beholdes ved import. Feilloggen ligger fortsatt utenfor kopien og røres ikke.
+- «Sikkerhetskopi» er øverst i Innstillinger, også på mobil. Knappene heter
+  «Eksporter sikkerhetskopi» og «Importer». Før erstatning vises
+  «Dette erstatter dataene på denne enheten», oversikt over innhold og
+  knappene «Erstatt alt» / «Avbryt». Norsk feil forklarer tom/skadet fil,
+  feil filtype og nyere versjon, og sier at eksisterende data er urørt.
+- «Sist eksportert: dato» / «Sist eksportert: aldri» vises under knappene.
+  En rolig tekst minner om eksport etter mer enn 30 dager eller ved aldri
+  eksportert, uten popup eller blokkering. Oversikten bruker samme grense.
+  Innstillinger forklarer at filen også inneholder eventuell AI-tilgangskode.
+- `e2e/backup.spec.ts` kontrollerer ekte nedlastet fil, åpning av filvelgeren,
+  avbryt, bekreftet import, bevart innhold etter omlasting, tema og øvrige
+  innstillinger, feil uten noen endring i lokal lagring, eldre kopi og mobil.
+  Den eksisterende feilloggtesten i `e2e/errors.spec.ts` bruker de nye
+  synlige navnene; alle kontrollene av feillogg og sikkerhetskopi er beholdt.
+
+Manuell kontroll: Åpne appen og velg Innstillinger (på mobil: Mer →
+Innstillinger). Eksporter en sikkerhetskopi og sjekk at datoen oppdateres.
+Endre lagnavn eller en taktikk, velg Importer og den lagrede filen. Avbryt
+først og sjekk at endringen står. Importer igjen og velg Erstatt alt;
+originaldataene skal komme tilbake, også etter omlasting. Kontroller
+treninger, egne øvelser, kalender, rapporter og tema. Prøv også en tom fil,
+feil filtype eller en skadet kopi: det skal komme norsk feil uten at data
+forsvinner. Bruk gjerne en egen nettleserprofil til prøven og behold originalkopien.
+
+Alle kontrollene er kjørt på nytt etter siste rettelse:
+
+| Kommando | Resultat for oppgave 5 |
+| --- | --- |
+| `npx tsc --noEmit` | Grønn, ingen typefeil |
+| `npx vitest --run` | Grønn, 26 filer / 276 tester |
+| `npm run build` | Grønn; siste kode er også bygget på nytt av offline-kontrollen |
+| `npm run test:e2e -- --workers=1` | Grønn, 28 tester |
+| `npm run test:offline` | Grønn, begge produksjonstestene |
+
+Underveis ble testvelgerne tilpasset de tydeligere navnene i Innstillinger.
+Sluttkontrollen avdekket også tapet av gamle fremmøtenotater; alle fem
+kontrollene ovenfor ble gjentatt etter rettelsen. Ingen tester er hoppet
+over eller fjernet. Mobilvisningen er kontrollert med skjermbilde.
+
+Som i de tidligere oppgavene måtte bare de kjente testserverprosessene
+stoppes etter ferdige nettlesertester på Windows, slik at Playwright
+kunne avslutte. Sluttkjøringene avsluttet med kode 0. Varsler om gammel
+Browserslist-database og webpack-cache hindret ikke bygg eller tester.
+Ingen pakker eller låsefiler er endret, og ingenting er publisert,
+committet eller pushet. Den genererte endringen i `public/sw.js` er
+tilbakeført og inngår ikke i leveransen.
 
 ## Oppgave 4: trygg appoppdatering (17.10.2026)
 
@@ -436,7 +513,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 1\. \*\*Trening-visningen\*\* har ingen tester: ny trening, legge til øvelser, stoppeklokke, fremmøte og spillerliste. Det er den største filen, så den bør ha tester før den deles.
 
-2\. \*\*Backup:\*\* `lib/backup.ts` har ingen enhetstest, og import og eksport i Innstillinger er ikke testet ende til ende. Dette er brukernes eneste redning for data.
+2\. ✅ \*\*Backup er dekket i oppgave 5:\*\* `lib/backup.test.ts` og `e2e/backup.spec.ts` tester hele eksport/import, eldre kopier, skadde filer, alle datatyper, 50 taktikker og mobil. Se etterkontrollen øverst.
 
 3\. \*\*Kalender:\*\* opprette, endre og slette hendelser, `NewEventForm` og `AutoGenForm`. Bare «Legg i kalenderen» fra øvelser er dekket.
 
@@ -526,7 +603,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 4\. ✅ \*\*FERDIG (17.10.2026): Trygg appoppdatering og `ChunkLoadError`.\*\* Ny service worker venter på «Oppdater», melding kan lukkes og kommer tilbake ved sidebytte. Dynamiske lastefeil viser «Appen er oppdatert – last inn på nytt» og logges lokalt. Ingen automatisk reload. Enhetstester, e2e med blokkert modul og produksjonstest av ny worker/offline; se egen etterkontroll øverst.
 
-5\. \*\*Enhetstester for `lib/backup.ts`\*\* (bygg, les, beskriv, ødelagt fil). \*Risiko: ingen.\*
+5\. ✅ \*\*FERDIG (17.10.2026): Tester og trygg import for `lib/backup.ts`.\*\* Hele eksport/import, eldre format, feil uten endring av data, feillogg utenfor kopien, 50 taktikker, alle innstillinger, tydelige knapper/bekreftelse og rolig 30-dagerspåminnelse. Se egen etterkontroll øverst.
 
 6\. \*\*Slett død kode:\*\* `drills.ts.backup`, `SwapOverlay.tsx` og `getDrillsByAgeBand`. Avklar `SketchPreview`. \*Test:\* build og Vitest. \*Risiko: lav.\*
 
@@ -538,7 +615,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 10\. \*\*E2E for Trening:\*\* ny trening, legge til øvelse, stoppeklokke og fremmøte. \*Risiko: ingen.\*
 
-11\. \*\*E2E for Kalender, og for backup-eksport og -import i Innstillinger.\*\* \*Risiko: ingen.\*
+11\. \*\*E2E for Kalender.\*\* Backup-eksport og -import i Innstillinger er ferdig i oppgave 5. \*Risiko: ingen.\*
 
 12\. \*\*Enhetstester\*\* for `getWeeklyDrills`/`isoWeek`, `getFormationSlots` og datohjelperne. \*Risiko: ingen.\*
 
@@ -588,7 +665,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 
 
-Oppgave 4 er gjennomført: appen varsler når en ny versjon er klar og lar brukeren velge når den tas i bruk. Lastefeil gir en forståelig melding og en knapp for omlasting, uten automatisk avbrudd. Bruk uten nett er fortsatt testet og fungerer. Testresultater og fremgangsmåte står øverst i dokumentet, sammen med etterkontrollen av Next 15.
+Oppgave 5 er gjennomført: sikkerhetskopiering er tydelig øverst i Innstillinger, hele innholdet kontrolleres ved import, og feil i filen skal la eksisterende data stå urørt. Eldre kopier, alle datatyper og store samlinger har egne tester. Fremgangsmåte for manuell kontroll og kontrollresultater står øverst i dokumentet, sammen med de tidligere etterkontrollene.
 
 
 
@@ -596,7 +673,7 @@ Hva som er nytt:
 
 \- Sikkerhetsoppdateringen er flyttet nesten helt frem i køen (oppgave 2 og 3). Målet er nå en nyere versjon som fortsatt får sikkerhetsrettelser. Den gamle versjonen appen bruker i dag får ikke lenger rettelser.
 
-\- Telling av tester er rettet. Appen har flere tester enn jeg skrev sist, blant annet for 3D og øvelser. Det som mangler er særlig tester for Trening, Kalender, Rapporter og sikkerhetskopi.
+\- Telling av tester er rettet. Appen har flere tester enn jeg skrev sist, blant annet for 3D og øvelser. Sikkerhetskopi er nå dekket. Det som mangler er særlig egne visningstester for Trening, Kalender og Rapporter.
 
 \- Alle store filer har nå forslag til hvordan de kan deles, også øvelsene, formasjonene, malene og stilarket. De som bare inneholder data har lav prioritet.
 

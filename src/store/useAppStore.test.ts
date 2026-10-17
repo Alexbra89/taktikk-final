@@ -91,18 +91,19 @@ describe('repairEvent', () => {
     expect(e.matchNotes[0].half).toBe(2);
   });
 
-  it('beholder taktikkpunkter, forkaster notater uten tittel og gamle felt', () => {
+  it('beholder taktikkpunkter og gamle fremmøtenotater, forkaster bare ugyldige notater og utgåtte felt', () => {
     const e = repairEvent({
       date: '2026-10-01',
       trainingNotes: [
         { title: 'Høyt press', tacticId: 't1', duration: 20, targetPlayerIds: ['p1'] },
         { title: 7 },
-        { title: '✅ Fremmøte' },
+        { title: '✅ Fremmøte', content: 'Åse og Bo møtte' },
       ],
     })!;
-    expect(e.trainingNotes).toHaveLength(1);
+    expect(e.trainingNotes).toHaveLength(2);
     expect(e.trainingNotes[0]).toMatchObject({ title: 'Høyt press', tacticId: 't1', duration: 20 });
     expect('targetPlayerIds' in e.trainingNotes[0]).toBe(false);
+    expect(e.trainingNotes[1]).toMatchObject({ title: '✅ Fremmøte', content: 'Åse og Bo møtte' });
   });
 });
 
@@ -124,14 +125,14 @@ describe('repairTactic', () => {
 describe('ødelagt import og lagring', () => {
   it('ødelagt import skal ikke slette data', () => {
     s().addTacticFromTemplate(TACTIC_TEMPLATES.find(t => t.id === 'f11-433-kontring')!);
-    const tacticsBefore = s().tactics.length;
-    s().importSnapshot({
+    const before = s();
+    expect(() => s().importSnapshot({
       tactics: s().tactics,
       events: [null, 'tull', { title: 'uten dato' }, { date: '2026-10-01', title: 'Trening' }],
-    });
-    expect(s().tactics).toHaveLength(tacticsBefore);
+    })).toThrow('Dataene dine er ikke endret');
+    expect(s()).toBe(before);
     expect(s().tactics.some(t => t.name === '4-3-3 kontring')).toBe(true);
-    expect(s().events.map(e => e.title)).toEqual(['Trening']);
+    expect(s().events).toEqual(before.events);
   });
 
   it('en ødelagt hendelse i lagringen gir ikke standarddata ved lasting', () => {

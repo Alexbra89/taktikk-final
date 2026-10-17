@@ -3,9 +3,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Sun, Moon, Baby, User, Check, AlertTriangle, Download, Upload, Users, Palette, Database, Info, Bug, Copy, Trash2 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { INPUT_CLASS, LABEL_CLASS, PRIMARY_BTN, SECONDARY_BTN, TEXTAREA_CLASS, toggleClass } from '@/lib/formClasses';
-import { buildBackup, backupFilename, parseBackup, describeBackup, downloadJson, type BackupFile } from '@/lib/backup';
+import { buildBackup, backupFilename, parseBackup, describeBackup, downloadJson, isBackupDue, type BackupFile } from '@/lib/backup';
 import { readErrorLog, clearErrorLog, formatErrorReport, ERROR_LOG_EVENT, MAX_ERRORS, type ErrorEntry } from '@/lib/errorLog';
 import { useTheme } from '@/hooks/useTheme';
+import { usePlayerStyle } from '@/hooks/usePlayerStyle';
+import { readCode, writeCode } from '@/lib/ai/accessCode';
 import { cn } from '@/lib/cn';
 import { ViewHeader, Tile, TileHeader } from '@/components/layout/Surface';
 
@@ -20,6 +22,7 @@ import { ViewHeader, Tile, TileHeader } from '@/components/layout/Surface';
 const DataSection: React.FC = () => {
   const { homeTeamName, lastExportedAt, exportSnapshot, markExported, importSnapshot } = useAppStore();
   const { theme, setTheme } = useTheme();
+  const [playerStyle, setPlayerStyle] = usePlayerStyle();
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
@@ -29,10 +32,11 @@ const DataSection: React.FC = () => {
   const doExport = () => {
     setError(''); setDone('');
     try {
-      const backup = buildBackup({ data: exportSnapshot(), teamName: homeTeamName, theme });
+      const backup = buildBackup({ data: exportSnapshot(), teamName: homeTeamName, theme,
+        settings: { playerStyle, aiAccessCode: readCode() } });
       downloadJson(backupFilename(homeTeamName), JSON.stringify(backup, null, 2));
       markExported();
-      setDone('Backup lastet ned.');
+      setDone('Sikkerhetskopien er lastet ned. Ta vare på filen et trygt sted.');
     } catch {
       setError('Klarte ikke å lage filen. Er det plass på enheten?');
     }
@@ -48,10 +52,10 @@ const DataSection: React.FC = () => {
     try {
       text = await file.text();
     } catch {
-      setError('Klarte ikke å lese filen.');
+      setError('Klarte ikke å lese filen. Dataene dine er ikke endret.');
       return;
     }
-    const res = parseBackup(text);
+    const res = parseBackup(text, file.name);
     if (!res.ok) { setError(res.error); return; }
     setPending(res.backup);
   };
@@ -67,11 +71,15 @@ const DataSection: React.FC = () => {
       return;
     }
     if (pending.theme) setTheme(pending.theme);
+    if (pending.settings) {
+      setPlayerStyle(pending.settings.playerStyle);
+      writeCode(pending.settings.aiAccessCode);
+    }
     setPending(null);
     setDone('Dataene er importert.');
   };
 
-  const exportedLabel = lastExportedAt
+  const exportedLabel = lastExportedAt && Number.isFinite(Date.parse(lastExportedAt))
     ? new Date(lastExportedAt).toLocaleString('nb-NO', {
         day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
       })
@@ -80,12 +88,13 @@ const DataSection: React.FC = () => {
   return (
     <div>
       <p className="text-body text-ink-muted">
-        Alt lagres bare på denne enheten. Eksporter en backup-fil jevnlig, og importer den for å flytte dataene.
+        Alt lagres bare på denne enheten. Ta vare på en sikkerhetskopi et annet trygt sted.
+        Filen inneholder også innstillinger og eventuell tilgangskode til AI.
       </p>
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button onClick={doExport} className={`flex-1 ${SECONDARY_BTN}`}>
-          <Download size={15} strokeWidth={1.75} aria-hidden /> Eksporter
+          <Download size={15} strokeWidth={1.75} aria-hidden /> Eksporter sikkerhetskopi
         </button>
         <button onClick={() => fileRef.current?.click()} className={`flex-1 ${SECONDARY_BTN}`}>
           <Upload size={15} strokeWidth={1.75} aria-hidden /> Importer
@@ -95,8 +104,12 @@ const DataSection: React.FC = () => {
       </div>
 
       <p className="mt-1.5 text-meta text-ink-subtle">
-        {exportedLabel ? `Sist eksportert: ${exportedLabel}` : 'Aldri eksportert.'}
+        {exportedLabel ? `Sist eksportert: ${exportedLabel}` : 'Sist eksportert: aldri'}
       </p>
+      {isBackupDue(lastExportedAt) && <p className="mt-1 text-meta text-ink-muted">
+        {lastExportedAt ? 'Det er over 30 dager siden sist.' : 'Du har ingen eksportert sikkerhetskopi ennå.'}
+        {' '}Ta gjerne en sikkerhetskopi når det passer.
+      </p>}
 
       {/* Import overskriver alt, så den skal bekreftes – med tall på bordet. */}
       {pending && (
@@ -106,7 +119,7 @@ const DataSection: React.FC = () => {
               className="text-warn-400 flex-shrink-0 mt-0.5" />
             <div className="min-w-0">
               <p className="text-body text-warn-300 leading-relaxed">
-                Dette erstatter alt du har nå.
+                Dette erstatter dataene på denne enheten.
               </p>
               <p className="mt-1 text-meta text-ink-muted">
                 {pending.teamName || 'Ukjent lag'} · {describeBackup(pending)}
@@ -217,6 +230,7 @@ export const SettingsView: React.FC = () => {
   const { theme, setTheme } = useTheme();
 
   const [home, setHome] = useState(homeTeamName);
+  useEffect(() => setHome(homeTeamName), [homeTeamName]);
   const [saved, setSaved] = useState(false);
   const dirty = home.trim() !== '' && home.trim() !== homeTeamName;
 
@@ -228,10 +242,14 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <ViewHeader title="Innstillinger" subtitle="Lag, utseende, øvelsesnivå og backup" />
+      <ViewHeader title="Innstillinger" subtitle="Lag, utseende, øvelsesnivå og sikkerhetskopi" />
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-[960px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 grid gap-4 md:grid-cols-2 items-start">
+          <Tile aria-label="Sikkerhetskopi" className="md:col-span-2">
+            <TileHeader icon={Database} tone="bg-area-calendar/15 text-area-calendar" title="Sikkerhetskopi" />
+            <DataSection />
+          </Tile>
           <Tile aria-label="Laget">
             <TileHeader icon={Users} tone="bg-signal/15 text-signal" title="Laget" subtitle="Vises i sidefeltet og på rapporter" />
             <label className={LABEL_CLASS} htmlFor="sett-lagnavn">Ditt lagnavn</label>
@@ -291,11 +309,6 @@ export const SettingsView: React.FC = () => {
                 </button>
               ))}
             </div>
-          </Tile>
-
-          <Tile aria-label="Data">
-            <TileHeader icon={Database} tone="bg-area-calendar/15 text-area-calendar" title="Data og backup" />
-            <DataSection />
           </Tile>
 
           <Tile aria-label="Feilrapport">
