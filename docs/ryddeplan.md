@@ -1,3 +1,34 @@
+## Oppgave 7: PWA-byggefiler ut av Git (17.10.2026) – delvis, venter på terminal
+
+- `.gitignore` har nå en egen next-pwa-blokk for `public/sw.js`,
+  `public/workbox-*.js`, `public/worker-*.js`, `public/fallback-*.js` og
+  tilhørende `.map`-filer. Dette er filene `next-pwa` (med `dest: 'public'`)
+  kan lage. Ingen annen fil er endret.
+- Git-indeksen er lest direkte: av genererte filer er bare `public/sw.js` og
+  `public/workbox-4754cb34.js` sporet. `.next`, `test-results`,
+  `playwright-report`, `blob-report`, `coverage`, `out`, `build`,
+  `node_modules`, `.vercel`, `next-env.d.ts` og `*.tsbuildinfo` er ikke sporet.
+- Vercel kjører `next build`, og `next-pwa` lager service workeren i
+  `public/` under det bygget. Filene trenger derfor ikke ligge i Git.
+  `e2e-production/update.spec.ts` leser `public/sw.js` først etter at
+  offline-oppsettet har bygget appen.
+
+**Ikke gjort i denne økten (ingen terminaltilgang):**
+
+| Steg | Status |
+| --- | --- |
+| `git rm --cached public/sw.js public/workbox-4754cb34.js` | Ikke kjørt – filene er fortsatt sporet (`.gitignore` virker ikke på filer som allerede er sporet) |
+| `npx tsc --noEmit` | Ikke kjørt |
+| `npx vitest --run` | Ikke kjørt |
+| `npm run build` (lager `sw.js` og `workbox-*.js`) | Ikke kjørt |
+| `npm run test:e2e -- --workers=1` | Ikke kjørt |
+| `npm run test:offline` | Ikke kjørt |
+
+Når `git rm --cached` er kjørt, skal `git status` vise de to filene som
+slettet fra Git, mens de fortsatt finnes i `public/`. Etter `npm run build`
+skal `git status` ikke vise endringer i `public/`. Ingen pakker er
+installert, og ingenting er publisert, deployet, committet eller pushet.
+
 ## Oppgave 6a, rettelse: jevnt 3D-opptak fra fullskjerm (17.10.2026)
 
 Problemet: 3D-opptak fra fullskjerm hakket på PC. En ekte video fra
@@ -887,7 +918,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 6a. ✅ **FERDIG (17.10.2026): Opptak fra fullskjerm i 2D og 3D.** En opptaksknapp inne i fullskjermvisningen bruker visningen brukeren ser (kameravinkel, zoom og kameravalg i 3D, samme utsnitt i 2D), med samme kvalitet og formater som dagens videoeksport. Samme eksportmotorer, opptaksindikator, stopp/avbryt og mobiltester i MP4/WebM. Se etterkontrollen øverst. Begrunnelse for plassering: berører samme filer som skal deles opp, så opptaksfunksjonen er bygget før oppdelingen.
 
-7\. \*\*Ta byggefilene for PWA ut av git\*\* og legg dem i `.gitignore`. \*Risiko: lav.\*
+7\. 🟡 **DELVIS (17.10.2026): Ta byggefilene for PWA ut av git** og legg dem i `.gitignore`. `.gitignore` er oppdatert; `git rm --cached` og kontrollkommandoene gjenstår, se øverst. \*Risiko: lav.\*
 
 8\. \*\*Fjern ubrukt CSS\*\* og den utkommenterte rullefelt-blokken. \*Test:\* e2e og en rask visuell sjekk av begge temaene. \*Risiko: lav.\*
 
