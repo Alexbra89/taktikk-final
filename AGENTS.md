@@ -53,3 +53,24 @@ ballen) og egne autoskjulte kontroller. Utstyr og tegning er felles via
 Kontroller: `e2e/smoke.spec.ts` (tegning, bytte og angre, PNG, tom bane),
 `e2e/fullscreen-recording.spec.ts` (2D-fullskjerm og opptak) og
 `e2e/board3d.spec.ts` (2D/3D-bryteren og felles faseklokke).
+
+# Kart over Trening
+
+`src/components/ui/TrainingView.tsx` er fortsatt inngangen (samme eksport og
+props, lastet dynamisk av `src/app/page.tsx`). Den har fanene Kommende/Historikk
+og velger mellom lista, skjemaet for ny trening og valgt trening. Delene ligger
+i `src/components/training/`:
+
+| Fil | Ansvar |
+| --- | --- |
+| `TrainingOverview.tsx` | Fire nøkkeltall øverst i lista: neste økt, neste 7 dager, siste 4 uker og tema fremover. |
+| `NewTrainingForm.tsx` | Skjemaet for ny trening: tittel, dato/tid, sted, fokus, øvelser fra biblioteket (søk, kategori, nivå) og egne øvelser. |
+| `TrainingCard.tsx` | Ett kort i lista, med Start-knapp for kommende økter. |
+| `TrainingDetail.tsx` | Valgt trening: notat, fremmøte, øvelser/taktikker, rekkefølge, fullført, total tid og deling. |
+| `Stopwatch.tsx` | Nedtelling for én øvelse, med pause og avbryt. |
+| `TacticPicker.tsx` | Velg taktikk fra brettet og antall minutter. |
+| `RosterEditor.tsx` | Redigering av navnelista som fremmøtet krysses av mot. |
+| `DrillWarning.tsx` | Gul advarselsboks for øvelser med `warning` (vanlig og kompakt). Bare Trening; DrillsView, DrillDetailModal og SmartCoach har egne, ulike bokser. |
+
+Kontroller: ingen nettlesertester åpner Trening ennå (ryddeplanens oppgave 10).
+`src/lib/backup.test.ts` dekker bare lagrede treningsdata, ikke visningen.

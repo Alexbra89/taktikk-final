@@ -1,3 +1,76 @@
+## Oppgave 20: oppdeling av TrainingView (17.10.2026) – kode ferdig, kontroller gjenstår
+
+TrainingView er delt etter planen i den nye mappen `components/training/`.
+Ren flytting: funksjonskropper, JSX, klassenavn, tekster, avhengighetslister
+og tidsfrister er kopiert uendret. Komponentene som var lokale i filen, er nå
+navngitte eksporter fra egne filer; ellers er ingenting endret. `TrainingView`
+har samme navn, props og importsti (`@/components/ui/TrainingView`), så
+`page.tsx` er ikke endret. Alle nye filer har en kort ansvarskommentar øverst.
+
+| Fil | Linjer før → etter | Ansvar |
+| --- | --- | --- |
+| `components/ui/TrainingView.tsx` | 1265 → 167 | Fanene, lista og valget mellom ny trening og valgt trening. |
+| `components/training/TrainingOverview.tsx` | Ny → 48 | Nøkkeltallene øverst (med `DAY_MS`/`isoOffset`). |
+| `components/training/NewTrainingForm.tsx` | Ny → 368 | Skjemaet for ny trening (med `DRILL_CATEGORIES`). |
+| `components/training/TrainingCard.tsx` | Ny → 60 | Kortet i lista. |
+| `components/training/Stopwatch.tsx` | Ny → 61 | Stoppeklokka. |
+| `components/training/TrainingDetail.tsx` | Ny → 504 | Valgt trening. |
+| `components/training/TacticPicker.tsx` | Ny → 54 | Taktikkvelgeren. |
+| `components/training/RosterEditor.tsx` | Ny → 46 | Navnelista for fremmøte. |
+| `components/training/DrillWarning.tsx` | Ny → 13 | Gul advarselsboks for øvelser. |
+
+**Tilpasninger til forslaget:** `TrainingView.tsx` står igjen i
+`components/ui/` i stedet for å flyttes, for å beholde importstien.
+`DrillWarning` er ikke delt med DrillsView: boksen der er en annen (`p-4`,
+`rounded-panel`, overskriften «Advarsel», større ikon og `text-warn-300`).
+DrillDetailModal og SmartCoach har to andre varianter. Å slå dem sammen ville
+endret utseendet, så `DrillWarning` ligger bare i Trening. `TrainingDetail`
+er fortsatt over 500 linjer; notatlisten med stoppeklokke kan skilles ut i et
+neste steg, som planen sier. Oppgave 10 (e2e for Trening), som planen satte som
+forutsetning, er ikke gjort.
+
+**Funn, ikke rettet (ren flytting):**
+
+- `TrainingCard`: Start-knappen bruker `new Date(event.date) >= new Date()`.
+  Datoen tolkes som midnatt UTC, så en trening i dag får ikke Start-knapp,
+  selv om den står under Kommende (lista bruker datotekst).
+- `Stopwatch`: Pause/Fortsett-knappen mangler `inline-flex`, i motsetning til
+  Avbryt; ikon og tekst kan ligge litt ulikt.
+- `NewTrainingForm`: `FOCUS_OPTIONS` har 12 valg, men bare de 8 første vises.
+  `saving` settes og nullstilles i samme kall, så «Oppretter …» vises i praksis
+  aldri.
+- `TrainingDetail` har både lokal `completedDrills` og lagret `completed`;
+  den lokale er overflødig. `activeStopwatch === 'custom'` settes aldri.
+- `any` i props for `TrainingCard`, `TrainingDetail` og `NewTrainingForm`
+  (`Omit<any, 'id'>`) står igjen.
+- Kategorilisten (`DRILL_CATEGORIES`) og `DAY_MS` er fortsatt kopier (se
+  «Duplisering» og oppgave 14); de er bare flyttet.
+
+**Kontroller: ikke kjørt.** Økten hadde ikke terminaltilgang (bare lese- og
+skriveverktøy for filer), så ingen av de fem kommandoene kunne kjøres, verken før
+eller etter. Siste dokumenterte kjøring (oppgave 21–23 nedenfor) er
+utgangspunktet:
+
+| Kommando | Før (siste dokumenterte kjøring) | Etter |
+| --- | --- | --- |
+| `npx tsc --noEmit` | Grønn, kode 0 | Ikke kjørt |
+| `npx vitest --run` | 29 filer / 304 tester, kode 0 | Ikke kjørt |
+| `npm run build` | Grønn, kode 0 | Ikke kjørt |
+| `npm run test:e2e -- --workers=1` | 36 tester, kode 0 | Ikke kjørt |
+| `npm run test:offline` | 3 tester, kode 0 | Ikke kjørt |
+
+Ingen testfiler importerer TrainingView eller delene, og ingen nettlesertest
+åpner Trening. Grønne tester sier derfor lite om denne endringen; den manuelle
+prøven under er viktig. Ingen pakker, tester eller genererte filer er endret,
+og ingenting er publisert, deployet, committet eller pushet.
+
+Manuell prøve: Åpne Trening. Se nøkkeltallene og fanene Kommende/Historikk.
+Lag en ny trening med fokus, en øvelse fra biblioteket (prøv søk, kategori og
+nivå), en egen øvelse og en øvelse med advarsel. Åpne treningen: skriv et notat,
+kryss av fremmøte, rediger navnelista, legg til en taktikk og endre minuttene,
+flytt punkter opp/ned, start stoppeklokka (pause, avbryt), merk som fullført,
+åpne «Vis full detalj» og trykk «Del økten». Slett et punkt og gå tilbake.
+
 ## Oppgave 21–23: oppdeling av TacticBoard (17.10.2026) – ferdig, kontrollert
 
 TacticBoard er delt etter planen, og den rene dupliseringen mot
@@ -715,7 +788,7 @@ Ingen funn er avvist.
 
 |---|---|---|---|
 
-| 1 | `src/components/ui/TrainingView.tsx` | 1265 | Hele Trening-visningen: oversikt, ny trening, treningskort, stoppeklokke, detaljer, taktikkvelger, spillerliste |
+| 1 | `src/components/ui/TrainingView.tsx` | 1265 → 167 | Trening er delt opp i `components/training/`; se oppgave 20 øverst og filkartet i AGENTS.md |
 
 | 2 | `src/data/drills/forsvar.ts` | 1194 | Forsvarsøvelser (data), barn og voksne |
 
@@ -765,7 +838,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 
 
-\*\*TrainingView.tsx (1265).\*\* Ny mappe `components/training/`:
+\*\*TrainingView.tsx (1265 før → 167 etter, oppdeling gjennomført 17.10.2026).\*\* Opprinnelig forslag følger; faktisk oppdeling står i oppgave 20 øverst. Ny mappe `components/training/`:
 
 \- `TrainingOverview.tsx` (`:50–84`)
 
@@ -915,9 +988,9 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 \*\*Duplisering\*\*
 
-\- Listen over øvelseskategorier finnes 5 steder: `customDrills.ts:4`, `calendar/shared.tsx:9`, `DrillsView.tsx:28`, `TrainingView.tsx:21` og `drills.ts:60`.
+\- Listen over øvelseskategorier finnes 5 steder: `customDrills.ts:4`, `calendar/shared.tsx:9`, `DrillsView.tsx:28`, `training/NewTrainingForm.tsx:15` (før: `TrainingView.tsx:21`) og `drills.ts:60`.
 
-\- `DAY\_MS` finnes 4 steder, sammen med egne datohjelpere: `tasks.ts`, `DashboardView.tsx`, `TrainingView.tsx` og `appContext.ts`.
+\- `DAY\_MS` finnes 4 steder, sammen med egne datohjelpere: `tasks.ts`, `DashboardView.tsx`, `training/TrainingOverview.tsx` (før: `TrainingView.tsx`) og `appContext.ts`.
 
 \- Id-er lages på to måter: `useAppStore.ts:17` og `AutoGenForm.tsx:69`.
 
@@ -1109,7 +1182,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 19. **Gjennomført 17.10.2026: BoardScene trinn 3.** `cameraRig.ts`; `pitchFitDistance` er sammenlignet direkte før/etter i 144 tilfeller, uten å endre testantallet. Kontroller og begrunnelse står øverst.
 
-20\. \*\*Del opp TrainingView\*\* som beskrevet i del 2. Krever oppgave 10. \*Risiko: middels.\*
+20\. 🟡 **Kode ferdig 17.10.2026, kontroller gjenstår: Del opp TrainingView** som beskrevet i del 2. Gjort uten oppgave 10 og uten terminal; de fem kontrollene og manuell prøve gjenstår. Se øverst. \*Risiko: middels.\*
 
 21\. **Kode ferdig 17.10.2026, kontroller gjenstår: TacticBoard trinn 1.** `PhaseNoteModal`, `useUndoRedo` og `Board3DSlot`. Se øverst.
 
