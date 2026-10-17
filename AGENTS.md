@@ -72,5 +72,7 @@ i `src/components/training/`:
 | `RosterEditor.tsx` | Redigering av navnelista som fremmøtet krysses av mot. |
 | `DrillWarning.tsx` | Gul advarselsboks for øvelser med `warning` (vanlig og kompakt). Bare Trening; DrillsView, DrillDetailModal og SmartCoach har egne, ulike bokser. |
 
-Kontroller: ingen nettlesertester åpner Trening ennå (ryddeplanens oppgave 10).
-`src/lib/backup.test.ts` dekker bare lagrede treningsdata, ikke visningen.
+Kontroller: `e2e/training.spec.ts` dekker oppretting, øvelser/advarsel, notat,
+fremmøte/navneliste, taktikk, rekkefølge, stoppeklokke, fullført, deling,
+sletting og omlasting på desktop og mobil (390 × 844).
+`src/lib/backup.test.ts` dekker også lagrede treningsdata.
