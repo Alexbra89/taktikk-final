@@ -27,6 +27,30 @@ const nav = (page: Page, name: string) =>
 const errorLog = (page: Page) =>
   page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '[]') as { area: string; source: string; message: string }[], LOG_KEY);
 
+test('lastefeil venter på brukeren; Last inn på nytt henter en fungerende side', async ({ page }) => {
+  const chunk = /\/_next\/static\/.*ReportsView.*\.js/;
+  await page.route(chunk, route => route.abort());
+  await page.goto('/');
+  await page.evaluate(() => { Object.assign(window, { chunkTestDocument: crypto.randomUUID() }); });
+  const documentId = () => page.evaluate(() => (window as unknown as { chunkTestDocument?: string }).chunkTestDocument);
+  const before = await documentId();
+  await nav(page, 'Rapporter');
+  const alert = page.getByRole('alert').filter({ hasText: 'Appen er oppdatert – last inn på nytt' });
+  await expect(alert).toBeVisible();
+  await page.waitForTimeout(1_000);
+  expect(await documentId()).toBe(before);
+  expect((await errorLog(page))[0].message).toContain('Loading chunk');
+  await page.unroute(chunk);
+  await Promise.all([
+    page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame() }),
+    alert.getByRole('button', { name: 'Last inn på nytt' }).click(),
+  ]);
+  await expect(page.getByRole('region', { name: 'Neste trening' })).toBeVisible();
+  expect(await documentId()).not.toBe(before);
+  await nav(page, 'Rapporter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Rapporter', exact: true })).toBeVisible();
+});
+
 test('3D med bare WebGL 1: feilskjermen foreslår 2D, og 2D virker videre', async ({ page }) => {
   // Three krever WebGL 2. En enhet med bare WebGL 1 skal få feilskjermen, ikke 3D-visningens egen melding.
   await page.addInitScript(() => {
@@ -65,9 +89,9 @@ test('en visning som krasjer: resten av appen virker, feilen kan kopieres og tø
   await page.goto('/');
   await nav(page, 'Rapporter');
 
-  const alert = page.getByRole('alert').filter({ hasText: 'Noe gikk galt i denne delen' });
+  const alert = page.getByRole('alert').filter({ hasText: 'Appen er oppdatert – last inn på nytt' });
   await expect(alert).toBeVisible();
-  await expect(alert.getByRole('button', { name: 'Prøv igjen' })).toBeVisible();
+  await expect(alert.getByRole('button', { name: 'Last inn på nytt' })).toBeVisible();
   await expect(alert).not.toContainText('Bytt til 2D');
   // Sidefeltet står fortsatt.
   await expect(page.getByRole('navigation', { name: 'Hovedmeny' })).toBeVisible();

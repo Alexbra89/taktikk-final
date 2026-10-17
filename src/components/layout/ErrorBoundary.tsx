@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Home, RotateCcw, Square } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { logError } from '@/lib/errorLog';
+import { isChunkLoadError, reloadApp, UPDATE_ERROR_TITLE } from '@/lib/appUpdate';
 import { PRIMARY_BTN, SECONDARY_BTN } from '@/lib/formClasses';
 
 // ═══════════════════════════════════════════════════════════════
@@ -33,6 +34,7 @@ export function webglSupported(): boolean {
 }
 
 interface FallbackProps {
+  error?: unknown;
   onRetry: () => void;
   onHome?: () => void;
   /** 3D: foreslå 2D, som virker uten WebGL. */
@@ -41,7 +43,7 @@ interface FallbackProps {
   overlay?: boolean;
 }
 
-export const ErrorFallback: React.FC<FallbackProps> = ({ onRetry, onHome = goHome, onSwitchTo2D, overlay }) => (
+export const ErrorFallback: React.FC<FallbackProps> = ({ error, onRetry, onHome = goHome, onSwitchTo2D, overlay }) => (
   <div
     role="alert"
     className={cn(
@@ -53,8 +55,12 @@ export const ErrorFallback: React.FC<FallbackProps> = ({ onRetry, onHome = goHom
       <div className="flex gap-3">
         <AlertTriangle size={20} strokeWidth={1.75} aria-hidden className="flex-shrink-0 mt-0.5 text-warn-400" />
         <div className="min-w-0">
-          <h2 className="text-h4 text-ink">{ERROR_TITLE}</h2>
-          {onSwitchTo2D ? (
+          <h2 className="text-h4 text-ink">{isChunkLoadError(error) ? UPDATE_ERROR_TITLE : ERROR_TITLE}</h2>
+          {isChunkLoadError(error) ? (
+            <p className="mt-1.5 text-body text-ink-muted leading-relaxed">
+              En del av appen kunne ikke lastes. Last inn på nytt når du er klar. Er du uten nett, prøv igjen når nettet er tilbake.
+            </p>
+          ) : onSwitchTo2D ? (
             <p className="mt-1.5 text-body text-ink-muted leading-relaxed">
               3D-visningen kan ikke vises her. Nettleseren eller enheten støtter kanskje ikke 3D (WebGL),
               eller grafikkortet er opptatt. Bytt til 2D for å jobbe videre med taktikken.
@@ -75,8 +81,8 @@ export const ErrorFallback: React.FC<FallbackProps> = ({ onRetry, onHome = goHom
             <Square size={15} strokeWidth={1.75} aria-hidden /> Bytt til 2D
           </button>
         )}
-        <button type="button" onClick={onRetry} className={cn('flex-1', onSwitchTo2D ? SECONDARY_BTN : PRIMARY_BTN)}>
-          <RotateCcw size={15} strokeWidth={1.75} aria-hidden /> Prøv igjen
+        <button type="button" onClick={isChunkLoadError(error) ? reloadApp : onRetry} className={cn('flex-1', onSwitchTo2D ? SECONDARY_BTN : PRIMARY_BTN)}>
+          <RotateCcw size={15} strokeWidth={1.75} aria-hidden /> {isChunkLoadError(error) ? 'Last inn på nytt' : 'Prøv igjen'}
         </button>
         <button type="button" onClick={onHome} className={cn('flex-1', SECONDARY_BTN)}>
           <Home size={15} strokeWidth={1.75} aria-hidden /> Gå til forsiden
@@ -92,11 +98,11 @@ interface BoundaryProps extends Omit<FallbackProps, 'onRetry'> {
   children: React.ReactNode;
 }
 
-export class SectionErrorBoundary extends React.Component<BoundaryProps, { failed: boolean }> {
-  state = { failed: false };
+export class SectionErrorBoundary extends React.Component<BoundaryProps, { failed: boolean; error?: unknown }> {
+  state: { failed: boolean; error?: unknown } = { failed: false };
 
-  static getDerivedStateFromError() {
-    return { failed: true };
+  static getDerivedStateFromError(error?: unknown) {
+    return { failed: true, error };
   }
 
   componentDidCatch(error: unknown) {
@@ -114,6 +120,7 @@ export class SectionErrorBoundary extends React.Component<BoundaryProps, { faile
     if (!this.state.failed) return this.props.children;
     return (
       <ErrorFallback
+        error={this.state.error}
         onRetry={this.retry}
         onHome={this.home}
         onSwitchTo2D={this.props.onSwitchTo2D ? this.switchTo2D : undefined}

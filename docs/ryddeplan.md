@@ -1,4 +1,59 @@
-Status: oppgave 1 (feilhåndtering) og oppgave 2 (Next 15.5.28 og React 19) er ferdige, inkludert produksjonstest av offline-bruk på grenen next15, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+Status: oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19) og oppgave 4 (trygg appoppdatering og ChunkLoadError) er ferdige, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+
+## Oppgave 4: trygg appoppdatering (17.10.2026)
+
+- `skipWaiting: false` lar en ny service worker vente. Dette er tryggere for
+  åpne faner: gammel kode beholder sin worker frem til brukeren velger å oppdatere.
+  «Ny versjon er klar» vises diskret nederst, med «Oppdater» og lukkeknapp.
+  Etter lukking kommer meldingen tilbake ved neste sidebytte.
+- «Oppdater» sender `{ type: 'SKIP_WAITING' }` til den ventende workeren og
+  laster siden på nytt først når den har overtatt. En annen åpen fane får
+  melding, men lastes aldri om automatisk. En worker som allerede venter
+  når siden åpnes, oppdages også. Første installasjon viser ingen melding.
+- `ChunkLoadError` og nettlesernes dynamiske importfeil viser
+  «Appen er oppdatert – last inn på nytt» i delens feilskjerm, appens
+  feilskjerm og den globale feilskjermen. «Last inn på nytt» laster hele siden.
+  Feilene føres i den eksisterende lokale feilloggen; filadresser skjules.
+- Ingen feil utløser automatisk omlasting (altså null, innenfor grensen på
+  maks én per økt). Dermed blir ingen tegning eller videoeksport avbrutt,
+  og gjentatte feil kan ikke starte en omlastingsløkke. Ingen ny øktnøkkel,
+  endring i brukerdata, lagring, backup eller pakker.
+- Forhåndslager, offline-regler og `reloadOnOnline: false` er beholdt.
+  `public/sw.js` genereres ved bygging, men endringen i byggefilen følger
+  ikke med denne oppgaven.
+- Nye enhetstester dekker første installasjon, eksisterende ventende worker,
+  ny installasjon, SKIP_WAITING, overtakelse fra andre faner, opprydding,
+  offline-sjekk, feilgjenkjenning, feilskjerm, logg og manuell reload.
+  E2E blokkerer en modul og kontrollerer både feilmelding og fungerende reload.
+  Produksjonstesten endrer script-bytes i den ekte genererte workeren for å
+  simulere en ny versjon og gjenoppretter filen i `finally`. Den kontrollerer
+  venting, melding, lukking/sidebytte, en nyåpnet fane, dokumentidentitet,
+  bevart søk frem til klikk, ny aktiv worker etter klikk og offline etterpå.
+  Den opprinnelige produksjonstesten for offline/tilbakekobling er beholdt.
+
+Manuell kontroll: kjør `npm run build` og `npm start`, og åpne
+http://localhost:3000 i to faner. Når en ny versjon er
+tilgjengelig, skal du kunne fortsette å jobbe, lukke meldingen og se den
+igjen etter sidebytte. Trykk «Oppdater» når du er ferdig med pågående arbeid;
+bare denne fanen skal lastes om. Slå deretter av nettet og prøv Taktikk.
+
+| Kommando | Resultat for oppgave 4 |
+| --- | --- |
+| `npx tsc --noEmit` | Grønn, også etter de siste testendringene |
+| `npx vitest --run` | Grønn, 25 filer / 258 tester |
+| `npm run build` | Grønn |
+| `npm run test:e2e -- --workers=1` | Grønn, 25 tester |
+| `npm run test:offline` | Grønn, 2 produksjonstester med nytt bygg |
+
+Underveis måtte produksjonstestens rekkefølge tilpasses den eksisterende
+fanesynkroniseringen: åpning/omlasting av en ekstra fane velger Oversikt i
+begge faner, uten å laste den første siden på nytt. Testen åpner derfor
+ekstrafanen før søket og måler dokumentidentitet uavhengig av visningen.
+Ingen kontroll er fjernet. Som ved forrige etterkontroll måtte bare den
+kjente testserverprosessen stoppes direkte etter ferdige tester på Windows;
+begge Playwright-kommandoene avsluttet deretter med kode 0. Bygget varslet
+om gammel Browserslist-database og webpack-cache, uten å hindre kontrollene.
+Ingen pakker er installert, og ingenting er publisert, committet eller pushet.
 
 ## Etterkontroll av Next 15 og offline (17.10.2026)
 
@@ -335,7 +390,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 \- ~~\*\*Ingen error boundaries.\*\*~~ \*\*Løst i oppgave 1.\*\* Hver hoveddel, 3D-visningen og dialogene har nå sin egen feilskjerm (`components/layout/ErrorBoundary.tsx`), i tillegg til `src/app/error.tsx` og `global-error.tsx`.
 
-\- \*\*Dynamiske importer uten reserveløsning\*\* (`page.tsx:17–30`). Etter en ny versjon kan en gammel service worker eller fane be om en fil som ikke finnes lenger (`ChunkLoadError`). Da blir skjermen hvit. Risikoen øker med `skipWaiting: true`.
+\- \*\*Dynamiske importer uten reserveløsning\*\* (`page.tsx:17–30`). Etter en ny versjon kan en gammel service worker eller fane be om en fil som ikke finnes lenger (`ChunkLoadError`). Løst i oppgave 4: egen norsk feilskjerm med reload-knapp og lokal logging. `skipWaiting` er nå `false`, og en oppdateringsmelding lar brukeren velge tidspunkt.
 
 \- \*\*Stille feil.\*\* Hvis kopiering til utklippstavlen feiler i `MatchReport.tsx:228`, får brukeren ingen beskjed.
 
@@ -409,7 +464,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 \- \*\*`lucide-react` 0.400, `framer-motion` 11, `zustand` 4 og `next-pwa` 5.6\*\* godtar alle React 19 og Next 15, og trengte ingen endring. Appen bruker ikke `@react-three`, bare ren `three`.
 
-\- \*\*Service workeren ble ikke registrert (gjaldt også før oppgraderingen), rettet i oppgave 2.\*\* `next-pwa` 5.6 legger registreringen i `main.js`, men App Router-sider laster bare `main-app.js`. Det gjaldt både i 14.2.5 og i 15.5.28, så appen virket i praksis ikke uten nett. Nå kjører `components/layout/ServiceWorkerRegister.tsx` (fra `layout.tsx`) `next-pwa` sitt eget skript `next-pwa/register` i produksjon. Skriptet registrerer `/sw.js` og legger startsiden i cachen ved første installasjon. `reloadOnOnline: false` er satt, så siden ikke lastes på nytt midt i en tegning eller video-eksport når nettet kommer tilbake. Ingen ny pakke og ikke noe bibliotekbytte. Merk: med `skipWaiting: true` tar en ny versjon over med en gang, så `ChunkLoadError` (oppgave 4) er nå reelt i åpne faner etter en deploy.
+\- \*\*Service workeren ble ikke registrert (gjaldt også før oppgraderingen), rettet i oppgave 2.\*\* `next-pwa` 5.6 legger registreringen i `main.js`, men App Router-sider laster bare `main-app.js`. Det gjaldt både i 14.2.5 og i 15.5.28, så appen virket i praksis ikke uten nett. Nå kjører `components/layout/ServiceWorkerRegister.tsx` (fra `layout.tsx`) `next-pwa` sitt eget skript `next-pwa/register` i produksjon. Skriptet registrerer `/sw.js` og legger startsiden i cachen ved første installasjon. `reloadOnOnline: false` er satt, så siden ikke lastes på nytt midt i en tegning eller video-eksport når nettet kommer tilbake. Ingen ny pakke og ikke noe bibliotekbytte. Oppgave 4 har nå satt `skipWaiting: false`, lagt til melding og brukerutløst oppdatering, samt egen håndtering av `ChunkLoadError` (se etterkontrollen øverst).
 
 \- \*\*`npm audit` etter oppgave 2:\*\* 25 funn (0 kritiske, 21 høye, 3 moderate og 1 lav). Før var det 29 (1 kritisk, 25 høye, 2 moderate og 1 lav). Ingen av funnene gjelder kode som kjører i nettleseren eller i API-routen. Alle er byggeverktøy:
 
@@ -456,7 +511,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
    - Innstillinger → Feilrapport: «Kopier feilrapport» (lesbar tekst) og «Tøm logg».
    - Data, lagring, 2D og 3D er ikke endret, bare pakket inn.
    - \*Test:\* `src/lib/errorLog.test.ts`, `src/components/layout/ErrorBoundary.test.ts`, `e2e/errors.spec.ts`.
-   - Gjenstår: feil som 3D selv viser i sin egen melding (f.eks. «mistet forbindelsen til grafikkortet»), kommer ikke i loggen, fordi 3D-koden ikke skulle endres. En visning som ikke kan lastes etter en ny versjon (`ChunkLoadError`) viser nå feilskjermen, men «Prøv igjen» hjelper ikke før siden lastes på nytt. Det er oppgave 4.
+   - Gjenstår: feil som 3D selv viser i sin egen melding (f.eks. «mistet forbindelsen til grafikkortet»), kommer ikke i loggen, fordi 3D-koden ikke skulle endres. Lastefeil etter ny versjon (`ChunkLoadError`) er nå løst i oppgave 4 med egen melding og «Last inn på nytt».
 
 2\. ✅ \*\*FERDIG (17.10.2026): Next 15.5.28 og React 19.\*\* Se del 6 for bakgrunn og `npm audit`.
    - Pakker: `next` 15.5.28 (låst), `react`/`react-dom` ^19.3.1, `@types/react`/`@types/react-dom` ^19.3.0 og `eslint-config-next` ^15.5.28. Ingen nye pakker. `sharp` 0.35.5 følger med Next.
@@ -469,7 +524,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 3\. \*\*Next 16.x (siste rettede).\*\* Bygg med `--webpack`, flytt linting til ESLint 9 og sjekk Node-versjonen. \*Test:\* som i oppgave 2. Sjekk at service workeren fortsatt registreres i produksjonsbygget og at appen kan lastes uten nett (se del 6). \*Risiko: middels.\*
 
-4\. \*\*Håndter `ChunkLoadError`.\*\* Ved feil i en dynamisk import: vis «Ny versjon – last inn på nytt». \*Test:\* e2e som blokkerer én JavaScript-fil. \*Risiko: lav.\*
+4\. ✅ \*\*FERDIG (17.10.2026): Trygg appoppdatering og `ChunkLoadError`.\*\* Ny service worker venter på «Oppdater», melding kan lukkes og kommer tilbake ved sidebytte. Dynamiske lastefeil viser «Appen er oppdatert – last inn på nytt» og logges lokalt. Ingen automatisk reload. Enhetstester, e2e med blokkert modul og produksjonstest av ny worker/offline; se egen etterkontroll øverst.
 
 5\. \*\*Enhetstester for `lib/backup.ts`\*\* (bygg, les, beskriv, ødelagt fil). \*Risiko: ingen.\*
 
@@ -533,7 +588,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 
 
-Ryddeplanen er oppdatert med gjennomført etterkontroll av Next 15 og bruk uten nett. Produksjonsbygget bruker nå lokale skrifter, og service workeren installeres uten den interne manifestfilen som svarte 404. Testresultater og fremgangsmåte står øverst i dokumentet.
+Oppgave 4 er gjennomført: appen varsler når en ny versjon er klar og lar brukeren velge når den tas i bruk. Lastefeil gir en forståelig melding og en knapp for omlasting, uten automatisk avbrudd. Bruk uten nett er fortsatt testet og fungerer. Testresultater og fremgangsmåte står øverst i dokumentet, sammen med etterkontrollen av Next 15.
 
 
 

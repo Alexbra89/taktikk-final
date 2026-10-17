@@ -10,7 +10,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
   useEffect(() => { logError(error, 'app'); }, [error]);
   return (
     <div className="flex h-[100dvh] bg-canvas text-ink">
-      <ErrorFallback onRetry={reset} />
+      <ErrorFallback error={error} onRetry={reset} />
     </div>
   );
 }

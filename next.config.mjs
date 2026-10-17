@@ -27,7 +27,8 @@ export default withPWA({
   dest: 'public',
   // Registreringen kjøres av ServiceWorkerRegister i layout.tsx (App Router laster ikke main.js).
   register: true,
-  skipWaiting: true,
+  // En ny worker venter til brukeren selv velger «Oppdater».
+  skipWaiting: false,
   // Ikke last siden på nytt når nettet kommer tilbake: det ville avbrutt
   // tegning eller video-eksport som er i gang. Standard i next-pwa er true.
   reloadOnOnline: false,
