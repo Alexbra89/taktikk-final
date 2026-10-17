@@ -1,0 +1,35 @@
+{
+  "format": "taktikkboard-backup",
+  "version": 1,
+  "exportedAt": "2026-09-01T12:00:00Z",
+  "teamName": "Eldre lag",
+  "theme": "light",
+  "data": {
+    "tactics": [{
+      "id": "t-gammel", "name": "Gammelt press", "sport": "football5", "formation": "1-2-1",
+      "activePhaseIdx": 0, "createdAt": "2026-09-01T10:00:00Z",
+      "phases": [{
+        "id": "f-gammel", "name": "Første fase", "ball": { "x": 300, "y": 200 }, "stickyNote": "Behold gammelt notat",
+        "players": [
+          { "id": "p0", "slotIdx": 0, "num": 1, "name": "Åse", "notes": "Keeper", "position": { "x": 80, "y": 280 } },
+          { "id": "p1", "slotIdx": 1, "num": 2, "name": "Bo", "notes": "Forsvar", "position": { "x": 200, "y": 280 } },
+          { "id": "p2", "slotIdx": 2, "num": 3, "name": "Cia", "notes": "Venstre", "position": { "x": 350, "y": 180 } },
+          { "id": "p3", "slotIdx": 3, "num": 4, "name": "Dag", "notes": "Høyre", "position": { "x": 350, "y": 380 } },
+          { "id": "p4", "slotIdx": 4, "num": 5, "name": "Eva", "notes": "Spiss", "position": { "x": 550, "y": 280 } }
+        ],
+        "drawings": [{ "id": "strek", "color": "#EDEDEF", "pts": [{ "x": 200, "y": 200 }, { "x": 350, "y": 300 }] }]
+      }]
+    }],
+    "activeTacticId": "t-gammel", "ageGroup": "youth", "homeTeamName": "Eldre lag", "awayTeamName": "Ørn",
+    "awayTeamColor": "#ef4444", "rosterNames": ["Åse", "Bo"], "currentView": "settings",
+    "events": [{
+      "id": "e-gammel", "type": "training", "title": "Gammel trening", "date": "2026-09-02", "time": "18:00",
+      "teamNote": "Ta med vest", "trainingNotes": [
+        { "id": "n-gammel", "createdAt": "2026-09-01T11:00:00Z", "title": "Pasninger", "content": "To og to", "focus": ["Samspill"] },
+        { "id": "n-fremmote", "createdAt": "2026-09-01T11:00:00Z", "title": "✅ Fremmøte", "content": "Åse og Bo møtte", "focus": [] }
+      ], "matchNotes": []
+    }],
+    "matchReports": [{ "id": "r-gammel", "createdAt": "2026-09-01T11:00:00Z", "tags": ["god_pressing"], "freeText": "Bra kamp", "generatedText": "Hele den gamle rapporten" }],
+    "moments": [{ "id": "m-gammel", "name": "Gammelt øyeblikk", "timestamp": "2026-09-01T11:00:00Z", "tacticId": "t-gammel", "snapshot": { "id": "f", "name": "Fase", "players": [], "ball": { "x": 300, "y": 200 }, "drawings": [], "stickyNote": "Behold meg" } }]
+  }
+}

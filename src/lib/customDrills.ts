@@ -32,7 +32,7 @@ export function repairCustomDrill(raw: unknown): DrillExercise | null {
     why: text(d.why), sketch: text(d.sketch), warning: text(d.warning),
     steps: (Array.isArray(d.steps) ? d.steps : []).slice(0, 30).flatMap((s, i) => {
       if (!s || typeof s !== 'object' || !text(s.description)) return [];
-      return [{ id: `step-${i}`, name: text(s.name), description: text(s.description) }];
+      return [{ id: text(s.id) || `step-${i}`, name: text(s.name), description: text(s.description) }];
     }),
     equipment: list(d.equipment), coachingPoints: list(d.coachingPoints),
     commonMistakes: list(d.commonMistakes), variations: list(d.variations),

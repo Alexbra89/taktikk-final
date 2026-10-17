@@ -9,6 +9,18 @@
 
 import type { Theme } from '@/hooks/useTheme';
 import { slugify, downloadBlob } from '@/lib/download';
+import { prepareBackupSnapshot, useAppStore } from '@/store/useAppStore';
+import type { PlayerStyle } from '@/hooks/usePlayerStyle';
+
+export interface BackupSettings {
+  playerStyle: PlayerStyle;
+  aiAccessCode: string;
+}
+
+export function isBackupDue(lastExportedAt: string | null, now = Date.now()): boolean {
+  const at = lastExportedAt ? Date.parse(lastExportedAt) : NaN;
+  return !Number.isFinite(at) || now - at > 30 * 86_400_000;
+}
 
 /** Kjennemerke i filen, så vi ikke prøver å lese en vilkårlig JSON. */
 export const BACKUP_FORMAT = 'taktikkboard-backup';
@@ -22,7 +34,9 @@ export interface BackupFile {
   /** Med for at en bruker skal kjenne igjen filen sin. */
   teamName: string;
   theme: Theme | null;
-  /** Nøyaktig det zustand selv lagrer (partialize). */
+  /** Valgfrie tillegg; gamle versjon 1-filer kan fortsatt leses. */
+  settings?: BackupSettings;
+  /** Lagrede brukerdata og innstillinger, uten enhetens eksporttidspunkt. */
   data: Record<string, unknown>;
 }
 
@@ -30,6 +44,7 @@ export function buildBackup(args: {
   data: Record<string, unknown>;
   teamName: string;
   theme: Theme | null;
+  settings?: BackupSettings;
 }): BackupFile {
   return {
     format: BACKUP_FORMAT,
@@ -37,7 +52,8 @@ export function buildBackup(args: {
     exportedAt: new Date().toISOString(),
     teamName: args.teamName,
     theme: args.theme,
-    data: args.data,
+    ...(args.settings ? { settings: { ...args.settings } } : {}),
+    data: JSON.parse(JSON.stringify(args.data)),
   };
 }
 
@@ -52,33 +68,47 @@ export type ParseResult =
   | { ok: false; error: string };
 
 /**
- * Validerer konvolutten. Selve innholdet repareres av storen etterpå
- * (samme vei som data fra localStorage går), så her sjekker vi bare at
- * dette faktisk er en backupfil vi kan gjøre noe fornuftig med.
+ * Kontrollerer hele kopien før brukeren får bekrefte. Ingenting lagres her.
  */
-export function parseBackup(text: string): ParseResult {
+export function parseBackup(text: string, filename?: string): ParseResult {
+  const fail = (error: string): ParseResult => ({ ok: false, error: `${error} Dataene dine er ikke endret.` });
+  if (filename && !/\.json$/i.test(filename)) return fail('Velg en sikkerhetskopi med filtypen .json.');
+  if (!text.trim()) return fail('Filen er tom. Velg en sikkerhetskopi du har eksportert fra appen.');
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    return { ok: false, error: 'Filen er ikke gyldig JSON.' };
+    return fail('Filen kunne ikke leses som en sikkerhetskopi. Den kan være skadet.');
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return { ok: false, error: 'Filen inneholder ikke et objekt.' };
+    return fail('Filen inneholder ikke en sikkerhetskopi.');
   }
   const o = raw as Record<string, unknown>;
   if (o.format !== BACKUP_FORMAT) {
-    return { ok: false, error: 'Dette ser ikke ut som en backup fra Taktikkboard.' };
+    return fail('Dette er ikke en sikkerhetskopi fra Taktikkboard.');
   }
-  if (typeof o.version !== 'number' || o.version > BACKUP_VERSION) {
-    return { ok: false, error: 'Filen er laget av en nyere versjon av appen.' };
+  if (typeof o.version !== 'number' || !Number.isInteger(o.version) || o.version < 0) {
+    return fail('Filen har et ugyldig versjonsnummer.');
+  }
+  if (o.version > BACKUP_VERSION) {
+    return fail('Filen er laget av en nyere versjon av appen. Oppdater appen før du importerer.');
   }
   if (!o.data || typeof o.data !== 'object' || Array.isArray(o.data)) {
-    return { ok: false, error: 'Filen mangler datadelen.' };
+    return fail('Sikkerhetskopien mangler data.');
   }
   const data = o.data as Record<string, unknown>;
   if (!Array.isArray(data.tactics)) {
-    return { ok: false, error: 'Filen mangler taktikker og kan ikke importeres.' };
+    return fail('Sikkerhetskopien mangler taktikker og kan ikke importeres.');
+  }
+  try { prepareBackupSnapshot(data, useAppStore.getState()); }
+  catch { return fail('Sikkerhetskopien er skadet eller inneholder ugyldige data.'); }
+  if (o.theme !== undefined && o.theme !== null && o.theme !== 'dark' && o.theme !== 'light') {
+    return fail('Sikkerhetskopien inneholder et ugyldig tema.');
+  }
+  const settings = o.settings as BackupSettings | undefined;
+  if (settings !== undefined && (!settings || typeof settings !== 'object' || Array.isArray(settings) ||
+      !['kit', 'chip'].includes(settings.playerStyle) || typeof settings.aiAccessCode !== 'string')) {
+    return fail('Sikkerhetskopien inneholder ugyldige innstillinger.');
   }
   return {
     ok: true,
@@ -88,6 +118,7 @@ export function parseBackup(text: string): ParseResult {
       exportedAt: typeof o.exportedAt === 'string' ? o.exportedAt : '',
       teamName: typeof o.teamName === 'string' ? o.teamName : '',
       theme: o.theme === 'dark' || o.theme === 'light' ? o.theme : null,
+      ...(settings ? { settings } : {}),
       data,
     },
   };

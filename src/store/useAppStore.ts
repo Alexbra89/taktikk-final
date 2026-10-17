@@ -146,7 +146,6 @@ const patchPhase = (t: Tactic, idx: number, fn: (ph: TacticPhase) => TacticPhase
 //  LAGRING: v1-migrering og reparasjon ved lasting
 // ═══════════════════════════════════════════════════════════════
 
-const LEGACY_ATTENDANCE_TITLE = '✅ Fremmøte';
 const VALID_VIEWS: AppView[] = ['dashboard', 'board', 'drills', 'calendar', 'training', 'reports', 'settings'];
 
 // Hendelsene vaskes felt for felt, som taktikkene. Én ødelagt hendelse
@@ -178,7 +177,7 @@ function uniqueIds<T extends { id: string }>(list: T[], make: () => string): T[]
 function repairTrainingNote(raw: unknown): TrainingNote | null {
   const n = obj(raw);
   // Uten tittel er det ikke noe å vise – et tomt kort hjelper ingen.
-  if (!n || typeof n.title !== 'string' || n.title === LEGACY_ATTENDANCE_TITLE) return null;
+  if (!n || typeof n.title !== 'string') return null;
   return {
     id: typeof n.id === 'string' ? n.id : uid(),
     createdAt: typeof n.createdAt === 'string' ? n.createdAt : new Date().toISOString(),
@@ -328,7 +327,7 @@ export function repairItem(raw: unknown): BoardItem | null {
   const rotation = Number.isFinite(i.rotation) ? normalizeRotation(i.rotation as number) : 0;
   return {
     id: typeof i.id === 'string' ? i.id : `item-${uid()}`, type: i.type as BoardItemType, position: inBoard(i.position),
-    ...(rotation ? { rotation } : {}),
+    ...(Number.isFinite(i.rotation) ? { rotation } : {}),
   };
 }
 
@@ -393,9 +392,9 @@ export function repairTactic(raw: unknown): Tactic | null {
       ball: isPos(ph.ball) ? inBoard(ph.ball) : centerBall(),
       drawings: uniqueIds((Array.isArray(ph.drawings) ? ph.drawings : [])
         .map(repairDrawing).filter((d): d is Drawing => d !== null), () => `drawing-${uid()}`),
-      items: uniqueIds((Array.isArray(ph.items) ? ph.items : [])
-        .map(repairItem).filter((it): it is BoardItem => it !== null), () => `item-${uid()}`),
-      stickyNote: typeof ph.stickyNote === 'string' ? ph.stickyNote : '',
+      ...(ph.items === undefined ? {} : { items: uniqueIds((Array.isArray(ph.items) ? ph.items : [])
+        .map(repairItem).filter((it): it is BoardItem => it !== null), () => `item-${uid()}`) }),
+      ...(ph.stickyNote === undefined ? {} : { stickyNote: typeof ph.stickyNote === 'string' ? ph.stickyNote : '' }),
       };
     }), () => `phase-${uid()}`);
   const safePhases = syncPlayers(phases.length ? phases : [createPhase('Fase 1', slots)], slots);
@@ -418,7 +417,7 @@ export function repairTactic(raw: unknown): Tactic | null {
 // Et korrupt lager skal aldri gi hvit skjerm: alt som ikke er gyldig erstattes med `current`.
 export function repairPersisted(persisted: unknown, current: AppStore): Partial<AppStore> {
   const p = (persisted && typeof persisted === 'object' ? persisted : {}) as Record<string, unknown>;
-  const str = (v: unknown, fallback: string) => typeof v === 'string' && v ? v : fallback;
+  const str = (v: unknown, fallback: string) => typeof v === 'string' ? v : fallback;
   const arr = <T,>(v: unknown): T[] => Array.isArray(v) ? v as T[] : [];
 
   const tactics = uniqueIds(arr<unknown>(p.tactics).map(repairTactic).filter((t): t is Tactic => t !== null),
@@ -442,6 +441,36 @@ export function repairPersisted(persisted: unknown, current: AppStore): Partial<
     lastExportedAt: typeof p.lastExportedAt === 'string' ? p.lastExportedAt : null,
     showMovement: p.showMovement === true,
   };
+}
+
+/** Import må aldri stille forkaste innhold slik reparasjon av lokal lagring kan. */
+export function prepareBackupSnapshot(data: unknown, current: AppStore): Partial<AppStore> {
+  const p = obj(data);
+  const error = () => new Error('Sikkerhetskopien er skadet eller inneholder ugyldige data. Dataene dine er ikke endret.');
+  if (!p || !Array.isArray(p.tactics) || !p.tactics.length || p.tactics.some(t => {
+    const tactic = obj(t);
+    return !tactic || !Array.isArray(tactic.phases) || !tactic.phases.length;
+  })) throw error();
+  const repaired = repairPersisted(p, current);
+  // Nye standardfelter er tillatt i eldre kopier. Eksisterende verdier og hele
+  // lister skal beholdes. Gamle, utgåtte hjelpefelter er ikke brukerinnhold.
+  const obsolete = new Set(['targetPlayerIds', 'role', 'source', 'unverifiedSource', 'background']);
+  const retained = (before: unknown, after: unknown, key = ''): boolean => {
+    if (before === undefined) return true;
+    if (key === 'id' && typeof before === 'string' && typeof after === 'string') return true;
+    if (Array.isArray(before)) return Array.isArray(after) && before.length === after.length &&
+      before.every((v, i) => retained(v, after[i]));
+    const original = obj(before);
+    if (original) {
+      const result = obj(after);
+      return !!result && Object.keys(original).every(k => obsolete.has(k) || retained(original[k], result[k], k));
+    }
+    return before === after;
+  };
+  for (const key of Object.keys(repaired)) {
+    if (key in p && !retained(p[key], repaired[key as keyof AppStore])) throw error();
+  }
+  return repaired;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -543,18 +572,17 @@ export interface AppStore {
   deleteMoment: (id: string) => void;
 
   // ─── Visning ───────────────────────────────────────────────
-  /** «Vis bevegelse»: stiplet linje fra spillerens posisjon i forrige fase.
-   *  Gjelder denne enheten, som lastExportedAt – ikke med i backup. */
+  /** «Vis bevegelse»: stiplet linje fra spillerens posisjon i forrige fase. */
   showMovement: boolean;
   setShowMovement: (on: boolean) => void;
 
   // ─── Backup ────────────────────────────────────────────────
   /** Når brukeren sist lastet ned en backup. ISO-streng, null hvis aldri. */
   lastExportedAt: string | null;
-  /** Nøyaktig det som lagres i localStorage – samme utvalg som partialize. */
+  /** Lagrede brukerdata og innstillinger, uten enhetens eksporttidspunkt. */
   exportSnapshot: () => Record<string, unknown>;
   markExported: () => void;
-  /** Erstatter alt. Dataene går gjennom samme reparasjon som localStorage. */
+  /** Kontrollerer hele kopien før dataene erstattes i én samlet endring. */
   importSnapshot: (data: unknown) => void;
 }
 
@@ -890,28 +918,23 @@ export const useAppStore = create<AppStore>()(
           matchReports: s.matchReports,
           moments: s.moments,
           currentView: s.currentView,
+          showMovement: s.showMovement,
         };
       },
 
       markExported: () => set({ lastExportedAt: new Date().toISOString() }),
 
       importSnapshot: (data) => {
-        // repairPersisted er den samme vaskemaskinen localStorage-data går
-        // gjennom: ukjente felter forkastes, ødelagte taktikker filtreres
-        // bort, og mangler noe faller vi tilbake på gjeldende verdi.
-        const repaired = repairPersisted(data, get());
-        // Ingen gyldig taktikk i filen: repairPersisted faller da tilbake på dine
-        // taktikker, mens kalender og rapporter ville kommet fra filen. Heller
-        // avbryte – page.tsx viser da at dataene dine ikke er endret.
-        if (repaired.tactics === get().tactics) throw new Error('Filen har ingen gyldige taktikker.');
+        const repaired = prepareBackupSnapshot(data, get());
+        // Kontrollen over må fullføres før én eneste verdi erstattes.
         set({
           ...repaired,
           matchTimer: { running: false, startedAt: null, elapsed: 0 },
           // «Sist eksportert» handler om denne enheten. En import skal verken
           // overta tidspunktet fra filen eller slette din egen historikk.
           lastExportedAt: get().lastExportedAt,
-          // Visningsvalg hører til enheten, ikke til dataene som importeres.
-          showMovement: get().showMovement,
+          // Eldre kopier hadde ikke dette innstillingsfeltet.
+          showMovement: obj(data)?.showMovement === undefined ? get().showMovement : repaired.showMovement,
         });
       },
     }),
