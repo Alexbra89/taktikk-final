@@ -675,7 +675,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         </div>
 
         {onFullscreen && boardView === '2d' && (
-          <button onClick={onFullscreen} aria-label="Fullskjerm" title="Fullskjerm (F)" className={iconBtn}>
+          <button onClick={() => { stopPlayback(); onFullscreen(); }} aria-label="Fullskjerm" title="Fullskjerm (F)" className={iconBtn}>
             <Maximize2 size={16} strokeWidth={1.75} />
           </button>
         )}

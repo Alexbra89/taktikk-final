@@ -735,7 +735,7 @@ export class BoardScene {
     jog.time = f.cycle * jogTime; run.time = (f.cycle + this.sprintPhase) % 1 * runTime;
     f.mixer.update(this.reducedMotion && !this.exportMode ? 0 : dt);
   }
-  render(dt: number, snap = false) {
+  render(dt: number, snap = false, liveCamera?: THREE.PerspectiveCamera) {
     this.advance(dt, snap);
     this.figures.forEach(f => {
       const delta = Math.atan2(Math.sin(f.heading - f.group.rotation.y), Math.cos(f.heading - f.group.rotation.y));
@@ -747,6 +747,13 @@ export class BoardScene {
       f.group.visible = true;
     });
     this.updateCamera(dt, snap);
+    // Fullscreen exports use the live camera after its orbit/follow update.
+    if (liveCamera) {
+      this.camera.position.copy(liveCamera.position); this.camera.quaternion.copy(liveCamera.quaternion);
+      this.camera.projectionMatrix.copy(liveCamera.projectionMatrix);
+      this.camera.projectionMatrixInverse.copy(liveCamera.projectionMatrixInverse);
+      this.camera.updateMatrixWorld();
+    }
     // In Spillerperspektiv the camera sits in the player's head; hide that figure once there.
     const pov = this.view === 'player' && !this.manual ? this.povFigure() : undefined;
     if (pov && pov.group.position.distanceTo(this.camera.position) < 2.5 * this.figureSize) pov.group.visible = false;

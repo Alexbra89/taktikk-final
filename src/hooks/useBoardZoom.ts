@@ -56,7 +56,7 @@ export interface BoardZoom {
   onPointerUp: (e: React.PointerEvent) => void;
 }
 
-export function useBoardZoom(): BoardZoom {
+export function useBoardZoom(enabled = true): BoardZoom {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState<Pan>({ x: 0, y: 0 });
   const [spaceHeld, setSpaceHeld] = useState(false);
@@ -91,11 +91,12 @@ export function useBoardZoom(): BoardZoom {
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
+      if (!enabled) return;
       zoomAt(zoom - Math.sign(e.deltaY) * STEP);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [zoom, zoomAt]);
+  }, [zoom, zoomAt, enabled]);
 
   // ─── Mellomrom = panoreringsmodus på desktop ────────────────
   useEffect(() => {

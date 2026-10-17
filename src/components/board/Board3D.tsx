@@ -6,7 +6,8 @@ import { cn } from '@/lib/cn';
 import { BoardScene, type CameraView, type SceneFrame } from './three/BoardScene';
 import { PITCHES, playbackBallHeight, playbackFrame } from './three/coordinates';
 import { chooseEncoder, exportVideo3D, type EncoderChoice } from '@/lib/exportVideo3D';
-import { VIDEO_PHASE_MS } from '@/lib/exportVideo';
+import { VIDEO_PHASE_MS, fullscreenVideoSize } from '@/lib/exportVideo';
+import { RecordingControls } from './RecordingControls';
 import { getSlot, SPORT_LABELS } from '@/store/selectors';
 import { ROLE_INFO } from '@/data/roleInfo';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
@@ -59,6 +60,10 @@ export default function Board3D(props: Props) {
   const scene = useRef<BoardScene | null>(null);
   const latest = useRef(props); latest.current = props;
   const abort = useRef<AbortController | null>(null);
+  const recording = useRef(false);
+  const stopped = useRef(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingPhase, setRecordingPhase] = useState<number | null>(null);
   const [view, setView] = useState<CameraView>('overview');
   const [playerId, setPlayerId] = useState(props.players.find(p => p.num === 1)?.id ?? props.players[0]?.id ?? '');
   const [error, setError] = useState('');
@@ -132,17 +137,22 @@ export default function Board3D(props: Props) {
     };
   }, [props.tactic.id, props.tactic.sport, props.playerStyle, lowPower, theme]);
 
-  useEffect(() => { scene.current?.setFrame(sceneFrame(props), props.isPlaying); }, [props]);
+  useEffect(() => { if (!recording.current) scene.current?.setFrame(sceneFrame(props), props.isPlaying); }, [props]);
   useEffect(() => {
     let active = true;
-    scene.current?.setDrawings(props.drawings, props.trails).catch(() => { if (active) setError('Tegningene kunne ikke lastes i 3D.'); });
+    if (!recording.current) scene.current?.setDrawings(props.drawings, props.trails).catch(() => { if (active) setError('Tegningene kunne ikke lastes i 3D.'); });
     return () => { active = false; };
   }, [props.drawings, props.trails]);
-  useEffect(() => { scene.current?.selectCamera(view, selectedId); }, [view, selectedId, props.tactic.id, props.tactic.sport, props.playerStyle, lowPower, theme]);
+  useEffect(() => {
+    const current = scene.current?.cameraState();
+    // Restoring an aborted recording also restores these selectors. Do not
+    // reset its manual orbit/zoom just because React updates the menu labels.
+    if (current && (current.view !== view || current.playerId !== selectedId)) scene.current?.selectCamera(view, selectedId);
+  }, [view, selectedId, props.tactic.id, props.tactic.sport, props.playerStyle, lowPower, theme]);
 
   const phaseIdx = props.tactic.activePhaseIdx;
-  const activePhase = props.tactic.phases[phaseIdx];
-  const pillName = activePhase ? activePhase.name || `Fase ${phaseIdx + 1}` : '';
+  const activePhase = props.tactic.phases[recordingPhase ?? phaseIdx];
+  const pillName = activePhase ? activePhase.name || `Fase ${(recordingPhase ?? phaseIdx) + 1}` : '';
   const pillNote = activePhase?.stickyNote?.trim() ?? '';
   useEffect(() => { setNoteOpen(false); }, [phaseIdx, pillNote]);
 
@@ -151,6 +161,7 @@ export default function Board3D(props: Props) {
 
   /** Clears fullscreen state once the element has left fullscreen (or never had it, in CSS mode). */
   const leaveFullscreen = useCallback(() => {
+    if (recording.current) abort.current?.abort();
     setFullscreen(null); unlockOrientation();
     if (historyEntry.current) { historyEntry.current = false; history.back(); }
   }, []);
@@ -241,21 +252,30 @@ export default function Board3D(props: Props) {
     };
   }, []);
 
-  const exportVideo = async () => {
+  const exportVideo = async (fromFullscreen = false) => {
     if (!scene.current || !choice || abort.current) return;
     const controller = new AbortController(); abort.current = controller;
+    recording.current = fromFullscreen; stopped.current = false; setRecordingSeconds(0);
+    const live = scene.current;
+    const initialCamera = live.cameraState();
+    const hidden = () => { if (document.hidden && fromFullscreen) controller.abort(); };
+    document.addEventListener('visibilitychange', hidden);
     setProgress(0); setNotice(''); setError('');
     let exporter: BoardScene | null = null;
     try {
       // Isolated scene and immutable snapshot: exporting never moves or seeks the board.
       const snapshot = structuredClone(props.tactic);
       const camera = scene.current.cameraState();
+      const size = fromFullscreen ? fullscreenVideoSize(host.current!.clientWidth, host.current!.clientHeight) : null;
+      const selectedChoice = size ? await chooseEncoder(false, size) : choice;
+      controller.signal.throwIfAborted();
+      if (!selectedChoice) throw new Error('Nettleseren støtter ikke opptak i denne skjermstørrelsen. Prøv en annen nettleser.');
       exporter = new BoardScene(snapshot.sport, props.playerStyle, lowPower, true);
       const board = exporter;
-      board.resize(choice.config.width, choice.config.height, 1);
+      board.resize(selectedChoice.config.width, selectedChoice.config.height, 1);
       // Reuse one CPU buffer, including the HUD. Allocating a new full-HD
       // canvas snapshot per frame can exhaust mobile memory before GC runs.
-      const pixels = new ImageData(choice.config.width, choice.config.height);
+      const pixels = new ImageData(selectedChoice.config.width, selectedChoice.config.height);
       const bytes = new Uint8Array(pixels.data.buffer);
       const stride = pixels.width * 4, row = new Uint8Array(stride);
       const gl = board.renderer.getContext();
@@ -267,19 +287,32 @@ export default function Board3D(props: Props) {
       board.setFrame({ phaseName: first.name || 'Fase 1', stickyNote: first.stickyNote, players: first.players.map(p => ({ ...p, label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family })), ball: first.ball, items: first.items ?? [], drawings: first.drawings }, false);
       board.restoreCamera(camera);
       await exportVideo3D({
-        choice, phaseCount: snapshot.phases.length, speed: props.speed, team: props.teamName, tactic: snapshot.name,
+        choice: selectedChoice, phaseCount: snapshot.phases.length, speed: props.speed, team: props.teamName, tactic: snapshot.name,
         signal: controller.signal, onProgress: setProgress,
+        realtime: fromFullscreen, shouldStop: () => stopped.current, onElapsed: setRecordingSeconds,
         draw: async (elapsed, index) => {
           const f = playbackFrame(snapshot.phases, elapsed, props.speed);
           const drawings = snapshot.phases[f.fromIdx].drawings ?? [];
           await board.setDrawings(drawings);
-          board.setFrame({ ...f, drawings, phaseName: snapshot.phases[f.fromIdx].name || `Fase ${f.fromIdx + 1}`, stickyNote: snapshot.phases[f.fromIdx].stickyNote,
+          controller.signal.throwIfAborted();
+          const frame: SceneFrame = { ...f, drawings, phaseName: snapshot.phases[f.fromIdx].name || `Fase ${f.fromIdx + 1}`, stickyNote: snapshot.phases[f.fromIdx].stickyNote,
             progress: snapshot.phases.length > 1 ? Math.min(1, elapsed * props.speed / ((snapshot.phases.length - 1) * VIDEO_PHASE_MS)) : null,
             ballHeight: playbackBallHeight(snapshot.phases, elapsed, props.speed, snapshot.sport), players: f.players.map(p => ({
             id: p.id, num: p.num, name: p.name.trim(), position: p.position,
             label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
-          })) }, index > 0);
-          board.render(1 / 30, index === 0);
+          })) };
+          board.setFrame(frame, index > 0);
+          if (fromFullscreen) {
+            await live.setDrawings(drawings);
+            controller.signal.throwIfAborted();
+            live.setFrame(frame, index > 0);
+            // RAF normally advances the live camera; render once here as well so the
+            // recorded frame and preview have the same phase and follow target.
+            live.render(1 / 30);
+            board.restoreCamera(live.cameraState());
+            setRecordingPhase(f.fromIdx);
+          }
+          board.render(1 / 30, index === 0, fromFullscreen ? live.camera : undefined);
           gl.readPixels(0, 0, pixels.width, pixels.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
           // WebGL's origin is bottom-left; VideoFrame's is top-left.
           for (let y = 0; y < Math.floor(pixels.height / 2); y++) {
@@ -290,12 +323,29 @@ export default function Board3D(props: Props) {
           return pixels;
         },
       });
-      setNotice(choice.ext === 'mp4' ? '3D-videoen er lastet ned.' : '3D-videoen er lastet ned som WebM. Avspilling på iPhone og iPad kan være begrenset.');
+      setNotice(selectedChoice.ext === 'mp4' ? '3D-videoen er lastet ned.' : '3D-videoen er lastet ned som WebM. Avspilling på iPhone og iPad kan være begrenset.');
     } catch (e) {
       if (controller.signal.aborted) setNotice('Videoeksporten ble avbrutt.');
       // Our own errors are in Norwegian; browser/encoder exceptions (DOMException) are not.
       else setError(e instanceof Error && !(e instanceof DOMException) ? e.message : 'Videoen kunne ikke lages. Prøv igjen, eller bruk en annen nettleser.');
-    } finally { exporter?.dispose(); abort.current = null; setProgress(null); }
+    } finally {
+      document.removeEventListener('visibilitychange', hidden);
+      try {
+        if (fromFullscreen && scene.current === live) {
+          live.setFrame(sceneFrame(latest.current), false);
+          await live.setDrawings(latest.current.drawings, latest.current.trails);
+          if (scene.current === live) {
+            if (controller.signal.aborted) {
+              live.restoreCamera(initialCamera); setView(initialCamera.view); setPlayerId(initialCamera.playerId);
+            }
+            live.render(0);
+          }
+        }
+      } finally {
+        exporter?.dispose(); abort.current = null; recording.current = false;
+        setRecordingPhase(null); setProgress(null);
+      }
+    }
   };
 
   const pitch = PITCHES[props.tactic.sport];
@@ -337,21 +387,23 @@ export default function Board3D(props: Props) {
             </button>
           : <div aria-hidden className="board3d-phase"><span className="board3d-phase-name">{pillName}</span></div>)}
         {!ready && !error && <p role="status" className="absolute inset-0 flex items-center justify-center text-caption text-ink-muted">Laster 3D-banen …</p>}
-        {fullscreen && <div role="group" aria-label="Kontroller" className={cn('board3d-fsbar no-scrollbar', !controlsShown && 'is-hidden')}>
-          <select aria-label="Fase" className="board3d-fsselect" value={phaseIdx} disabled={props.isPlaying}
+        {fullscreen && <div role="group" aria-label="Kontroller" className={cn('board3d-fsbar no-scrollbar', !controlsShown && !recording.current && 'is-hidden')}>
+          <RecordingControls busy={recording.current} seconds={recordingSeconds} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.isPlaying}
+            onStart={() => exportVideo(true)} onStop={() => { stopped.current = true; }} onCancel={() => abort.current?.abort()} />
+          <select aria-label="Fase" className="board3d-fsselect" value={recordingPhase ?? phaseIdx} disabled={props.isPlaying || recording.current}
             onChange={e => props.onSelectPhase(Number(e.target.value))}>
             {props.tactic.phases.map((phase, index) => <option key={phase.id} value={index}>
               {phase.name || `Fase ${index + 1}`}{phase.stickyNote ? ' ·' : ''}</option>)}
           </select>
-          <button type="button" aria-label="Forrige fase" className="board3d-fsbtn" disabled={props.isPlaying || phaseIdx === 0}
+          <button type="button" aria-label="Forrige fase" className="board3d-fsbtn" disabled={props.isPlaying || recording.current || phaseIdx === 0}
             onClick={() => props.onSelectPhase(Math.max(0, phaseIdx - 1))}><SkipBack size={15} strokeWidth={1.75} /></button>
           <button type="button" aria-label={props.isPlaying ? 'Stopp avspilling' : 'Spill av fasene'} className="board3d-fsbtn is-play"
-            disabled={props.tactic.phases.length < 2} onClick={props.onTogglePlay}>
+            disabled={props.tactic.phases.length < 2 || recording.current} onClick={props.onTogglePlay}>
             {props.isPlaying ? <Pause size={15} strokeWidth={2} fill="currentColor" /> : <Play size={15} strokeWidth={2} fill="currentColor" />}
           </button>
-          <button type="button" aria-label="Neste fase" className="board3d-fsbtn" disabled={props.isPlaying || phaseIdx === props.tactic.phases.length - 1}
+          <button type="button" aria-label="Neste fase" className="board3d-fsbtn" disabled={props.isPlaying || recording.current || phaseIdx === props.tactic.phases.length - 1}
             onClick={() => props.onSelectPhase(Math.min(props.tactic.phases.length - 1, phaseIdx + 1))}><SkipForward size={15} strokeWidth={1.75} /></button>
-          <select aria-label="Avspillingsfart" className="board3d-fsselect" value={props.speed} disabled={props.isPlaying}
+          <select aria-label="Avspillingsfart" className="board3d-fsselect" value={props.speed} disabled={props.isPlaying || recording.current}
             onChange={e => props.onSpeed(Number(e.target.value))}>
             {SPEEDS.map(speed => <option key={speed} value={speed}>{speed}×</option>)}
           </select>
@@ -367,6 +419,8 @@ export default function Board3D(props: Props) {
           <button type="button" aria-label="Tilbakestill kamera" className="board3d-fsbtn" disabled={!ready} onClick={resetCamera}><RotateCcw size={16} /></button>
           <button type="button" aria-label="Avslutt fullskjerm" title="Avslutt fullskjerm (Esc)" className="board3d-fsbtn ml-auto" onClick={exitFullscreen}><Minimize2 size={16} /></button>
         </div>}
+        {fullscreen && (error || notice) && <p role={error ? 'alert' : 'status'} className="absolute top-12 right-3 max-w-[65%] rounded-ctl bg-canvas-panel px-3 py-2 text-caption">{error || notice}</p>}
+        {fullscreen && !checking && !choice && <p className="absolute top-12 right-3 bg-canvas-panel px-3 py-2 text-caption">Opptak krever nyere Chrome eller Edge på denne enheten.</p>}
       </div>
       <div className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 border-t border-rule bg-canvas-sunken">
         <div className="w-full sm:flex-1 sm:min-w-[220px] sm:w-auto">
@@ -376,7 +430,7 @@ export default function Board3D(props: Props) {
           <p className="font-mono text-meta text-ink-subtle">{SPORT_LABELS[props.tactic.sport]} · {pitch.length} × {pitch.width} m · Rediger i 2D</p>
         </div>
         <Button size="sm" icon={<Video size={15} />} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.tactic.phases.length < 2}
-          title={props.tactic.phases.length < 2 ? 'Legg til en fase til for å lage video' : choice?.label} onClick={exportVideo}>Eksporter 3D-video</Button>
+          title={props.tactic.phases.length < 2 ? 'Legg til en fase til for å lage video' : choice?.label} onClick={() => exportVideo()}>Eksporter 3D-video</Button>
         {choice && <span className="text-meta text-ink-subtle">{choice.label}</span>}
         {!checking && !choice && <p className="w-full text-caption text-ink-muted">Denne nettleseren støtter ikke bildefor-bilde-eksport. Prøv nyere Chrome eller Edge.</p>}
       </div>

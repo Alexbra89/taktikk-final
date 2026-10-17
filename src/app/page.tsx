@@ -157,7 +157,7 @@ export default function Home() {
               <TacticBoard
                 selectedPlayerId={selectedPlayerId}
                 onSelectPlayer={setSelectedPlayerId}
-                onFullscreen={mobile ? undefined : () => setShowFullscreenBoard(true)}
+                onFullscreen={() => setShowFullscreenBoard(true)}
               />
             </div>
           </div>

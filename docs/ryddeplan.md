@@ -1,4 +1,86 @@
-Status: appikon og enklere, fortsatt beskyttet AI-tilgang er lagt til 17. oktober 2026. Oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19), oppgave 4 (trygg appoppdatering og ChunkLoadError) og oppgave 5 (sikkerhetskopi) er ferdige. Backup-delen av oppgave 11 er også dekket. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+## Oppgave 6a: opptak fra fullskjerm i 2D og 3D (17.10.2026)
+
+- «Ta opp» finnes i fullskjermens kontrollrad i både 2D og 3D, også på
+  mobil. Hele taktikken tas opp fra første til siste fase. Én fase alene
+  kan også tas opp når taktikken bare har én fase; egen fasevelger for
+  opptaksomfang er ikke lagt til.
+- Under opptak vises fast rød prikk, tid, «Stopp opptak» (last ned det som
+  er tatt opp) og «Avbryt» (ingen fil). Kontrollene holder seg tilgjengelige
+  og opptaksdelen følger med når kontrollraden rulles sidelengs.
+- Samme motorer og formatvalg som før: `useVideoExport.exportVideo` i 2D,
+  `exportVideo3D` med eksisterende WebCodecs/kvalitet/muksing i 3D. Ingen
+  nye pakker, CDN-er eller endring i lagring eller dataformat.
+- Bildet beholder fullskjermens sideforhold, med 1920 piksler på lengste
+  side og partallsmål for koderen. 2D beholder utsnitt, panorering, zoom
+  og klipping ved banens kant. 3D kopierer det levende kameraets posisjon,
+  retning og projeksjon for hvert videobilde. Alle kameravalg, valgt spiller,
+  zoom, rotasjon og panorering kan brukes under 3D-opptaket.
+- Kontrollrad, opptaksindikator, knapper og andre HTML-overlegg tegnes aldri
+  i videoen. Fasepillen gjenbruker dagens kompakte video-pille fra 3D,
+  nå via `lib/phasePill.ts`, også i fullskjermopptak av 2D.
+- Avspillingen forhåndsvises uten å skrive til valgt fase, spillerposisjoner
+  eller lagring. Avbryt gjenoppretter også kameraet i 3D; 2D beholder zoom
+  og utsnitt. Vanlig videoeksport utenfor fullskjerm beholder sine mål,
+  tempo og formatvalg. Å lukke fullskjerm eller legge appen i bakgrunnen
+  avbryter opptaket og frigjør ressurser.
+- Sanntidsmodusen i den eksisterende 3D-motoren beholder 30 bilder/s og
+  videoens avspillingstid også når telefonen tegner tregt: bildet holdes
+  mens neste bilde lages, uten å fremskynde kamerabevegelsene i filen.
+- `e2e/fullscreen-recording.spec.ts` bruker liggende mobilstørrelse og
+  berøring, og tester avbryt uten nedlasting, fullføring, tidlig stopp,
+  dekoding, varighet, sideforhold, bevart 2D-zoom/utsnitt og uendrede
+  lagrede taktikker i både 2D/3D og MP4/WebM. 3D-testen bytter kameravalg,
+  zoomer og roterer under opptak. Enhetstestene dekker dimensjoner,
+  koderens faktiske bildestørrelse, stopp og langsom sanntidstegning.
+- Rettet etter review: 3D-fullskjerm prøver også H.264 nivå 5.1 (Baseline
+  og Main) før WebM. Dermed kan 16:10- og 4:3-opptak beholde MP4 ved
+  1920 piksler på lengste side når nettleseren støtter dette. Vanlig
+  3D-eksport har uendret kodekvalg. Regresjonstester dekker 1920 × 1200,
+  1920 × 1440 og 1440 × 1920 med begge profiler, samt WebM-reserven.
+
+Alle sluttkontroller er grønne:
+
+| Kommando | Resultat for oppgave 6a |
+| --- | --- |
+| `npx tsc --noEmit` | Grønn, ingen typefeil |
+| `npx vitest --run` | Grønn, 29 filer / 301 tester |
+| `npm run build` | Grønn; siste kode er også bygget på nytt av offline-kontrollen |
+| `npm run test:e2e -- --workers=1` | Grønn, alle 35 tester |
+| `npm run test:offline` | Grønn, alle 3 produksjonstester |
+
+Opptaksfilene i begge formater er åpnet av nettleserens videospiller i
+testene. Liggende mobil gir 1920 × 888; fire faser varer omtrent 4,7 sekunder
+ved normal fart. Skjermbilder av opptaksindikatoren i 2D/3D er kontrollert.
+Underveis ble testens forventede zoom avrundet riktig, videoleseren fikk
+eksplisitt filtype og et element i dokumentet, og testen vekker den vanlige
+autoskjulte kontrollraden før neste opptak. Avbryt-testen ble utvidet til
+å bytte kamera og spiller først; dette avdekket og rettet synkingen av
+kameramenyen ved gjenoppretting. Ingen eksisterende tester er fjernet.
+
+Alle fem kommandoer er kjørt på nytt etter rettelsen i kodekvalget. Som ved tidligere
+kontroller måtte testserverne på Windows stoppes etter ferdige tester for at
+Playwright skulle avslutte; begge testkommandoene avsluttet med kode 0.
+Varsler om Browserslist, webpack-cache og terminalfarger hindret ikke
+kontrollene. Ingen pakker eller låsefiler er
+endret. Genererte endringer i `public/sw.js` og Workbox er tilbakeført og
+inngår ikke i leveransen. Ingenting er publisert, committet eller pushet.
+
+Mobilkontroll: Åpne denne versjonen av appen, velg Taktikk og legg telefonen
+liggende. Åpne fullskjerm i 2D, zoom inn og trykk «Ta opp». Prøv «Avbryt»
+først: ingen fil skal lastes ned, og banen skal være uendret. Ta opp igjen
+og la alle fasene bli ferdige; spill av filen. Gjenta i 3D med «Følg ballen»
+eller «Spillerperspektiv», og flytt/zoom kameraet under opptak. Prøv også
+«Stopp opptak». Videoen skal følge utsnittet, ha fasepille og ingen knapper.
+Hold samme skjermretning gjennom opptaket; sideforholdet velges ved start.
+3D krever nettleserens eksisterende støtte for WebCodecs i en sikker
+kontekst (HTTPS eller localhost). Støtte på en fysisk iPhone/Android må
+fortsatt kontrolleres på selve telefonen. Ingenting er publisert her.
+Prøv også 3D-opptak på en iPad (4:3) eller en PC/Mac med 16:10-skjerm:
+videoen skal beholde skjermens sideforhold og bli MP4 når nettleseren
+støtter H.264 på denne størrelsen. Fysisk enhetskontroll gjenstår.
+
+
+Status: appikon og enklere, fortsatt beskyttet AI-tilgang er lagt til 17. oktober 2026. Oppgave 1 (feilhåndtering), oppgave 2 (Next 15.5.28 og React 19), oppgave 4 (trygg appoppdatering og ChunkLoadError), oppgave 5 (sikkerhetskopi), oppgave 6 (rydding med lav risiko, inkludert AI-rydding) og oppgave 6a (fullskjermopptak) er ferdige. Backup-delen av oppgave 11 er også dekket. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
 
 ## Appikon og AI-tilgang (17.10.2026)
 
@@ -69,8 +151,9 @@ er tatt ut av leveransen; ikoncache bygges fra kildefilene ved neste bygg.
   kode ved HTTP 401 i `AiCoach` og `AiDrillModal`. Fartsgrensemeldingen
   bygger nå tallet fra `AI_RATE_LIMIT`, samme konstant som begrenser kallene.
   Det tidligere avviksnotatet gjaldt prosjektversjonen før AI-endringene.
-- Ny oppgave 6a om opptak fra fullskjerm står rett etter denne oppgaven,
-  før oppdelingen av store filer. Ingen store filer er delt opp.
+- Oppgave 6a om opptak fra fullskjerm står rett etter denne oppgaven i
+  oppgavelisten og er også ferdig, før oppdelingen av store filer.
+  Ingen store filer er delt opp.
 
 Alle fem kontroller er kjørt på nytt etter fullføring av AI-delen og passerer:
 
@@ -701,9 +784,9 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 5\. ✅ \*\*FERDIG (17.10.2026): Tester og trygg import for `lib/backup.ts`.\*\* Hele eksport/import, eldre format, feil uten endring av data, feillogg utenfor kopien, 50 taktikker, alle innstillinger, tydelige knapper/bekreftelse og rolig 30-dagerspåminnelse. Se egen etterkontroll øverst.
 
-6\. **Rydding med lav risiko (17.10.2026):** Fjernet ubrukt reservefil, `SwapOverlay`, `getDrillsByAgeBand`, fem gamle SVG-er og de ubrukte delene av `SketchPreview`. `hasSketch` og alle brukte filer beholdes. Se etterkontrollen øverst. **Risiko: lav.**
+6\. ✅ **FERDIG (17.10.2026): Rydding med lav risiko, inkludert AI-rydding.** Fjernet ubrukt reservefil, `SwapOverlay`, `getDrillsByAgeBand`, fem gamle SVG-er og de ubrukte delene av `SketchPreview`. `hasSketch` og alle brukte filer beholdes. AI-delen er også fullført: «Glem tilgangskode» er fjernet, tilgangsstatus og automatisk sletting ved HTTP 401 er beholdt, og fartsgrensemeldingen bruker `AI_RATE_LIMIT`. Se etterkontrollen øverst. **Risiko: lav.**
 
-6a. **Opptak fra fullskjerm i 2D og 3D:** en opptaksknapp inne i fullskjermvisningen. Videoen bruker visningen brukeren ser (kameravinkel, zoom og kameravalg i 3D, samme utsnitt i 2D), med samme kvalitet og formater som dagens videoeksport. Begrunnelse for plassering: berører samme filer som skal deles opp, så den bør bygges først.
+6a. ✅ **FERDIG (17.10.2026): Opptak fra fullskjerm i 2D og 3D.** En opptaksknapp inne i fullskjermvisningen bruker visningen brukeren ser (kameravinkel, zoom og kameravalg i 3D, samme utsnitt i 2D), med samme kvalitet og formater som dagens videoeksport. Samme eksportmotorer, opptaksindikator, stopp/avbryt og mobiltester i MP4/WebM. Se etterkontrollen øverst. Begrunnelse for plassering: berører samme filer som skal deles opp, så opptaksfunksjonen er bygget før oppdelingen.
 
 7\. \*\*Ta byggefilene for PWA ut av git\*\* og legg dem i `.gitignore`. \*Risiko: lav.\*
 
@@ -763,7 +846,9 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 
 
-Ryddedelen av oppgave 6 er gjennomført: bekreftet ubrukt kode og gamle bildefiler er fjernet. Funksjonen som viser bane-ikonet i øvelseslista er beholdt. Opptak fra fullskjerm i 2D og 3D står som ny oppgave 6a før oppdelingen av store filer. AI-delen er også fullført: glemmeknappen i Innstillinger er fjernet, tilgangsstatus og automatisk sletting ved feil kode er beholdt, og tallet i fartsgrensemeldingen følger den faktiske grensen.
+Oppgave 6a er gjennomført: Fullskjerm i både 2D og 3D har «Ta opp», tid, stopp og avbryt. Videoen beholder utsnittet og følger kameraet i 3D, uten knapper i bildet. Lagrede taktikker endres ikke. Fremgangsmåte for mobilkontroll og resultater står øverst. Oppgave 5 om sikkerhetskopi og de tidligere etterkontrollene er beholdt nedenfor den nye oppdateringen.
+
+Ryddedelen av oppgave 6 er gjennomført: bekreftet ubrukt kode og gamle bildefiler er fjernet. Funksjonen som viser bane-ikonet i øvelseslista er beholdt. Opptak fra fullskjerm i 2D og 3D er fullført som oppgave 6a før oppdelingen av store filer. AI-delen er også fullført: glemmeknappen i Innstillinger er fjernet, tilgangsstatus og automatisk sletting ved feil kode er beholdt, og tallet i fartsgrensemeldingen følger den faktiske grensen.
 
 
 
@@ -787,5 +872,5 @@ Dette må et menneske bestemme:
 
 \- Om feil fra brukerne skal sendes til en ekstern tjeneste. Det handler om personvern. Uten det får dere ikke vite når appen krasjer hos noen.
 
-\- Opptak fra fullskjerm er lagt inn som oppgave 6a før oppdeling av store filer; funksjonen bygges i en egen oppgave.
+\- Opptak fra fullskjerm er ferdig i oppgave 6a før oppdeling av store filer. Manuell kontroll på fysiske iPhone-/Android-enheter, iPad og PC/Mac med 16:10-skjerm gjenstår; se fremgangsmåten øverst.
 

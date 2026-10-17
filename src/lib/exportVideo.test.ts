@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { VIDEO_PHASE_MS, frameAt, interpolateItems, videoDurationMs } from './exportVideo';
+import { VIDEO_PHASE_MS, frameAt, fullscreenVideoSize, interpolateItems, videoDurationMs } from './exportVideo';
 import type { BoardItem, TacticPhase } from '@/types';
+
+describe('fullscreen video dimensions', () => {
+  it.each([[844, 390], [1400, 900], [390, 844], [1920, 1080]])('retains %s × %s with even full-HD dimensions', (width, height) => {
+    const size = fullscreenVideoSize(width, height);
+    expect(Math.max(size.width, size.height)).toBe(1920);
+    expect(size.width % 2).toBe(0); expect(size.height % 2).toBe(0);
+    expect(Math.abs(size.width / size.height - width / height)).toBeLessThan(.003);
+  });
+});
 
 const item = (id: string, x: number, y: number, rotation?: number): BoardItem =>
   ({ id, type: 'cone', position: { x, y }, ...(rotation !== undefined ? { rotation } : {}) });
