@@ -15,7 +15,9 @@ import { useImageExport } from '@/hooks/useImageExport';
 import { usePlayerStyle } from '@/hooks/usePlayerStyle';
 import { useBoardItems } from '@/hooks/useBoardItems';
 import { ItemControls } from '@/components/board/ItemControls';
-import { interpolateItems } from '@/lib/exportVideo';
+import { interpolateItems, type FrameState } from '@/lib/exportVideo';
+import { useVideoExport } from '@/hooks/useVideoExport';
+import { RecordingControls } from '@/components/board/RecordingControls';
 import { ROLE_INFO } from '@/data/roleInfo';
 import { X, Play, Pause, Minus, Plus, PenLine, Footprints } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -49,9 +51,21 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playRef  = useRef({ from: 0, t: 0 });
   const svgRef   = useRef<SVGSVGElement>(null);
+  const fullscreenRef = useRef<HTMLDivElement>(null);
+  const [recordingFrame, setRecordingFrame] = useState<FrameState | null>(null);
+  const video = useVideoExport({
+    speed: 1,
+    onFrame: setRecordingFrame,
+    viewport: () => {
+      const screen = fullscreenRef.current!.getBoundingClientRect(), board = svgRef.current!.getBoundingClientRect();
+      const clip = zoomCtl.containerRef.current!.getBoundingClientRect();
+      return { width: screen.width, height: screen.height, x: board.left - screen.left, y: board.top - screen.top, boardWidth: board.width, boardHeight: board.height,
+        clipX: clip.left - screen.left, clipY: clip.top - screen.top, clipWidth: clip.width, clipHeight: clip.height };
+    },
+  });
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const zoomCtl = useBoardZoom();
+  const zoomCtl = useBoardZoom(!video.busy);
   // Samme grunn som i TacticBoard: håndtererne under er useCallback-er, og
   // ville ellers fryse gest-flagget fra renderen de sist ble laget i.
   const gestureRef = useRef({ isGesturing: false, spaceHeld: false });
@@ -78,6 +92,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setShowControls(false), 4000);
   }
+  useEffect(() => { if (!video.busy) resetHideTimer(); }, [video.busy]);
 
   useEffect(() => {
     resetHideTimer();
@@ -156,7 +171,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   // Samme verktøy og samme lagring som på vanlig brett. Strekene havner i
   // fasen storen står i, som synkes med activeIdx over.
   const draw = useDrawingInput({
-    enabled: interactive && drawMode && !isPlaying,
+    enabled: interactive && drawMode && !isPlaying && !video.busy,
     svgRef,
     toSVG,
     isGesturing: () => gestureRef.current.isGesturing || gestureRef.current.spaceHeld,
@@ -169,7 +184,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
   // ─── Drag av spillere og ball ───────────────────────────────
   // I tegnemodus eier tegningen pekeren, som på vanlig brett.
-  const canDrag = interactive && !isPlaying && !drawMode;
+  const canDrag = interactive && !isPlaying && !drawMode && !video.busy;
 
   // Utstyret: samme logikk og knapper som på vanlig brett.
   const equip = useBoardItems({
@@ -245,7 +260,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     if (zoomCtl.onPointerDown(e)) cancelDrag();
   }, [zoomCtl, cancelDrag]);
 
-  const phase = phases[activeIdx];
+  const phase = phases[recordingFrame?.fromIdx ?? activeIdx];
   if (!phase) return null;
 
   const displayPlayers = (() => {
@@ -285,7 +300,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   // enn på vanlig brett. Navnet kortes ned til 10 tegn, som før.
   const ballDrag = dragPreview?.target.kind === 'ball' ? dragPreview : null;
   const displayBallPos = ballDrag ? { x: ballDrag.x, y: ballDrag.y } : displayBall;
-  const stagePlayers: StagePlayer[] = (displayPlayers as any[]).map((player: any) => {
+  const stagePlayers: StagePlayer[] = ((recordingFrame?.players ?? displayPlayers) as any[]).map((player: any) => {
     const drag = dragPreview?.target.kind === 'player' && dragPreview.target.id === player.id ? dragPreview : null;
     const name: string = player.name ?? '';
     return {
@@ -302,20 +317,24 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
   return (
     <div
+      ref={fullscreenRef} role="dialog" aria-modal="true" aria-label="2D-bane i fullskjerm"
       className="fixed inset-0 z-[100] bg-canvas flex flex-col"
       onPointerDown={resetHideTimer}
       onTouchStart={resetHideTimer}
     >
       {/* -- Topplinje (skjules automatisk) -- */}
       <div className={cn(
-        'flex-shrink-0 flex items-center gap-1 px-2 h-12 bg-canvas-sunken border-b border-rule transition-opacity duration-300',
-        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        'flex-shrink-0 flex items-center gap-1 px-2 h-12 overflow-x-auto bg-canvas-sunken border-b border-rule transition-opacity duration-300',
+        showControls || video.busy ? 'opacity-100' : 'opacity-0 pointer-events-none',
       )}>
+        <RecordingControls busy={video.busy} seconds={video.seconds} disabled={!video.format || isPlaying}
+          onStart={() => { cancelDrag(); video.exportVideo(); }} onStop={video.stop} onCancel={video.cancel} />
         <div role="tablist" aria-label="Faser" className="flex items-center gap-1 flex-1 overflow-x-auto no-scrollbar">
           {phases.map((ph: any, idx: number) => {
             const active = activeIdx === idx;
             return (
               <button key={ph.id} role="tab" aria-selected={active}
+                disabled={video.busy}
                 onClick={() => { if (!isPlaying) { setActiveIdx(idx); setActivePhaseIdx(idx); } resetHideTimer(); }}
                 className={cn(
                   'px-3 min-h-[40px] rounded-ctl text-body whitespace-nowrap transition-colors',
@@ -329,18 +348,18 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           })}
         </div>
 
-        <button onClick={() => { zoomCtl.zoomOut(); resetHideTimer(); }} disabled={!zoomCtl.canZoomOut}
+        <button onClick={() => { zoomCtl.zoomOut(); resetHideTimer(); }} disabled={video.busy || !zoomCtl.canZoomOut}
           aria-label="Zoom ut" title="Zoom ut"
           className="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30">
           <Minus size={16} strokeWidth={1.75} />
         </button>
-        <button onClick={() => { zoomCtl.zoomIn(); resetHideTimer(); }} disabled={!zoomCtl.canZoomIn}
+        <button onClick={() => { zoomCtl.zoomIn(); resetHideTimer(); }} disabled={video.busy || !zoomCtl.canZoomIn}
           aria-label="Zoom inn" title="Zoom inn (Ctrl+scroll)"
           className="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30">
           <Plus size={16} strokeWidth={1.75} />
         </button>
         {zoomCtl.isZoomed && (
-          <button onClick={() => { zoomCtl.reset(); resetHideTimer(); }}
+          <button disabled={video.busy} onClick={() => { zoomCtl.reset(); resetHideTimer(); }}
             aria-label="Nullstill zoom" title="Nullstill zoom"
             className="tap-auto flex-shrink-0 inline-flex items-center gap-1 px-2 min-h-[36px] rounded-ctl
               bg-signal/10 text-signal shadow-hair-signal font-mono text-caption transition-colors">
@@ -348,7 +367,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           </button>
         )}
 
-        <button onClick={() => { setShowMovement(!showMovement); resetHideTimer(); }}
+        <button disabled={video.busy} onClick={() => { setShowMovement(!showMovement); resetHideTimer(); }}
           aria-pressed={showMovement}
           aria-label="Vis bevegelse"
           title="Vis bevegelse fra forrige fase"
@@ -359,12 +378,12 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           <Footprints size={16} strokeWidth={1.75} />
         </button>
 
-        <ExportImageButton busy={imageExport.busy} disabled={isPlaying}
+        <ExportImageButton busy={imageExport.busy} disabled={isPlaying || video.busy}
           onClick={() => { imageExport.exportPng(); resetHideTimer(); }}
           className="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30" />
 
         {interactive && (
-          <button onClick={() => { setDrawMode(v => !v); resetHideTimer(); }}
+          <button disabled={video.busy} onClick={() => { setDrawMode(v => !v); resetHideTimer(); }}
             aria-pressed={drawMode}
             aria-label={drawMode ? 'Stopp tegning' : 'Tegn'}
             title={drawMode ? 'Stopp tegning' : 'Tegn'}
@@ -379,12 +398,12 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
         {interactive && (
           <ItemControls selectedItem={equip.selectedItem} onAdd={equip.add}
             onRotate={equip.rotateBy} onRemove={equip.removeSelected}
-            disabled={isPlaying} onInteract={resetHideTimer}
+            disabled={isPlaying || video.busy} onInteract={resetHideTimer}
             buttonClass="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30" />
         )}
 
         <button onClick={() => { isPlaying ? stopPlayback() : startPlayback(); resetHideTimer(); }}
-          disabled={phases.length < 2}
+          disabled={phases.length < 2 || video.busy}
           aria-label={isPlaying ? 'Stopp avspilling' : 'Spill av fasene'}
           className={cn(
             'tap-auto w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full transition-colors',
@@ -406,8 +425,11 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
       {imageExport.error && (
         <ExportError message={imageExport.error} onClose={imageExport.clearError} className="border-b" />
       )}
+      {(video.error || video.notice) && <p role={video.error ? 'alert' : 'status'} className="absolute top-14 right-3 max-w-[65%] rounded-ctl bg-canvas-panel px-3 py-2 text-caption">{video.error || video.notice}</p>}
+      {!video.format && <p className="px-3 text-caption">Denne nettleseren støtter ikke videoopptak. Prøv nyere Safari, Chrome eller Edge.</p>}
 
       {interactive && drawMode && (
+        <div inert={video.busy} className="shrink-0">
         <DrawToolbar
           tool={draw.tool} onTool={draw.setTool}
           color={draw.color} onColor={draw.setColor}
@@ -417,14 +439,15 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           onClearAll={() => { if (window.confirm(`Slette alle tegningene i «${phase.name}»?`)) clearDrawings(); }}
           className={cn('border-b transition-opacity duration-300',
             showControls ? 'opacity-100' : 'opacity-0 pointer-events-none')}/>
+        </div>
       )}
 
       {/* -- Banen tar hele hoyden som er igjen -- */}
       <div
         ref={zoomCtl.containerRef}
         className="flex-1 min-h-0 p-1 overflow-hidden"
-        onPointerDownCapture={onZoomDown}
-        onPointerMoveCapture={zoomCtl.onPointerMove}
+        onPointerDownCapture={video.busy ? undefined : onZoomDown}
+        onPointerMoveCapture={video.busy ? undefined : zoomCtl.onPointerMove}
         onPointerUpCapture={zoomCtl.onPointerUp}
         onPointerCancelCapture={zoomCtl.onPointerUp}
       >
@@ -456,16 +479,16 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           <BoardStage
             players={stagePlayers}
             playerStyle={playerStyle}
-            items={shownItems}
-            selectedItemId={equip.selectedId}
+            items={recordingFrame?.items ?? shownItems}
+            selectedItemId={video.busy ? null : equip.selectedId}
             itemGroupProps={equip.itemGroupProps}
             afterPlayers={equip.rotHandle}
-            ball={displayBallPos}
+            ball={recordingFrame?.ball ?? displayBallPos}
             drawings={phase.drawings ?? []}
-            trails={showMovement && !isPlaying && activeIdx > 0
+            trails={showMovement && !isPlaying && !video.busy && activeIdx > 0
               ? { from: phases[activeIdx - 1].players, to: phase.players } : null}
             preview={draw.preview}
-            progress={isPlaying ? progressFrac : null}
+            progress={recordingFrame?.progress ?? (isPlaying ? progressFrac : null)}
             progressY={VH - 12}
             ballFilterId="ds3"
             ballGroupProps={{
@@ -489,12 +512,12 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
       </div>
 
       {/* Notat for fasen */}
-      {phase.stickyNote && (
+      {phases[activeIdx].stickyNote && (
         <div className={cn(
           'flex-shrink-0 px-4 py-2 bg-canvas-sunken border-t border-rule transition-opacity duration-300',
-          showControls ? 'opacity-100' : 'opacity-0',
+          showControls && !video.busy ? 'opacity-100' : 'opacity-0',
         )}>
-          <p className="text-body text-ink-muted">{phase.stickyNote}</p>
+          <p className="text-body text-ink-muted">{phases[activeIdx].stickyNote}</p>
         </div>
       )}
 
@@ -503,7 +526,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
       )}
 
       {/* Hint */}
-      {!showControls && (
+      {!showControls && !video.busy && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
           <div className="rounded-pill bg-canvas-panel/80 px-3 py-1.5 text-caption text-ink-subtle">
             Trykk for å vise kontroller

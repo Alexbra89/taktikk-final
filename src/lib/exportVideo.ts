@@ -24,6 +24,12 @@ export const VIDEO_WIDTH = 1280;
 export const VIDEO_HEIGHT = 720;
 export const VIDEO_FPS = 30;
 
+/** Even encoder dimensions, retaining the fullscreen aspect with a 1920 px long edge. */
+export function fullscreenVideoSize(width: number, height: number) {
+  const scale = 1920 / Math.max(1, width, height);
+  return { width: Math.max(2, Math.round(width * scale / 2) * 2), height: Math.max(2, Math.round(height * scale / 2) * 2) };
+}
+
 export interface VideoFormat {
   mime: string;
   ext: 'mp4' | 'webm';

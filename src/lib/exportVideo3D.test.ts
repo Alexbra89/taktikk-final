@@ -5,6 +5,40 @@ vi.mock('./download', () => ({ downloadBlob: vi.fn(), slugify: (s: string) => s 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('3D encoding capability fallback', () => {
+  it('checks the actual fullscreen dimensions, also on low-power devices', async () => {
+    vi.stubGlobal('VideoFrame', class {});
+    const supported = vi.fn(async (config: VideoEncoderConfig) => ({ supported: true, config }));
+    vi.stubGlobal('VideoEncoder', { isConfigSupported: supported });
+    const choice = await chooseEncoder(true, { width: 1920, height: 888 });
+    expect(choice?.config.width).toBe(1920); expect(choice?.config.height).toBe(888);
+  });
+  it.each([
+    { width: 1920, height: 1200 },
+    { width: 1920, height: 1440 },
+    { width: 1440, height: 1920 },
+  ])('prefers level 5.1 H.264 over WebM for fullscreen $width × $height', async (size) => {
+    vi.stubGlobal('VideoFrame', class {});
+    for (const codec of ['avc1.420033', 'avc1.4d0033']) {
+      const supported = vi.fn(async (config: VideoEncoderConfig) => ({
+        supported: config.codec === codec || config.codec.startsWith('vp'),
+      }));
+      vi.stubGlobal('VideoEncoder', { isConfigSupported: supported });
+      const choice = await chooseEncoder(false, size);
+      expect(choice?.ext).toBe('mp4');
+      expect(choice?.config).toMatchObject({ ...size, codec, latencyMode: 'realtime', avc: { format: 'avc' } });
+      expect(supported.mock.calls.some(([config]) => config.codec.startsWith('vp'))).toBe(false);
+    }
+  });
+  it('keeps the fullscreen dimensions when only WebM is supported', async () => {
+    vi.stubGlobal('VideoFrame', class {});
+    vi.stubGlobal('VideoEncoder', {
+      isConfigSupported: async (config: VideoEncoderConfig) => ({ supported: config.codec === 'vp09.00.10.08' }),
+    });
+    const size = { width: 1920, height: 1200 };
+    const choice = await chooseEncoder(false, size);
+    expect(choice?.ext).toBe('webm');
+    expect(choice?.config).toMatchObject(size);
+  });
   it('limits mobile export to 720p even when full HD is supported', async () => {
     vi.stubGlobal('VideoFrame', class {});
     vi.stubGlobal('VideoEncoder', { isConfigSupported: async (config: VideoEncoderConfig) => ({ supported: true, config }) });
@@ -71,5 +105,24 @@ describe('offline frame scheduling', () => {
       draw: async (_, i) => { if (i === 2) abort.abort(); return pixels; },
     })).rejects.toThrow();
     expect(encoder.timestamps).toHaveLength(2); expect(downloadBlob).not.toHaveBeenCalled(); expect(encoder.closed()).toBe(true);
+  });
+  it('finishes a stopped recording with only the recorded frames', async () => {
+    const encoder = fakeEncoder(); let stop = false;
+    await exportVideo3D({ choice, phaseCount: 3, speed: 1, team: '', tactic: '', signal: new AbortController().signal,
+      onProgress: vi.fn(), shouldStop: () => stop,
+      draw: async (_, i) => { if (i === 4) stop = true; return pixels; },
+    });
+    expect(encoder.timestamps).toHaveLength(5); expect(downloadBlob).toHaveBeenCalledOnce(); expect(encoder.closed()).toBe(true);
+  });
+  it('holds slow live frames without speeding up playback or camera gestures in the file', async () => {
+    const encoder = fakeEncoder(); let now = 0, draws = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      await exportVideo3D({ choice, phaseCount: 2, speed: 3, team: '', tactic: '', signal: new AbortController().signal,
+        realtime: true, onProgress: vi.fn(), draw: async () => { draws++; now += 250; return pixels; },
+      });
+      expect(draws).toBeLessThan(10); expect(encoder.timestamps).toHaveLength(45);
+      encoder.timestamps.forEach((timestamp, i) => expect(timestamp).toBe(Math.round(i * 1e6 / 30)));
+    } finally { clock.mockRestore(); }
   });
 });

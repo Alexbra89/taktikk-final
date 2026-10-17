@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { useAppStore } from '@/store/useAppStore';
@@ -11,9 +11,10 @@ import { ROLE_INFO } from '@/data/roleInfo';
 import { readPlayerStyle } from '@/hooks/usePlayerStyle';
 import { serializeBoardSvg, svgMarkupToImage } from '@/lib/exportImage';
 import { downloadBlob } from '@/lib/download';
+import { phasePillCanvas, PHASE_PILL_WIDTH } from '@/lib/phasePill';
 import {
   VIDEO_FPS, VIDEO_HEIGHT, VIDEO_LEAD_MS, VIDEO_TAIL_MS, VIDEO_WIDTH,
-  boardFitSize, drawBoardFrame, frameAt, pickVideoFormat, videoDurationMs, videoFilename, videoTotalMs,
+  boardFitSize, drawBoardFrame, frameAt, fullscreenVideoSize, pickVideoFormat, videoDurationMs, videoFilename, videoTotalMs,
   type FrameState,
 } from '@/lib/exportVideo';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
@@ -89,7 +90,13 @@ export function videoFrameElement(tactic: Tactic, f: FrameState, playerStyle: Pl
   );
 }
 
-export function useVideoExport() {
+export interface FullscreenVideoOptions {
+  viewport: () => { width: number; height: number; x: number; y: number; boardWidth: number; boardHeight: number; clipX: number; clipY: number; clipWidth: number; clipHeight: number };
+  speed: number;
+  onFrame: (frame: FrameState | null) => void;
+}
+
+export function useVideoExport(fullscreen?: FullscreenVideoOptions) {
   const teamName = useAppStore(s => s.homeTeamName);
   const tactic = useActiveTactic();
 
@@ -99,13 +106,20 @@ export function useVideoExport() {
   /** Beskjed som ikke er en feil, f.eks. at filen ikke kan spilles av på iPhone. */
   const [notice, setNotice] = useState<string | null>(null);
   const busyRef = useRef(false);
+  const abort = useRef<AbortController | null>(null);
+  const stopped = useRef(false);
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => () => { abort.current?.abort(); }, []);
 
   // Formatet avgjøres av nettleseren, ikke av oss. Leses ved hvert forsøk.
   const format = typeof window === 'undefined' ? null : pickVideoFormat();
 
   const exportVideo = useCallback(async () => {
     const phases = tactic.phases;
-    if (busyRef.current || phases.length < 2) return;
+    if (busyRef.current || phases.length < (fullscreen ? 1 : 2)) return;
+    const controller = new AbortController(); abort.current = controller; stopped.current = false;
+    setSeconds(0);
+    const speed = fullscreen?.speed ?? 1;
     busyRef.current = true;
     setBusy(true);
     setProgress(0);
@@ -122,7 +136,7 @@ export function useVideoExport() {
     const hidden = new Promise<void>(r => { onHidden = r; });
     const onVisibility = () => { if (document.hidden) { isHidden = true; onHidden(); } };
     document.addEventListener('visibilitychange', onVisibility);
-    const checkVisible = () => { if (isHidden) throw new BackgroundAbort(); };
+    const checkVisible = () => { controller.signal.throwIfAborted(); if (isHidden) throw new BackgroundAbort(); };
 
     try {
       checkVisible();
@@ -134,8 +148,10 @@ export function useVideoExport() {
       const { svg, root } = created;
 
       const canvas = document.createElement('canvas');
-      canvas.width = VIDEO_WIDTH;
-      canvas.height = VIDEO_HEIGHT;
+      const viewport = fullscreen?.viewport();
+      const size = viewport ? fullscreenVideoSize(viewport.width, viewport.height) : { width: VIDEO_WIDTH, height: VIDEO_HEIGHT };
+      canvas.width = size.width;
+      canvas.height = size.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Nettleseren kan ikke tegne bildene.');
       // Banefargen fyller kantene, så bildet aldri blir svart.
@@ -143,13 +159,39 @@ export function useVideoExport() {
       const pitch = background ? `rgb(${background.split(/\s+/).join(', ')})` : '#0D110E';
 
       // Banen tegnes i den størrelsen den får i videoen – ikke i hele videostørrelsen.
-      const fit = boardFitSize();
+      const fit = viewport ? { width: Math.round(viewport.boardWidth * size.width / viewport.width), height: Math.round(viewport.boardHeight * size.height / viewport.height) } : boardFitSize();
       // Samme spillerform som brettet viser.
       const playerStyle = readPlayerStyle();
+      let pill: HTMLCanvasElement | null = null, pillIdx = -1;
       const paint = async (elapsed: number) => {
-        flushSync(() => root.render(videoFrameElement(tactic, frameAt(phases, elapsed), playerStyle)));
+        checkVisible();
+        let frame = frameAt(phases, elapsed * speed);
+        if (fullscreen && frame.progress >= 1) {
+          const last = phases[phases.length - 1];
+          frame = { ...frame, players: last.players, ball: last.ball, items: last.items ?? [], fromIdx: phases.length - 1 };
+        }
+        fullscreen?.onFrame(frame);
+        flushSync(() => root.render(videoFrameElement(tactic, frame, playerStyle)));
         const img = await svgMarkupToImage(serializeBoardSvg(svg, fit.width, fit.height));
-        drawBoardFrame(ctx, img, pitch);
+        checkVisible();
+        if (viewport) {
+          ctx.fillStyle = pitch; ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.save(); ctx.beginPath();
+          ctx.rect(viewport.clipX * size.width / viewport.width, viewport.clipY * size.height / viewport.height,
+            viewport.clipWidth * size.width / viewport.width, viewport.clipHeight * size.height / viewport.height);
+          ctx.clip();
+          ctx.drawImage(img, viewport.x * size.width / viewport.width, viewport.y * size.height / viewport.height, fit.width, fit.height);
+          ctx.restore();
+          if (pillIdx !== frame.fromIdx) {
+            pillIdx = frame.fromIdx;
+            pill = phasePillCanvas(phases[pillIdx].name || `Fase ${pillIdx + 1}`, phases[pillIdx].stickyNote ?? '');
+          }
+          if (pill) {
+            const scale = Math.min(size.width * .3, size.height * .55) / PHASE_PILL_WIDTH;
+            const margin = Math.round(size.height * .025);
+            ctx.drawImage(pill, margin, margin, pill.width * scale, pill.height * scale);
+          }
+        } else drawBoardFrame(ctx, img, pitch);
       };
 
       // Første bilde før opptaket starter, slik at videoen ikke begynner tom.
@@ -168,24 +210,28 @@ export function useVideoExport() {
       finished.catch(() => {});
 
       rec.start();
+      const recordingStarted = performance.now();
 
       // Forspann: hold åpningsstillingen mens koderen kommer i gang.
       const holdFrame = async (untilMs: number, elapsed: number) => {
-        while (performance.now() < untilMs) {
+        while (performance.now() < untilMs && !stopped.current) {
           checkVisible();
           await paint(elapsed);
+          setSeconds((performance.now() - recordingStarted) / 1000);
           await wait(1000 / VIDEO_FPS);
         }
       };
       await holdFrame(performance.now() + VIDEO_LEAD_MS, 0);
 
-      const total = videoDurationMs(phases.length);
+      const total = videoDurationMs(phases.length) / speed;
       const started = performance.now();
       for (;;) {
         checkVisible();
+        if (stopped.current) break;
         const elapsed = performance.now() - started;
         await paint(elapsed);
-        setProgress(Math.min(1, elapsed / total));
+        setSeconds((performance.now() - recordingStarted) / 1000);
+        setProgress(total ? Math.min(1, elapsed / total) : 1);
         if (elapsed >= total) break;
         await Promise.race([nextFrame(), hidden]);
       }
@@ -194,9 +240,13 @@ export function useVideoExport() {
       // når noe endres, så en stillestående hale ville blitt klippet bort.
       await holdFrame(performance.now() + VIDEO_TAIL_MS, total);
       checkVisible();
+      // Even an immediate stop must give MediaRecorder time to emit a playable frame.
+      if (stopped.current) await wait(Math.max(0, 150 - (performance.now() - recordingStarted)));
+      checkVisible();
       rec.stop();
 
       const blob = await finished;
+      checkVisible();
       if (!blob.size) throw new Error('Videoen ble tom.');
       downloadBlob(videoFilename(teamName, tactic.name, fmt.ext), blob);
       setProgress(1);
@@ -204,7 +254,8 @@ export function useVideoExport() {
         setNotice(`Nettleseren kan bare spille inn ${fmt.label}. Den filen spilles ikke av på iPhone og iPad.`);
       }
     } catch (e) {
-      setError(e instanceof BackgroundAbort
+      if (controller.signal.aborted) setNotice('Opptaket ble avbrutt.');
+      else setError(e instanceof BackgroundAbort
         ? e.message
         : `Kunne ikke lage videoen.${e instanceof Error && e.message ? ' ' + e.message : ''}`);
     } finally {
@@ -220,15 +271,18 @@ export function useVideoExport() {
         setTimeout(() => { root.unmount(); host.remove(); }, 0);
       }
       busyRef.current = false;
+      abort.current = null;
+      fullscreen?.onFrame(null);
       setBusy(false);
     }
-  }, [tactic, teamName]);
+  }, [tactic, teamName, fullscreen]);
 
   const clearError = useCallback(() => setError(null), []);
   const clearNotice = useCallback(() => setNotice(null), []);
 
   return {
-    busy, progress, error, notice, exportVideo, clearError, clearNotice,
+    busy, progress, error, notice, exportVideo, clearError, clearNotice, seconds,
+    cancel: () => abort.current?.abort(), stop: () => { stopped.current = true; },
     format, phaseCount: tactic.phases.length,
   };
 }
