@@ -1,4 +1,5 @@
 import type { AiArea, AiMode, AiRequest } from '../request';
+import { DRILL_INSTRUCTIONS, drillLibraryData } from './drillPrompt';
 
 // ══════════════════════════════════════════════════════════════
 //  AI-TRENER – systemprompt og moduser. Bare på serveren:
@@ -53,6 +54,7 @@ Avgrensning
 - Helt urelaterte spørsmål: si høflig at du er en fotballtrener-assistent, og styr tilbake til fotball.`;
 
 const MODE_TASKS: Record<AiMode, string> = {
+  SUGGEST_DRILL: 'Lag én øvelse eller ønsket variant i det avtalte JSON-formatet. Ikke oppgi kilder.',
   ANALYZE_PHASE:
     'Analyser fasen på brettet. Beskriv først hva du ser (struktur, avstander, bredde, dybde, ballens plassering, motstandere som faktisk er tegnet inn og tegnede løp/pasninger). Gi deretter din vurdering – der kan du bruke motspillernes roller som taktiske forutsetninger: 2–4 styrker og 2–4 svakheter eller risikoer, og konkrete forbedringer med spiller og retning.',
   COACHING:
@@ -77,6 +79,7 @@ const AREA_FRAMES: Record<AiArea, string> = {
 
 /** Tak på svarlengden per modus. Øvelser og planer trenger mest plass. */
 export const MODE_MAX_TOKENS: Record<AiMode, number> = {
+  SUGGEST_DRILL: 2400,
   ANALYZE_PHASE: 1600,
   COACHING: 1200,
   DRILL: 1800,
@@ -100,6 +103,12 @@ export const boardDataBlock = (context: Record<string, unknown>) => dataBlock('b
 export const appDataBlock = (context: Record<string, unknown>) => dataBlock('app_data', context);
 
 export function buildMessages(req: AiRequest): ChatMessage[] {
+  if (req.mode === 'SUGGEST_DRILL') {
+    return [
+      { role: 'system', content: `${SYSTEM_PROMPT}\n\n${DRILL_INSTRUCTIONS}` },
+      { role: 'user', content: `${dataBlock('library_data', drillLibraryData(req))}\n\nTrenerens ønske: ${req.question}` },
+    ];
+  }
   const parts: string[] = [];
   if (req.context) parts.push(boardDataBlock(req.context));
   if (req.appContext) parts.push(appDataBlock(req.appContext));

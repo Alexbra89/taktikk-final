@@ -3,9 +3,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import {
   ALL_DRILLS,
-  getDrillsByCategory,
-  getDrillsByAgeGroup,
-  getDrillsByAgeBand,
   CATEGORY_LABELS,
   getWeeklyDrills,
 } from '@/data/drills';
@@ -21,6 +18,9 @@ import {
 } from '@/components/ui';
 import { hasSketch } from '@/components/board/SketchPreview';
 import { ViewHeader } from '@/components/layout/Surface';
+import { AI_DRILL_LABEL, emptyDrill } from '@/lib/customDrills';
+import { DrillEditor } from './DrillEditor';
+import { AiDrillModal } from './AiDrillModal';
 
 type ViewMode = 'browse' | 'detail';
 type AgeGroup = 'youth' | 'adult';
@@ -146,6 +146,8 @@ const DrillRow: React.FC<{
         </div>
 
         <p className="text-caption text-ink-subtle clamp-2 mt-1">{drill.description}</p>
+        {drill.isCustom && <Badge tone="neutral" className="mt-2">Min øvelse</Badge>}
+        {drill.aiGenerated && <p className="text-meta text-warn-300 mt-1">{AI_DRILL_LABEL}</p>}
 
         <div className="flex items-center gap-3 mt-2.5 flex-wrap">
           <Meta icon={<Clock size={13} strokeWidth={1.75} />}>{drill.duration} min</Meta>
@@ -176,7 +178,12 @@ export const DrillsView: React.FC<{
   /** Åpner en øvelse direkte, f.eks. fra ukens øvelser på dashbordet. */
   focusDrillId?: string;
 }> = ({ focusDrillId }) => {
-  const { addEvent, ageGroup: storeAgeGroup } = useAppStore();
+  const { addEvent, ageGroup: storeAgeGroup, customDrills, saveCustomDrill, deleteCustomDrill } = useAppStore();
+  const allDrills = useMemo(() => [...customDrills, ...ALL_DRILLS], [customDrills]);
+  const [editor, setEditor] = useState<DrillExercise | null>(null);
+  const [aiRequest, setAiRequest] = useState<{ baseDrill?: DrillExercise } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
 
   // Starter på appens aldersgruppe, men kan byttes lokalt i biblioteket.
   const [ageGroup, setAgeGroup]                 = useState<AgeGroup>(storeAgeGroup);
@@ -201,31 +208,29 @@ export const DrillsView: React.FC<{
   // Aldersbånd som faktisk finnes i valgt aldersgruppe
   const availableBands = useMemo(() => {
     const present = new Set<DrillAgeBand>();
-    ALL_DRILLS.filter(d => d.ageGroup === ageGroup)
+    allDrills.filter(d => d.ageGroup === ageGroup)
       .forEach(d => d.ageBand.forEach(b => present.add(b)));
     return AGE_BANDS.filter(b => present.has(b));
-  }, [ageGroup]);
+  }, [ageGroup, allDrills]);
 
   // Antall øvelser per kategori (innenfor valgt aldersgruppe) til fanene
   const categoryCounts = useMemo(() => {
     const counts = {} as Record<DrillCategory, number>;
     CATEGORIES.forEach(cat => {
-      counts[cat] = getDrillsByCategory(cat).filter(d => d.ageGroup === ageGroup).length;
+      counts[cat] = allDrills.filter(d => d.category === cat && d.ageGroup === ageGroup && (!mineOnly || d.isCustom)).length;
     });
     return counts;
-  }, [ageGroup]);
+  }, [ageGroup, allDrills, mineOnly]);
 
   // Ukens anbefalte øvelser: én fra hver av fire kategorier, roterer med ukenummer
   const weeklyDrills = useMemo(() => getWeeklyDrills(ageGroup), [ageGroup]);
 
   const filteredDrills = useMemo(() => {
-    let drills = activeCategory === 'alle'
-      ? getDrillsByAgeGroup(ageGroup)
-      : getDrillsByCategory(activeCategory).filter(d => d.ageGroup === ageGroup);
+    let drills = allDrills.filter(d => d.ageGroup === ageGroup &&
+      (activeCategory === 'alle' || d.category === activeCategory) && (!mineOnly || d.isCustom));
 
     if (ageBand !== 'alle') {
-      const inBand = new Set(getDrillsByAgeBand(ageBand).map(d => d.id));
-      drills = drills.filter(d => inBand.has(d.id));
+      drills = drills.filter(d => d.ageBand.includes(ageBand));
     }
 
     if (difficultyFilter !== 'alle') {
@@ -241,12 +246,13 @@ export const DrillsView: React.FC<{
     }
 
     return drills;
-  }, [activeCategory, ageGroup, ageBand, difficultyFilter, searchQuery]);
+  }, [activeCategory, ageGroup, ageBand, difficultyFilter, searchQuery, allDrills, mineOnly]);
 
   const hasFilters = activeCategory !== 'alle' || ageBand !== 'alle'
-    || difficultyFilter !== 'alle' || searchQuery.trim() !== '';
+    || difficultyFilter !== 'alle' || searchQuery.trim() !== '' || mineOnly;
 
   function resetFilters() {
+    setMineOnly(false);
     setActiveCategory('alle');
     setAgeBand('alle');
     setDifficultyFilter('alle');
@@ -266,12 +272,13 @@ export const DrillsView: React.FC<{
   }
 
   useEffect(() => {
-    const drill = focusDrillId ? ALL_DRILLS.find(d => d.id === focusDrillId) : undefined;
+    const drill = focusDrillId ? allDrills.find(d => d.id === focusDrillId) : undefined;
     if (drill) openDrill(drill);
-  }, [focusDrillId]);
+  }, [focusDrillId, allDrills]);
 
   function buildTeamNote(drill: DrillExercise, extra?: string): string {
     const parts = [
+      ...(drill.aiGenerated ? [AI_DRILL_LABEL] : []),
       drill.description,
       `Slik gjøres det:\n${drill.steps.map((s, i) => `${i + 1}. ${stepText(s)}`).join('\n')}`,
     ];
@@ -329,6 +336,22 @@ export const DrillsView: React.FC<{
   );
 
   // ── Detaljvisning ────────────────────────────────────────
+  const dialogs = <>
+    {editor && <DrillEditor initial={editor} onClose={() => setEditor(null)} onSave={draft => {
+      const saved = saveCustomDrill(draft);
+      setEditor(null); changeAgeGroup(saved.ageGroup); resetFilters(); openDrill(saved); showToast('Øvelsen er lagret');
+    }} />}
+    {aiRequest && <AiDrillModal ageGroup={ageGroup} baseDrill={aiRequest.baseDrill} onClose={() => setAiRequest(null)}
+      onEdit={draft => { setAiRequest(null); setEditor(draft); }} />}
+    {confirmDelete && selectedDrill?.isCustom && <Modal title="Slette min øvelse?" size="sm" centerOnMobile onClose={() => setConfirmDelete(false)}
+      footer={<div className="flex justify-end gap-2"><Button onClick={() => setConfirmDelete(false)}>Avbryt</Button>
+        <Button variant="danger" onClick={() => {
+          deleteCustomDrill(selectedDrill.id); setConfirmDelete(false); setSelectedDrill(null); setViewMode('browse'); showToast('Øvelsen er slettet');
+        }}>Slett øvelse</Button></div>}>
+      <p className="text-body text-ink-muted">Vil du slette «{selectedDrill.name}»? Dette kan ikke angres. Øvelser du allerede har lagt i kalenderen beholdes der.</p>
+    </Modal>}
+  </>;
+
   if (viewMode === 'detail' && selectedDrill) {
     const drill = selectedDrill;
     const isScheduled = scheduledId === drill.id;
@@ -336,6 +359,7 @@ export const DrillsView: React.FC<{
     return (
       <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
         {toastEl}
+        {dialogs}
 
         <header className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-rule bg-canvas-sunken bg-panel-grad">
           <Button
@@ -365,6 +389,17 @@ export const DrillsView: React.FC<{
             </div>
 
             <h1 className="text-h1 text-ink mb-2">{drill.name}</h1>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {drill.isCustom && <Badge tone="neutral">Min øvelse</Badge>}
+              {drill.aiGenerated && <p className="text-body text-warn-300">{AI_DRILL_LABEL}</p>}
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button size="sm" onClick={() => setAiRequest({ baseDrill: drill })}>Foreslå variant med AI</Button>
+              {drill.isCustom && <>
+                <Button size="sm" onClick={() => setEditor(drill)}>Rediger min øvelse</Button>
+                <Button size="sm" variant="danger" onClick={() => setConfirmDelete(true)}>Slett min øvelse</Button>
+              </>}
+            </div>
 
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <Meta icon={<Clock size={13} strokeWidth={1.75} />}>{drill.duration} min</Meta>
@@ -449,7 +484,7 @@ export const DrillsView: React.FC<{
               </Section>
             )}
 
-            {(drill.source || drill.unverifiedSource) && (
+            {!drill.isCustom && !drill.aiGenerated && (drill.source || drill.unverifiedSource) && (
               <div className="text-meta text-ink-faint space-y-1 pt-2 border-t border-rule">
                 {drill.source && (
                   <div><span className="text-label uppercase">Kilde:</span> <SourceLink value={drill.source} /></div>
@@ -538,12 +573,17 @@ export const DrillsView: React.FC<{
   return (
     <div className="flex flex-col h-full overflow-hidden relative bg-canvas">
       {toastEl}
+      {dialogs}
 
       <ViewHeader
         eyebrow="Arbeid"
         title="Øvelser"
-        subtitle={`${ALL_DRILLS.filter(d => d.ageGroup === ageGroup).length} øvelser for ${ageGroup === 'youth' ? 'barn' : 'voksne'} – finn, les og legg i en trening`}
+        subtitle={`${allDrills.filter(d => d.ageGroup === ageGroup).length} øvelser for ${ageGroup === 'youth' ? 'barn' : 'voksne'} – finn, les og legg i en trening`}
       />
+      <div className="flex flex-wrap gap-2 px-4 py-3 border-b border-rule">
+        <Button variant="primary" onClick={() => setEditor(emptyDrill(ageGroup))}>Legg til egen øvelse</Button>
+        <Button onClick={() => setAiRequest({})}>Foreslå øvelse med AI</Button>
+      </div>
 
       <FilterBar>
         {/* Rad 1: aldersgruppe + treffantall */}
@@ -573,6 +613,7 @@ export const DrillsView: React.FC<{
 
         {/* Rad 3: kategori */}
         <FilterRow>
+          <FilterChip active={mineOnly} onClick={() => setMineOnly(v => !v)}>Mine øvelser</FilterChip>
           <FilterChip active={activeCategory === 'alle'} accent="neutral" onClick={() => setActiveCategory('alle')}>
             Alle
           </FilterChip>

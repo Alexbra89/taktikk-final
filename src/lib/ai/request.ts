@@ -4,7 +4,7 @@
 //  alt valideres her før noe sendes videre til modellen.
 // ══════════════════════════════════════════════════════════════
 
-export const AI_MODES = ['ANALYZE_PHASE', 'COACHING', 'DRILL', 'NEXT_PHASE', 'GENERAL', 'CHAT'] as const;
+export const AI_MODES = ['ANALYZE_PHASE', 'COACHING', 'DRILL', 'NEXT_PHASE', 'GENERAL', 'CHAT', 'SUGGEST_DRILL'] as const;
 export type AiMode = typeof AI_MODES[number];
 
 /** Modusene som trenger brettet. GENERAL svarer uten; CHAT kan ha brettet med. */
@@ -58,7 +58,7 @@ export function validateAiRequest(body: unknown): AiRequestResult {
 
   const question = typeof body.question === 'string' ? body.question.trim() : '';
   if (question.length > AI_LIMITS.question) return { ok: false, error: 'Spørsmålet er for langt.' };
-  if ((mode === 'GENERAL' || mode === 'CHAT') && !question) return { ok: false, error: 'Skriv et spørsmål.' };
+  if ((mode === 'GENERAL' || mode === 'CHAT' || mode === 'SUGGEST_DRILL') && !question) return { ok: false, error: 'Skriv et spørsmål.' };
 
   let context: Record<string, unknown> | null = null;
   if (BOARD_MODES.includes(mode) || (mode === 'CHAT' && body.context != null)) {
