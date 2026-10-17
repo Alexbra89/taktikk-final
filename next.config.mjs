@@ -35,6 +35,9 @@ export default withPWA({
   // 3D-modellene (ca. 2,3 MB) forhåndslastes ikke for alle; de caches først når 3D åpnes.
   // Cachen under er CacheFirst: en endret modell må få nytt filnavn (spiller-v2.glb osv.).
   publicExcludes: ['!noprecache/**/*', '!models/**/*'],
+  // Next 15 lager dette interne manifestet, men serverer det ikke som en URL.
+  // En 404 i forhåndslageret avbryter hele installasjonen av service workeren.
+  buildExcludes: [/app-build-manifest\.json$/],
   runtimeCaching: [
     {
       urlPattern: /\/models\/[^/?]+\.(?:glb|hdr)$/i,

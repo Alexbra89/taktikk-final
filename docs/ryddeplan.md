@@ -1,8 +1,73 @@
-Status: oppgave 1 (feilhåndtering) og oppgave 2 (Next 15.5.28 og React 19) er ferdige, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+Status: oppgave 1 (feilhåndtering) og oppgave 2 (Next 15.5.28 og React 19) er ferdige, inkludert produksjonstest av offline-bruk på grenen next15, 17. oktober 2026. Resten er ikke påbegynt. Personvern: appen lagrer kun lokalt, ingen kontoer. Feillogging er lokal, ingen ekstern tjeneste.
+
+## Etterkontroll av Next 15 og offline (17.10.2026)
+
+To feil ble funnet og rettet:
+
+- `npm run build` feilet med `EACCES` ved nedlasting av Schibsted Grotesk,
+  Instrument Serif og IBM Plex Mono fra Google Fonts. De samme Latin-filene
+  ligger nå i `src/app/fonts/` og brukes via `next/font/local`. Filene er
+  gjenfunnet uendret i prosjektets tidligere produksjonscache og kontrollert
+  mot innholdshash og innebygde skriftnavn/stiler. Lisens og opphav følger med.
+  Ingen ny pakke eller nedlasting trengs for byggingen.
+- Første produksjonstest stoppet mens den ventet på aktiv service worker.
+  `next-pwa` hadde lagt `/_next/app-build-manifest.json` i forhåndslageret,
+  men Next 15 svarte 404 på den interne filen. Dermed feilet hele
+  installasjonen. `buildExcludes` i `next.config.mjs` utelater nå bare dette
+  manifestet; appens JavaScript, CSS og skrifter forhåndslagres fortsatt.
+
+`npm run test:offline` kjører nå `playwright.offline.config.ts` og
+`e2e-production/offline.spec.ts`. Oppsettet bygger appen og kjører
+`npm start -- --port 3101`; det gjenbruker aldri en eksisterende server.
+De vanlige e2e-testene bruker fortsatt utviklingsserveren på port 3100.
+Kjør testkommandoene etter hverandre, siden de bruker samme `.next`-mappe.
+
+Produksjonstesten bruker en tom nettleserkontekst i Edge. Den venter på
+aktiv service worker og ferdig lagret startside, slår av nettet med
+`context.setOffline(true)`, laster siden på nytt og bekrefter at svaret kommer
+fra service workeren. HTTP-cachen er slått av med pass-through-routing;
+ingen svar forfalskes. En HEAD-forespørsel utenfor offline-lageret må feile,
+og `navigator.onLine` må være `false`.
+
+Forsiden, selve 2D-banen med spillere og øvelseslisten kontrolleres uten nett.
+Taktikk og Øvelser åpnes for første gang etter at nettet er slått av, slik
+at testen også dekker de dynamiske modulene. Når nettet slås på igjen,
+kontrolleres den ekte `online`-hendelsen, uendret dokumentidentitet,
+ingen dokumentnavigasjon og at søket i Øvelser fortsatt står der etter
+tre sekunder. `reloadOnOnline: false` er beholdt og bekreftet i nettleseren.
+
+Under utviklingen av testen ble en ekstra CDP-nettverkskobling fjernet:
+den fikk Edge til å vise `navigator.onLine === true` etter offline-omlasting,
+selv om nettverkskall feilet. Playwrights vanlige routing slår av HTTP-cachen
+uten denne konflikten. Ingen kontroll ble fjernet eller svekket.
+
+| Kommando | Resultat |
+| --- | --- |
+| `npx tsc --noEmit` | Grønn, ingen typefeil |
+| `npx vitest --run` | Grønn, 24 filer / 240 tester |
+| `npm run build` | Grønn etter at skriftene ble lagret lokalt |
+| `npm run test:e2e -- --workers=1` | Grønn, alle 24 tester |
+| `npm run test:offline` | Grønn, 1 produksjonstest, inkludert tilbakekobling uten reload |
+
+Miljømerknad: Denne Windows-sandboxen hindret Playwrights automatiske
+prosessopprydding. Etter at testene var ferdige, ble bare testserverens
+kjente prosess stoppet direkte; deretter avsluttet testkommandoene med
+riktig resultat. Byggene varslet også om gammel Browserslist-database og
+webpack-cache som ikke kunne lagres. Det hindret ikke bygg eller tester.
+
+Ingen eksisterende tester er hoppet over, slettet eller svekket. Ingen nye
+pakker, ingen endringer i låsefilen eller PWA-biblioteket, ingen
+`npm audit fix`, commit, push eller publisering. `public/sw.js` er regenerert
+av produksjonsbygget; å ta byggefilene ut av git er fortsatt oppgave 7.
+
+For manuell kontroll: kjør `npm run build` og `npm start`, åpne
+http://localhost:3000, vent på aktiv service worker i DevTools → Application,
+slå av nettet og last siden på nytt. Prøv Oversikt, Taktikk og Øvelser,
+skriv et søk og slå på nettet igjen. Visningen og søket skal bli stående.
 
 
 
-Jeg har sjekket alle tre punktene mot koden og skrevet om hele planen. Ingen filer er endret. Det var dette oppdraget ba om, og planen står bare i dette svaret.
+Kartleggingen nedenfor beskriver den opprinnelige ryddeplanen. Etterkontrollen ovenfor dokumenterer rettelsene og testene som nå er gjennomført i prosjektet.
 
 
 
@@ -400,7 +465,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
    - Guiden til 15 er sjekket: ingen `cookies`/`headers`/`params`/`searchParams`, ingen `useFormState` og ingen GET-route. Den eneste routen (`/api/ai`, POST) er allerede `force-dynamic` og sender `no-store`. Bygget bruker webpack (standard i 15), så `next-pwa` virker som før.
    - \*Test:\* `npx tsc --noEmit`, Vitest (24 filer, 240 tester), `npm run build` og alle 24 e2e-kjøringer med `--workers=1`. Alt er grønt. `npm run lint` virker og gir én advarsel i `TacticBoard.tsx:494`, i kode som ikke er endret. Produksjonsbygget er også prøvd i Edge: alle visninger og 3D vises uten konsollfeil, og `/api/ai` svarer som før.
    - Underveis: `pitch-depth (mobile)` feilet én gang fordi WebGL ikke startet, mens maskinen var tom for minne. Den gikk grønt 3 av 3 ganger alene og i en ny full kjøring.
-   - Funnet underveis og rettet etter review: service workeren ble ikke registrert, verken før eller etter oppgraderingen (se del 6). `ServiceWorkerRegister.tsx` kjører nå registreringen fra `next-pwa`, og `reloadOnOnline` er slått av. Playwright kjører i utviklingsmodus, der PWA er av, så dette er ikke dekket av e2e. Test for hånd: `npm run build` og `npm start`, åpne appen, vent til service workeren er aktiv (DevTools → Application), slå av nettet og last inn på nytt.
+   - Funnet underveis og rettet etter review: service workeren ble ikke registrert, verken før eller etter oppgraderingen (se del 6). `ServiceWorkerRegister.tsx` kjører nå registreringen fra `next-pwa`, og `reloadOnOnline` er slått av. Etterkontrollen fant også et internt manifest som svarte 404 og hindret installasjonen; dette er rettet med `buildExcludes`. Produksjonsbruk uten nett og tilbakekobling uten reload er nå dekket og grønt med `npm run test:offline` (se etterkontrollen øverst). Vanlig `test:e2e` kjører fortsatt i utviklingsmodus, der PWA er av.
 
 3\. \*\*Next 16.x (siste rettede).\*\* Bygg med `--webpack`, flytt linting til ESLint 9 og sjekk Node-versjonen. \*Test:\* som i oppgave 2. Sjekk at service workeren fortsatt registreres i produksjonsbygget og at appen kan lastes uten nett (se del 6). \*Risiko: middels.\*
 
@@ -468,7 +533,7 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 
 
-Jeg har rettet opp ryddeplanen etter tilbakemeldingene. Ingen filer i appen er endret, for dette var bare en kartlegging. Planen står i dette svaret.
+Ryddeplanen er oppdatert med gjennomført etterkontroll av Next 15 og bruk uten nett. Produksjonsbygget bruker nå lokale skrifter, og service workeren installeres uten den interne manifestfilen som svarte 404. Testresultater og fremgangsmåte står øverst i dokumentet.
 
 
 

@@ -10,7 +10,8 @@
     "lint": "next lint",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:offline": "playwright test --config playwright.offline.config.ts"
   },
   "dependencies": {
     "framer-motion": "^11.18.2",
