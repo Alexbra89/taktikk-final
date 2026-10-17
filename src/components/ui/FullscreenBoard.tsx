@@ -7,9 +7,11 @@ import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
 import { DrawToolbar } from '@/components/board/DrawToolbar';
 import { TextLabelModal } from '@/components/board/TextLabelModal';
 import { ExportImageButton, ExportError } from '@/components/board/ExportImage';
-import { LONG_PRESS, DRAG_THRESH, CLAMP_X, CLAMP_Y_TOP, CLAMP_Y_BOTTOM, PITCH_BOX } from '@/components/board/constants';
+import { LONG_PRESS, DRAG_THRESH, PITCH_BOX } from '@/components/board/constants';
 import { nearestSlotPos, type SvgPos } from '@/lib/geometry';
 import { useBoardZoom } from '@/hooks/useBoardZoom';
+import { usePhasePlayback, interpolatePlayers, interpolateBall } from '@/hooks/usePhasePlayback';
+import { useSvgCoordinates } from '@/hooks/useSvgCoordinates';
 import { useDrawingInput } from '@/hooks/useDrawingInput';
 import { useImageExport } from '@/hooks/useImageExport';
 import { usePlayerStyle } from '@/hooks/usePlayerStyle';
@@ -48,8 +50,6 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   const tactic = useActiveTactic();
   const { phases, activePhaseIdx, sport, formation } = tactic;
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const playRef  = useRef({ from: 0, t: 0 });
   const svgRef   = useRef<SVGSVGElement>(null);
   const fullscreenRef = useRef<HTMLDivElement>(null);
   const [recordingFrame, setRecordingFrame] = useState<FrameState | null>(null);
@@ -93,10 +93,9 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   gestureRef.current = { isGesturing: zoomCtl.isGesturing, spaceHeld: zoomCtl.spaceHeld };
 
   const [activeIdx, setActiveIdx]   = useState(activePhaseIdx);
-  const [isPlaying, setIsPlaying]   = useState(false);
   const [playSpeed, setPlaySpeed]   = useState(1);
-  const [interpFrom, setInterpFrom] = useState(0);
-  const [interpT, setInterpT]       = useState(0);
+  // Samme avspilling som på vanlig brett, men fullskjerm markerer sin egen activeIdx.
+  const { isPlaying, interpFrom, interpT, startPlayback, stopPlayback } = usePhasePlayback(phases, playSpeed, setActiveIdx);
   const [showControls, setShowControls] = useState(true);
   const [drawMode, setDrawMode]     = useState(false);
 
@@ -118,37 +117,9 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   useEffect(() => {
     resetHideTimer();
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, []);
-
-  function startPlayback() {
-    if (phases.length < 2) return;
-    if (timerRef.current) clearInterval(timerRef.current);
-    playRef.current = { from: 0, t: 0 };
-    setInterpFrom(0); setInterpT(0); setActiveIdx(0); setIsPlaying(true);
-    timerRef.current = setInterval(() => {
-      playRef.current.t += 0.025 * playSpeed;
-      if (playRef.current.t >= 1) {
-        const next = playRef.current.from + 1;
-        if (next >= phases.length - 1) {
-          clearInterval(timerRef.current!); timerRef.current = null;
-          setIsPlaying(false); setActiveIdx(phases.length - 1); setInterpT(0);
-          return;
-        }
-        playRef.current.from = next; playRef.current.t = 0;
-        setInterpFrom(next); setInterpT(0); setActiveIdx(next);
-      } else {
-        setInterpT(playRef.current.t); setInterpFrom(playRef.current.from);
-      }
-    }, 30);
-  }
-
-  function stopPlayback() {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setIsPlaying(false); setInterpT(0);
-  }
 
   // Fullskjerm har sin egen activeIdx, mens movePlayer/moveBall skriver til
   // fasen storen står i. Uten denne synkingen havner et drag etter avspilling
@@ -163,28 +134,9 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   useEffect(() => { zoomResetRef.current(); }, [activeIdx, tactic.id, formation, sport]);
 
   // ─── Koordinater ────────────────────────────────────────────
-  // Samme utregning som i TacticBoard: speiler preserveAspectRatio="xMidYMid
-  // meet". getBoundingClientRect() tar med CSS-transformen, så zoomen krever
-  // ingen egen korreksjon her.
-  const toSVGRaw = useCallback((cx: number, cy: number): SvgPos => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-    const rect = svg.getBoundingClientRect();
-    const scale = Math.min(rect.width / VW, rect.height / VH);
-    const renderedW = VW * scale, renderedH = VH * scale;
-    const localX = cx - rect.left - (rect.width - renderedW) / 2;
-    const localY = cy - rect.top - (rect.height - renderedH) / 2;
-    return { x: (localX / renderedW) * VW, y: (localY / renderedH) * VH };
-  }, []);
-
-  // Klemt til banen; rotasjonshåndtaket bruker den rå posisjonen.
-  const toSVG = useCallback((cx: number, cy: number): SvgPos => {
-    const { x, y } = toSVGRaw(cx, cy);
-    return {
-      x: Math.max(CLAMP_X, Math.min(VW - CLAMP_X, x)),
-      y: Math.max(CLAMP_Y_TOP, Math.min(VH - CLAMP_Y_BOTTOM, y)),
-    };
-  }, [toSVGRaw]);
+  // Samme utregning som i TacticBoard (useSvgCoordinates). toSVG er klemt
+  // til banen; rotasjonshåndtaket bruker den rå posisjonen.
+  const { toSVGRaw, toSVG } = useSvgCoordinates(svgRef);
 
   const slots = useMemo(() => getFormationSlots(sport, formation), [sport, formation]);
 
@@ -284,31 +236,9 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   const phase = phases[recordingFrame?.fromIdx ?? activeIdx];
   if (!phase) return null;
 
-  const displayPlayers = (() => {
-    if (!isPlaying || interpT === 0) return phase.players;
-    const from = phases[interpFrom];
-    const to   = phases[Math.min(interpFrom + 1, phases.length - 1)];
-    if (!from || !to) return phase.players;
-    return (from.players as any[]).map((fp: any) => {
-      const tp = (to.players as any[]).find((p: any) => p.id === fp.id);
-      if (!tp) return fp;
-      return { ...fp, position: {
-        x: fp.position.x + (tp.position.x - fp.position.x) * interpT,
-        y: fp.position.y + (tp.position.y - fp.position.y) * interpT,
-      }};
-    });
-  })();
+  const displayPlayers = interpolatePlayers(phase, phases, interpFrom, interpT, isPlaying);
 
-  const displayBall = (() => {
-    if (!isPlaying || interpT === 0) return phase.ball;
-    const from = phases[interpFrom];
-    const to   = phases[Math.min(interpFrom + 1, phases.length - 1)];
-    if (!from || !to) return phase.ball;
-    return {
-      x: from.ball.x + (to.ball.x - from.ball.x) * interpT,
-      y: from.ball.y + (to.ball.y - from.ball.y) * interpT,
-    };
-  })();
+  const displayBall = interpolateBall(phase, phases, interpFrom, interpT, isPlaying);
 
   // Under avspilling glir utstyret mellom fasene, som spillerne.
   const shownItems = isPlaying && interpT > 0

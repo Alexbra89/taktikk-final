@@ -1,3 +1,83 @@
+## Oppgave 21–23: oppdeling av TacticBoard (17.10.2026) – kode ferdig, kontroller ikke kjørt
+
+TacticBoard er delt etter planen, og den rene dupliseringen mot
+FullscreenBoard (avspilling, mellomposisjoner og koordinater) ligger nå i
+delte hooks. Ren flytting: funksjonskroppene er kopiert uendret, med samme
+avhengigheter, tidsfrister, terskler og rekkefølge på kallene. Ingen pakker,
+tester eller offentlige eksporter er endret; `TacticBoard` og
+`FullscreenBoard` har samme navn, props og importsti som før. Alle nye filer
+har en kort ansvarskommentar øverst.
+
+| Fil | Linjer før → etter | Ansvar |
+| --- | --- | --- |
+| `components/board/TacticBoard.tsx` | 998 → 621 | Setter sammen delene; linja over og under banen, banen og dialogene. |
+| `components/ui/FullscreenBoard.tsx` | 571 → 501 | Uendret oppførsel; bruker nå felles avspilling og koordinater. |
+| `hooks/usePlayerDrag.ts` | Ny → 247 | Dra og bytte av spillere (kun TacticBoard). |
+| `hooks/useUndoRedo.ts` | Ny → 84 | Angre/gjør om, dybde og hurtigtaster. |
+| `hooks/usePhasePlayback.ts` | Ny → 86 | Faseklokka og `interpolatePlayers`/`interpolateBall` (begge brettene). |
+| `hooks/useSvgCoordinates.ts` | Ny → 60 | `toSVGRaw`, `toSVG` og `clampToPitch` (begge brettene). |
+| `components/board/PhaseNoteModal.tsx` | Ny → 50 | Notatdialogen for fasen. |
+| `components/board/Board3DSlot.tsx` | Ny → 32 | Lat lasting av 3D med feilskjerm, og `HoldWhileHidden`. |
+
+**Tilpasninger til forslaget:** Hookene ligger i `src/hooks/`, som de andre
+hookene. Koordinatomregningen var en ordrett lik utregning i begge brettene og
+er derfor også samlet (`useSvgCoordinates`), selv om planen ikke nevnte den.
+Nullstillingen av angrehistorikk og zoom ved bytte av fase/taktikk står
+fortsatt i TacticBoard (via `resetHistory`), fordi den også styrer zoomen.
+Stopp av avspilling ved bytte av taktikk/formasjon/sport står også igjen der;
+fullskjerm hadde ikke denne regelen og har den fortsatt ikke. Effektene er
+fordelt på hookene, så opprydding av tidtakere ved lukking skjer i en annen
+rekkefølge, men alle ryddes fortsatt.
+
+**Ikke slått sammen (ville endret oppførsel):** Dra-logikken i
+FullscreenBoard er en annen enn i TacticBoard: ingen drag-skygge, ikke bytte,
+ikke angre, ingen avstandsjustering, ballen dras med de samme håndtererne som spillerne, sjekk av
+`pointerId`, og draget avbrytes ved knip. `usePlayerDrag` brukes derfor bare av
+TacticBoard. En felles dra-hook krever et menneskelig valg om hvordan
+fullskjerm skal oppføre seg. `FullscreenControls.tsx` (planens forslag for
+fullskjerm) er ikke laget i denne omgangen.
+
+**Funn, ikke rettet (ren flytting):**
+
+- `startDrag` har `phase` som unødvendig avhengighet; dette er den kjente
+  lint-advarselen, som nå ligger i `usePlayerDrag.ts`.
+- `useSvgCoordinates` tar `svgRef` og `usePlayerDrag` tar `gestureRef` som
+  argument. Lint kan derfor be om dem som avhengigheter. Det er ikke lagt til i
+  `usePlayerDrag`, for at avhengighetslistene skal stå som før. Lint er ikke
+  kjørt.
+- `useBallDrag` har en tredje kopi av koordinatomregningen, men med en annen
+  grense i høyden (45 i stedet for `CLAMP_Y_TOP`/`CLAMP_Y_BOTTOM`). Den er ikke
+  slått sammen.
+- FullscreenBoard: `getNum(p: any)` og den utdaterte kommentaren om
+  `PlayerHome` står igjen (planens oppgave 23); `getNum` faller tilbake til 0,
+  så fjerning er ikke helt ren flytting. `setPlaySpeed` brukes ikke; farten er
+  alltid 1. Kommentaren sier at kontrollene skjules etter 3 s, men koden bruker
+  4000 ms. Fasenavn vises som `ph.name` uten reserven «Fase n» som TacticBoard
+  har.
+
+**Kontroller: ikke kjørt i denne økten.** Økten hadde ikke terminaltilgang,
+så ingen av de fem kommandoene kunne kjøres, verken før eller etter.
+Utgangspunktet er siste dokumenterte kjøring på samme commit (`96bdfaa`, se
+oppgave 17–19 nedenfor). Etter-kolonnen må fylles ut når kommandoene er kjørt.
+
+| Kommando | Før (siste dokumenterte kjøring) | Etter |
+| --- | --- | --- |
+| `npx tsc --noEmit` | Grønn, kode 0 | Ikke kjørt |
+| `npx vitest --run` | 29 filer / 304 tester, kode 0 | Ikke kjørt (forventet 29 / 304) |
+| `npm run build` | Grønn, kode 0 | Ikke kjørt |
+| `npm run test:e2e -- --workers=1` | 36 tester, kode 0 | Ikke kjørt (forventet 36) |
+| `npm run test:offline` | 3 tester, kode 0 | Ikke kjørt (forventet 3) |
+
+Ingen testfiler importerer `TacticBoard`, `FullscreenBoard` eller de flyttede
+delene direkte, så testantallet skal være uendret. Typer og importer er bare
+kontrollert ved gjennomlesing. Ingen genererte filer inngår, og ingenting er
+publisert, deployet, committet eller pushet.
+
+Manuell prøve: Åpne Taktikk i 2D. Dra en spiller (på mobil: hold litt først),
+slipp på en annen spiller for å bytte, og prøv Angre/Gjør om (også Ctrl+Z /
+Ctrl+Y). Spill av fasene, skriv et notat, tegn, eksporter PNG/video, bytt til
+3D og tilbake. Åpne fullskjerm, spill av, dra en spiller og ballen, og ta opp.
+
 ## Oppgave 17–19: oppdeling av BoardScene (17.10.2026) – ferdig
 
 Den eksisterende 3D-motoren er beholdt og delt etter planen. Ingen pakker,
@@ -626,7 +706,7 @@ Ingen funn er avvist.
 
 | 4 | `src/data/drills/midtbane.ts` | 1150 | Midtbaneøvelser (data) |
 
-| 5 | `src/components/board/TacticBoard.tsx` | 997 | 2D-brettet: dra, bytte, angre/gjør om, avspilling, eksport, faser, notat, 3D-bryter |
+| 5 | `src/components/board/TacticBoard.tsx` | 998 → 621 | 2D-brettet er delt opp; se oppgave 21–23 øverst og filkartet i AGENTS.md |
 
 | 6 | `src/data/drills/styrke.ts` | 971 | Styrkeøvelser (data) |
 
@@ -640,7 +720,7 @@ Ingen funn er avvist.
 
 
 
-Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `FullscreenBoard.tsx` (518), `tacticTemplates.ts` (432), `DashboardView.tsx` (428) og `formations.ts` (415). `Board3D.tsx` (393) ligger på grensen. `drills.ts.backup` (531) er død kode og skal slettes, ikke deles.
+Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `FullscreenBoard.tsx` (518; 571 → 501 etter oppgave 21–23), `tacticTemplates.ts` (432), `DashboardView.tsx` (428) og `formations.ts` (415). `Board3D.tsx` (393) ligger på grensen. `drills.ts.backup` (531) er død kode og skal slettes, ikke deles.
 
 
 
@@ -824,7 +904,7 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 \- Id-er lages på to måter: `useAppStore.ts:17` og `AutoGenForm.tsx:69`.
 
-\- Logikk for dra og avspilling er kopiert mellom `TacticBoard` og `FullscreenBoard`.
+\- Logikk for dra og avspilling er kopiert mellom `TacticBoard` og `FullscreenBoard`. Avspilling og koordinater er samlet i oppgave 21–23; dra er fortsatt ulikt og står hver for seg.
 
 \- Detaljvisningen for øvelser finnes to steder: inni `DrillsView` og i `DrillDetailModal`.
 
@@ -1014,11 +1094,11 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 20\. \*\*Del opp TrainingView\*\* som beskrevet i del 2. Krever oppgave 10. \*Risiko: middels.\*
 
-21\. \*\*TacticBoard:\*\* skill ut `PhaseNoteModal` og `useUndoRedo`. \*Test:\* `smoke`. \*Risiko: lav–middels.\*
+21\. **Kode ferdig 17.10.2026, kontroller gjenstår: TacticBoard trinn 1.** `PhaseNoteModal`, `useUndoRedo` og `Board3DSlot`. Se øverst.
 
-22\. \*\*TacticBoard:\*\* lag `usePhasePlayback`, og bruk den også i FullscreenBoard. \*Risiko: middels.\*
+22\. **Kode ferdig 17.10.2026, kontroller gjenstår: TacticBoard trinn 2.** `usePhasePlayback`, også brukt i FullscreenBoard, og felles `useSvgCoordinates`. Se øverst.
 
-23\. \*\*TacticBoard:\*\* lag `usePlayerDrag`, og bruk den også i FullscreenBoard. Rydd `getNum` og den gamle kommentaren. \*Risiko: middels–høy.\* Gjøres etter oppgave 13.
+23\. 🟡 **DELVIS (17.10.2026): TacticBoard trinn 3.** `usePlayerDrag` er laget for TacticBoard. Den brukes ikke i FullscreenBoard, fordi dra-logikken der er en annen og en sammenslåing ville endret oppførsel. `getNum` og den gamle kommentaren står igjen. Krever en beslutning om hvordan dra skal virke i fullskjerm, og bør gjøres etter oppgave 13. \*Risiko: middels–høy.\*
 
 24\. \*\*Del opp DrillsView\*\*, og vurder å slå den sammen med `DrillDetailModal`. \*Test:\* `drills`. \*Risiko: lav–middels.\*
 

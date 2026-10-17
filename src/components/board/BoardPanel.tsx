@@ -34,7 +34,7 @@ export const BoardPanel: React.FC<BoardPanelProps> = ({ isMobile, onClose, playS
   const phase = tactic.phases[tactic.activePhaseIdx] ?? null;
 
   // Notatet lå her før; det bor nå på verktøylinja under banen, sammen med
-  // fasene det hører til. Se PhaseNoteModal i TacticBoard.
+  // fasene det hører til. Se PhaseNoteModal.tsx (åpnes fra TacticBoard).
 
   // ─── Øyeblikk ──────────────────────────────────────────────
   // Lå tidligere i lokal useState og forsvant ved refresh. Nå i store,

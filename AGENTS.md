@@ -28,3 +28,28 @@ Kontroller: `e2e/board3d.spec.ts` (visning og MP4/WebM-eksport),
 `e2e/fullscreen-recording.spec.ts` (opptak, stopp, avbryt og unike bilder).
 Enhetstester finnes ved `assets`, `coordinates`, `drawingCache` og i
 `src/lib/exportVideo3D.test.ts`.
+
+# Kart over 2D-brettet
+
+`src/components/board/TacticBoard.tsx` er fortsatt inngangen (samme eksport,
+brukt av `src/app/page.tsx`). Den setter sammen delene nedenfor med linja over
+banen (formasjon, 2D/3D-bryter, fullskjerm), selve banen og linja under banen
+(faser, notatknapp, zoom, angre, tegn, utstyr, eksport og avspilling).
+
+| Fil | Ansvar |
+| --- | --- |
+| `src/hooks/usePlayerDrag.ts` | Dra og bytte av spillere: langtrykk, terskel, drag-skygge, snapping, bytte, avstand etterpå og valg ved trykk. Bare TacticBoard. |
+| `src/hooks/useUndoRedo.ts` | Angre/gjør om for spillerflytt, knappenes dybde og Ctrl+Z / Ctrl+Y. Brettet nullstiller ved bytte av fase/taktikk. |
+| `src/hooks/usePhasePlayback.ts` | Faseklokka (30 ms-steg) og mellomposisjoner for spillere og ball. Delt av TacticBoard og FullscreenBoard. |
+| `src/hooks/useSvgCoordinates.ts` | Pekerposisjon → banekoordinater, med og uten klemming. Delt av TacticBoard og FullscreenBoard. |
+| `src/components/board/PhaseNoteModal.tsx` | Dialogen for notatet til fasen. |
+| `src/components/board/Board3DSlot.tsx` | Lat lasting av 3D-visningen med feilskjerm, og `HoldWhileHidden` for det skjulte 2D-brettet under 3D-avspilling. |
+
+`src/components/ui/FullscreenBoard.tsx` er 2D-fullskjermen. Den bruker felles
+avspilling og koordinater, men har sin egen, enklere dra-logikk (også for
+ballen) og egne autoskjulte kontroller. Utstyr og tegning er felles via
+`useBoardItems` og `useDrawingInput`; banen tegnes av `BoardStage`.
+
+Kontroller: `e2e/smoke.spec.ts` (tegning, bytte og angre, PNG, tom bane),
+`e2e/fullscreen-recording.spec.ts` (2D-fullskjerm og opptak) og
+`e2e/board3d.spec.ts` (2D/3D-bryteren og felles faseklokke).
