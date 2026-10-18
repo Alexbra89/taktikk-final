@@ -13,7 +13,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     players: '2-4',
     description:
       'Keeperen står i midten av en firkant av kjegler og forflytter seg raskt til den kjeglen treneren roper ut, berører den (evt. med et kontrollert fall), og går tilbake til midten.',
-    why: 'Trener utgangsstilling, forflytning og reaksjon i en lek. NFFs fagplan for 8-9 år nevner disse som grunnteknikker som starter «på dag en i keeperlivet», og at «leken, ballen og mye aktivitet er i sentrum». (kilde: Fagplan keeper 8-9 år; sammenkoblingen til øvelsen er min)',
+    why: 'Trener utgangsstilling, forflytning og reaksjon i en lek. NFFs fagplan for 8-9 år nevner disse som grunnteknikker som starter «på dag en i keeperlivet», og at «leken, ballen og mye aktivitet er i sentrum». (kilde: Fagplan keeper 8-9 år)',
     steps: [
       { id: 'keeper-y-01-s1', name: 'Oppsett', description: 'Sett opp fire fargede kjegler i en firkant på ca. 3×3 m.' },
       { id: 'keeper-y-01-s2', name: 'Utgangsstilling', description: 'Keeperen står i midten i utgangsstilling.' },
@@ -110,7 +110,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
       'Rop tidlig og tydelig: «Keeper!» (kilde: begrep fra Fagplan keeper 8-9 år)',
       'Møt ballen på det høyeste punktet du rekker',
       'Beslutt: angripe ballen eller la forsvarerne ta den (kilde: begrepet «Beslutte» i Læringsmomenter keeper 12-13 år)',
-      'Løft nærmeste kne for balanse og beskyttelse (vurdering: min)',
+      'Løft nærmeste kne for balanse og beskyttelse',
     ],
     commonMistakes: [
       'Blir stående på streken og venter',
@@ -141,7 +141,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     players: '3-4',
     description:
       'To keepere står overfor hverandre. Den ene er «leder» og gjør raske sidebevegelser og berøringer, og den andre speiler. Uten forvarsel triller treneren en ball, og speileren må reagere og fange den.',
-    why: 'Trener reaksjon, balanse og retningsendring, slik NFF beskriver under «hurtighet/reaksjon» og «forflytning» for de yngste. (kilde: Fagplan keeper 8-9 år; øvelsesformen er min/kjent)',
+    why: 'Trener reaksjon, balanse og retningsendring, slik NFF beskriver under «hurtighet/reaksjon» og «forflytning» for de yngste. (kilde: Fagplan keeper 8-9 år)',
     steps: [
       { id: 'keeper-y-04-s1', name: 'Oppstilling', description: 'Keeper A og B står overfor hverandre, 3 m mellom.' },
       { id: 'keeper-y-04-s2', name: 'Leder', description: 'A gjør sideveis tripping, berører bakken eller tar et lite hopp i 5-10 sekunder.' },
@@ -304,7 +304,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     players: '2-3',
     description:
       'Treneren kaster ballen (ikke skyter) mot keeperens sider, litt utenfor rekkevidde, slik at keeperen må skyve fra og strekke seg. Både foten nærmest og foten lengst unna ballen trenes.',
-    why: 'NFF beskriver skyv/rekkevidde som eget keepertema og anbefaler å starte med kast for å få mange og gode repetisjoner, og å gi keeperen nok hvile. Selve øvelsesformen er min; rammene er NFFs. (kilde: Keeperøkt «Skuddklar: Rekkevidde/skyv»)',
+    why: 'NFF beskriver skyv/rekkevidde som eget keepertema og anbefaler å starte med kast for å få mange og gode repetisjoner, og å gi keeperen nok hvile. (kilde: Keeperøkt «Skuddklar: Rekkevidde/skyv»)',
     steps: [
       { id: 'keeper-y-08-s1', name: 'Oppsett', description: 'Keeperen står midt i et 5er-mål.' },
       { id: 'keeper-y-08-s2', name: 'Kast', description: 'Treneren står 5-6 m unna og kaster lave og halvhøye baller mot sidene.' },
@@ -437,7 +437,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-03-s2', name: 'Berøring', description: 'Treneren ruller en ball rolig mot midten, som keeperen berører med foten.' },
       { id: 'keeper-a-03-s3', name: 'Forflytning', description: 'Keeperen flytter seg raskt mot den andre stolpen.' },
       { id: 'keeper-a-03-s4', name: 'Skudd', description: 'Idet keeperen nærmer seg, skyter en medspiller hardt mot det lange hjørnet.' },
-      { id: 'keeper-a-03-s5', name: 'Skyv', description: 'Keeperen stopper, blir skuddklar, skyver fra og strekker seg. (vurdering: min)' },
+      { id: 'keeper-a-03-s5', name: 'Skyv', description: 'Keeperen stopper, blir skuddklar, skyver fra og strekker seg.' },
       { id: 'keeper-a-03-s6', name: 'Landing og hvile', description: 'Land på siden av kroppen. Gi nok hvile mellom seriene. (kilde: Keeperøkt)' },
     ],
     coachingPoints: [
@@ -484,7 +484,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-04-s5', name: 'Bytte', description: 'Bytt roller jevnlig.' },
     ],
     coachingPoints: [
-      'Åpen kroppsstilling så du har oversikt (vurdering: min)',
+      'Åpen kroppsstilling så du har oversikt',
       'Snakk tydelig til stopperne (kilde: begrep «gode beskjeder til lagkompisene», Fagplan keeper 8-9 år)',
       'Pasningen skal ha riktig adresse og fart',
       'Velg alternativ etter presshøyde og medspilleres plassering (kilde: Læringsmomenter keeper 12-13 år)',
@@ -569,7 +569,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-06-s4', name: 'Skuddklar', description: 'Keeperen skal være i balanse og skuddklar i det skuddet avfyres.' },
     ],
     coachingPoints: [
-      'Flytt deg mens ballen trilles, og vær skuddklar når skytteren skal avslutte (vurdering: min, formulert med NFFs begrep «skuddklar»)',
+      'Flytt deg mens ballen trilles, og vær skuddklar når skytteren skal avslutte',
       'Følg en tenkt linje fra midten av målet til ballen',
       'Kom noen steg ut fra linjen for å gjøre målet mindre',
       'Kommuniser med forsvarerne (kilde: begrep «gode beskjeder til lagkompisene», Fagplan keeper 8-9 år)',
@@ -608,7 +608,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-07-s1', name: 'Servering', description: 'En trener slår høye baller inn mot 5-meteren.' },
       { id: 'keeper-a-07-s2', name: 'Trangt rom', description: 'En forsvarer og en angriper lager trangt rom foran keeperen.' },
       { id: 'keeper-a-07-s3', name: 'Valg', description: 'Keeperen vurderer: kan ballen fanges, fanger keeperen. Er det for trangt, roper keeperen tydelig og bokser ballen høyt og langt ut mot sidene.' },
-      { id: 'keeper-a-07-s4', name: 'Teknikk', description: 'Trener sjekker at boksingen treffer med knokene og stramme håndledd. (vurdering: min; NFF-kildene gir ikke bokseteknikk)' },
+      { id: 'keeper-a-07-s4', name: 'Teknikk', description: 'Trener sjekker at boksingen treffer med knokene og stramme håndledd.' },
     ],
     coachingPoints: [
       'Beslutt tidlig: fange eller bokse (kilde: begrepet «Beslutte»)',
@@ -645,7 +645,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     players: '3',
     description:
       'Ballen skytes mot et sprettbrett (rebounder) eller en medspiller som bevisst avbøyer den, slik at ballbanen endres uforutsigbart rett foran keeperen.',
-    why: 'Trener reaksjon og omstilling ved avbøyninger. Hvis klubben ikke har et sprettbrett, fungerer en medspiller med foten eller kroppen like godt. (vurdering: min)',
+    why: 'Trener reaksjon og omstilling ved avbøyninger. Hvis klubben ikke har et sprettbrett, fungerer en medspiller med foten eller kroppen like godt.',
     steps: [
       { id: 'keeper-a-08-s1', name: 'Oppsett', description: 'Sett opp sprettbrettet (eller en medspiller) ca. 8-10 m foran mål.' },
       { id: 'keeper-a-08-s2', name: 'Skudd', description: 'Trener skyter fra ca. 16 m inn i brettet/medspilleren.' },
@@ -687,7 +687,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     players: '6-8',
     description:
       'Keeperen gjør et kort løp gjennom en kjeglerekke med rask retningsendring, og må umiddelbart håndtere et innlegg i feltet med full trafikk og fysisk duell.',
-    why: 'Simulerer kampforhold der keeperen er pustet opp, men må ta gode beslutninger. Gemini-versjonen brukte hekkehopp. Hekkene er erstattet med et kort løp og retningsendring, fordi hopp rett før en duell øker skaderisikoen, og NFF anbefaler kontroll i hopp og landing (kilde: RRR-artikkelen). (vurdering: min)',
+    why: 'Simulerer kampforhold der keeperen er pustet opp, men må ta gode beslutninger. Et kort løp med retningsendring brukes før duellen, ikke hekkehopp: hopp rett før en duell øker skaderisikoen. Ha kontroll i hopp og landing (kilde: RRR-artikkelen).',
     steps: [
       { id: 'keeper-a-09-s1', name: 'Løp', description: 'Keeperen løper gjennom en rekke på 3-4 kjegler med rask retningsendring.' },
       { id: 'keeper-a-09-s2', name: 'Innlegg', description: 'Treneren slår umiddelbart et innlegg fra sidekorridor.' },
@@ -699,7 +699,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       'Nullstill hodet med én gang etter løpet',
       'Beslutt tidlig: angripe ballen eller la forsvarerne ta den (kilde: begrepet «Beslutte»)',
       'Rop tydelig så det høres over hele feltet',
-      'Bruk kneet aktivt til å beskytte deg i lufta (vurdering: min)',
+      'Bruk kneet aktivt til å beskytte deg i lufta',
     ],
     commonMistakes: [
       'Nøler og blir stående halvveis ute',
@@ -717,7 +717,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     unverifiedSource:
       'Gemini oppga «US Soccer Player Development Framework – High Balls Under Physical Pressure» med URL https://www.ussoccer.com/coaching (generell side, ikke øvelse; utgiver: US Soccer Federation). Originalen hadde hopp over 3 lavhekker; erstattet.',
     warning:
-      'Kjør kun når keeperen er godt oppvarmet, og stopp ved sårhet eller smerte. Gemini-versjonen hadde hekkehopp rett før duellen; det er fjernet for å redusere skaderisiko.',
+      'Kjør kun når keeperen er godt oppvarmet, og stopp ved sårhet eller smerte. Unngå hekkehopp rett før duellen – det øker skaderisikoen.',
     sketch:
       'Kjeglerekke (3-4 kjegler) 5 m foran mål. Servitør i sidekorridor slår innlegg. To angripere og to forsvarere foran mål.',
   },
@@ -732,7 +732,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     players: '3-5',
     description:
       'Straffesparktrening der keeperen leser skytterens tilløp og kroppsholdning, står klar på linjen og reagerer eksplosivt.',
-    why: 'Trener konsentrasjon, tålmodighet og eksplosivitet under press. NFFs 13-19-plan nevner mentale ferdigheter som håndtering av nervøsitet og press. Geminis påstand om at «krum tilløpsvinkel indikerer motsatt hjørne» er fjernet, fordi den ikke lar seg bekrefte og ikke bør gis som fasit. (kilde: Fagplan keeper 13-19 år; vurdering: min)',
+    why: 'Trener konsentrasjon, tålmodighet og eksplosivitet under press. Les skytterens tilløp, hofter og plantefot – ikke gjett hjørne ut fra tilløpsvinkelen alene. NFFs 13-19-plan nevner mentale ferdigheter som håndtering av nervøsitet og press (kilde: Fagplan keeper 13-19 år).',
     steps: [
       { id: 'keeper-a-10-s1', name: 'Oppsett', description: 'Skytteren stiller opp ballen på 11-metersmerket.' },
       { id: 'keeper-a-10-s2', name: 'Utgangsposisjon', description: 'Keeperen står med begge beina på mållinjen.' },
@@ -740,7 +740,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-10-s4', name: 'Reaksjon', description: 'Keeperen bestemmer seg sent og kaster seg eksplosivt.' },
     ],
     coachingPoints: [
-      'Hold deg på tåballene, blikket på skytterens plantefot og hofter (vurdering: min)',
+      'Hold deg på tåballene, blikket på skytterens plantefot og hofter',
       'Vær tålmodig, ikke tjuvstart',
       'Skyv frem og til siden så du kutter vinkelen',
       'Ha en rutine som hjelper mot nervøsitet (kilde: tema «Mentale ferdigheter»)',

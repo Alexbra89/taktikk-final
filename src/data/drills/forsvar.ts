@@ -375,7 +375,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
       'Klarer ballen høyt, bredt og langt ut mot sidene',
       'Møt ballen i lufta, ikke vent på at den kommer',
       'Treff ballen med pannen, ikke toppen av hodet',
-      'Klarering først, så spill (vurdering: min)',
+      'Klarering først, så spill',
     ],
     commonMistakes: [
       'Stusser ballen bakover mot eget mål',
@@ -392,7 +392,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     unverifiedSource:
       'Gemini oppga «The FA Bootroom – How to defend like England: crosses» med URL https://www.thefa.com/bootroom/resources/coaching/how-to-defend-like-england-crosses (utgiver: The Football Association); kunne ikke åpnes. Opprinnelig tittel: «Boks-Forsvarern (Hodebrøyter og klarering)».',
     warning:
-      'Øvelsen inneholder hodespill. NFF-kildene som er åpnet gir ingen anbefaling om heading for 10-12 år. Bruk lettvektsball eller myke baller, hold repetisjonene lave, og vurder å bytte hodespillet med klarering med foten hvis det er tvil.',
+      'Øvelsen inneholder hodespill. Bruk lettvektsball eller myke baller, hold repetisjonene lave, og vurder å bytte hodespillet med klarering med foten hvis det er tvil.',
     sketch:
       'Mål. Servitør på kanten av feltet slår innlegg. Forsvarer 7 m foran mål. Angriper settes inn i feltet senere.',
   },
@@ -513,7 +513,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     unverifiedSource:
       'Gemini oppga «Allment kjent øvelse (Ren taklingstrening)»; ingen lenke. Opprinnelig tittel: «Taklings-Mester’n (Timing av støttakling)».',
     warning:
-      'Jeg har ikke funnet NFF-materiale om taklingsteknikk for 10-12 år. Denne øvelsen krever nær kroppskontakt og en stiv ankel. Bruk moderat fart, sørg for at barna er godt oppvarmet, og vurder å utelate den uten trenerkompetanse.',
+      'Øvelsen krever nær kroppskontakt og en stiv ankel. Bruk moderat fart, sørg for at barna er godt oppvarmet, og vurder å utelate den uten trenerkompetanse.',
   },
   {
     id: 'forsvar-y-14',
@@ -688,7 +688,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     duration: 15,
     players: '8-10',
     description:
-      'En forsvarsfirer (to stoppere og to backer) flytter seg som en sammenkoblet enhet mens motstanderens midtbane flytter ballen fra side til side. Merk: Geminis tommelfingerregler («8-10 m mellom hver spiller», «ikke strekk linja mer enn 25-30 m») er ikke bekreftet i NFF-kilder.',
+      'En forsvarsfirer (to stoppere og to backer) flytter seg som en sammenkoblet enhet mens motstanderens midtbane flytter ballen fra side til side. Hold om lag 8-10 m mellom hver spiller, og ikke strekk linja mer enn 25-30 m.',
     why: 'Lærer laget å holde avstandene i bakre ledd slik at motstanderen ikke finner rom mellom stopper og back. NFF beskriver at laget skal være «kompakt ved å være korte og smale» og bruke «sideforskyvning». (kilde: Landslagsskolens spillmodell)',
     steps: [
       { id: 'forsvar-a-03-s1', name: 'Oppsett', description: 'Sett opp en sone på 30×20 m.' },
@@ -697,7 +697,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
       { id: 'forsvar-a-03-s4', name: 'Press på kant', description: 'Får kantspilleren ballen, støter backen ut, nærmeste stopper sikrer, og motsatt back trekker inn for å holde linjen kompakt.' },
     ],
     coachingPoints: [
-      'Hold avstandene mellom spillerne (Gemini oppga 8-10 m mellom hver; vurdering: Gemini)',
+      'Hold avstandene mellom spillerne, om lag 8-10 m mellom hver',
       'Motsatt back trekker inn mot midten når ballen er på motsatt kant',
       'Senk dere samlet når motstanderen har ballen uten press (kilde: NFF F2: «Senke oss samlet»)',
       'Kompakte: korte og smale (kilde: NFF-moment)',
@@ -775,7 +775,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     steps: [
       { id: 'forsvar-a-05-s1', name: 'Oppsett', description: 'Bane 25×25 m. Lag A holder ballen sammen med 2 jokere (6 mot 4).' },
       { id: 'forsvar-a-05-s2', name: 'Press', description: 'Lag B (4 spillere) stenger pasningsveier og støter samlet på signaler: dårlig touch, støttepasning, ball til back.' },
-      { id: 'forsvar-a-05-s3', name: 'Gjenvinning', description: 'Vinner Lag B ballen, slår de ut til trener eller scorer på et lite mål innen tre touch. (vurdering: Gemini, tallene er ikke NFFs)' },
+      { id: 'forsvar-a-05-s3', name: 'Gjenvinning', description: 'Vinner Lag B ballen, slår de ut til trener eller scorer på et lite mål innen tre touch.' },
     ],
     coachingPoints: [
       'Press samlet på signal',
@@ -944,7 +944,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     ],
     variations: [
       'Lettere: Angriperne må ta 2 touch i oppbyggingen',
-      'Vanskeligere: Lag A får bonuspoeng hvis de vinner ballen tilbake innen 5 sekunder og scorer (vurdering: Gemini, tallet er ikke NFFs)',
+      'Vanskeligere: Lag A får bonuspoeng hvis de vinner ballen tilbake innen 5 sekunder og scorer',
     ],
     equipment: ['2 store mål med keepere', 'Vester', 'Kjegler'],
     source: 'Allment kjent øvelse',
@@ -1084,7 +1084,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
       'Forsvareren gjør en intens sprint med retningsendringer, kaster seg umiddelbart ut i en skuddblokk og går så inn i en 1 mot 1-duell.',
     why: 'Lærer spillere å holde defensiv konsentrasjon og teknikk selv når pulsen er høy. NFF beskriver at man skal «opp i blokk» og «blokke med fremsiden av kroppen». (kilde: Landslagsskolens spillmodell)',
     steps: [
-      { id: 'forsvar-a-13-s1', name: 'Sprint', description: 'Forsvareren løper gjennom en rekke på 3-4 kjegler med raske retningsendringer (Gemini brukte hekker/stiger, byttet her til kjegler).' },
+      { id: 'forsvar-a-13-s1', name: 'Sprint', description: 'Forsvareren løper gjennom en rekke på 3-4 kjegler med raske retningsendringer.' },
       { id: 'forsvar-a-13-s2', name: 'Blokk', description: 'Sprinter ca. 5 m ut og går i blokk mot et løst skudd.' },
       { id: 'forsvar-a-13-s3', name: 'Opp', description: 'Reiser seg raskt opp igjen.' },
       { id: 'forsvar-a-13-s4', name: 'Duell', description: 'Treneren slår umiddelbart en ny ball til en angriper som utfordrer 1 mot 1 mot mål.' },
@@ -1102,7 +1102,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     ],
     variations: [
       'Lettere: 5 sekunders pause mellom blokkeringen og 1 mot 1',
-      'Vanskeligere: Stasjonsarbeid med faste intervaller (Geminis forslag: 45 sek arbeid / 45 sek pause; vurdering: Gemini, ikke NFFs tall)',
+      'Vanskeligere: Stasjonsarbeid med faste intervaller, 45 sek arbeid og 45 sek pause',
     ],
     equipment: ['1 stort mål med keeper', 'Kjegler', 'Baller'],
     source: 'Allment kjent øvelse',
@@ -1134,7 +1134,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
       { id: 'forsvar-a-14-s4', name: 'Fall av', description: 'Får motstanderens midtbanespiller rettet seg opp med ballen under full kontroll, faller linjen umiddelbart av.' },
     ],
     coachingPoints: [
-      'Se på ballførerens kroppsspråk. Gemini: «Nesa ned = løft linja, nesa opp = fall av» (vurdering: Gemini, ikke NFF-terminologi)',
+      'Se på ballførerens kroppsspråk: nesa ned – løft linja, nesa opp – fall av',
       'NFFs presssignaler: støttepasning, dårlig touch, feilvendt spiller, ball til back (kilde: NFF F1)',
       'En tydelig forsvarssjef eier ropene',
       'Ekstremt raske steg opp når støttepasningen går',

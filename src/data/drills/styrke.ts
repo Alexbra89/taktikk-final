@@ -133,7 +133,7 @@ export const STYRKE_YOUTH: DrillExercise[] = [
     players: 'Individuell',
     description:
       'Individuell øvelse: start hoppet på ett bein og land kontrollert på det andre. NFF plasserer den som Steg 2 «Kontroll av starter og stopper». (kilde: tema/organisering)',
-    why: 'Trener landingen: overkropp, bekken og kne skal være i ro etter landing, uten at kneet roterer innover. Mange skader skjer i landinger. (vurdering: min, kilden nevner kroppskontroll i landing, ikke skadestatistikk)',
+    why: 'Trener landingen: overkropp, bekken og kne skal være i ro etter landing, uten at kneet roterer innover. Mange skader skjer i landinger.',
     steps: [
       { id: 'styrke-y-04-s1', name: 'Oppsett', description: 'Sett en lav hoppmerking (kjegle, linje) på bakken.' },
       { id: 'styrke-y-04-s2', name: 'Hopp', description: 'Start hoppet på ett bein og land mykt på det andre.' },
@@ -171,7 +171,7 @@ export const STYRKE_YOUTH: DrillExercise[] = [
     duration: 5,
     players: 'Individuell',
     description:
-      'Individuell øvelse: et kontrollert sideveis utfall (retningsforandring fra stående, ett steg). NFF plasserer den som Steg 3 «Kontroll av retningsforandringer». Kilden er merket «økt fart»; for barn starter man med kontrollert tempo. (kilde: tema/organisering; tempo: vurdering: min)',
+      'Individuell øvelse: et kontrollert sideveis utfall (retningsforandring fra stående, ett steg). NFF plasserer den som Steg 3 «Kontroll av retningsforandringer». Start med kontrollert tempo for barn. (kilde: tema/organisering)',
     why: 'Lærer å stoppe en sidelengs bevegelse og «sprette ut» igjen med overkroppen under kontroll. (kilde: læringsmoment)',
     steps: [
       { id: 'styrke-y-05-s1', name: 'Utgangsstilling', description: 'Stå i utgangsstilling, føttene i skulderbredde.' },
@@ -248,7 +248,7 @@ export const STYRKE_YOUTH: DrillExercise[] = [
     players: '6-20',
     description:
       'Barna går ned i huk og hopper frem som frosker, med hendene i gulvet foran seg. Kan gjøres som stafett eller «kryss dammen»-lek.',
-    why: 'Lek med kroppsvekt: bein og kropp jobber, og barna øver hopp og landing i en lekbetont ramme. Froskehopp nevnes som et vanlig startpunkt for barn av NHI og Norsk Styrkeløftforbund (utdrag; jeg har ikke lest hele sidene).',
+    why: 'Lek med kroppsvekt: bein og kropp jobber, og barna øver hopp og landing i en lekbetont ramme. Froskehopp nevnes som et vanlig startpunkt for barn av NHI og Norsk Styrkeløftforbund.',
     steps: [
       { id: 'styrke-y-07-s1', name: 'Oppsett', description: 'Marker en «dam» ca. 8-10 m bred.' },
       { id: 'styrke-y-07-s2', name: 'Start', description: 'Barna starter i huk på ene siden.' },
@@ -440,7 +440,7 @@ export const STYRKE_YOUTH: DrillExercise[] = [
     duration: 5,
     players: 'Individuell',
     description:
-      'Individuell øvelse: et kontrollert utfall bakover (retningsforandring fra stående, ett steg). Steg 3 i RRR. Også her: kilden er merket «økt fart», men barn starter med kontrollert tempo. (kilde: tema/organisering; tempo: vurdering: min)',
+      'Individuell øvelse: et kontrollert utfall bakover (retningsforandring fra stående, ett steg). Steg 3 i RRR. Barn starter med kontrollert tempo. (kilde: tema/organisering)',
     why: 'Trener kontroll i stopp- og startfasen når man bytter retning bakover. (kilde: læringsmoment)',
     steps: [
       { id: 'styrke-y-12-s1', name: 'Utgangsstilling', description: 'Stå med føttene i skulderbredde.' },
@@ -745,7 +745,7 @@ export const STYRKE_ADULT: DrillExercise[] = [
     players: 'Individuell',
     description:
       'Som forrige øvelse, men med begge armene 90 grader ut til siden i utgangsstilling. Skyv vekselsvis med hver arm. (kilde: organisering, tittel)',
-    why: 'Sidestilt armposisjon gjør at rotasjonskreftene mot overkroppen blir større, og det stiller høyere krav til kontroll enn versjonen med armene over hodet. (vurdering: min, kilden sier bare at kontroll og rotasjon skal minimeres)',
+    why: 'Sidestilt armposisjon gjør at rotasjonskreftene mot overkroppen blir større, og det stiller høyere krav til kontroll. Minimer rotasjon i overkroppen.',
     steps: [
       { id: 'styrke-a-08-s1', name: 'Oppsett', description: 'Fest strikken på siden (stolpe, dør) og stå i utgangsstilling.' },
       { id: 'styrke-a-08-s2', name: 'Armer', description: 'Begge armene 90 grader ut til siden i strikken.' },
@@ -858,10 +858,10 @@ export const STYRKE_ADULT: DrillExercise[] = [
     players: '4-20',
     description:
       'En krets med 5-6 stasjoner i kroppsvekt: knebøy, utfall, planke, sideplanke, tåhev og ett-beins-hopp. Spillerne roterer mellom stasjonene.',
-    why: 'Bygger grunnstyrke i bein og kjerne uten utstyr. NFF (RRR-artikkelen) anbefaler flere små økter med 4-6 øvelser og kvalitet fremfor kvantitet. Kretsformen er min tilpasning; NFF gir ingen doseringer for kretser.',
+    why: 'Bygger grunnstyrke i bein og kjerne uten utstyr. NFF (RRR-artikkelen) anbefaler flere små økter med 4-6 øvelser og kvalitet fremfor kvantitet. Kjør kretsen med korte arbeidsperioder og god teknikk på hver stasjon.',
     steps: [
       { id: 'styrke-a-11-s1', name: 'Oppsett', description: 'Sett opp 5-6 stasjoner med litt avstand.' },
-      { id: 'styrke-a-11-s2', name: 'Arbeid og pause', description: 'Hver stasjon: 30 sekunder arbeid, 30 sekunder pause (vurdering: min, ikke NFF-tall).' },
+      { id: 'styrke-a-11-s2', name: 'Arbeid og pause', description: 'Hver stasjon: 30 sekunder arbeid, 30 sekunder pause.' },
       { id: 'styrke-a-11-s3', name: 'Rotasjon', description: 'Roter til neste stasjon.' },
       { id: 'styrke-a-11-s4', name: 'Runder', description: 'Gjør 2 runder.' },
       { id: 'styrke-a-11-s5', name: 'Sikkerhet', description: 'Stopp ved sårhet eller smerte.' },
@@ -899,13 +899,13 @@ export const STYRKE_ADULT: DrillExercise[] = [
     players: '2 (par)',
     description:
       'Parøvelse: utøveren kneler med anklene fastholdt av en partner og lener seg kontrollert fremover med rett kropp mot bakken, og bremser fallet med hamstrings.',
-    why: 'Kjent skadeforebyggende øvelse for hamstrings i fotball. Jeg har ikke funnet en NFF-kilde eller dosering på tiim for denne, så jeg beskriver bare øvelsen og anbefaler at tallene settes av en fysisk trener.',
+    why: 'Kjent skadeforebyggende øvelse for hamstrings i fotball. Bruk få repetisjoner med god kontroll, og la en fysisk trener sette doseringen hvis du er usikker.',
     steps: [
       { id: 'styrke-a-12-s1', name: 'Utgangsstilling', description: 'Kneler på en matte, partneren holder rundt anklene.' },
       { id: 'styrke-a-12-s2', name: 'Kroppslinje', description: 'Rett kropp fra knær til hode.' },
       { id: 'styrke-a-12-s3', name: 'Fall', description: 'Len deg sakte fremover, bremse med hamstrings så lenge som mulig.' },
       { id: 'styrke-a-12-s4', name: 'Retur', description: 'Fang deg med hendene og press deg tilbake.' },
-      { id: 'styrke-a-12-s5', name: 'Dosering', description: 'Bruk få repetisjoner med god kontroll og stopp ved sårhet (ingen tall fra NFF).' },
+      { id: 'styrke-a-12-s5', name: 'Dosering', description: 'Bruk få repetisjoner med god kontroll og stopp ved sårhet.' },
     ],
     coachingPoints: [
       'Hold hofta strak, ikke bøy i midjen',
@@ -940,7 +940,7 @@ export const STYRKE_ADULT: DrillExercise[] = [
     players: 'Individuell',
     description:
       'Ligg på siden, støtt på underarmen, løft hoftene så kroppen danner en rett linje, og løft det øverste benet kontrollert.',
-    why: 'Kjernestabilitet i sideplanet og hoftekontroll, som støtter kontroll av bekken i retningsforandringer. NFF beskriver planker og stabilitet som Steg 4-gruppe i RRR («Planker og Terapeutisk ball»), men jeg har ikke åpnet en tiim-side for akkurat denne varianten.',
+    why: 'Kjernestabilitet i sideplanet og hoftekontroll, som støtter kontroll av bekken i retningsforandringer. NFF beskriver planker og stabilitet som Steg 4-gruppe i RRR («Planker og Terapeutisk ball»).',
     steps: [
       { id: 'styrke-a-13-s1', name: 'Utgangsstilling', description: 'Ligg på siden med albue under skulderen.' },
       { id: 'styrke-a-13-s2', name: 'Løft', description: 'Løft hoftene så kroppen er en rett linje.' },

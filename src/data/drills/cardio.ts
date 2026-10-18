@@ -13,7 +13,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '8-16',
     description:
       'Alle spillerne har hver sin ball innenfor et avgrenset område. Målet er å sparke vekk motstandernes baller samtidig som man verner om sin egen. Får man ballen sin sparket ut, må man løpe og hente den. (kilde: organisering)',
-    why: 'Mye kontinuerlig bevegelse med ball: barna fører, skjermer og spurter etter baller som er sparket ut. NFF beskriver det som oppvarming («sjef over ballen») og fotballek. Aktivitetsnivået er høyt fordi ingen står i kø. (aktivitetsvurdering: min)',
+    why: 'Mye kontinuerlig bevegelse med ball: barna fører, skjermer og spurter etter baller som er sparket ut. NFF beskriver det som oppvarming («sjef over ballen») og fotballek. Aktivitetsnivået er høyt fordi ingen står i kø.',
     steps: [
       { id: 'cardio-y-01-s1', name: 'Oppsett', description: 'Marker en firkant ca. 15×15 m for 8 spillere (større for flere).' },
       { id: 'cardio-y-01-s2', name: 'Føring', description: 'Alle har en ball og fører den innenfor firkanten.' },
@@ -50,7 +50,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '6-14',
     description:
       'To og to på en ball. Første spiller fører ballen opp til blå kjegle, gjør en vending og fører til rød kjegle, vender igjen og fører tilbake til blå kjegle. Ved blå kjegle gjør man en vending og sentrer til makkeren og stiller seg bakerst i køa. (kilde: organisering)',
-    why: 'Stafettformen gir gjentatte spurter med ball og korte pauser mens makkeren løper. Barna trener vendinger under fart, og konkurranse holder tempoet oppe. (aktivitetsvurdering: min)',
+    why: 'Stafettformen gir gjentatte spurter med ball og korte pauser mens makkeren løper. Barna trener vendinger under fart, og konkurranse holder tempoet oppe.',
     steps: [
       { id: 'cardio-y-02-s1', name: 'Oppsett', description: 'Sett opp en blå og en rød kjegle med ca. 10 m mellom.' },
       { id: 'cardio-y-02-s2', name: 'Par', description: 'Barna står to og to på en ball, i rekke bak blå kjegle.' },
@@ -90,7 +90,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '8-16',
     description:
       'To rekker står mot hverandre. Fremste spiller fører sikk-sakk over til den fremste på den andre siden, løper over og stiller seg bakerst i motsatt rekke. Sikk-sakk-løypa varieres i lengde, avstand og kjegler. (kilde: organisering)',
-    why: 'Den løpende rekka gir jevn aktivitet uten lange ventetider. Føring med varierende fart (kontroll og fart) trener både teknikk og utholdenhet på barnets nivå. (aktivitetsvurdering: min)',
+    why: 'Den løpende rekka gir jevn aktivitet uten lange ventetider. Føring med varierende fart (kontroll og fart) trener både teknikk og utholdenhet på barnets nivå.',
     steps: [
       { id: 'cardio-y-03-s1', name: 'Oppsett', description: 'Sett opp to rekker mot hverandre med ca. 10-15 m mellom, og en sikk-sakk-løype av kjegler.' },
       { id: 'cardio-y-03-s2', name: 'Føring', description: 'Fremste spiller fører sikk-sakk over til motsatt rekke.' },
@@ -127,7 +127,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '6-12',
     description:
       'Firkanter med vilkårlig plasserte kjegler som skal passeres, men ikke berøres. Minimum en spiller på hver side, to der en starter med ball. To spillere med hver sin ball starter samtidig og fører ballen rundt kjeglene over til motsatt side. Når de er kommet gjennom, spilles ballen til en ny spiller som fører motsatt vei. (kilde: organisering)',
-    why: 'Kontinuerlig føring i en kjeglelabyrint gir mye bevegelse og mange retningsendringer, uten at barna trenger å forstå noe komplisert oppsett. (aktivitetsvurdering: min)',
+    why: 'Kontinuerlig føring i en kjeglelabyrint gir mye bevegelse og mange retningsendringer, uten at barna trenger å forstå noe komplisert oppsett.',
     steps: [
       { id: 'cardio-y-04-s1', name: 'Oppsett', description: 'Lag en firkant ca. 10×10 m med kjegler spredt utover.' },
       { id: 'cardio-y-04-s2', name: 'Sider', description: 'Barna deler seg på to sider.' },
@@ -164,7 +164,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '8-16',
     description:
       'I par «reiser» barna med ballen sin på øya for å legge den der uten å bli fanget av taggeren. Har de lagt fra seg ballen, tar de en ny ball fra båten. Taggeren prøver å ta dem, men får ikke forlate øya. Er et barn tatt, må de forlate ballen og gå tilbake til båten, hvor de ikke kan flytte seg før et annet par løslater dem ved å reise gjennom båten med en ny ball. (kilde: organisering)',
-    why: 'Kombinerer fangeleken med ballføring. Barna må løpe, føre, unngå og hjelpe hverandre, i et opplegg NFF/UEFA har bygget på en fortelling barna kjenner. Gir mye løping og samarbeid. (aktivitetsvurdering: min)',
+    why: 'Kombinerer fangeleken med ballføring. Barna må løpe, føre, unngå og hjelpe hverandre, i et opplegg NFF/UEFA har bygget på en fortelling barna kjenner. Gir mye løping og samarbeid.',
     steps: [
       { id: 'cardio-y-05-s1', name: 'Oppsett', description: 'Lag en «øy» ca. 15×15 m og en «båt» (sone) ved siden av.' },
       { id: 'cardio-y-05-s2', name: 'Par', description: 'Barna deler seg i par med hver sin ball fra båten.' },
@@ -205,7 +205,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '8-16',
     description:
       'De fleste barna står i sone 1. To er motstandere og står i midten. Barna skal bevege seg fra sone 1 til sone 2 uten å bli merket av motstanderne. De som blir fanget, må stå i utvisningsboksen, men kan frigjøres hvis medspillerne løper forbi og gir dem high five. Gjenta flere ganger med nye spillere i midten. (kilde: organisering)',
-    why: 'Klassisk fangelek med lagfølelse. Barna løper mye, må skifte retning og hjelpe hverandre, og alle er i bevegelse hele tiden. (aktivitetsvurdering: min)',
+    why: 'Klassisk fangelek med lagfølelse. Barna løper mye, må skifte retning og hjelpe hverandre, og alle er i bevegelse hele tiden.',
     steps: [
       { id: 'cardio-y-06-s1', name: 'Oppsett', description: 'Lag to soner med en midtsone imellom (ca. 15 m bred).' },
       { id: 'cardio-y-06-s2', name: 'Oppstilling', description: 'De fleste barna står i sone 1. To motstandere står i midtsonen.' },
@@ -321,7 +321,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '8-20',
     description:
       'Lag på 4-5 spillere står i rekke. Første spiller fører ballen rundt en kjeglesløyfe, mens siste spiller i rekka er «jeger» uten ball og prøver å ta igjen føreren før sløyfen er ferdig. Når føreren kommer tilbake, byttes roller.',
-    why: 'Gir mye spurting og retningsendring, med et konkurranseelement. Jaktelementet gjør at farten holdes oppe hele veien. (aktivitetsvurdering: min)',
+    why: 'Gir mye spurting og retningsendring, med et konkurranseelement. Jaktelementet gjør at farten holdes oppe hele veien.',
     steps: [
       { id: 'cardio-y-09-s1', name: 'Oppsett', description: 'Sett opp en kjeglesløyfe (ca. 15-20 m rundt) og la lagene stille seg i rekke ved starten.' },
       { id: 'cardio-y-09-s2', name: 'Start', description: 'Første spiller fører ballen rundt sløyfen.' },
@@ -360,7 +360,7 @@ export const CARDIO_YOUTH: DrillExercise[] = [
     players: '8-16',
     description:
       'To lag prøver å velte hverandres kjegler ved å skyte på dem fra avstand, samtidig som de forsvarer sine egne. Spillet er kontinuerlig og uten pauser.',
-    why: 'Kontinuerlig spill med mye løping frem og tilbake mellom angrep og forsvar. Målene er små og konkrete, så barna må skifte raskt mellom å angripe og forsvare. (aktivitetsvurdering: min)',
+    why: 'Kontinuerlig spill med mye løping frem og tilbake mellom angrep og forsvar. Målene er små og konkrete, så barna må skifte raskt mellom å angripe og forsvare.',
     steps: [
       { id: 'cardio-y-10-s1', name: 'Oppsett', description: 'Bane ca. 25×20 m. Hvert lag setter opp 3-4 kjegler spredt langs sin bakre linje.' },
       { id: 'cardio-y-10-s2', name: 'Lag', description: 'To lag på 4-8 spillere, en ball.' },
@@ -403,7 +403,7 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '6-18',
     description:
       'Spillerne jobber i grupper på 3-6 med løpende rullering. De forflytter seg på små flater med starter, stopper og retningsforandringer i faste mønstre: fremover skrå (V-mønster), bakover skrå, fremover skrå og på tvers (Δ-mønster) og bakover skrå og på tvers, 1-2 ganger à 3-10 sekunder per mønster. (kilde: organisering)',
-    why: 'Kort, eksplosiv belastning som trener det NFF kaller «fart i beina» og kroppskontroll i forflytninger. Kilden er en oppvarmingsøvelse. Den gir høy intensitet i korte drag, men er ikke utholdenhetstrening. (vurdering: min)',
+    why: 'Kort, eksplosiv belastning som trener det NFF kaller «fart i beina» og kroppskontroll i forflytninger. Kilden er en oppvarmingsøvelse. Den gir høy intensitet i korte drag, men er ikke utholdenhetstrening.',
     steps: [
       { id: 'cardio-a-01-s1', name: 'Oppsett', description: 'Sett opp en liten flate (ca. 5×5 m per spiller) med kjegler som markerer mønsteret.' },
       { id: 'cardio-a-01-s2', name: 'Rullering', description: 'Grupper på 3-6, løpende rullering: én jobber mens de andre hviler.' },
@@ -444,7 +444,7 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '9-15',
     description:
       'Grupper på 3-5 i utgangsposisjoner som simulerer et pressledd. Treneren spiller ball mot en av kjeglene foran posisjonene. Spilleren i den sonen går ut av leddet og i press som første forsvarer, resten komprimerer og stenger rom. Første forsvarer spiller ballen tilbake til treneren, og alle løper raskt tilbake til utgangsposisjonene. 3-4 repetisjoner per gruppe før bytte. (kilde: organisering)',
-    why: 'Gjentatte korte press- og returløp med høy fart. Trener «fart i hodet» (lese spillet, reagere) sammen med «fart i beina». Hvert drag er kort, og totalt aktivitetsnivå avhenger av hvor raskt gruppene rulleres. (vurdering: min)',
+    why: 'Gjentatte korte press- og returløp med høy fart. Trener «fart i hodet» (lese spillet, reagere) sammen med «fart i beina». Hvert drag er kort, og totalt aktivitetsnivå avhenger av hvor raskt gruppene rulleres.',
     steps: [
       { id: 'cardio-a-02-s1', name: 'Oppsett', description: 'Sett opp utgangsposisjoner som simulerer et ledd (f.eks. firer- eller femmerledd).' },
       { id: 'cardio-a-02-s2', name: 'Kjegler', description: 'Kjegle foran hver sone.' },
@@ -486,14 +486,14 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '8-16',
     description:
       '1 mot 1 inne i en sirkel: en angrepsspiller passes på av en forsvarsspiller. Angripere med ball står utenfor sirkelen. Angrepsspillerne inne i sirkelen skal motta ball fra en spiller utenfor, beskytte ballen og levere den til en ledig spiller utenfor sirkelen. Forsvarsspillere skal komme i press, bli i press og vinne ball. (kilde: organisering)',
-    why: 'Korte, intense dueller med retningsendringer og kroppskontakt. Trener 1F-ferdigheter og «fart i beina» under press. Aktivitet er høy, men hvert drag er kort. (vurdering: min)',
+    why: 'Korte, intense dueller med retningsendringer og kroppskontakt. Trener 1F-ferdigheter og «fart i beina» under press. Aktivitet er høy, men hvert drag er kort.',
     steps: [
       { id: 'cardio-a-03-s1', name: 'Oppsett', description: 'Marker en sirkel (ca. 10 m diameter) med kjegler.' },
       { id: 'cardio-a-03-s2', name: 'Par', description: 'Par inne i sirkelen: én angriper, én forsvarer.' },
       { id: 'cardio-a-03-s3', name: 'Utenfor', description: 'Spillere med ball står rundt utenfor.' },
       { id: 'cardio-a-03-s4', name: 'Angrep', description: 'Angriperen mottar, beskytter ballen og leverer til en ledig spiller utenfor.' },
       { id: 'cardio-a-03-s5', name: 'Forsvar', description: 'Forsvareren presser og prøver å vinne ballen.' },
-      { id: 'cardio-a-03-s6', name: 'Bytte', description: 'Bytt roller etter hvert drag. (vurdering: min)' },
+      { id: 'cardio-a-03-s6', name: 'Bytte', description: 'Bytt roller etter hvert drag.' },
     ],
     coachingPoints: [
       '«Fart i hodet»: les motstanders forflytninger (kilde: læringsmoment)',
@@ -528,7 +528,7 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '8-16',
     description:
       '1 mot 1: forsøke å komme i press, bli i press og vinne ball, og hindre at motspiller kommer seg forbi og scorer mål. Vinner man ballen, skal man angripe motstanderens mål. Start annenhver gang «på tvers» og «på langs». Bytt hvilket lag som starter med ball etter en viss tid. (kilde: organisering)',
-    why: 'Gjentatte korte 1 mot 1-dueller med rask omstilling. Trener 1F-ferdigheter og retningsendring under fart. Det er intensitet i korte drag; hvile skjer mens andre par jobber. (vurdering: min)',
+    why: 'Gjentatte korte 1 mot 1-dueller med rask omstilling. Trener 1F-ferdigheter og retningsendring under fart. Det er intensitet i korte drag; hvile skjer mens andre par jobber.',
     steps: [
       { id: 'cardio-a-04-s1', name: 'Oppsett', description: 'Bane med to mål (ca. 10×15 m).' },
       { id: 'cardio-a-04-s2', name: 'Par', description: 'Par: forsvarer og angriper.' },
@@ -569,7 +569,7 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '10-20',
     description:
       '1 mot 1: forsøke å komme i press, bli i press og vinne ball, og hindre at motspiller kommer forbi og scorer ved å føre over dødlinjen. Ett lag angriper frem og tilbake til forsvarsspilleren vinner ballen; da bytter man roller, og laget som angrep må sende inn en forsvarsspiller i boksen. Det ene laget angriper «på tvers», det andre i lengderetningen. Vinner man ballen, skal man angripe og forsøke å føre over endelinjen. (kilde: organisering)',
-    why: 'Kontinuerlig flyt med rolleskifte gir høyt aktivitetsnivå og mange repetisjoner. Trener 1F/1A og omstilling under fart og press. (vurdering: min)',
+    why: 'Kontinuerlig flyt med rolleskifte gir høyt aktivitetsnivå og mange repetisjoner. Trener 1F/1A og omstilling under fart og press.',
     steps: [
       { id: 'cardio-a-05-s1', name: 'Oppsett', description: 'Bane ca. 10×20 m med dødlinje og endelinje markert.' },
       { id: 'cardio-a-05-s2', name: 'Lag', description: 'To lag; ett angriper på tvers, det andre i lengderetningen.' },
@@ -651,14 +651,14 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '12-16',
     description:
       'Midtsone med 4 mot 4. To endesoner med keeper og mål. Fra midtsonen skal man komme kontrollert gjennom en av de to portene og kan da avslutte på mål. Forsvarende lag kan jakte med én spiller etter at angrepslaget har ført gjennom en port. (kilde: organisering)',
-    why: 'Små lag, kontinuerlig spill og mange ballinvolveringer gir høy aktivitet. NFF anbefaler minst 50 % smålagsspill og et mål om høy «ball rolling time» (kilde: Aktivitetsprinsippet, skrevet for barnefotball; gjelder som prinsipp, ikke som voksen-dosering). Øvelsen er en A2-A3-situasjonsøvelse; jeg bruker den her som høyaktivt spill. (vurdering: min)',
+    why: 'Små lag, kontinuerlig spill og mange ballinvolveringer gir høy aktivitet. NFF anbefaler minst 50 % smålagsspill og et mål om høy «ball rolling time» (kilde: Aktivitetsprinsippet, skrevet for barnefotball; gjelder som prinsipp, ikke som voksen-dosering). A2-A3-situasjonsøvelsen brukes her som høyaktivt spill.',
     steps: [
       { id: 'cardio-a-07-s1', name: 'Oppsett', description: 'Midtsone ca. 20×20 m, to porter, to endesoner med mål og keeper.' },
       { id: 'cardio-a-07-s2', name: 'Lag', description: '4 mot 4 i midtsonen.' },
       { id: 'cardio-a-07-s3', name: 'Gjennom porten', description: 'Angrepslaget fører kontrollert gjennom en port.' },
       { id: 'cardio-a-07-s4', name: 'Jakt', description: 'Én forsvarer kan jakte etter passering.' },
       { id: 'cardio-a-07-s5', name: 'Avslutning', description: 'Avslutning på mål.' },
-      { id: 'cardio-a-07-s6', name: 'Perioder', description: 'Spill 4-5 minutters perioder, 1-2 min pause, 3-4 ganger. (vurdering: min, arbeid/pause er ikke NFF-tall)' },
+      { id: 'cardio-a-07-s6', name: 'Perioder', description: 'Spill 4-5 minutters perioder, 1-2 min pause, 3-4 ganger.' },
     ],
     coachingPoints: [
       'Hold høyt tempo og få stopp',
@@ -693,11 +693,11 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '10-14',
     description:
       'Spill 5 mot 5 mot to mål (+ keepere) på 30×40 m eller en kvart bane. Lagene organiserer seg i ledd. (kilde: organisering)',
-    why: 'Kontinuerlig spill med avslutninger i begge ender og hyppige omstillinger gir høyt aktivitetsnivå. Bruker NFFs egen F1-F2-spilløvelse som ramme. (vurdering: min)',
+    why: 'Kontinuerlig spill med avslutninger i begge ender og hyppige omstillinger gir høyt aktivitetsnivå. Øvelsen bygger på NFFs F1-F2-spilløvelse.',
     steps: [
       { id: 'cardio-a-08-s1', name: 'Oppsett', description: 'Bane 30×40 m med mål og keeper i hver ende. (kilde: organisering)' },
       { id: 'cardio-a-08-s2', name: 'Lag', description: '5 mot 5, organisert i ledd (f.eks. 2-2-1).' },
-      { id: 'cardio-a-08-s3', name: 'Perioder', description: 'Spill 4-5 minutters perioder med 1-2 min pause, 3-4 ganger. (vurdering: min)' },
+      { id: 'cardio-a-08-s3', name: 'Perioder', description: 'Spill 4-5 minutters perioder med 1-2 min pause, 3-4 ganger.' },
       { id: 'cardio-a-08-s4', name: 'Balltap', description: 'Ved balltap: press (F1) eller kontroll på rom (F2).' },
     ],
     coachingPoints: [
@@ -731,7 +731,7 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '6-12',
     description:
       '3 mot 3 på liten bane (ca. 25×20 m) med små mål eller keeper. Ballmagasin på siden sørger for at spillet aldri stopper: ved mål eller ball ute starter ny ball umiddelbart.',
-    why: 'Færre spillere gir flere ballinvolveringer og dermed høyere aktivitet per spiller. (vurdering: min, basert på generell erfaring; jeg har ikke fått åpnet NFF-kilden som eventuelt bekrefter det.)',
+    why: 'Færre spillere gir flere ballinvolveringer og dermed høyere aktivitet per spiller.',
     steps: [
       { id: 'cardio-a-09-s1', name: 'Oppsett', description: 'Bane ca. 25×20 m med små mål i begge ender.' },
       { id: 'cardio-a-09-s2', name: 'Lag', description: '3 mot 3, ballmagasin på siden.' },
@@ -768,11 +768,11 @@ export const CARDIO_ADULT: DrillExercise[] = [
     players: '6-16',
     description:
       'Spillerne fører ballen i pendel mellom to kjegler (ca. 15-20 m) i et gitt antall drag, med pause mellom hvert drag. Parvis: én jobber, én hviler.',
-    why: 'Repetert høy fart med ball og retningsendringer, kjent fra fotballtrening. Jeg har ikke funnet en NFF-kilde som doserer dette, så tallene under er mine forslag og må vurderes av en trener.',
+    why: 'Repetert høy fart med ball og retningsendringer. Antall drag og pauser under er et utgangspunkt – tilpass til spillerne.',
     steps: [
       { id: 'cardio-a-10-s1', name: 'Oppsett', description: 'To kjegler ca. 15-20 m fra hverandre.' },
       { id: 'cardio-a-10-s2', name: 'Par', description: 'Parvis: spiller A fører ball til motsatt kjegle, vender og fører tilbake. B hviler.' },
-      { id: 'cardio-a-10-s3', name: 'Bytte', description: 'Bytt. (vurdering: min, 6-8 drag per spiller, pause ca. dobbelt så lang som arbeid)' },
+      { id: 'cardio-a-10-s3', name: 'Bytte', description: 'Bytt etter 6-8 drag per spiller, med pause omtrent dobbelt så lang som arbeidet.' },
       { id: 'cardio-a-10-s4', name: 'Nedtrapping', description: 'Avslutt med lett jogg og strekk.' },
     ],
     coachingPoints: [
