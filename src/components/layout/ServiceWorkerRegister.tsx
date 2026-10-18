@@ -6,10 +6,9 @@ import { watchAppUpdate } from '@/lib/appUpdate';
 
 // ═══════════════════════════════════════════════════════════════
 //  SERVICE WORKER – gjør at appen virker uten nett.
-//  next-pwa legger registreringen i main.js, men App Router laster
-//  bare main-app.js. Her kjøres next-pwa sitt eget skript fra appen:
-//  det registrerer /sw.js og legger startsiden i cachen.
-//  Innstillingene (sw, scope, reloadOnOnline) står i next.config.mjs.
+//  Vanlig nettleser-API, uavhengig av Webpack og Turbopack.
+//  Workeren lages etter bygget og forhåndslagrer hele appen.
+//  Den venter på «Oppdater» og laster aldri om når nettet kommer tilbake.
 // ═══════════════════════════════════════════════════════════════
 
 export function ServiceWorkerRegister() {
@@ -18,11 +17,11 @@ export function ServiceWorkerRegister() {
   const currentView = useAppStore(state => state.currentView);
   const watcher = useRef<ReturnType<typeof watchAppUpdate> | null>(null);
   useEffect(() => {
-    // PWA er av i utvikling (next.config.mjs). Da mangler konstantene skriptet bruker.
+    // Utvikling skal ikke lagre midlertidige moduler for bruk uten nett.
     if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) return;
     watcher.current = watchAppUpdate(navigator.serviceWorker, () => setReady(true));
     // Feiler registreringen, virker appen som før, bare ikke uten nett.
-    import('next-pwa/register').catch(() => {});
+    void navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => {});
     return () => { watcher.current?.dispose(); watcher.current = null; };
   }, []);
   useEffect(() => {

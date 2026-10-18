@@ -32,9 +32,10 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('feilskjermen', () => {
   it.each([
-    Object.assign(new Error('Loading chunk 123 failed.'), { name: 'ChunkLoadError' }),
-    new TypeError('Failed to fetch dynamically imported module: https://example.test/private'),
-  ])('lastefeil gir oppdateringsmelding, reload-knapp og lokal logg: %s', async error => {
+    [Object.assign(new Error('Loading chunk 123 failed.'), { name: 'ChunkLoadError' }), 'ChunkLoadError: Loading chunk 123 failed …'],
+    [Object.assign(new Error('Failed to load chunk /_next/static/chunks/src_0oe3tmgm6glc6._.js from module [project]/src/components/reports/ReportsView.tsx [app-client] (ecmascript, next/dynamic entry, async loader)'), { name: 'ChunkLoadError' }), 'ChunkLoadError: Failed to load chunk …'],
+    [new TypeError('Failed to fetch dynamically imported module: https://example.test/private'), 'TypeError: Failed to fetch dynamically imported module …'],
+  ] as const)('lastefeil gir oppdateringsmelding, reload-knapp og lokal logg: %s', async (error, loggedMessage) => {
     const reload = vi.fn();
     Object.assign(window, { location: { reload } });
     const boundary = new SectionErrorBoundary({ area: 'reports', children: null });
@@ -49,7 +50,7 @@ describe('feilskjermen', () => {
     // Ingen automatisk reload: gjentatte feil kan heller ikke lage løkker.
     boundary.componentDidCatch(error);
     expect(reload).not.toHaveBeenCalled();
-    expect(readErrorLog()[0].message).toContain(error.message.split(':')[0].replace(/\.$/, ''));
+    expect(readErrorLog()[0].message).toBe(loggedMessage);
     expect(JSON.stringify(readErrorLog())).not.toContain('example.test');
     const tree = await ErrorFallback(fallback.props as React.ComponentProps<typeof ErrorFallback>);
     function buttons(node: React.ReactNode): React.ReactElement<{ onClick: () => void; children?: React.ReactNode }>[] {

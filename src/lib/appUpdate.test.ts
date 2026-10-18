@@ -85,17 +85,35 @@ describe('trygg appoppdatering', () => {
 });
 
 describe('gjenkjenning av dynamiske lastefeil', () => {
+  // Fanget i Edge med Next 16 / Turbopack når Rapporter-filen blokkeres.
+  const turbopackMessage = 'Failed to load chunk /_next/static/chunks/src_0oe3tmgm6glc6._.js from module [project]/src/components/reports/ReportsView.tsx [app-client] (ecmascript, next/dynamic entry, async loader)';
+  it.each([
+    Object.assign(new Error(turbopackMessage), { name: 'ChunkLoadError' }),
+    new Error(turbopackMessage),
+    turbopackMessage,
+  ])('gjenkjenner Next 16-feilen også uten feiltypen: %s', error => {
+    expect(isChunkLoadError(error)).toBe(true);
+  });
+
   it.each([
     Object.assign(new Error('ukjent chunk'), { name: 'ChunkLoadError' }),
     new Error('Loading chunk 123 failed.\n(error: https://example.test/chunk.js)'),
     new Error('Loading CSS chunk 123 failed.'),
+    new Error('Failed to load chunk /_next/static/chunks/reports.js from module ReportsView'),
     new TypeError('Failed to fetch dynamically imported module: https://example.test/file.js'),
     new TypeError('Importing a module script failed.'),
     'TypeError: error loading dynamically imported module: https://example.test/file.js',
   ])('gjenkjenner %s uten å laste om automatisk', error => {
     expect(isChunkLoadError(error)).toBe(true);
   });
-  it.each([undefined, null, new Error('Failed to fetch'), new Error('Feil i tegningen'), {}])('beholder vanlig feilskjerm for %s', error => {
+  it.each([
+    undefined, null, {},
+    new Error('Failed to fetch'),
+    new Error('Feil i tegningen'),
+    new TypeError("Cannot read properties of undefined (reading 'ReportsView')"),
+    new Error('Failed to load training data'),
+    new Error('Module [project]/src/components/reports/ReportsView.tsx was instantiated, but the module factory is not available.'),
+  ])('beholder vanlig feilskjerm for %s', error => {
     expect(isChunkLoadError(error)).toBe(false);
   });
 });

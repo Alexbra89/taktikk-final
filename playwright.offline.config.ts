@@ -24,7 +24,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run build && npm start -- --port 3101',
+    // Bygget kjøres av npm run test:offline før Playwright starter serveren.
+    command: 'node node_modules/next/dist/bin/next start --port 3101',
     url: 'http://localhost:3101',
     // En gammel server kan ellers skjule at bygget eller registreringen feiler.
     reuseExistingServer: false,

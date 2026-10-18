@@ -28,10 +28,12 @@ test('ny versjon venter på Oppdater; lukk, sidebytte, andre faner og offline vi
   await nav.getByRole('button', { name: 'Øvelser', exact: true }).click();
   await search.fill('pasning');
   try {
-    // Samme produksjonsworker og forhåndslager, med endrede script-bytes som
-    // ved publisering. Ekte installasjon/venting/overtakelse, ingen SW-mock.
+    // Nytt versjonert forhåndslager som ved et nytt bygg.
+    // Ekte installasjon/venting/overtakelse, ingen SW-mock.
     // Testmeldingen beviser at det faktisk er den nye workeren som styrer.
-    await writeFile(swPath, `${original}\nself.addEventListener('message', event => {
+    const updated = original.replace(/const CACHE_VERSION = "[^"]+";/, `const CACHE_VERSION = ${JSON.stringify(version)};`);
+    expect(updated).not.toBe(original);
+    await writeFile(swPath, `${updated}\nself.addEventListener('message', event => {
       if (event.data === 'TEST_VERSION') event.ports[0].postMessage(${JSON.stringify(version)});
     });\n`, 'utf8');
     await page.evaluate(async () => { await (await navigator.serviceWorker.ready).update(); });
