@@ -89,6 +89,7 @@ describe('gjenkjenning av dynamiske lastefeil', () => {
     Object.assign(new Error('ukjent chunk'), { name: 'ChunkLoadError' }),
     new Error('Loading chunk 123 failed.\n(error: https://example.test/chunk.js)'),
     new Error('Loading CSS chunk 123 failed.'),
+    new Error('Failed to load chunk /_next/static/chunks/reports.js from module ReportsView'),
     new TypeError('Failed to fetch dynamically imported module: https://example.test/file.js'),
     new TypeError('Importing a module script failed.'),
     'TypeError: error loading dynamically imported module: https://example.test/file.js',

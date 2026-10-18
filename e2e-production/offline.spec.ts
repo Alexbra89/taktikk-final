@@ -28,7 +28,7 @@ test('forside, 2D og øvelser virker offline; tilbakekobling laster ikke siden p
   page.on('pageerror', error => errors.push(error.message));
 
   // HTTP-cachen må ikke skjule en manglende service worker. Cache Storage
-  // (som Workbox bruker) er fortsatt tilgjengelig. Konteksten er ny og tom.
+  // (som service workeren bruker) er fortsatt tilgjengelig. Konteksten er ny og tom.
   // Playwright slår av HTTP-cachen når routing brukes. Alle forespørsler
   // sendes videre uendret; ingen svar eller nettverkstilstander forfalskes.
   await page.route('**/*', route => route.continue());
@@ -39,10 +39,10 @@ test('forside, 2D og øvelser virker offline; tilbakekobling laster ikke siden p
   await page.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated');
   expect(await page.evaluate(() => new URL(navigator.serviceWorker.controller!.scriptURL).pathname)).toBe('/sw.js');
 
-  // next-pwa legger først inn et tomt svar. Vent også på den ekte startsiden,
-  // som registreringsskriptet henter etter installasjonen.
+  // Startsiden skal tilhøre det samme, ferdige forhåndslageret som modulene.
   await expect.poll(() => page.evaluate(async () => {
-    const response = await (await caches.open('start-url')).match('/');
+    const name = (await caches.keys()).find(name => name.startsWith('taktikk-precache-'));
+    const response = name ? await (await caches.open(name)).match('/') : undefined;
     return response ? (await response.text()).includes('Taktikkboard') : false;
   }), { message: 'startsiden er lagret for bruk uten nett' }).toBe(true);
 
@@ -55,7 +55,7 @@ test('forside, 2D og øvelser virker offline; tilbakekobling laster ikke siden p
   expect(await page.evaluate(() => navigator.onLine)).toBe(false);
   expect(await page.evaluate(async () => {
     try {
-      // HEAD går utenom Workbox sine GET-regler og gjør ingen endring i API-et.
+      // HEAD går utenom workerens GET-regler og gjør ingen endring i API-et.
       await fetch('/api/ai', { method: 'HEAD', cache: 'no-store' });
       return true;
     } catch {
@@ -107,4 +107,24 @@ test('forside, 2D og øvelser virker offline; tilbakekobling laster ikke siden p
   await expect(search).toHaveValue('pasning');
   await expect(page.getByRole('heading', { level: 1, name: 'Øvelser', exact: true })).toBeVisible();
   expect(errors, 'ingen kjørefeil i appen').toEqual([]);
+});
+
+test('3D-modeller lagres først ved bruk og kan deretter hentes uten nett', async ({ page, context }) => {
+  await page.route('**/*', route => route.continue());
+  await page.goto('/');
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated');
+  expect(await page.evaluate(async () => {
+    const names = await caches.keys();
+    const requests = (await Promise.all(names.map(async name => (await caches.open(name)).keys()))).flat();
+    return requests.some(request => new URL(request.url).pathname.startsWith('/models/'));
+  }), 'modeller skal ikke forhåndslastes').toBe(false);
+
+  const path = '/models/spiller-v2.glb';
+  const size = await page.evaluate(async path => (await (await fetch(path)).arrayBuffer()).byteLength, path);
+  expect(size).toBeGreaterThan(1000);
+  await expect.poll(() => page.evaluate(async path =>
+    !!(await (await caches.open('taktikk-3d-models-v1')).match(path)), path)).toBe(true);
+  await context.setOffline(true);
+  expect(await page.evaluate(async path => (await (await fetch(path)).arrayBuffer()).byteLength, path)).toBe(size);
 });

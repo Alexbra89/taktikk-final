@@ -19,7 +19,7 @@ export default defineConfig({
   ],
   // Egen port, så testene ikke kolliderer med en vanlig «npm run dev» på 3000.
   webServer: {
-    command: 'npx next dev -p 3100',
+    command: 'node node_modules/next/dist/bin/next dev --turbopack -p 3100',
     url: 'http://localhost:3100',
     reuseExistingServer: true,
     timeout: 120_000,

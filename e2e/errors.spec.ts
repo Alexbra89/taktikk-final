@@ -39,7 +39,8 @@ test('lastefeil venter på brukeren; Last inn på nytt henter en fungerende side
   await expect(alert).toBeVisible();
   await page.waitForTimeout(1_000);
   expect(await documentId()).toBe(before);
-  expect((await errorLog(page))[0].message).toContain('Loading chunk');
+  // Webpack og Turbopack bruker ulik ordlyd for samme nettverksfeil.
+  expect((await errorLog(page))[0].message).toMatch(/Loading chunk|Failed to load chunk/);
   await page.unroute(chunk);
   await Promise.all([
     page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame() }),
