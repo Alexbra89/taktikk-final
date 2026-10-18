@@ -131,6 +131,7 @@ export const DashboardView: React.FC<DashboardProps> = ({
   const quickActions: { label: string; icon: LucideIcon; tone: string; onClick: () => void; primary?: boolean }[] = [
     { label: 'Ny trening',    icon: Plus,         tone: '', onClick: onNewTraining, primary: true },
     { label: 'Åpne taktikk',  icon: Clipboard,    tone: NAV.board.tile,    onClick: openBoard },
+    { label: 'Øvelser',       icon: BookOpen,     tone: NAV.drills.tile,   onClick: () => onNavigate('drills') },
     { label: 'Kalender',      icon: CalendarDays, tone: NAV.calendar.tile, onClick: () => onNavigate('calendar') },
     { label: 'AI-trener',     icon: Sparkles,     tone: NAV.ai.tile,       onClick: () => onOpenAi() },
   ];
