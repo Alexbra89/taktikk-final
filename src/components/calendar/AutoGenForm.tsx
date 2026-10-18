@@ -1,4 +1,5 @@
 'use client';
+import { localDate } from '@/lib/dates';
 import React, { useState, useMemo } from 'react';
 import type { CalendarEvent } from '@/types';
 import { getDrillsByCategory } from '@/data/drills';
@@ -16,7 +17,7 @@ export const AutoGenForm: React.FC<{
 }> = ({ ageGroup, onGenerate, onCancel }) => {
   const today = new Date();
   const [weeks, setWeeks]         = useState(4);
-  const [startDate, setStartDate] = useState(today.toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(localDate(today));
   const [time, setTime]           = useState('18:00');
   const [location, setLocation]   = useState('');
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 3, 5]);
@@ -42,7 +43,7 @@ export const AutoGenForm: React.FC<{
         const date = new Date(current);
         date.setDate(current.getDate() + d);
         if (date >= start) {
-          dates.push(date.toISOString().slice(0, 10));
+          dates.push(localDate(date));
         }
       }
       current.setDate(current.getDate() + 7);

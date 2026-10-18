@@ -314,9 +314,18 @@ test('22 animated players reuse one model load across view switches', async ({ p
   expect(models).toBe(1); expect(skies).toBe(1); expect(errors).toEqual([]);
 });
 
+// A worker-scoped format gives each encoder a fresh browser process. A new
+// page/context alone still shares the GPU process with all preceding 3D tests.
 for (const format of ['mp4', 'webm'] as const) {
-  test(`3D ${format} export decodes at fixed duration and full HD; cancellation leaves the board intact`, async ({ page }, info) => {
-    test.setTimeout(120_000);
+  const exportTest = test.extend<{}, { exportFormat: 'mp4' | 'webm' }>({
+    exportFormat: [format, { scope: 'worker', option: true }],
+  });
+  exportTest(`3D ${format} export decodes at fixed duration and full HD; cancellation leaves the board intact`, async ({ page, exportFormat: format }, info) => {
+    // Full-HD software encoding can exceed 90 s on a busy machine.
+    // Give the export its own budget, then reserve time for setup and decoding.
+    // The video requirements below (resolution, duration, pixels) stay the same.
+    const exportTimeout = 180_000;
+    exportTest.setTimeout(exportTimeout + 60_000); // setup, cancellation and decoding
     if (format === 'webm') await page.addInitScript(() => {
       const original = VideoEncoder.isConfigSupported.bind(VideoEncoder);
       VideoEncoder.isConfigSupported = config => config.codec.startsWith('avc')
@@ -348,15 +357,22 @@ for (const format of ['mp4', 'webm'] as const) {
     await button.click();
     await page.getByRole('button', { name: 'Avbryt', exact: true }).click();
     await expect(page.getByText('Videoeksporten ble avbrutt.', { exact: true })).toBeVisible();
-    const downloadPromise = page.waitForEvent('download'); await button.click();
-    // Resolve on either outcome so an encoder error is reported immediately.
-    await page.waitForFunction(() => {
-      const region = document.querySelector('section[aria-label="3D-visning"]');
-      return region?.querySelector('[role="alert"]') || Array.from(region?.querySelectorAll('[role="status"]') ?? [])
-        .some(el => el.textContent?.includes('3D-videoen er lastet ned'));
-    }, undefined, { timeout: 90_000 });
-    await expect(page.getByRole('region', { name: '3D-visning' }).getByRole('alert')).toHaveCount(0);
-    const download = await downloadPromise;
+    const [download] = await exportTest.step('full-HD export and download', async () => {
+      const downloaded = page.waitForEvent('download', { timeout: exportTimeout });
+      const completed = (async () => {
+        await button.click();
+        // Resolve on either outcome so an encoder error is reported immediately.
+        await page.waitForFunction(() => {
+          const region = document.querySelector('section[aria-label="3D-visning"]');
+          return region?.querySelector('[role="alert"]') || Array.from(region?.querySelectorAll('[role="status"]') ?? [])
+            .some(el => el.textContent?.includes('3D-videoen er lastet ned'));
+        }, undefined, { timeout: exportTimeout });
+        await expect(page.getByRole('region', { name: '3D-visning' }).getByRole('alert')).toHaveCount(0);
+      })();
+      // Observe both promises immediately: a slow download must not cause an
+      // unhandled rejection while the completion message is still awaited.
+      return Promise.all([downloaded, completed]);
+    });
     expect(download.suggestedFilename()).toMatch(new RegExp(`-3d-.*\\.${format}$`));
     const file = await download.path(); const bytes = await readFile(file!);
     expect(bytes.length).toBeGreaterThan(20_000);

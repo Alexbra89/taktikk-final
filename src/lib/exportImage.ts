@@ -1,3 +1,4 @@
+import { localDate } from '@/lib/dates';
 import { slugify } from '@/lib/download';
 
 // ══════════════════════════════════════════════════════════════
@@ -24,7 +25,7 @@ export function exportScale(): number {
 
 /** `sotra-sk-hoyt-press-fase-1-2026-09-21.png` */
 export function imageFilename(team: string, tactic: string, phase: string, when = new Date()): string {
-  const d = when.toISOString().slice(0, 10);
+  const d = localDate(when);
   return `${slugify(team, 'lag')}-${slugify(tactic, 'taktikk')}-${slugify(phase, 'fase')}-${d}.png`;
 }
 

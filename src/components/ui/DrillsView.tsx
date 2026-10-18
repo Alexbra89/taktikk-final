@@ -1,4 +1,5 @@
 'use client';
+import { localDate } from '@/lib/dates';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import {
@@ -318,7 +319,7 @@ export const DrillsView: React.FC<{
     weeklyDrills.forEach((drill, idx) => {
       const date = new Date(today);
       date.setDate(today.getDate() + daysUntilMonday + offsets[idx]);
-      scheduleDrill(drill, date.toISOString().slice(0, 10));
+      scheduleDrill(drill, localDate(date));
     });
     showToast(`Ukens ${weeklyDrills.length} øvelser lagt til i kalender`);
   }
@@ -706,7 +707,7 @@ export const DrillsView: React.FC<{
               key={drill.id}
               drill={drill}
               onOpen={() => openDrill(drill)}
-              onQuickAdd={() => scheduleDrill(drill, new Date().toISOString().slice(0, 10))}
+              onQuickAdd={() => scheduleDrill(drill, localDate())}
             />
           ))}
           {filteredDrills.length === 0 && (

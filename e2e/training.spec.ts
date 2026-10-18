@@ -43,8 +43,8 @@ for (const viewport of [
       test.setTimeout(120_000);
       const errors: string[] = [];
       page.on('pageerror', error => errors.push(error.message));
-      // Styrt lokal dato, så testen også tåler midnatt og omlasting.
-      await page.clock.install({ time: new Date('2026-10-18T20:00:00+02:00') });
+      // Lokal dag er allerede den 18., mens UTC fortsatt er den 17.
+      await page.clock.install({ time: new Date('2026-10-18T00:30:00+02:00') });
       await page.goto('/');
       const nav = page.getByRole('navigation', { name: 'Hovedmeny' });
       if (viewport.name === 'mobil') {
@@ -60,6 +60,8 @@ for (const viewport of [
       await expect(page.getByRole('button', { name: 'Opprett trening', exact: true })).toBeDisabled();
       await page.getByPlaceholder('F.eks. Teknikktrening, 4-3-3 trening...').fill(title);
       await expect(page.locator('input[type="date"]')).toHaveValue('2026-10-18');
+      // Behold også kontrollen av Start etter treningens klokkeslett.
+      await page.clock.setSystemTime(new Date('2026-10-18T20:00:00+02:00'));
       await page.locator('input[type="time"]').fill('18:30');
       await page.getByPlaceholder('Stadion / hall').fill('Testbanen');
       const focusOptions = [

@@ -1,4 +1,5 @@
 'use client';
+import { localDate } from '@/lib/dates';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import type { CalendarEvent } from '@/types';
@@ -45,7 +46,7 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
 
   useEffect(() => { onSelectedChange?.(selectedEventId); }, [selectedEventId, onSelectedChange]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate();
   const trainings = useMemo(() =>
     events.filter(e => e.type === 'training').sort((a, b) => a.date.localeCompare(b.date)),
     [events]
