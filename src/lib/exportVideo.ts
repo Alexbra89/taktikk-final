@@ -1,3 +1,4 @@
+import { localDate } from '@/lib/dates';
 import { slugify } from '@/lib/download';
 import { VW, VH } from '@/data/formations';
 import type { BoardItem, Player, Position, TacticPhase } from '@/types';
@@ -67,7 +68,7 @@ export function pickVideoFormat(): VideoFormat | null {
 
 /** `sotra-sk-hoyt-press-2026-09-22.mp4` */
 export function videoFilename(team: string, tactic: string, ext: string, when = new Date()): string {
-  const d = when.toISOString().slice(0, 10);
+  const d = localDate(when);
   return `${slugify(team, 'lag')}-${slugify(tactic, 'taktikk')}-${d}.${ext}`;
 }
 

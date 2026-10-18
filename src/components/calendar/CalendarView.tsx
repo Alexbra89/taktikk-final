@@ -1,4 +1,5 @@
 'use client';
+import { localDate } from '@/lib/dates';
 import React, { useState, useMemo } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus, Sparkle, Moon, Swords, Activity, CalendarDays,
@@ -32,7 +33,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onGoToTraining, init
 
   const { events, addEvent, updateEvent, deleteEvent, ageGroup } = useAppStore();
 
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = localDate(today);
 
   const todayEvents = useMemo(() => {
     return events.filter(e => e.date === todayStr);

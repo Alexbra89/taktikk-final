@@ -1,3 +1,4 @@
+import { localDate } from '@/lib/dates';
 // ══════════════════════════════════════════════════════════════
 //  BACKUP – eksport og import av alt brukeren eier
 //
@@ -58,7 +59,7 @@ export function buildBackup(args: {
 
 /** `taktikk-sotra-sk-2026-09-20.json` */
 export function backupFilename(teamName: string, when = new Date()): string {
-  const d = when.toISOString().slice(0, 10);
+  const d = localDate(when);
   return `taktikk-${slugify(teamName, 'lag')}-${d}.json`;
 }
 

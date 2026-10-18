@@ -1,4 +1,5 @@
 'use client';
+import { localDateOffset } from '@/lib/dates';
 import React from 'react';
 import { Timer, ClipboardList, BookOpen } from 'lucide-react';
 import type { CalendarEvent } from '@/types';
@@ -8,15 +9,14 @@ import { NAV } from '@/components/layout/navigation';
 
 // ═══ OVERSIKT ØVERST I LISTA ══════════════════════════════════════
 // Leser bare eksisterende treninger: varighet fra punktene, tema fra fokus.
-
-const DAY_MS = 86_400_000;
-const isoOffset = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
-
 export const TrainingOverview: React.FC<{ trainings: CalendarEvent[]; today: string }> = ({ trainings, today }) => {
+  const referenceDate = new Date(today + 'T12:00:00');
+  const weekEnd = localDateOffset(7, referenceDate);
+  const historyStart = localDateOffset(-28, referenceDate);
   const upcoming = trainings.filter(e => e.date >= today);
   const next = upcoming[0];
-  const in7 = upcoming.filter(e => e.date <= isoOffset(7));
-  const past28 = trainings.filter(e => e.date < today && e.date >= isoOffset(-28));
+  const in7 = upcoming.filter(e => e.date <= weekEnd);
+  const past28 = trainings.filter(e => e.date < today && e.date >= historyStart);
 
   // Fokus teller én gang per trening, ikke per punkt.
   const focusCount = new Map<string, number>();

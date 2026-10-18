@@ -1,4 +1,5 @@
 'use client';
+import { localDate } from '@/lib/dates';
 import React, { useState, useMemo } from 'react';
 import { CATEGORY_LABELS } from '@/data/drills';
 import { useDrillLibrary } from '@/hooks/useDrillLibrary';
@@ -20,7 +21,7 @@ export const NewTrainingForm: React.FC<{
   ageGroup: 'youth' | 'adult';
 }> = ({ onSave, onCancel, ageGroup }) => {
   const library = useDrillLibrary();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate();
   const [title, setTitle]       = useState('');
   const [date, setDate]         = useState(today);
   const [time, setTime]         = useState('18:00');

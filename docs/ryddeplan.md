@@ -1,3 +1,87 @@
+## WebM-tidsbudsjett og lokale kalenderdatoer (18.10.2026)
+
+`AGENTS.md` og ryddeplanen er lest. Arbeidet gjelder de to avtalte funnene.
+
+**WebM:** Første ordinære fullkjøring bestod 38/38; WebM-testen tok 15,5 s
+med opprinnelige tidsgrenser. En midlertidig belastningsprøve med Edge sin
+CPU-begrensning (24 ganger langsommere) traff derimot 90-sekundersgrensen
+mens eksporten fremdeles arbeidet, med «Lager video · 68 %». Dette påviser
+at tidsbudsjettet kan være for kort under belastning. Det fastslår ikke
+maskinbelastningen i de historiske feilkjøringene; ingen ressurslekkasje er
+påvist. En tidligere prøve med faktor 16 bestod på omtrent halvannet minutt
+totalt. Første isolerte prøve stoppet ved lasting av 3D-modulen før
+CPU-begrensningen ble aktivert, og er ikke brukt som bevis om eksporten.
+Samme prøve med faktor 24 og det nye tidsbudsjettet bestod alle eksisterende
+videokontroller på 3,3 minutter totalt. Den midlertidige testkopien og
+CPU-begrensningen er fjernet før sluttkjøringene.
+
+En påfølgende ordinær fullkjøring ga 37/38: WebM-testen stoppet allerede
+under 3D-oppstart, med deaktivert Oversikt-knapp etter 45 s, før eksporten
+startet. Et større eksportbudsjett alene var dermed ikke tilstrekkelig.
+Eksportformatet er nå en worker-avgrenset Playwright-fixture (`exportFormat`).
+Forskjellig verdi for MP4 og WebM gir en ny worker/nettleserprosess per format,
+med vanlig automatisk opprydding og alle eksisterende prosjektinnstillinger.
+En ny side/kontekst alene deler fortsatt GPU-prosess med tidligere tester.
+Dette fjerner slik tilstand mellom de tunge 3D-/kodekprøvene. Testenes
+kontroller av bytte mellom 2D/3D og gjenbruk av modeller er fortsatt samlet
+i de egne, uendrede testene. Ingen test forsøkes på nytt ved feil.
+
+`e2e/board3d.spec.ts` gir nå selve eksporten/nedlastingen 180 s og hele
+testen 240 s, slik at oppsett, avbryt og dekoding også har plass. Begge
+ventingene håndteres fra starten med `Promise.all` i et navngitt teststeg.
+Feilmelding fra koderen feiler fortsatt straks. Ingen automatisk omkjøring,
+utelatelse, redusert oppløsning, kortere video eller endret kodek er lagt til.
+Alle kontroller av avbryt, filtype/-størrelse, 1920 × 1080, 2,3 s, dekoding,
+gresspiksler midt i og ved slutten av videoen og uendrede taktikker beholdes.
+3D-motoren og eksportkoden i appen er ikke endret.
+
+**Lokal dato:** `lib/dates.ts` formaterer lokale kalenderdeler og flytter
+kalenderdager med `setDate`, også over sommer-/vintertid. Brukes i ny trening,
+Kommende/Historikk, oversiktens 7-/28-dagersgrenser, dagens kalenderstatus,
+autogenerering av treningsplan, hurtigvalg/ukeplan for øvelser og datoene i
+filnavn for sikkerhetskopi, PNG og video. Søk i hele `src` fant ingen flere
+UTC-konverteringer til kalenderdato etter rettingen. Tidsstempler for
+oppretting, eksporttidspunkt, feillogg og API-logg beholder full UTC-tid.
+
+Åtte nye enhetstester dekker midnatt i Oslo, Los Angeles og Kiritimati,
+filnavn, årsskifte og begge overganger til/fra sommertid. De to eksisterende
+treningstestene starter nå kl. 00.30 i Oslo, mens UTC fortsatt er dagen før,
+og krever riktig standarddato. Deretter flyttes klokka til kl. 20 for å
+beholde kontrollen av Start etter treningens tidspunkt.
+
+**Sluttkontroller – alle bestått, kode 0:**
+
+| Kommando | Resultat |
+| --- | --- |
+| `npx tsc --noEmit` | Bestått, også etter siste endring i eksporttestenes oppsett |
+| `npx vitest --run` | 30 filer / 312 tester (`VITEST_MAX_WORKERS=1`) |
+| `npm run build` | Bestått; offline-kontrollen bygget dessuten på nytt |
+| `npm run test:e2e -- --workers=1`, kjøring 1 | 38/38, 4,4 min; WebM 13,8 s |
+| Samme kommando, kjøring 2 rett etterpå | 38/38, 4,4 min; WebM 13,8 s |
+| Samme kommando, kjøring 3 rett etterpå | 38/38, 4,4 min; WebM 13,7 s |
+| `npm run test:offline` | 3/3 produksjonstester, 1,3 min |
+
+De tre siste fulle e2e-kjøringene er sammenhengende og uten retries eller
+utelatelser. Fullskjermkontrollen ga 108/108 unike bilder og avviste den
+negative kontrollens 55/108 i alle tre. Eksportfilene fra siste kjøring er
+også kontrollert for faktisk MP4-/WebM-filheader. Treningsflyten på både
+PC og mobil bestod i alle kjøringene, inkludert den nye midnattskontrollen.
+
+Utviklingsserveren på 3100 ble holdt åpen mellom de tre e2e-kommandoene og
+stoppet før offline-kontrollens nye bygg. Som tidligere måtte bare de
+identifiserte testserverprosessene stoppes etter ferdige offline-tester på
+Windows for at Playwright skulle avslutte. Ingen andre prosesser er stoppet.
+Eksisterende Browserslist- og terminalfargevarsler hindret ikke kontrollene.
+Ingen pakker eller låsefiler er endret, og ingen genererte filer inngår.
+Ingenting er publisert, deployet, committet eller pushet.
+
+Manuell prøve: Åpne den lokale visningen på http://127.0.0.1:3100 (startet
+etter kontrollene). Velg Trening → Ny trening og kontroller dagens dato.
+Prøv også Kalender og hurtigvalget for å legge en øvelse til i dag. Velg
+Taktikk → legg til en fase → 3D → Eksporter 3D-video, prøv Avbryt og eksporter
+deretter på nytt. Den nedlastede videoen skal spille som før. Ingen nye
+menneskelige beslutninger gjenstår for disse to rettelsene.
+
 ## Trening: fire rettelser etter oppdeling (18.10.2026)
 
 - Start-knappen sammenligner nå lokale kalenderdatoer fra midnatt. En trening
