@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 // ══════════════════════════════════════════════════════════════
@@ -27,9 +27,27 @@ const nav = (page: Page, name: string) =>
 const errorLog = (page: Page) =>
   page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? '[]') as { area: string; source: string; message: string }[], LOG_KEY);
 
+/** Blokker selve visningen, også når Turbopack gir filen et navn uten «ReportsView». */
+async function blockReportsChunk(page: Page) {
+  const chunks = /\/_next\/static\/.*\.js(?:\?.*)?$/;
+  const handler = async (route: Route) => {
+    // Webpack / eldre Turbopack: komponentnavnet står i filnavnet.
+    if (route.request().url().includes('ReportsView')) return route.abort();
+    const response = await route.fetch();
+    // Next 16: finn moduldefinisjonen i utviklingsfilen, ikke referansene til
+    // den i appskallet eller den asynkrone lasteren. Nettleseren får aldri filen.
+    const isReports = (await response.text()).includes(
+      '\n"[project]/src/components/reports/ReportsView.tsx [app-client] (ecmascript)",',
+    );
+    if (isReports) await route.abort();
+    else await route.fulfill({ response });
+  };
+  await page.route(chunks, handler);
+  return () => page.unroute(chunks, handler);
+}
+
 test('lastefeil venter på brukeren; Last inn på nytt henter en fungerende side', async ({ page }) => {
-  const chunk = /\/_next\/static\/.*ReportsView.*\.js/;
-  await page.route(chunk, route => route.abort());
+  const unblock = await blockReportsChunk(page);
   await page.goto('/');
   await page.evaluate(() => { Object.assign(window, { chunkTestDocument: crypto.randomUUID() }); });
   const documentId = () => page.evaluate(() => (window as unknown as { chunkTestDocument?: string }).chunkTestDocument);
@@ -41,7 +59,7 @@ test('lastefeil venter på brukeren; Last inn på nytt henter en fungerende side
   expect(await documentId()).toBe(before);
   // Webpack og Turbopack bruker ulik ordlyd for samme nettverksfeil.
   expect((await errorLog(page))[0].message).toMatch(/Loading chunk|Failed to load chunk/);
-  await page.unroute(chunk);
+  await unblock();
   await Promise.all([
     page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame() }),
     alert.getByRole('button', { name: 'Last inn på nytt' }).click(),
@@ -86,7 +104,7 @@ test('3D med bare WebGL 1: feilskjermen foreslår 2D, og 2D virker videre', asyn
 
 test('en visning som krasjer: resten av appen virker, feilen kan kopieres og tømmes, og er ikke i backupen', async ({ page }) => {
   // Rapporter-visningens fil kan ikke lastes.
-  await page.route(/\/_next\/static\/.*ReportsView.*\.js/, route => route.abort());
+  await blockReportsChunk(page);
   await page.goto('/');
   await nav(page, 'Rapporter');
 
