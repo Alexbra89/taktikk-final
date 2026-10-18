@@ -45,7 +45,7 @@ export const Stopwatch: React.FC<{
         </div>
         <div className="flex gap-2 justify-center">
           <button onClick={() => setIsPaused(!isPaused)}
-            className="px-3 sm:px-4 py-2 sm:py-2 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-body font-semibold min-h-[44px]">
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2 rounded-ctl bg-signal/10 border border-signal/40 text-signal text-body font-semibold min-h-[44px]">
             {isPaused
               ? <><Play size={14} strokeWidth={2} fill="currentColor" aria-hidden /> Fortsett</>
               : <><Pause size={14} strokeWidth={2} fill="currentColor" aria-hidden /> Pause</>}
