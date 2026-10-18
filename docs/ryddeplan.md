@@ -1,3 +1,80 @@
+## App-tilstand: ren oppdeling (18.10.2026)
+
+`AGENTS.md` og planen er lest. Oppgave 15/16 og brukerens utvidelse til
+taktikker, kalender, rapporter og backup er gjennomført som ren flytting.
+Det gamle anslaget på 956 linjer var utdatert: inngangsfilen hadde 979 linjer.
+
+| Fil i `src/store/` | Linjer før → etter | Ansvar |
+| --- | --- | --- |
+| `useAppStore.ts` | 979 → 86 | Offentlig inngang, sammensetting, persist og fanesynkronisering. |
+| `types.ts` | Ny → 115 | Uendret offentlig grensesnitt og intern slice-type. |
+| `tacticsSlice.ts` | Ny → 176 | Taktikker og handlinger på brettet. |
+| `tacticModel.ts` | Ny → 157 | Rene modell-/utstyrshjelpere. |
+| `calendarSlice.ts` | Ny → 83 | Kalender, trening, egne øvelser og navneliste. |
+| `reportsSlice.ts` | Ny → 38 | Kamptid og rapporthandlinger. |
+| `reportText.ts` | Ny → 23 | Rapporttekst og kategorinavn. |
+| `momentsSlice.ts` | Ny → 23 | Lagrede øyeblikk. |
+| `backupSlice.ts` | Ny → 77 | Kontroll og eksport/import av store-data. |
+| `repair.ts` | Ny → 256 | Reparasjon og eksisterende migrering. |
+| `id.ts` | Ny → 2 | Eksisterende id-generator. |
+| `storageCompatibility.test.ts` | Ny → 68 | Fem sammenligninger mot resultatet før flytting. |
+
+Alle nye filer har en kort ansvarskommentar. Alle eksisterende eksporter og
+komponentenes bruk av `useAppStore` er beholdt. Slices deler samme `set`/`get`
+og ett persist-lag; ingen nye lagringsoperasjoner eller datagjennomganger.
+`STORE_KEY`, persist-versjon 2, migrering, merge, partialize og fanelytterne
+står uendret i inngangsfilen. Sikkerhetskopiformat og konvoluttversjon 1 i
+`src/lib/backup.ts` er urørt. En mekanisk sammenligning av TypeScript-koden
+bekrefter uendrede funksjonskropper, standardverdier, hjelpekonstanter,
+offentlig grensesnitt, persist-oppsett og fanelyttere.
+
+De fem nye testene bruker eksisterende `lib/__fixtures__/backup-v1.json`:
+samme historiske data i lokal lagringskonvolutt 0/1/2 og eldre backupkonvolutt
+0/1. Klokke og tilfeldighet er faste. SHA-256 av hele resultatet, inkludert
+eksportdata, faktisk lagret JSON, timer og backup, ble registrert mot den
+opprinnelige storen og er beholdt uendret etter oppdelingen. Testene kontrollerer
+også nøkkel, lagringsversjon, fullført innlasting og vellykket backup-lesing.
+For backup dekkes bevaring av enhetens eksporttidspunkt og visningsvalg samt
+nullstilling av kamptid. De eksisterende testene er ikke flyttet, så de fortsatt
+kontrollerer det uendrede offentlige API-et, også reparasjons-eksportene.
+
+**Avklaring av testkrav:** Brukeren ba både om hele e2e før/etter og til slutt
+uttrykkelig om bare én fullkjøring med mindre noe feiler. Den siste føringen
+er fulgt: hele e2e-pakken ble kjørt én gang etter oppdelingen. Dermed finnes
+ingen ny e2e-baseline før flytting; alle andre pålagte kommandoer kjøres før
+og etter. Ingen tester fjernes eller hoppes over.
+
+**Funn uten logikkendring:** `tickTimer` er fortsatt en tom funksjon; v1-migrering
+tar fortsatt ikke med taktikker; `repairMoment` kontrollerer fortsatt bare at
+snapshot er et objekt. Dette er eksisterende oppførsel og er beholdt.
+Ingen pakker er installert eller endret. Ingen genererte filer inngår i endringene.
+
+**Kontroller – alle fullførte kommandoer med kode 0:**
+
+| Kommando | Før oppdelingen | Etter oppdelingen |
+| --- | --- | --- |
+| `npx tsc --noEmit` | Bestått | Bestått |
+| `npx vitest --run` | 30 filer / 312 eksisterende tester; deretter 31 filer / 317 med de fem nye testene mot opprinnelig store | 31 filer / 317 tester |
+| `npm run build` | Bestått | Bestått |
+| `npm run test:e2e -- --workers=1` | Ikke kjørt, jf. kravet om én fullkjøring | 38/38, én kjøring, 4,9 min |
+| `npm run test:offline` | 3/3 med nytt produksjonsbygg, 1,5 min | 3/3 med nytt produksjonsbygg, 1,3 min |
+
+Vitest brukte `VITEST_MAX_WORKERS=1` i fullkjøringene. De fem faste
+før-resultatene ble først registrert og deretter testet mot den opprinnelige
+storen før flyttingen; ingen forventede resultater ble oppdatert etterpå.
+Ingen eksisterende tester er endret. Den mekaniske kodekontrollen og
+`git diff --check` bestod også. Windows lot testserverne stå etter at alle
+nettlesertester var ferdige; kun de identifiserte lokale testserverprosessene
+ble stoppet for å fullføre kommandoene. Eksisterende Browserslist- og
+terminalfargevarsler hindret ingen kontroller. Ingen publisering, deployment,
+commit eller push er gjort.
+
+Manuell prøve: lokal produksjonsvisning er startet på http://localhost:3100.
+Åpne en lagret taktikk, bytt fase, flytt en spiller og last siden på nytt.
+Prøv også Trening og Kalender, og eksporter/importer en sikkerhetskopi gjennom
+de vanlige knappene i Innstillinger. Ingen nye menneskelige beslutninger
+gjenstår i denne oppdelingen.
+
 ## WebM-tidsbudsjett og lokale kalenderdatoer (18.10.2026)
 
 `AGENTS.md` og ryddeplanen er lest. Arbeidet gjelder de to avtalte funnene.
@@ -1002,7 +1079,7 @@ Ingen funn er avvist.
 
 | 6 | `src/data/drills/styrke.ts` | 971 | Styrkeøvelser (data) |
 
-| 7 | `src/store/useAppStore.ts` | 956 | Hele app-tilstanden (Zustand): taktikker, kalender, rapporter, backup, samt reparasjon og migrering av lagrede data |
+| 7 | `src/store/useAppStore.ts` | 86 (før: 979) | Offentlig Zustand-inngang og uendret persist; delene er flyttet til egne filer, se kartet øverst |
 
 | 8 | `src/data/drills/cardio.ts` | 798 | Kondisjonsøvelser (data) |
 
@@ -1076,7 +1153,9 @@ Andre filer over ca. 400 linjer: `DrillsView.tsx` (723), `globals.css` (687), `F
 
 
 
-\*\*useAppStore.ts (956).\*\*
+**useAppStore.ts: gjennomført 18.10.2026 (979 → 86).** Se kartet og kontrollene
+øverst. Det opprinnelige forslaget nedenfor er gjennomført med de utvidede
+slice-delene brukeren ba om. De gamle linjehenvisningene gjelder planens utgangspunkt.
 
 \- `store/repair.ts`: alle `repair\*`-funksjoner, `migrateV1` og hjelpefunksjonene (`:149–450`). Dette er rene funksjoner som allerede har tester.
 
@@ -1374,9 +1453,9 @@ Hver oppgave er tenkt som én gren som testes alene. Rekkefølgen er etter nytte
 
 14\. \*\*Felles konstanter:\*\* én liste over kategorier, `lib/dates.ts` og `lib/id.ts`. \*Risiko: lav.\*
 
-15\. \*\*Skill ut `store/repair.ts`\*\* fra `useAppStore`. Testene flyttes med. \*Risiko: lav.\*
+15. ✅ **FERDIG (18.10.2026): `store/repair.ts` er skilt ut.** Reparasjon og migrering er flyttet uendret. Eksisterende tester beholdes mot offentlig API; fem nye før/etter-sammenligninger dekker eldre lagring og backup. Se kart og kontroller øverst.
 
-16\. \*\*Skill ut `store/tacticModel.ts`, `reportText.ts` og `types.ts`.\*\* \*Risiko: lav–middels.\*
+16. ✅ **FERDIG (18.10.2026): `store/tacticModel.ts`, `reportText.ts` og `types.ts` er skilt ut.** Også slices for taktikker, kalender/trening, rapporter/kamptid, øyeblikk og backup, etter brukerens utvidede oppgave. Uendret API, lagring og backup. Se øverst.
 
 17. **Gjennomført 17.10.2026: BoardScene trinn 1.** `resourcePool.ts`, `pitchBuilder.ts` og `equipment.ts`. Kontroller og linjetall før/etter står øverst.
 
