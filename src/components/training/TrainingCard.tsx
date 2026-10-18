@@ -15,7 +15,9 @@ export const TrainingCard: React.FC<{
 
   const attendeeCount: number = event.attendance?.length ?? 0;
 
-  const isUpcoming = !past && new Date(event.date) >= new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isUpcoming = !past && new Date(event.date + 'T00:00:00') >= today;
 
   return (
     <div className="bg-canvas-panel rounded-panel border border-rule hover:border-rule-strong transition-all">

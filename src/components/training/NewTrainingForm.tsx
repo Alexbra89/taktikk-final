@@ -32,7 +32,6 @@ export const NewTrainingForm: React.FC<{
   const [drillSearch, setDrillSearch]         = useState('');
   const [drillCategory, setDrillCategory]     = useState<DrillCategory | 'alle'>('alle');
   const [drillDifficulty, setDrillDifficulty] = useState<DrillDifficulty | 'alle'>('alle');
-  const [saving, setSaving] = useState(false);
   const [customDrillName, setCustomDrillName] = useState('');
   const [customDrillDesc, setCustomDrillDesc] = useState('');
   const [customDrillDuration, setCustomDrillDuration] = useState(10);
@@ -97,7 +96,6 @@ export const NewTrainingForm: React.FC<{
   const save = () => {
     if (!title.trim()) { setError('Fyll inn tittel'); return; }
     setError('');
-    setSaving(true);
 
     const drillNotes = selectedDrills.map(d =>
       `\n${d.name}\n${d.aiGenerated ? AI_DRILL_LABEL + '\n' : ''}${d.description}\nVarighet: ${d.duration} min${d.warning ? `\nAdvarsel: ${d.warning}` : ''}`
@@ -127,8 +125,6 @@ export const NewTrainingForm: React.FC<{
       trainingNotes,
       matchNotes: [],
     });
-
-    setSaving(false);
   };
 
   const FOCUS_OPTIONS = [
@@ -174,7 +170,7 @@ export const NewTrainingForm: React.FC<{
         <div>
           <label className={LABEL_CLASS}>Fokusområder (valgfritt)</label>
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {FOCUS_OPTIONS.slice(0, 8).map(f => (
+            {FOCUS_OPTIONS.map(f => (
               <button key={f} type="button"
                 onClick={() => setFocusTags(prev =>
                   prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
@@ -352,9 +348,9 @@ export const NewTrainingForm: React.FC<{
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
-          <button type="button" onClick={save} disabled={saving || !title.trim()}
+          <button type="button" onClick={save} disabled={!title.trim()}
             className="flex-1 inline-flex items-center justify-center gap-1.5 py-3 rounded-panel bg-signal/10 border border-signal/40 text-signal font-bold text-lead hover:bg-signal/15 disabled:opacity-40 transition min-h-[48px]">
-            {saving ? 'Oppretter …' : 'Opprett trening'}
+            Opprett trening
           </button>
           <button type="button" onClick={onCancel}
             className="px-4 py-3 rounded-panel border border-rule text-ink-subtle font-bold text-lead hover:text-ink-muted transition min-h-[48px]">

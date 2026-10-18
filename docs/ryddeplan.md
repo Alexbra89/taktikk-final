@@ -1,3 +1,62 @@
+## Trening: fire rettelser etter oppdeling (18.10.2026)
+
+- Start-knappen sammenligner nå lokale kalenderdatoer fra midnatt. En trening
+  i dag kan startes hele dagen, også etter det oppgitte klokkeslettet.
+- Den uvirksomme `saving`-tilstanden og «Oppretter …» er fjernet.
+  Oppretting og lagring skjer fortsatt med samme synkrone kall.
+- Alle 12 fokusvalg vises i den eksisterende listen som brytes over flere linjer.
+- Pause/Fortsett har samme `inline-flex`, sentrering og ikonavstand som Avbryt.
+  De eksisterende fargene er beholdt.
+
+`e2e/training.spec.ts` bruker dagens dato med styrt klokke i Europe/Oslo,
+uten omveien med fremtidig dato. Begge brukerflytene (desktop og mobil
+390 × 844) kontrollerer Start for dagens trening etter oppgitt klokkeslett,
+alle 12 fokusvalg og at knappene ligger innenfor skjermbredden. Det siste
+fokusvalget velges også, med kontroll av lagringen og innhold etter omlasting.
+
+Etterkontrollen fant at fokusvalget «Taktikk» og hovedmenyen har samme navn.
+Testvelgerne er derfor avgrenset til fokusfeltet, med kontroll av nøyaktig
+12 valg. Testklokken installeres før siden lastes, og nedtellingen kontrolleres
+sekund for sekund slik at React rekker å oppdatere mellom stegene. Ingen
+eksisterende kontroller er fjernet eller svekket. Mobilbildet er kontrollert
+visuelt: alle 12 fokusvalg ligger på tre rader uten å gå utenfor skjermen.
+
+**Kontroller 18.10.2026:**
+
+| Kommando | Resultat |
+| --- | --- |
+| `npx tsc --noEmit` | Bestått, kode 0; også kjørt etter siste testendring |
+| `npx vitest --run` | Bestått, 29 filer / 304 tester, kode 0 (`VITEST_MAX_WORKERS=1`) |
+| `npm run build` | Bestått, kode 0 |
+| `npm run test:e2e -- --workers=1` | 37/38 bestått, kode 1; begge Trening-tester bestått |
+| `npm run test:offline` | Bestått, 3 produksjonstester med nytt bygg, kode 0 |
+
+Første fullkjøring fant for brede fokusvelgere og tidsavbrudd i den
+eksisterende 3D-WebM-testen. Deretter ble treningstestene fullført med samlet
+klokkeoppsett og kontroll av hvert nedtellingssekund; begge passerer separat
+og i siste fullkjøring. Ingen tester er fjernet eller hoppet over.
+
+**Gjenstående avvik utenfor Trening:** Vanlig 3D-WebM-eksport fikk tidsavbrudd
+i begge fullkjøringene (`board3d.spec.ts:353`, 90 sekunder på ferdigmelding,
+120 sekunder totalt). Samme uendrede test passerte på ny testserver i en
+avgrenset kjøring (24,9 sekunder). Dette tilsvarer ustabiliteten som allerede
+er beskrevet i etterkontrollen fra 17.10.2026. Kravet om at alle kontroller
+skal passere er derfor ikke oppfylt. 3D-koden, testen og tidsgrensene er
+beholdt; videre retting må avklares som en egen oppgave fordi denne oppgaven
+uttrykkelig bare gjelder de fire funnene i Trening.
+
+Ingen andre funn rettes i denne omgangen. Ingen pakker er installert eller
+endret, og ingenting er publisert, deployet, committet eller pushet.
+Som tidligere måtte testenes egne, identifiserte serverprosesser stoppes
+etter ferdige nettlesertester på Windows for at kommandoene skulle avslutte.
+Ingen andre prosesser er stoppet. Browserslist- og terminalfargevarsler
+hindret ikke bygg eller tester. Ingen genererte filer inngår i endringene.
+
+Manuell prøve: Åpne appen som vanlig og velg Trening → Ny trening. Opprett
+en trening med dagens dato, se at alle 12 fokusvalg vises (også på mobil),
+og prøv Start. Start en øvelse og kontroller at Pause/Fortsett og Avbryt har
+samme plassering av ikon og tekst.
+
 ## Oppgave 10 og 20: Trening – nettlesertester og etterkontroll (17.10.2026)
 
 **Oppgave 10 er gjennomført:** `e2e/training.spec.ts` kjører hele brukerflyten
@@ -69,7 +128,7 @@ er fortsatt over 500 linjer; notatlisten med stoppeklokke kan skilles ut i et
 neste steg, som planen sier. Oppgave 10 ble gjort som etterkontroll, med
 samme tester også mot main før oppdelingen (se over).
 
-**Funn, ikke rettet (ren flytting):**
+**Funn ved ren flytting (de tre første punktene rettet 18.10.2026, se øverst):**
 
 - `TrainingCard`: Start-knappen bruker `new Date(event.date) >= new Date()`.
   Datoen tolkes som midnatt UTC, så en trening i dag får ikke Start-knapp,

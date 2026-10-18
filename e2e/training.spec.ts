@@ -37,12 +37,14 @@ for (const viewport of [
   { name: 'mobil', width: 390, height: 844 },
 ]) {
   test.describe(viewport.name, () => {
-    test.use({ viewport, serviceWorkers: 'block' });
+    test.use({ viewport, serviceWorkers: 'block', timezoneId: 'Europe/Oslo' });
 
     test('Trening: opprett, gjennomfør, del og behold etter omlasting', async ({ page }) => {
       test.setTimeout(120_000);
       const errors: string[] = [];
       page.on('pageerror', error => errors.push(error.message));
+      // Styrt lokal dato, så testen også tåler midnatt og omlasting.
+      await page.clock.install({ time: new Date('2026-10-18T20:00:00+02:00') });
       await page.goto('/');
       const nav = page.getByRole('navigation', { name: 'Hovedmeny' });
       if (viewport.name === 'mobil') {
@@ -57,11 +59,27 @@ for (const viewport of [
       await page.getByRole('button', { name: 'Ny trening', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Opprett trening', exact: true })).toBeDisabled();
       await page.getByPlaceholder('F.eks. Teknikktrening, 4-3-3 trening...').fill(title);
-      // Fremtidig dato gjør testen uavhengig av dagens kjente Start-knappfeil.
-      await page.locator('input[type="date"]').fill('2099-10-20');
+      await expect(page.locator('input[type="date"]')).toHaveValue('2026-10-18');
       await page.locator('input[type="time"]').fill('18:30');
       await page.getByPlaceholder('Stadion / hall').fill('Testbanen');
-      await page.getByRole('button', { name: 'Pasningsspill', exact: true }).click();
+      const focusOptions = [
+        'Pasningsspill', 'Pressing', 'Forsvarsstilling', 'Avslutning', 'Kontrapress',
+        'Innlegg', 'Dødball', 'Keepertrening', 'Kondisjon', 'Styrke', 'Taktikk', 'Individuell teknikk',
+      ];
+      const focusArea = page.getByText('Fokusområder (valgfritt)', { exact: true }).locator('..');
+      await expect(focusArea.getByRole('button')).toHaveText(focusOptions);
+      for (const focus of focusOptions) {
+        const button = focusArea.getByRole('button', { name: focus, exact: true });
+        await expect(button).toBeVisible();
+        await button.scrollIntoViewIfNeeded();
+        await expect(button).toBeInViewport();
+        const bounds = await button.boundingBox();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+      }
+      await page.screenshot({ path: test.info().outputPath('fokusvalg.png') });
+      await focusArea.getByRole('button', { name: 'Pasningsspill', exact: true }).click();
+      await focusArea.getByRole('button', { name: 'Individuell teknikk', exact: true }).click();
       await page.getByPlaceholder('Mål for økten, beskjeder til spillerne...').fill('Ta med egen ball.');
 
       await page.getByRole('button', { name: 'Velg øvelser', exact: true }).click();
@@ -89,15 +107,17 @@ for (const viewport of [
       await page.getByRole('button', { name: 'Opprett trening', exact: true }).click();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
 
-      // Åpne via Start, og senere via selve kortet etter omlasting.
+      // Dagens trening skal ha Start, også etter at tidspunktet er passert.
+      await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Start', exact: true }).click();
       await expect(page.getByText('Testbanen', { exact: true })).toBeVisible();
       await expect(page.getByText('18:30', { exact: true })).toBeVisible();
       const generalNote = page.getByPlaceholder('Mål for økten, beskjeder til spillerne...');
-      await expect(generalNote).toHaveValue(/Fokus: Pasningsspill/);
+      await expect(generalNote).toHaveValue(/Fokus: Pasningsspill, Individuell teknikk/);
       await expect(generalNote).toHaveValue(/Ta med egen ball\./);
       await expect(generalNote).toHaveValue(/Advarsel: Øvelsen inneholder hodespill\./);
       expect((await savedTraining(page)).events[0].trainingNotes.every(note => note.focus.includes('Pasningsspill'))).toBe(true);
+      expect((await savedTraining(page)).events[0].trainingNotes.every(note => note.focus.includes('Individuell teknikk'))).toBe(true);
       await expect(item(page, warningDrill).getByText(warning, { exact: false })).toBeVisible();
       await item(page, warningDrill).getByRole('button', { name: 'Vis full detalj', exact: true }).click();
       await expect(page.getByRole('dialog').getByRole('heading', { name: warningDrill, exact: true })).toBeVisible();
@@ -150,7 +170,6 @@ for (const viewport of [
       expect(await itemTitles(page)).toEqual([libraryDrill, warningDrill, customDrill, 'Taktikk 1', 'Felles beskjed']);
 
       // Kontroller nedtelling og pause med nettleserens klokke, uten minuttlange ventetider.
-      await page.clock.install();
       await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
       await item(page, customDrill).getByRole('button', { name: 'Start øvelse (1 min)', exact: true }).click();
       await expect(page.getByText('1:00', { exact: true })).toBeVisible();
@@ -168,7 +187,12 @@ for (const viewport of [
       await item(page, customDrill).getByRole('button', { name: 'Start øvelse (1 min)', exact: true }).click();
       await expect(page.getByText('1:00', { exact: true })).toBeVisible();
       // Punkter med tid fullføres når klokka når null; de har ingen egen fullfør-knapp.
-      await page.clock.runFor(60_000);
+      // La React vise hvert sekund før neste steg, slik at effektene rekker å oppdateres.
+      for (let seconds = 59; seconds > 0; seconds--) {
+        await page.clock.runFor(1000);
+        await expect(page.getByText(`0:${String(seconds).padStart(2, '0')}`, { exact: true })).toBeVisible();
+      }
+      await page.clock.runFor(1000);
       await expect(item(page, customDrill).getByText('Fullført', { exact: true })).toBeVisible();
       await expect(page.getByText('Pågående øvelse', { exact: true })).toHaveCount(0);
       await page.clock.resume();
@@ -186,7 +210,7 @@ for (const viewport of [
       await page.getByRole('button', { name: 'Del økten', exact: true }).click();
       await expect.poll(() => shared.length).toBe(1);
       expect(shared[0].split('\n')).toEqual([
-        'Treningsøkt 20. okt. – 39 min',
+        'Treningsøkt 18. okt. – 39 min',
         `1. ${libraryDrill} (10 min)`, `2. ${warningDrill} (15 min)`,
         `3. ${customDrill} (1 min)`, '4. Taktikk 1 (8 min)', '5. Felles beskjed (5 min)',
       ]);
@@ -197,7 +221,7 @@ for (const viewport of [
 
       const beforeReload = await savedTraining(page);
       expect(beforeReload.rosterNames).toEqual(['Ola', 'Kari', 'Ada']);
-      expect(beforeReload.events[0]).toMatchObject({ title, date: '2099-10-20', time: '18:30',
+      expect(beforeReload.events[0]).toMatchObject({ title, date: '2026-10-18', time: '18:30',
         location: 'Testbanen', teamNote: 'Husk drikke og korte pauser.', attendance: ['Ola', 'Ada'] });
       await page.reload();
       await openTraining(page);
