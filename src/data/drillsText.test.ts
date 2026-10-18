@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_DRILLS } from '@/data/drills';
 
-// Tekstfeltene treneren leser i øvelsesbiblioteket. Kildefeltene
-// (source, unverifiedSource) er bevisst utelatt: kilder skal stå urørt.
+// Tekstfeltene treneren leser i øvelsesbiblioteket, inkludert uverifiserte
+// kildehenvisninger. Det eksisterende source-feltet skal stå urørt.
 const FORBIDDEN = [/gemini/i, /claude/i, /gpt/i, /codex/i, /\(vurdering/i, /vurdering\s*:/i];
 
 function userVisibleTexts(): { id: string; text: string }[] {
@@ -11,7 +11,9 @@ function userVisibleTexts(): { id: string; text: string }[] {
     const texts = [
       drill.name,
       drill.description,
+      drill.players,
       drill.why,
+      drill.unverifiedSource ?? '',
       drill.background ?? '',
       drill.warning ?? '',
       drill.sketch ?? '',

@@ -42,7 +42,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-8-9-ar (nevner «forflytning», «reaksjon» og «fallteknikk» som grunnteknikker for 8-9 år)',
     unverifiedSource:
-      'Gemini oppga «NFF Tiim – Grasrottreneren Øvelsesbank (Øvelse: Fallteknikk og reaksjon i sirkel)» med URL https://www.tiim.no/ (forside, ikke øvelse)',
+      'NFF Tiim – Grasrottreneren Øvelsesbank (Øvelse: Fallteknikk og reaksjon i sirkel) – https://www.tiim.no/',
     sketch:
       'Firkant 3×3 m med en kjegle i hvert hjørne (rød, blå, gul, grønn). Keeper i midten. Trener står utenfor og roper farge.',
   },
@@ -85,7 +85,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-8-9-ar (nevner «grep» og «store hender bak ballen»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – Grassroots Goalkeeping: Catching Low Balls» med URL https://www.soccercoachweekly.net/coaching-advice/grassroots-goalkeeping-catching-low-balls (utgiver: Soccer Coach Weekly)',
+      'Soccer Coach Weekly – Grassroots Goalkeeping: Catching Low Balls – https://www.soccercoachweekly.net/coaching-advice/grassroots-goalkeeping-catching-low-balls (utgiver: Soccer Coach Weekly)',
   },
   {
     id: 'keeper-y-03',
@@ -126,7 +126,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (nevner «feltarbeid/høye baller» og «gode beskjeder til lagkompisene»)',
     unverifiedSource:
-      'Gemini oppga «NFF Landslagsskolen – Keepertrening i Barne- og Ungdomsfotballen» med URL https://www.fotball.no/trener/landslagsskolen/ (generell side, ikke øvelse)',
+      'NFF Landslagsskolen – Keepertrening i Barne- og Ungdomsfotballen – https://www.fotball.no/trener/landslagsskolen/',
     sketch:
       'Mål med keeper. Servitør på kanten av feltet (skrått foran til siden) slår innlegg. Angriper starter ved 5-meteren og løper mot ballen. Keeper står i mål og kommanderer.',
   },
@@ -169,7 +169,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-8-9-ar (nevner «hurtighet/reaksjon» og «forflytning»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Goalkeeping Session: Footwork and Handling» med URL https://thefa.com/bootroom/resources/coaching/goalkeeping-session-footwork-and-handling (utgiver: The Football Association)',
+      'The FA Bootroom – Goalkeeping Session: Footwork and Handling – https://thefa.com/bootroom/resources/coaching/goalkeeping-session-footwork-and-handling (utgiver: The Football Association)',
     sketch:
       'Keeper A og B står 3 m fra hverandre langs en linje. Trener står bak og til siden og triller ballen mot den ene.',
   },
@@ -212,7 +212,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (lister «Spille rundt / gjennom ledd / i rom / på / bak» som ulike måter for keeper å starte angrep)',
     unverifiedSource:
-      'Gemini oppga «NFF Tiim – Grasrottreneren Del 2 (Øvelse: Igangsetting fra keeper)» med URL https://www.tiim.no/ (forside, ikke øvelse)',
+      'NFF Tiim – Grasrottreneren Del 2 (Øvelse: Igangsetting fra keeper) – https://www.tiim.no/',
     sketch:
       'Mållinje (keeper) → 15-20 m → tre porter side om side (høyre, midten, venstre).',
   },
@@ -374,7 +374,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/okt/keeper-en-mot-en og https://tiim.no/artikkel/okter-for-keepere-12-13-ar (NFF beskriver «Blokk (gjøre seg størst mulig)» og «Ned på bakken med hendene på ball» som de to teknikkene i 1 mot 1)',
     unverifiedSource:
-      'Gemini oppga «US Soccer Coaching Education – Grassroots 11v11 Goalkeeping: 1v1 Shot Stopping» med URL https://www.ussoccer.com/coaching (generell side, ikke øvelse)',
+      'US Soccer Coaching Education – Grassroots 11v11 Goalkeeping: 1v1 Shot Stopping – https://www.ussoccer.com/coaching',
     sketch:
       'Mål med keeper. Angriper starter 20 m ute midt foran mål. En medspiller står i utkanten (for «vanskeligere»-varianten).',
   },
@@ -416,7 +416,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF lister «Skuddstopping: serier med ulike vinkler, korte reaksjonsøvelser, skudd fra distanse»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – Reaction Saves for Goalkeepers» med URL https://www.soccercoachweekly.net/coaching-advice/reaction-saves-for-goalkeepers (utgiver: Soccer Coach Weekly). Rettet fra «11-metersstreken» til «11 m» (11 m er straffemerket, ikke en linje).',
+      'Soccer Coach Weekly – Reaction Saves for Goalkeepers – https://www.soccercoachweekly.net/coaching-advice/reaction-saves-for-goalkeepers (utgiver: Soccer Coach Weekly)',
     sketch:
       'Mål med keeper. To dukker ca. 11 m foran, litt fra hverandre. Skytter ca. 16 m unna, skyter mellom dukkene.',
   },
@@ -460,7 +460,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/okt/keeper-skuddklar-rekkevidde-skyv (NFF beskriver skyvet og rekkevidden, og at «slenget» til siden bør være litt offensivt fremover)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Goalkeeping: Shot Stopping and Diving Technique» med URL https://thefa.com/bootroom/resources/coaching/goalkeeping-shot-stopping-diving (utgiver: The Football Association). «Frasparket» rettet til NFFs begrep «skyv».',
+      'The FA Bootroom – Goalkeeping: Shot Stopping and Diving Technique – https://thefa.com/bootroom/resources/coaching/goalkeeping-shot-stopping-diving (utgiver: The Football Association)',
     sketch:
       'Mål med keeper ved venstre stolpe. Trener ruller ball mot midten. Skytter står ved siden og skyter mot høyre hjørne når keeperen nærmer seg høyre stolpe.',
   },
@@ -503,7 +503,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF lister alternativene «Spille rundt», «Spille gjennom ledd», «Spille i rom», «Spille på», «Spille bak») og https://tiim.no/okt/keeper-pasningsspill',
     unverifiedSource:
-      'Gemini oppga «NFF Tiim – Frispilling og keeper som ekstra utespiller» med URL https://www.tiim.no/ (forside, ikke øvelse)',
+      'NFF Tiim – Frispilling og keeper som ekstra utespiller – https://www.tiim.no/',
     sketch:
       'Mål med keeper på 5-meteren. To stoppere på hver side, dyp midtbane foran. To angripere presser fra ca. 15 m.',
   },
@@ -546,7 +546,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/ovelse/rolletrening-keeper-partrening-1 (NFF: «hurtig opp i utgangsposisjon og være skuddklar igjen»); https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF-tema: «Fallteknikk/god landing»)',
     unverifiedSource:
-      'Gemini oppga «YouTube – Become Elite: Goalkeeper Drills for Shot Stopping and Recovery» med URL https://www.youtube.com/watch?v=BecomeEliteGoalkeeping (ugyldig video-ID; utgiver: Become Elite / Matt Sheldon). Flyttet fra Keeper-Barn til Keeper-Voksne.',
+      'YouTube – Become Elite: Goalkeeper Drills for Shot Stopping and Recovery – https://www.youtube.com/watch?v=BecomeEliteGoalkeeping (utgiver: Become Elite / Matt Sheldon)',
     sketch:
       'Mål med keeper. Trener A skrått foran til høyre (10 m). Trener B skrått foran til venstre. Keeper skal komme seg raskt fra fall mot høyre til skuddklar mot venstre.',
   },
@@ -588,7 +588,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF: «Keeperens posisjonering styres av motstanders ballfører og antallet/plasseringen til med- og motspillere»; «Forsvar av målet: Aksjonere»)',
     unverifiedSource:
-      'Gemini oppga «UEFA Grassroots Football Development Manual (Section: Goalkeeper Positioning)» med URL https://www.uefa.com/grassroots/ (generell side, ikke øvelse; utgiver: UEFA). «Stå stille når skytteren skal treffe ballen» omformulert til NFFs begrep «skuddklar». Flyttet fra Keeper-Barn.',
+      'UEFA Grassroots Football Development Manual (Section: Goalkeeper Positioning) – https://www.uefa.com/grassroots/ (utgiver: UEFA)',
     sketch:
       'Mål med keeper. Tre angripere i en trekant utenfor 16-meteren. Kjegler markerer en tenkt bue foran mål som keeperen følger.',
   },
@@ -630,7 +630,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF-tema «Feltarbeid/høye baller» og «Forsvar av 5m: Beslutte»); https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF: «Feltarbeid: innlegg fra sidene, dødballer, press i boks med markeringer»)',
     unverifiedSource:
-      'Gemini oppga «YouTube – Progressive Soccer: Goalkeeper High Balls and Boxing Technique» med URL https://www.youtube.com/watch?v=ProgressiveSoccerGK (ugyldig video-ID; utgiver: Progressive Soccer). Flyttet fra Keeper-Barn til Keeper-Voksne.',
+      'YouTube – Progressive Soccer: Goalkeeper High Balls and Boxing Technique – https://www.youtube.com/watch?v=ProgressiveSoccerGK (utgiver: Progressive Soccer)',
     sketch:
       'Mål med keeper. Servitør på kanten av feltet slår innlegg mot 5-meteren. En forsvarer og en angriper står foran keeperen.',
   },
@@ -672,7 +672,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF lister «Skuddstopping: korte reaksjonsøvelser»)',
     unverifiedSource:
-      'Gemini oppga «YouTube – Become Elite: Goalkeeper Deflection & Rebound Board Drills» med URL https://www.youtube.com/watch?v=BecomeEliteDeflections (ugyldig video-ID; utgiver: Become Elite / Matt Sheldon). Krever sprettbrett; partner-variant lagt til.',
+      'YouTube – Become Elite: Goalkeeper Deflection & Rebound Board Drills – https://www.youtube.com/watch?v=BecomeEliteDeflections (utgiver: Become Elite / Matt Sheldon)',
     sketch:
       'Mål med keeper. Sprettbrett 8-10 m foran. Skytter 16 m unna.',
   },
@@ -715,7 +715,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF: «Fysisk styrke, hurtighet og eksplosivitet. Feltarbeid med høyt trykk»); https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF-tema «Feltarbeid/høye baller»)',
     unverifiedSource:
-      'Gemini oppga «US Soccer Player Development Framework – High Balls Under Physical Pressure» med URL https://www.ussoccer.com/coaching (generell side, ikke øvelse; utgiver: US Soccer Federation). Originalen hadde hopp over 3 lavhekker; erstattet.',
+      'US Soccer Player Development Framework – High Balls Under Physical Pressure – https://www.ussoccer.com/coaching (utgiver: US Soccer Federation)',
     warning:
       'Kjør kun når keeperen er godt oppvarmet, og stopp ved sårhet eller smerte. Unngå hekkehopp rett før duellen – det øker skaderisikoen.',
     sketch:
@@ -759,7 +759,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF lister «Mentale ferdigheter: konsentrasjon, håndtering av nervøsitet og press» og «Skuddstopping»)',
     unverifiedSource:
-      'Gemini oppga «UEFA Technical Report – Goalkeeping Trends & Penalty Shot Stopping» med URL https://www.uefa.com/insideuefa/documentlibrary/technical-reports/ (generell side, ikke øvelse; utgiver: UEFA)',
+      'UEFA Technical Report – Goalkeeping Trends & Penalty Shot Stopping – https://www.uefa.com/insideuefa/documentlibrary/technical-reports/ (utgiver: UEFA)',
     sketch:
       'Mål med keeper på linjen. Skytter ved 11-metersmerket. Ball ligger klar.',
   },

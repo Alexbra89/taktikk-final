@@ -2,17 +2,18 @@
 
 Alle 153 innebygde øvelser i `src/data/drills/` er gått gjennom. Trenertekst
 er skrevet om til vanlig, kort trenerspråk på norsk. Sikkerhetsråd og faglige
-begrunnelser er beholdt, bare uten historikken bak. Ingen øvelser er endret i
-innhold, aldersgruppe, antall, ID-er, struktur eller felt.
+begrunnelser er beholdt, bare uten historikken bak. Øvelsenes innhold,
+aldersgrupper, antall og ID-er er beholdt.
 
-Kilder er ikke fjernet eller endret: feltene `source`, `unverifiedSource` og
-lenkene i `background` står urørt. Ordet Gemini kan derfor fortsatt stå inne
-i selve kildehenvisningen (`unverifiedSource`), fordi det er en del av
-kilden, ikke av trenerteksten. Ett unntak: `background` på
+Etterkontroll: 35 `unverifiedSource`-felt i forsvar og keeper er renset til
+bare kildenavn, tittel og eventuell lenke/utgiver. Prosessnotater og
+AI-historikk er fjernet. 10 felt med bare «allment kjent øvelse» og lignende
+er fjernet fordi de ikke oppga en konkret kilde. Ingen kilder er lagt til;
+`source` og alle lenker er uendret. Ett tidligere unntak: `background` på
 «Napoli – spill gjennom sone (ungdomsversjon)» inneholdt ingen lenke, bare
 en intern merknad, og er skrevet om til vanlig trenerspråk.
 
-### Endrede øvelser (46 av 153)
+### Første gjennomgang: endrede øvelser (46 av 153)
 
 Fjernet er merknader av typen «(vurdering: min …)», «(aktivitetsvurdering:
 min)», «jeg har …», «er min», nevning av Gemini i trenertekst, og setninger
@@ -71,35 +72,65 @@ setningen, så ingen instruksjoner er tapt.
 
 Angrep (30 øvelser) hadde ingen slike merknader og er ikke endret.
 
+### Kontroll av tall mot gammel tekst
+
+Kontrollert med `git diff 94483c6^ 94483c6 -- src/data/drills/cardio.ts
+src/data/drills/forsvar.ts`:
+
+- `cardio-a-10`, «Bytte»: Den gamle teksten oppga allerede «6-8 drag per
+  spiller, pause ca. dobbelt så lang som arbeid».
+- `forsvar-a-03`: Den gamle teksten oppga allerede «8-10 m mellom hver
+  spiller» og «ikke strekk linja mer enn 25-30 m».
+
+Ingen av tallene ble lagt til av tekstrensingen. Dette bekrefter bare at
+de sto i den gamle teksten, ikke at de er bekreftet av kildene.
+
 ### Test
 
-Ny test i `src/data/drillsText.test.ts`: feiler hvis trenertekstene
-(beskrivelse, hvorfor, steg, trenerpunkter, vanlige feil, variasjoner,
-utstyr, bakgrunn, advarsel, skisse og navn) inneholder Gemini, Claude, GPT,
-Codex eller «(vurdering». Kildefeltene `source` og `unverifiedSource` er
-bevisst ikke med, fordi kilder skal stå urørt. Testen kontrollerer også at
+Utvidet test i `src/data/drillsText.test.ts`: feiler hvis trenertekstene
+(beskrivelse, spillerantall, hvorfor, steg, trenerpunkter, vanlige feil,
+variasjoner, utstyr, bakgrunn, advarsel, skisse, navn og `unverifiedSource`)
+inneholder Gemini, Claude, GPT, Codex eller «(vurdering».
+`source` er fortsatt utelatt og står urørt. Testen kontrollerer også at
 det fortsatt er 153 øvelser.
 
-Kontroller: `npx tsc --noEmit` bestått, `npx vitest --run` bestått
-(32 filer, 319 tester), `npm run build` bestått. E2e ble kjørt én gang,
-men testserveren fikk ikke åpne port 3100 i sandkassen
-(`listen EACCES: permission denied`), så ingen nettlesertester startet.
-Kjør `npm run test:e2e` på nytt utenfor sandkassen for å fullføre den.
+Kontroller etter rensing av kildefeltene (18.10.2026):
+
+- `npx tsc --noEmit`: bestått.
+- `npx vitest --run`: bestått, 32 filer og 319 tester.
+- `npm run build`: bestått. Eksisterende varsel om gammel Browserslist-data;
+  ingen pakker installert eller oppdatert.
+- `npm run test:e2e -- --workers=1`: alle 38 tester kjørte, 31 besto og 7
+  feilet. Testserveren startet; den tidligere portfeilen oppsto ikke.
+  Feilene gjaldt 3D/3D-video: WebGL-feilskjerm, nettleserkrasj og tidsavbrudd.
+  Prosessen hang etter siste test og ble avsluttet med Ctrl+C.
+- Målrettet omkjøring av de sju feilede testene, med én arbeider og samlet
+  tidsgrense på åtte minutter: fem besto, inkludert MP4-/WebM-eksport og
+  MP4-fullskjermopptak. To feilet igjen: `e2e/board3d.spec.ts:37` ventet
+  forgjeves på 3D-kontrollene (visningen sto på «Laster 3D-visning …»), og
+  `e2e/board3d.spec.ts:144` fikk tidsavbrudd ved kontroll av lerretsstørrelsen
+  etter skjermrotasjon i fullskjerm. Også omkjøringen hang etter at alle
+  testene hadde rapportert resultat, og ble avsluttet med Ctrl+C.
+
+Alle nettlesertestene for øvelsesbiblioteket besto. E2e er likevel ikke helt
+grønn; de to gjentatte 3D-feilene trenger egen undersøkelse. Ingen 3D-kode
+eller nettlesertester er endret i denne tekstryddingen.
 
 ### Kilder å sjekke
 
-Disse kildehenvisningene er latt stå urørt, men ser avkuttede eller
-ufullstendige ut. Sjekk dem manuelt hvis du vil ha dem ryddet:
+Disse kildehenvisningene trenger fortsatt manuell kontroll. Prosessnotater
+er nå fjernet fra kildefeltene, men kildene er ikke verifisert på nytt.
+Rader uten konkret kilde er beholdt her selv om `unverifiedSource` er fjernet.
 
 | Øvelse | Hvorfor den bør sjekkes |
 | --- | --- |
-| Skyggen min (sidestilling og reaksjon) (forsvar-y-01) | Ingen lenke oppgitt; setningen mangler avslutning |
-| Kjeglefangeren (1 mot 1: lede og skjerme) (forsvar-y-02) | Bare kanalnavn, ingen videolenke; setningen mangler avslutning |
-| Nappe haler (nærduell og balanse) (forsvar-y-03) | Ingen lenke oppgitt; setningen mangler avslutning |
+| Skyggen min (sidestilling og reaksjon) (forsvar-y-01) | Ingen konkret kilde oppgitt; `unverifiedSource` fjernet |
+| Kjeglefangeren (1 mot 1: lede og skjerme) (forsvar-y-02) | Bare kanalnavn, ingen videolenke |
+| Nappe haler (nærduell og balanse) (forsvar-y-03) | Ingen konkret kilde oppgitt; `unverifiedSource` fjernet |
 | Tålmodigheten (vinne ballen i riktig øyeblikk) (forsvar-y-04) | Lenke som ikke kunne åpnes |
 | Murbyggerne (blokkere skudd) (forsvar-y-05) | Ingen lenke oppgitt |
 | Rask hjemjobb (returløp og takling) (forsvar-y-06) | Bare kanalnavn, ingen videolenke |
-| Dobbeltmuren (2 mot 1: press og sikring) (forsvar-y-07) | Lenke som ikke kunne åpnes; setningen mangler avslutning |
+| Dobbeltmuren (2 mot 1: press og sikring) (forsvar-y-07) | Lenke som ikke kunne åpnes |
 | 2 mot 2 kompakt (sidelengs forflytning) (forsvar-y-08) | Lenke som ikke kunne åpnes |
 | Bryteren (komme foran og bryte pasningen) (forsvar-y-09) | Ingen lenke oppgitt |
 | Boksforsvareren (høye baller og klarering) (forsvar-y-10) | Lenke som ikke kunne åpnes |
@@ -107,11 +138,12 @@ ufullstendige ut. Sjekk dem manuelt hvis du vil ha dem ryddet:
 | Bølgeforsvar (3 mot 2 med omstilling) (forsvar-y-12) | Lenke som ikke kunne åpnes |
 | Taklingsmesteren (timing av støttakling) (forsvar-y-13) | Ingen lenke oppgitt |
 | Nekt pasningen (stenge pasningslinjer) (forsvar-y-14) | Lenke som ikke kunne åpnes |
-| 1 mot 1 kanalforsvar (lede og tvinge feil) (forsvar-a-01) | Ingen lenke oppgitt; setningen mangler avslutning |
+| Linjeforsvar 4 mot 4 (støte og falle av) (forsvar-y-15) | US Soccer Coaching DCC (Grassroots 7v7 / 9v9 manual), uten URL; henvisningen må bekreftes |
+| 1 mot 1 kanalforsvar (lede og tvinge feil) (forsvar-a-01) | Ingen konkret kilde oppgitt; `unverifiedSource` fjernet |
 | Lav blokk og boksforsvar (3 mot 4 i undertall) (forsvar-a-04) | Ingen lenke oppgitt |
 | Høyt press og gjenvinning (4 mot 4 + 2 jokere) (forsvar-a-05) | Bare kanalnavn, ingen videolenke |
 | Stopperduell og støttepasning (håndtere feilvendt spiss) (forsvar-a-07) | Ingen lenke oppgitt |
-| Defensiv omstilling (gjenvinning ved balltap) (forsvar-a-09) | Bare kanalnavn, ingen videolenke; setningen mangler avslutning |
+| Defensiv omstilling (gjenvinning ved balltap) (forsvar-a-09) | Bare kanalnavn, ingen videolenke |
 | Midtbaneankeret (skjerme forsvarsfireren) (forsvar-a-11) | Bare kanalnavn, ingen videolenke |
 | Takling og blokkering under høy belastning (forsvar-a-13) | Ingen lenke oppgitt |
 | Forsvar mot lange innkast (forsvar-a-15) | Ingen lenke oppgitt |
