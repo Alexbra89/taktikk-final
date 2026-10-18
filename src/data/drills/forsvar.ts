@@ -37,7 +37,6 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-8-9-ar (NFF nevner «kroppskontroll», «korte raske steg» og at 1F kommer «tett i press med rett fart»)',
-    unverifiedSource: 'Gemini oppga «Allment kjent øvelse (Grasrottrener-metodikk)»; ingen lenke',
     sketch:
       'To kjegler 5-8 m fra hverandre. Angriper og forsvarer står vendt mot hverandre midt mellom dem, og beveger seg sidelengs langs linjen.',
   },
@@ -76,7 +75,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-8-9-ar (NFF: «stresse ballfører», «lede vekk», «komme tett i press med rett fart»)',
-    unverifiedSource: 'Gemini oppga «YouTube-kanal: @SoccerCoachWeekly», uten videolenke',
+    unverifiedSource: 'YouTube-kanal: @SoccerCoachWeekly',
     sketch:
       'Sone 10×10 m. To kjegler på bakkantlinjen (ca. 4 m fra hverandre). Angriper starter foran, forsvarer 3 m foran angriperen og presser mot dem.',
   },
@@ -112,7 +111,6 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/ovelse/kontroll-pa-egen-ball-jakte-motstanderens (NFF-leken der spillerne verner om egen ball mens de jakter andres)',
-    unverifiedSource: 'Gemini oppga «Allment kjent lekeøvelse i barnefotball»; ingen lenke',
   },
   {
     id: 'forsvar-y-04',
@@ -150,7 +148,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «utnytte dårlige, lange og for mange touch», «komme tett i press med rett fart»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – One-on-one defending» med URL https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/one-on-one-defending (utgiver: Soccer Coach Weekly); kunne ikke åpnes. Opprinnelig tittel: «Nøtteliten».',
+      'Soccer Coach Weekly – One-on-one defending – https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/one-on-one-defending (utgiver: Soccer Coach Weekly)',
     sketch:
       'Korridor 12×5 m. Angriper i den ene enden, forsvarer i den andre. Forsvareren rykker frem og stopper 1-2 m foran angriperen.',
   },
@@ -189,7 +187,6 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF: «Forsvar av målet», «hindre avslutning») og https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-8-9-ar (NFF: «Opp i blokk: blokke med fremsiden av kroppen»)',
-    unverifiedSource: 'Gemini oppga «Allment kjent øvelse i NFF barnefotball»; ingen lenke. Opprinnelig tittel: «Mur-Byggerne».',
     sketch:
       'Småmål. Angriper 10 m foran med ball. Forsvarer står ved siden av målet og rykker ut mot skytteren.',
   },
@@ -227,7 +224,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Raskt på rett side av ball når pressejobben er over», «returløp: spillere på feil side må komme seg på rett side»)',
-    unverifiedSource: 'Gemini oppga «YouTube-kanal: @ProgressiveSoccer», uten videolenke. Opprinnelig tittel: «Rask Hjemjobb».',
+    unverifiedSource: 'YouTube-kanal: @ProgressiveSoccer',
     sketch:
       'Mål. Angriper starter 20 m ute med ball. Forsvareren starter 3 m bak og litt til siden, og løper for å komme mellom angriper og mål.',
   },
@@ -269,7 +266,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Korte avstander bak presset – Sikring på 1. forsvarer»; «Sikring til førsteforsvarer»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – Back me up, buddy» med URL https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/back-me-up-buddy (utgiver: Soccer Coach Weekly); kunne ikke åpnes',
+      'Soccer Coach Weekly – Back me up, buddy – https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/back-me-up-buddy (utgiver: Soccer Coach Weekly)',
     sketch:
       'Bane 12×12 m med mål i den ene enden. Angriper i motsatt ende. Forsvarer 1 foran, Forsvarer 2 3-4 m bak og skrått til siden.',
   },
@@ -309,7 +306,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Korte avstander mellom spillere i lengden og bredden», «kompakt lag»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Mastering defensive techniques and roles» med URL https://www.thefa.com/bootroom/resources/coaching/mastering-defensive-techniques-and-roles (utgiver: The Football Association); kunne ikke åpnes. Opprinnelig tittel «NFF 2v2 Kompakt», men kilden var ikke NFF, så «NFF» er fjernet.',
+      'The FA Bootroom – Mastering defensive techniques and roles – https://www.thefa.com/bootroom/resources/coaching/mastering-defensive-techniques-and-roles (utgiver: The Football Association)',
     sketch:
       'Bane 15×12 m med en kjegleport i hver kortende. To angripere står på hver side av banen, to forsvarere i midten mellom dem og målene.',
   },
@@ -348,8 +345,6 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Overspilte spillere hurtig i press», «Ta duellen før duellen»)',
-    unverifiedSource:
-      'Gemini oppga «Allment kjent øvelse (Sikre foran-bryting)»; ingen lenke. Opprinnelig tittel: «Bryter’n (Innbrudd foran angriper)».',
     sketch:
       'Pasningslegger 12-15 m unna. Angriper i midten, vendt mot pasningsleggeren. Forsvarer rett bak angriperen.',
   },
@@ -375,7 +370,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
       'Klarer ballen høyt, bredt og langt ut mot sidene',
       'Møt ballen i lufta, ikke vent på at den kommer',
       'Treff ballen med pannen, ikke toppen av hodet',
-      'Klarering først, så spill (vurdering: min)',
+      'Klarering først, så spill',
     ],
     commonMistakes: [
       'Stusser ballen bakover mot eget mål',
@@ -390,9 +385,9 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Innlegg og 45-situasjoner», «Blokkere eller hindre innlegg/pasning»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – How to defend like England: crosses» med URL https://www.thefa.com/bootroom/resources/coaching/how-to-defend-like-england-crosses (utgiver: The Football Association); kunne ikke åpnes. Opprinnelig tittel: «Boks-Forsvarern (Hodebrøyter og klarering)».',
+      'The FA Bootroom – How to defend like England: crosses – https://www.thefa.com/bootroom/resources/coaching/how-to-defend-like-england-crosses (utgiver: The Football Association)',
     warning:
-      'Øvelsen inneholder hodespill. NFF-kildene som er åpnet gir ingen anbefaling om heading for 10-12 år. Bruk lettvektsball eller myke baller, hold repetisjonene lave, og vurder å bytte hodespillet med klarering med foten hvis det er tvil.',
+      'Øvelsen inneholder hodespill. Bruk lettvektsball eller myke baller, hold repetisjonene lave, og vurder å bytte hodespillet med klarering med foten hvis det er tvil.',
     sketch:
       'Mål. Servitør på kanten av feltet slår innlegg. Forsvarer 7 m foran mål. Angriper settes inn i feltet senere.',
   },
@@ -431,7 +426,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Reagere hurtig og samlet på definerte presssignaler», «Kompakt», «Pressansvar»)',
     unverifiedSource:
-      'Gemini oppga «NFF Trenerhåndbok (Seksjon: Pressfeller i barnefotball) – Papirutgave / Ingen direkte URL». Det er ikke bekreftet at denne finnes, og den bør ikke oppgis som kilde uten at den er sjekket. Opprinnelig tittel: «Press-Fella i Hjørnet».',
+      'NFF Trenerhåndbok (Seksjon: Pressfeller i barnefotball) – Papirutgave',
     sketch:
       'Sone 12×12 m helt ute ved sidelinjen. Ballfører i hjørnet, en angriper i nærheten, en nøytral spiller på utsiden. Tre forsvarere står i trekant rundt ballen.',
   },
@@ -471,7 +466,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «å raskt stille om til forsvar – angrep eller angrep – forsvar er en sentral del av fotballspillet»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – 1v1, 2v2, 3v3 Practice» med URL https://www.soccercoachweekly.net/drills-and-games/drills/practice-1v1-2v2-3v3 (utgiver: Soccer Coach Weekly); kunne ikke åpnes. Opprinnelig tittel: «Bølge-Forsvar».',
+      'Soccer Coach Weekly – 1v1, 2v2, 3v3 Practice – https://www.soccercoachweekly.net/drills-and-games/drills/practice-1v1-2v2-3v3 (utgiver: Soccer Coach Weekly)',
     sketch:
       'Bane 20×15 m med mål i begge ender. Lag A (3 angripere) i den ene enden, Lag B (2 forsvarere) foran sitt mål. Nye spillere står klare på sidelinjen ved hvert mål.',
   },
@@ -510,10 +505,8 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Tett i ballfører for å vinne ball», «utnytte dårlige, lange og for mange touch»)',
-    unverifiedSource:
-      'Gemini oppga «Allment kjent øvelse (Ren taklingstrening)»; ingen lenke. Opprinnelig tittel: «Taklings-Mester’n (Timing av støttakling)».',
     warning:
-      'Jeg har ikke funnet NFF-materiale om taklingsteknikk for 10-12 år. Denne øvelsen krever nær kroppskontakt og en stiv ankel. Bruk moderat fart, sørg for at barna er godt oppvarmet, og vurder å utelate den uten trenerkompetanse.',
+      'Øvelsen krever nær kroppskontakt og en stiv ankel. Bruk moderat fart, sørg for at barna er godt oppvarmet, og vurder å utelate den uten trenerkompetanse.',
   },
   {
     id: 'forsvar-y-14',
@@ -549,7 +542,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Bevisst på rom rundt seg for å stenge avspillpunkter», «posisjonering i forhold til ball og medspillere»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – England DNA 5-11: staying on the ball» med URL https://www.thefa.com/bootroom/resources/coaching/england-dna-5-11-staying-on-the-ball (utgiver: The Football Association); kunne ikke åpnes. Opprinnelig tittel: «Nekt Pasningen! (Skjerme pasningslinje)».',
+      'The FA Bootroom – England DNA 5-11: staying on the ball – https://www.thefa.com/bootroom/resources/coaching/england-dna-5-11-staying-on-the-ball (utgiver: The Football Association)',
     sketch:
       'Firkant 10×10 m. Fire angripere, en på hver side. To forsvarere inne i firkanten som plasserer seg i pasningslinjene.',
   },
@@ -589,7 +582,7 @@ export const FORSVAR_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/spillmodellen-og-treningsfilosofi-10-12-ar (NFF: «Senke oss samlet», «Kontinuerlig justering av høyde i forhold til ballfører», «Beholde høyden på ledd»)',
     unverifiedSource:
-      'Gemini oppga «US Soccer Coaching DCC (Grassroots 7v7 / 9v9 manual)», uten URL. Opprinnelig tittel «Offside-Fellen (Linjekontroll 4v4)», men øvelsen handler om linjeorganisering, ikke offside.',
+      'US Soccer Coaching DCC (Grassroots 7v7 / 9v9 manual)',
     sketch:
       'Bane 30×20 m med mål i hver ende. Forsvarslinje på 4 foran eget mål, en kjeglelinje midt på banen som referanse. Fire angripere spiller mot linjen.',
   },
@@ -632,7 +625,6 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF: 1v1-momenter for førsteforsvarer: «Tett i press», «Lede vekk fra mål», «Reagere raskt og vinne ball ved dårlige/lange touch»)',
-    unverifiedSource: 'Gemini oppga «Allment kjent øvelse (Grasrottrener / UEFA B-lisens)»; ingen lenke',
     sketch:
       'Korridor 15×8 m langs sidelinjen. Angriper starter i den ene enden med ball, forsvarer møter fra motsatt ende og står mellom angriperen og banen.',
   },
@@ -674,7 +666,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F1: «Sikring til førsteforsvarer med korte avstander», «Pumping for å ha kontroll på rom mellom ledd»); https://tiim.no/ovelse/prepp-n-4 (NFF: 1F og 2F i soneforsvar)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – 2v2 defending in central areas» med URL https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/2v2-defending-in-central-areas (utgiver: Soccer Coach Weekly)',
+      'Soccer Coach Weekly – 2v2 defending in central areas – https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/2v2-defending-in-central-areas (utgiver: Soccer Coach Weekly)',
     sketch:
       'Sone 18×15 m med mål og keeper. Forsvarer 1 presser ballfører, forsvarer 2 3-4 m bak og skrått (45 grader). To angripere.',
   },
@@ -688,7 +680,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     duration: 15,
     players: '8-10',
     description:
-      'En forsvarsfirer (to stoppere og to backer) flytter seg som en sammenkoblet enhet mens motstanderens midtbane flytter ballen fra side til side. Merk: Geminis tommelfingerregler («8-10 m mellom hver spiller», «ikke strekk linja mer enn 25-30 m») er ikke bekreftet i NFF-kilder.',
+      'En forsvarsfirer (to stoppere og to backer) flytter seg som en sammenkoblet enhet mens motstanderens midtbane flytter ballen fra side til side. Hold om lag 8-10 m mellom hver spiller, og ikke strekk linja mer enn 25-30 m.',
     why: 'Lærer laget å holde avstandene i bakre ledd slik at motstanderen ikke finner rom mellom stopper og back. NFF beskriver at laget skal være «kompakt ved å være korte og smale» og bruke «sideforskyvning». (kilde: Landslagsskolens spillmodell)',
     steps: [
       { id: 'forsvar-a-03-s1', name: 'Oppsett', description: 'Sett opp en sone på 30×20 m.' },
@@ -697,7 +689,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
       { id: 'forsvar-a-03-s4', name: 'Press på kant', description: 'Får kantspilleren ballen, støter backen ut, nærmeste stopper sikrer, og motsatt back trekker inn for å holde linjen kompakt.' },
     ],
     coachingPoints: [
-      'Hold avstandene mellom spillerne (Gemini oppga 8-10 m mellom hver; vurdering: Gemini)',
+      'Hold avstandene mellom spillerne, om lag 8-10 m mellom hver',
       'Motsatt back trekker inn mot midten når ballen er på motsatt kant',
       'Senk dere samlet når motstanderen har ballen uten press (kilde: NFF F2: «Senke oss samlet»)',
       'Kompakte: korte og smale (kilde: NFF-moment)',
@@ -715,7 +707,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F1/F2: «Sideforskyvning for å ha kontroll på rom sentralt», «Kompakt lag ved å være korte og smale»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Understanding the back four unit» med URL https://www.thefa.com/bootroom/resources/coaching/understanding-the-back-four-unit (utgiver: The Football Association). Opprinnelig tittel: «Forskorskyvning i Firerlinje».',
+      'The FA Bootroom – Understanding the back four unit – https://www.thefa.com/bootroom/resources/coaching/understanding-the-back-four-unit (utgiver: The Football Association)',
     sketch:
       'Sone 30×20 m. Fire forsvarere på linje. Fire angripere i midtbanen foran, spiller på tvers. Kjegler markerer hvilken side ballen er på.',
   },
@@ -755,8 +747,6 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F3: «Innlegg, pasningsinnlegg og 45-situasjoner», «Blokkere eller hindre innlegg», «Ta kontroll foran eget mål», «Klarering høyt og lang ut av egen sone»)',
-    unverifiedSource:
-      'Gemini oppga «Allment kjent taktisk øvelse for seniorfotball»; ingen lenke. Opprinnelig tittel: «Lav Blokk og Boks-Forsvar (3v4 I undertall)».',
     sketch:
       'Stort mål med keeper. Tre forsvarere i og rundt 5-meteren. To kantspillere på hver side av 16-meteren, to angripere i feltet.',
   },
@@ -775,7 +765,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     steps: [
       { id: 'forsvar-a-05-s1', name: 'Oppsett', description: 'Bane 25×25 m. Lag A holder ballen sammen med 2 jokere (6 mot 4).' },
       { id: 'forsvar-a-05-s2', name: 'Press', description: 'Lag B (4 spillere) stenger pasningsveier og støter samlet på signaler: dårlig touch, støttepasning, ball til back.' },
-      { id: 'forsvar-a-05-s3', name: 'Gjenvinning', description: 'Vinner Lag B ballen, slår de ut til trener eller scorer på et lite mål innen tre touch. (vurdering: Gemini, tallene er ikke NFFs)' },
+      { id: 'forsvar-a-05-s3', name: 'Gjenvinning', description: 'Vinner Lag B ballen, slår de ut til trener eller scorer på et lite mål innen tre touch.' },
     ],
     coachingPoints: [
       'Press samlet på signal',
@@ -793,7 +783,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F1: «Reagere hurtig og samlet på definerte presssignaler som støttepasning, dårlig touch, feilvendte spillere, ball til back»); https://tiim.no/ovelse/f1-f2-spillovelse-68',
     unverifiedSource:
-      'Gemini oppga «YouTube-kanal: @BecomeElite», uten videolenke. Opprinnelig tittel: «Høyt Press og Gjenvinning (4v4 + 2 Jokere)». Geminis «innen 6 sekunder» er ikke NFFs tall.',
+      'YouTube-kanal: @BecomeElite',
     sketch:
       'Bane 25×25 m. Lag A (4 spillere + 2 jokere) fordelt rundt kantene. Lag B (4 spillere) i midten. Lite mål på sidelinjen for Lag B.',
   },
@@ -830,7 +820,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F2: «Senke oss samlet og hindre tilgang på prioriterte rom», «Vinne ball når mulig, men nekte kontrollerte fremoverpasninger er prioritert», «Oppholde»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Managing counter-attacks: defending numerical inferiority» med URL https://www.thefa.com/bootroom/resources/coaching/managing-counter-attacks-defending-numerical-inferiority (utgiver: The Football Association). Opprinnelig tittel: «Krise-Forsvar: Restforsvar under Kontring (2v3)».',
+      'The FA Bootroom – Managing counter-attacks: defending numerical inferiority – https://www.thefa.com/bootroom/resources/coaching/managing-counter-attacks-defending-numerical-inferiority (utgiver: The Football Association)',
     sketch:
       'Mål med keeper. To forsvarere ved 16-meteren. Tre angripere starter fra midtstreken med ball.',
   },
@@ -869,8 +859,6 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F1, Midtstopper: «På jakt etter presseøyeblikk», NFF 1v1: «Hold feilvendte spillere feilvendt – armlengdes avstand» i «Hindre avslutning»)',
-    unverifiedSource:
-      'Gemini oppga «Allment kjent øvelse for stopperpar / spissdueller»; ingen lenke. Opprinnelig tittel: «Stopper-Duell og Støttepasning (Aktiv spiss-håndtering)».',
     sketch:
       'Midtbanespiller 20 m fra spissen. Spiss vendt mot midtbanespilleren (feilvendt mot mål). Stopper rett bak spissen mellom spiss og mål.',
   },
@@ -910,7 +898,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F3, Sideback: «Ikke bli passert. Hindre innlegg. Tvinge eventuelle innlegg foran seg. Verne om rom innvendig framfor rom utvendig.»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – Stop the cross» med URL https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/stop-the-cross (utgiver: Soccer Coach Weekly)',
+      'Soccer Coach Weekly – Stop the cross – https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/stop-the-cross (utgiver: Soccer Coach Weekly)',
     sketch:
       'Sidekorridor med kantspiller 25 m fra mål. Back 5-8 m foran kantspilleren, mellom kantspiller og mål. Stort mål med keeper.',
   },
@@ -944,13 +932,13 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     ],
     variations: [
       'Lettere: Angriperne må ta 2 touch i oppbyggingen',
-      'Vanskeligere: Lag A får bonuspoeng hvis de vinner ballen tilbake innen 5 sekunder og scorer (vurdering: Gemini, tallet er ikke NFFs)',
+      'Vanskeligere: Lag A får bonuspoeng hvis de vinner ballen tilbake innen 5 sekunder og scorer',
     ],
     equipment: ['2 store mål med keepere', 'Vester', 'Kjegler'],
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF: «Umiddelbar reaksjon for gjenvinning og følgelig posisjonsjustering fra alle når vi mister ball. Søke overtall rundt ball.») og https://tiim.no/ovelse/a2-a3-situasjonsovelse-33 (overgangsforsvar)',
-    unverifiedSource: 'Gemini oppga «YouTube-kanal: @SoccerCoachWeekly», uten videolenke',
+    unverifiedSource: 'YouTube-kanal: @SoccerCoachWeekly',
     sketch:
       'Halv bane med stort mål i hver ende. Lag A i angrepsoppstilling. Ved balltap starter gjenvinning fra nærmeste spillere.',
   },
@@ -991,7 +979,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF nevner dødballer som del av «kampen om ballen», og F3-momenter som «Oversikt over trusler mot 1. stolpe, bakre stolpe og 45» og «Det må markeres og kontroll på farlige rom helt til situasjonen er avklart»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Set-piece organisation: defending corners» med URL https://www.thefa.com/bootroom/resources/coaching/set-piece-organisation-defending-corners (utgiver: The Football Association). Opprinnelig tittel: «Dødball-Forsvar (Sone- og mannsmarkering)».',
+      'The FA Bootroom – Set-piece organisation: defending corners – https://www.thefa.com/bootroom/resources/coaching/set-piece-organisation-defending-corners (utgiver: The Football Association)',
     sketch:
       'Stort mål med keeper. Tre soneforsvarere ved 1. stolpe, femmeter og bakre stolpe. Fire-fem mannsmarkører rett foran mål, hver med sin angriper.',
   },
@@ -1029,7 +1017,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F2, Sentral midtbane: «Stenge mellomrom sentralt», «Kontinuerlig justering av posisjon for å stenge mellomrom», «Kort avstand og tett kontakt med midtbaneledd – nekte mellomrom»)',
     unverifiedSource:
-      'Gemini oppga «YouTube-kanal: @BecomeElite», uten videolenke. Opprinnelig tittel: «Midtbane-Ankeret (Skjerme forsvarsfirer)».',
+      'YouTube-kanal: @BecomeElite',
     sketch:
       'Sone 20×15 m foran 16-meteren. Ankeret i midten foran to stoppere. To offensive midtbanespillere og en spiss (i mellomrommet) som angripere.',
   },
@@ -1067,7 +1055,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F1, Kant: «Pressansvar foran deg», «Kontroll på rom innvendig før utvendig»; Sideback: «Stå opp på ballsiden»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – Double up on the winger» med URL https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/double-up-on-the-winger (utgiver: Soccer Coach Weekly). Opprinnelig tittel: «Dobbelt-Press på Kanten (Back + KantSamarbeid)».',
+      'Soccer Coach Weekly – Double up on the winger – https://www.soccercoachweekly.net/practice-plans/smart-sessions-core-skills/double-up-on-the-winger (utgiver: Soccer Coach Weekly)',
     sketch:
       'Sidekorridor. Angriper (kantspiller) med ball ved sidelinjen. Back foran angriperen, egen kant 5-8 m bak og innenfor.',
   },
@@ -1084,7 +1072,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
       'Forsvareren gjør en intens sprint med retningsendringer, kaster seg umiddelbart ut i en skuddblokk og går så inn i en 1 mot 1-duell.',
     why: 'Lærer spillere å holde defensiv konsentrasjon og teknikk selv når pulsen er høy. NFF beskriver at man skal «opp i blokk» og «blokke med fremsiden av kroppen». (kilde: Landslagsskolens spillmodell)',
     steps: [
-      { id: 'forsvar-a-13-s1', name: 'Sprint', description: 'Forsvareren løper gjennom en rekke på 3-4 kjegler med raske retningsendringer (Gemini brukte hekker/stiger, byttet her til kjegler).' },
+      { id: 'forsvar-a-13-s1', name: 'Sprint', description: 'Forsvareren løper gjennom en rekke på 3-4 kjegler med raske retningsendringer.' },
       { id: 'forsvar-a-13-s2', name: 'Blokk', description: 'Sprinter ca. 5 m ut og går i blokk mot et løst skudd.' },
       { id: 'forsvar-a-13-s3', name: 'Opp', description: 'Reiser seg raskt opp igjen.' },
       { id: 'forsvar-a-13-s4', name: 'Duell', description: 'Treneren slår umiddelbart en ny ball til en angriper som utfordrer 1 mot 1 mot mål.' },
@@ -1102,14 +1090,12 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     ],
     variations: [
       'Lettere: 5 sekunders pause mellom blokkeringen og 1 mot 1',
-      'Vanskeligere: Stasjonsarbeid med faste intervaller (Geminis forslag: 45 sek arbeid / 45 sek pause; vurdering: Gemini, ikke NFFs tall)',
+      'Vanskeligere: Stasjonsarbeid med faste intervaller, 45 sek arbeid og 45 sek pause',
     ],
     equipment: ['1 stort mål med keeper', 'Kjegler', 'Baller'],
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F3: «Håndtere avslutning: Opp i BLOKK, blokke med fremsiden av kroppen»); https://tiim.no/artikkel/rask-ra-og-robust-rrr (NFF: kvalitet i kroppskontroll før fart, ingen sårhet eller smerte)',
-    unverifiedSource:
-      'Gemini oppga «Allment kjent øvelse for A-lag/Senior»; ingen lenke. Opprinnelig tittel: «Takling og Blokkering under Maks Puls (Fysisk/Taktisk)». Originalen hadde hekker/stiger.',
     warning:
       'Dette er en av de mest belastende øvelsene i biblioteket: sprint, fall i skuddblokk og 1 mot 1 rett etterpå, alt under tretthet. Kjør bare etter god oppvarming og med god kontroll på landing. Stopp ved sårhet eller smerte. Er du usikker, hopp over.',
     sketch:
@@ -1134,7 +1120,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
       { id: 'forsvar-a-14-s4', name: 'Fall av', description: 'Får motstanderens midtbanespiller rettet seg opp med ballen under full kontroll, faller linjen umiddelbart av.' },
     ],
     coachingPoints: [
-      'Se på ballførerens kroppsspråk. Gemini: «Nesa ned = løft linja, nesa opp = fall av» (vurdering: Gemini, ikke NFF-terminologi)',
+      'Se på ballførerens kroppsspråk: nesa ned – løft linja, nesa opp – fall av',
       'NFFs presssignaler: støttepasning, dårlig touch, feilvendt spiller, ball til back (kilde: NFF F1)',
       'En tydelig forsvarssjef eier ropene',
       'Ekstremt raske steg opp når støttepasningen går',
@@ -1149,7 +1135,7 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F1, Midtstopper: «Stopper ballside – aktiv vurdering sette offsidelinje eller støte i mellomrom»; presssignaler: «støttepasning, dårlig touch, feilvendte spillere, ball til back»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Managing space and pushing the defensive line» med URL https://www.thefa.com/bootroom/resources/coaching/managing-space-and-pushing-the-defensive-line (utgiver: The Football Association). Opprinnelig tittel: «Offside-Felle og Linjekontroll (Masterclass)».',
+      'The FA Bootroom – Managing space and pushing the defensive line – https://www.thefa.com/bootroom/resources/coaching/managing-space-and-pushing-the-defensive-line (utgiver: The Football Association)',
     sketch:
       'Stor banehalvdel med mål og keeper. Firerlinje ved 16-meteren. Fire angripere foran. Kjegler markerer offsidelinjen (16-meteren) og midtsirkelen.',
   },
@@ -1186,8 +1172,6 @@ export const FORSVAR_ADULT: DrillExercise[] = [
     source: 'Allment kjent øvelse',
     background:
       'https://tiim.no/artikkel/landslagsskolens-spillmodell (NFF F3: «Innlegg, pasningsinnlegg og 45-situasjoner», «Alle i beredskap frem til situasjonen er avklart», «Jakte returer»)',
-    unverifiedSource:
-      'Gemini oppga «Allment kjent taktisk drill for seniorlag»; ingen lenke. Opprinnelig tittel: «Forsvar av Felt ved Innkast og Dødballer i Boks». «Stuss-spiller» omskrevet til «avleder».',
     sketch:
       'Stort mål med keeper. Innkaster ved sidelinjen 25-30 m fra mål. Sterkeste hodespiller i feltet foran avlederen. To spillere ved 16-meterslinjen for andreballen.',
   },

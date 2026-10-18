@@ -737,7 +737,7 @@ export const MIDTBANE_ADULT: DrillExercise[] = [
     players: '12-16',
     description:
       'To firkanter med fire angrepsspillere i hver, og en sone imellom hvor fire forsvarsspillere oppholder seg. Angripende lag spiller internt i firkanten, og spiller til slutt ballen over til motsatt firkant. Forsvarende lag kan sende opp to spillere for å presse, men først når ballen er i firkanten. Vinner forsvarerne ballen, kontrer de over en linje til det laget som mistet ballen.',
-    why: 'Trener midtbanespilleren i å bearbeide i små rom og å finne riktig øyeblikk for å spille gjennom. Kilden er 10-12 år; jeg har tilpasset vanskelighetsgraden ved å legge på touchbegrensning og tidspress.',
+    why: 'Trener midtbanespilleren i å bearbeide i små rom og å finne riktig øyeblikk for å spille gjennom. Touchbegrensning og tidspress gjør øvelsen krevende nok for 13-16 år.',
     steps: [
       { id: 'midtbane-a-05-s1', name: 'Oppsett', description: 'To firkanter (15×15 m) med en sone på 10 m imellom.' },
       { id: 'midtbane-a-05-s2', name: 'Lag', description: '4 angripere i hver firkant, 4 forsvarere i midtsonen.' },
@@ -765,7 +765,7 @@ export const MIDTBANE_ADULT: DrillExercise[] = [
     equipment: ['Kjegler', 'Vester i to farger', 'Baller'],
     source: 'https://tiim.no/ovelse/napoli-spill-gjennom-sone',
     background:
-      'Tilpasset fra NFFs øvelse merket 10-12 år. Vanskelighetsgraden for 13-16 er min vurdering (touchbegrensning og tidspress lagt på).',
+      'NFF-øvelsen er merket 10-12 år. Her kjøres den for 13-16 år med touchbegrensning og tidspress.',
     sketch:
       'To firkanter (15×15 m) med en 10 m sone imellom. 4 angripere i hver firkant. 4 forsvarere i midtsonen. To av forsvarerne kan gå ut og presse når ballen er i en firkant.',
   },
@@ -891,7 +891,7 @@ export const MIDTBANE_ADULT: DrillExercise[] = [
     players: '6-12',
     description:
       'Parvis 1 mot 1 i en liten firkant hvor spillerne kjemper om ballen. Trener spiller ballen inn; første spiller på ballen skjermer og forsøker å komme forbi.',
-    why: 'Landslagsskolen løfter 1 mot 1 som sentral ferdighet. Øvelsen bygger på momentene «først på ball», «skjerme ballen – kropp imellom, stiv arm» og «fot lengst unna motstander». Selve øvelsesformen er min; momentene er hentet fra kilden.',
+    why: 'Landslagsskolen løfter 1 mot 1 som sentral ferdighet. Øvelsen bygger på momentene «først på ball», «skjerme ballen – kropp imellom, stiv arm» og «fot lengst unna motstander».',
     steps: [
       { id: 'midtbane-a-09-s1', name: 'Oppsett', description: 'Firkant 10×10 m, to spillere.' },
       { id: 'midtbane-a-09-s2', name: 'Start', description: 'Trener spiller ball til en av dem.' },
@@ -1006,7 +1006,7 @@ export const MIDTBANE_ADULT: DrillExercise[] = [
     players: '12-16',
     description:
       'Lag på 6 mot 6 trener å reagere samlet på pressignaler. Ballen spilles inn, og forsvarende lag presser når ett av signalene inntreffer: støttepasning, dårlig touch, feilvendt spiller eller ball til back.',
-    why: 'Landslagsskolen definerer disse som «presssignaler» i F1. Midtbanen er nøkkelen i å lese signalene og styre spillere foran. Øvelsesformen er min; signalene er hentet fra kilden.',
+    why: 'Landslagsskolen definerer disse som «presssignaler» i F1. Midtbanen er nøkkelen i å lese signalene og styre spillere foran.',
     steps: [
       { id: 'midtbane-a-12-s1', name: 'Oppsett', description: 'Bane 40×30 m med mål og keeper i hver ende.' },
       { id: 'midtbane-a-12-s2', name: 'Lag', description: '6 mot 6.' },

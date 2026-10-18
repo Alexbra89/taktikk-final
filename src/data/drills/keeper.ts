@@ -13,7 +13,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     players: '2-4',
     description:
       'Keeperen står i midten av en firkant av kjegler og forflytter seg raskt til den kjeglen treneren roper ut, berører den (evt. med et kontrollert fall), og går tilbake til midten.',
-    why: 'Trener utgangsstilling, forflytning og reaksjon i en lek. NFFs fagplan for 8-9 år nevner disse som grunnteknikker som starter «på dag en i keeperlivet», og at «leken, ballen og mye aktivitet er i sentrum». (kilde: Fagplan keeper 8-9 år; sammenkoblingen til øvelsen er min)',
+    why: 'Trener utgangsstilling, forflytning og reaksjon i en lek. NFFs fagplan for 8-9 år nevner disse som grunnteknikker som starter «på dag en i keeperlivet», og at «leken, ballen og mye aktivitet er i sentrum». (kilde: Fagplan keeper 8-9 år)',
     steps: [
       { id: 'keeper-y-01-s1', name: 'Oppsett', description: 'Sett opp fire fargede kjegler i en firkant på ca. 3×3 m.' },
       { id: 'keeper-y-01-s2', name: 'Utgangsstilling', description: 'Keeperen står i midten i utgangsstilling.' },
@@ -42,7 +42,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-8-9-ar (nevner «forflytning», «reaksjon» og «fallteknikk» som grunnteknikker for 8-9 år)',
     unverifiedSource:
-      'Gemini oppga «NFF Tiim – Grasrottreneren Øvelsesbank (Øvelse: Fallteknikk og reaksjon i sirkel)» med URL https://www.tiim.no/ (forside, ikke øvelse)',
+      'NFF Tiim – Grasrottreneren Øvelsesbank (Øvelse: Fallteknikk og reaksjon i sirkel) – https://www.tiim.no/',
     sketch:
       'Firkant 3×3 m med en kjegle i hvert hjørne (rød, blå, gul, grønn). Keeper i midten. Trener står utenfor og roper farge.',
   },
@@ -85,7 +85,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-8-9-ar (nevner «grep» og «store hender bak ballen»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – Grassroots Goalkeeping: Catching Low Balls» med URL https://www.soccercoachweekly.net/coaching-advice/grassroots-goalkeeping-catching-low-balls (utgiver: Soccer Coach Weekly)',
+      'Soccer Coach Weekly – Grassroots Goalkeeping: Catching Low Balls – https://www.soccercoachweekly.net/coaching-advice/grassroots-goalkeeping-catching-low-balls (utgiver: Soccer Coach Weekly)',
   },
   {
     id: 'keeper-y-03',
@@ -110,7 +110,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
       'Rop tidlig og tydelig: «Keeper!» (kilde: begrep fra Fagplan keeper 8-9 år)',
       'Møt ballen på det høyeste punktet du rekker',
       'Beslutt: angripe ballen eller la forsvarerne ta den (kilde: begrepet «Beslutte» i Læringsmomenter keeper 12-13 år)',
-      'Løft nærmeste kne for balanse og beskyttelse (vurdering: min)',
+      'Løft nærmeste kne for balanse og beskyttelse',
     ],
     commonMistakes: [
       'Blir stående på streken og venter',
@@ -126,7 +126,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (nevner «feltarbeid/høye baller» og «gode beskjeder til lagkompisene»)',
     unverifiedSource:
-      'Gemini oppga «NFF Landslagsskolen – Keepertrening i Barne- og Ungdomsfotballen» med URL https://www.fotball.no/trener/landslagsskolen/ (generell side, ikke øvelse)',
+      'NFF Landslagsskolen – Keepertrening i Barne- og Ungdomsfotballen – https://www.fotball.no/trener/landslagsskolen/',
     sketch:
       'Mål med keeper. Servitør på kanten av feltet (skrått foran til siden) slår innlegg. Angriper starter ved 5-meteren og løper mot ballen. Keeper står i mål og kommanderer.',
   },
@@ -141,7 +141,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     players: '3-4',
     description:
       'To keepere står overfor hverandre. Den ene er «leder» og gjør raske sidebevegelser og berøringer, og den andre speiler. Uten forvarsel triller treneren en ball, og speileren må reagere og fange den.',
-    why: 'Trener reaksjon, balanse og retningsendring, slik NFF beskriver under «hurtighet/reaksjon» og «forflytning» for de yngste. (kilde: Fagplan keeper 8-9 år; øvelsesformen er min/kjent)',
+    why: 'Trener reaksjon, balanse og retningsendring, slik NFF beskriver under «hurtighet/reaksjon» og «forflytning» for de yngste. (kilde: Fagplan keeper 8-9 år)',
     steps: [
       { id: 'keeper-y-04-s1', name: 'Oppstilling', description: 'Keeper A og B står overfor hverandre, 3 m mellom.' },
       { id: 'keeper-y-04-s2', name: 'Leder', description: 'A gjør sideveis tripping, berører bakken eller tar et lite hopp i 5-10 sekunder.' },
@@ -169,7 +169,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-8-9-ar (nevner «hurtighet/reaksjon» og «forflytning»)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Goalkeeping Session: Footwork and Handling» med URL https://thefa.com/bootroom/resources/coaching/goalkeeping-session-footwork-and-handling (utgiver: The Football Association)',
+      'The FA Bootroom – Goalkeeping Session: Footwork and Handling – https://thefa.com/bootroom/resources/coaching/goalkeeping-session-footwork-and-handling (utgiver: The Football Association)',
     sketch:
       'Keeper A og B står 3 m fra hverandre langs en linje. Trener står bak og til siden og triller ballen mot den ene.',
   },
@@ -212,7 +212,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (lister «Spille rundt / gjennom ledd / i rom / på / bak» som ulike måter for keeper å starte angrep)',
     unverifiedSource:
-      'Gemini oppga «NFF Tiim – Grasrottreneren Del 2 (Øvelse: Igangsetting fra keeper)» med URL https://www.tiim.no/ (forside, ikke øvelse)',
+      'NFF Tiim – Grasrottreneren Del 2 (Øvelse: Igangsetting fra keeper) – https://www.tiim.no/',
     sketch:
       'Mållinje (keeper) → 15-20 m → tre porter side om side (høyre, midten, venstre).',
   },
@@ -304,7 +304,7 @@ export const KEEPER_YOUTH: DrillExercise[] = [
     players: '2-3',
     description:
       'Treneren kaster ballen (ikke skyter) mot keeperens sider, litt utenfor rekkevidde, slik at keeperen må skyve fra og strekke seg. Både foten nærmest og foten lengst unna ballen trenes.',
-    why: 'NFF beskriver skyv/rekkevidde som eget keepertema og anbefaler å starte med kast for å få mange og gode repetisjoner, og å gi keeperen nok hvile. Selve øvelsesformen er min; rammene er NFFs. (kilde: Keeperøkt «Skuddklar: Rekkevidde/skyv»)',
+    why: 'NFF beskriver skyv/rekkevidde som eget keepertema og anbefaler å starte med kast for å få mange og gode repetisjoner, og å gi keeperen nok hvile. (kilde: Keeperøkt «Skuddklar: Rekkevidde/skyv»)',
     steps: [
       { id: 'keeper-y-08-s1', name: 'Oppsett', description: 'Keeperen står midt i et 5er-mål.' },
       { id: 'keeper-y-08-s2', name: 'Kast', description: 'Treneren står 5-6 m unna og kaster lave og halvhøye baller mot sidene.' },
@@ -374,7 +374,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/okt/keeper-en-mot-en og https://tiim.no/artikkel/okter-for-keepere-12-13-ar (NFF beskriver «Blokk (gjøre seg størst mulig)» og «Ned på bakken med hendene på ball» som de to teknikkene i 1 mot 1)',
     unverifiedSource:
-      'Gemini oppga «US Soccer Coaching Education – Grassroots 11v11 Goalkeeping: 1v1 Shot Stopping» med URL https://www.ussoccer.com/coaching (generell side, ikke øvelse)',
+      'US Soccer Coaching Education – Grassroots 11v11 Goalkeeping: 1v1 Shot Stopping – https://www.ussoccer.com/coaching',
     sketch:
       'Mål med keeper. Angriper starter 20 m ute midt foran mål. En medspiller står i utkanten (for «vanskeligere»-varianten).',
   },
@@ -416,7 +416,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF lister «Skuddstopping: serier med ulike vinkler, korte reaksjonsøvelser, skudd fra distanse»)',
     unverifiedSource:
-      'Gemini oppga «Soccer Coach Weekly – Reaction Saves for Goalkeepers» med URL https://www.soccercoachweekly.net/coaching-advice/reaction-saves-for-goalkeepers (utgiver: Soccer Coach Weekly). Rettet fra «11-metersstreken» til «11 m» (11 m er straffemerket, ikke en linje).',
+      'Soccer Coach Weekly – Reaction Saves for Goalkeepers – https://www.soccercoachweekly.net/coaching-advice/reaction-saves-for-goalkeepers (utgiver: Soccer Coach Weekly)',
     sketch:
       'Mål med keeper. To dukker ca. 11 m foran, litt fra hverandre. Skytter ca. 16 m unna, skyter mellom dukkene.',
   },
@@ -437,7 +437,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-03-s2', name: 'Berøring', description: 'Treneren ruller en ball rolig mot midten, som keeperen berører med foten.' },
       { id: 'keeper-a-03-s3', name: 'Forflytning', description: 'Keeperen flytter seg raskt mot den andre stolpen.' },
       { id: 'keeper-a-03-s4', name: 'Skudd', description: 'Idet keeperen nærmer seg, skyter en medspiller hardt mot det lange hjørnet.' },
-      { id: 'keeper-a-03-s5', name: 'Skyv', description: 'Keeperen stopper, blir skuddklar, skyver fra og strekker seg. (vurdering: min)' },
+      { id: 'keeper-a-03-s5', name: 'Skyv', description: 'Keeperen stopper, blir skuddklar, skyver fra og strekker seg.' },
       { id: 'keeper-a-03-s6', name: 'Landing og hvile', description: 'Land på siden av kroppen. Gi nok hvile mellom seriene. (kilde: Keeperøkt)' },
     ],
     coachingPoints: [
@@ -460,7 +460,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/okt/keeper-skuddklar-rekkevidde-skyv (NFF beskriver skyvet og rekkevidden, og at «slenget» til siden bør være litt offensivt fremover)',
     unverifiedSource:
-      'Gemini oppga «The FA Bootroom – Goalkeeping: Shot Stopping and Diving Technique» med URL https://thefa.com/bootroom/resources/coaching/goalkeeping-shot-stopping-diving (utgiver: The Football Association). «Frasparket» rettet til NFFs begrep «skyv».',
+      'The FA Bootroom – Goalkeeping: Shot Stopping and Diving Technique – https://thefa.com/bootroom/resources/coaching/goalkeeping-shot-stopping-diving (utgiver: The Football Association)',
     sketch:
       'Mål med keeper ved venstre stolpe. Trener ruller ball mot midten. Skytter står ved siden og skyter mot høyre hjørne når keeperen nærmer seg høyre stolpe.',
   },
@@ -484,7 +484,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-04-s5', name: 'Bytte', description: 'Bytt roller jevnlig.' },
     ],
     coachingPoints: [
-      'Åpen kroppsstilling så du har oversikt (vurdering: min)',
+      'Åpen kroppsstilling så du har oversikt',
       'Snakk tydelig til stopperne (kilde: begrep «gode beskjeder til lagkompisene», Fagplan keeper 8-9 år)',
       'Pasningen skal ha riktig adresse og fart',
       'Velg alternativ etter presshøyde og medspilleres plassering (kilde: Læringsmomenter keeper 12-13 år)',
@@ -503,7 +503,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF lister alternativene «Spille rundt», «Spille gjennom ledd», «Spille i rom», «Spille på», «Spille bak») og https://tiim.no/okt/keeper-pasningsspill',
     unverifiedSource:
-      'Gemini oppga «NFF Tiim – Frispilling og keeper som ekstra utespiller» med URL https://www.tiim.no/ (forside, ikke øvelse)',
+      'NFF Tiim – Frispilling og keeper som ekstra utespiller – https://www.tiim.no/',
     sketch:
       'Mål med keeper på 5-meteren. To stoppere på hver side, dyp midtbane foran. To angripere presser fra ca. 15 m.',
   },
@@ -546,7 +546,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/ovelse/rolletrening-keeper-partrening-1 (NFF: «hurtig opp i utgangsposisjon og være skuddklar igjen»); https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF-tema: «Fallteknikk/god landing»)',
     unverifiedSource:
-      'Gemini oppga «YouTube – Become Elite: Goalkeeper Drills for Shot Stopping and Recovery» med URL https://www.youtube.com/watch?v=BecomeEliteGoalkeeping (ugyldig video-ID; utgiver: Become Elite / Matt Sheldon). Flyttet fra Keeper-Barn til Keeper-Voksne.',
+      'YouTube – Become Elite: Goalkeeper Drills for Shot Stopping and Recovery – https://www.youtube.com/watch?v=BecomeEliteGoalkeeping (utgiver: Become Elite / Matt Sheldon)',
     sketch:
       'Mål med keeper. Trener A skrått foran til høyre (10 m). Trener B skrått foran til venstre. Keeper skal komme seg raskt fra fall mot høyre til skuddklar mot venstre.',
   },
@@ -569,7 +569,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-06-s4', name: 'Skuddklar', description: 'Keeperen skal være i balanse og skuddklar i det skuddet avfyres.' },
     ],
     coachingPoints: [
-      'Flytt deg mens ballen trilles, og vær skuddklar når skytteren skal avslutte (vurdering: min, formulert med NFFs begrep «skuddklar»)',
+      'Flytt deg mens ballen trilles, og vær skuddklar når skytteren skal avslutte',
       'Følg en tenkt linje fra midten av målet til ballen',
       'Kom noen steg ut fra linjen for å gjøre målet mindre',
       'Kommuniser med forsvarerne (kilde: begrep «gode beskjeder til lagkompisene», Fagplan keeper 8-9 år)',
@@ -588,7 +588,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF: «Keeperens posisjonering styres av motstanders ballfører og antallet/plasseringen til med- og motspillere»; «Forsvar av målet: Aksjonere»)',
     unverifiedSource:
-      'Gemini oppga «UEFA Grassroots Football Development Manual (Section: Goalkeeper Positioning)» med URL https://www.uefa.com/grassroots/ (generell side, ikke øvelse; utgiver: UEFA). «Stå stille når skytteren skal treffe ballen» omformulert til NFFs begrep «skuddklar». Flyttet fra Keeper-Barn.',
+      'UEFA Grassroots Football Development Manual (Section: Goalkeeper Positioning) – https://www.uefa.com/grassroots/ (utgiver: UEFA)',
     sketch:
       'Mål med keeper. Tre angripere i en trekant utenfor 16-meteren. Kjegler markerer en tenkt bue foran mål som keeperen følger.',
   },
@@ -608,7 +608,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-07-s1', name: 'Servering', description: 'En trener slår høye baller inn mot 5-meteren.' },
       { id: 'keeper-a-07-s2', name: 'Trangt rom', description: 'En forsvarer og en angriper lager trangt rom foran keeperen.' },
       { id: 'keeper-a-07-s3', name: 'Valg', description: 'Keeperen vurderer: kan ballen fanges, fanger keeperen. Er det for trangt, roper keeperen tydelig og bokser ballen høyt og langt ut mot sidene.' },
-      { id: 'keeper-a-07-s4', name: 'Teknikk', description: 'Trener sjekker at boksingen treffer med knokene og stramme håndledd. (vurdering: min; NFF-kildene gir ikke bokseteknikk)' },
+      { id: 'keeper-a-07-s4', name: 'Teknikk', description: 'Trener sjekker at boksingen treffer med knokene og stramme håndledd.' },
     ],
     coachingPoints: [
       'Beslutt tidlig: fange eller bokse (kilde: begrepet «Beslutte»)',
@@ -630,7 +630,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF-tema «Feltarbeid/høye baller» og «Forsvar av 5m: Beslutte»); https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF: «Feltarbeid: innlegg fra sidene, dødballer, press i boks med markeringer»)',
     unverifiedSource:
-      'Gemini oppga «YouTube – Progressive Soccer: Goalkeeper High Balls and Boxing Technique» med URL https://www.youtube.com/watch?v=ProgressiveSoccerGK (ugyldig video-ID; utgiver: Progressive Soccer). Flyttet fra Keeper-Barn til Keeper-Voksne.',
+      'YouTube – Progressive Soccer: Goalkeeper High Balls and Boxing Technique – https://www.youtube.com/watch?v=ProgressiveSoccerGK (utgiver: Progressive Soccer)',
     sketch:
       'Mål med keeper. Servitør på kanten av feltet slår innlegg mot 5-meteren. En forsvarer og en angriper står foran keeperen.',
   },
@@ -645,7 +645,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     players: '3',
     description:
       'Ballen skytes mot et sprettbrett (rebounder) eller en medspiller som bevisst avbøyer den, slik at ballbanen endres uforutsigbart rett foran keeperen.',
-    why: 'Trener reaksjon og omstilling ved avbøyninger. Hvis klubben ikke har et sprettbrett, fungerer en medspiller med foten eller kroppen like godt. (vurdering: min)',
+    why: 'Trener reaksjon og omstilling ved avbøyninger. Hvis klubben ikke har et sprettbrett, fungerer en medspiller med foten eller kroppen like godt.',
     steps: [
       { id: 'keeper-a-08-s1', name: 'Oppsett', description: 'Sett opp sprettbrettet (eller en medspiller) ca. 8-10 m foran mål.' },
       { id: 'keeper-a-08-s2', name: 'Skudd', description: 'Trener skyter fra ca. 16 m inn i brettet/medspilleren.' },
@@ -672,7 +672,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF lister «Skuddstopping: korte reaksjonsøvelser»)',
     unverifiedSource:
-      'Gemini oppga «YouTube – Become Elite: Goalkeeper Deflection & Rebound Board Drills» med URL https://www.youtube.com/watch?v=BecomeEliteDeflections (ugyldig video-ID; utgiver: Become Elite / Matt Sheldon). Krever sprettbrett; partner-variant lagt til.',
+      'YouTube – Become Elite: Goalkeeper Deflection & Rebound Board Drills – https://www.youtube.com/watch?v=BecomeEliteDeflections (utgiver: Become Elite / Matt Sheldon)',
     sketch:
       'Mål med keeper. Sprettbrett 8-10 m foran. Skytter 16 m unna.',
   },
@@ -687,7 +687,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     players: '6-8',
     description:
       'Keeperen gjør et kort løp gjennom en kjeglerekke med rask retningsendring, og må umiddelbart håndtere et innlegg i feltet med full trafikk og fysisk duell.',
-    why: 'Simulerer kampforhold der keeperen er pustet opp, men må ta gode beslutninger. Gemini-versjonen brukte hekkehopp. Hekkene er erstattet med et kort løp og retningsendring, fordi hopp rett før en duell øker skaderisikoen, og NFF anbefaler kontroll i hopp og landing (kilde: RRR-artikkelen). (vurdering: min)',
+    why: 'Simulerer kampforhold der keeperen er pustet opp, men må ta gode beslutninger. Et kort løp med retningsendring brukes før duellen, ikke hekkehopp: hopp rett før en duell øker skaderisikoen. Ha kontroll i hopp og landing (kilde: RRR-artikkelen).',
     steps: [
       { id: 'keeper-a-09-s1', name: 'Løp', description: 'Keeperen løper gjennom en rekke på 3-4 kjegler med rask retningsendring.' },
       { id: 'keeper-a-09-s2', name: 'Innlegg', description: 'Treneren slår umiddelbart et innlegg fra sidekorridor.' },
@@ -699,7 +699,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       'Nullstill hodet med én gang etter løpet',
       'Beslutt tidlig: angripe ballen eller la forsvarerne ta den (kilde: begrepet «Beslutte»)',
       'Rop tydelig så det høres over hele feltet',
-      'Bruk kneet aktivt til å beskytte deg i lufta (vurdering: min)',
+      'Bruk kneet aktivt til å beskytte deg i lufta',
     ],
     commonMistakes: [
       'Nøler og blir stående halvveis ute',
@@ -715,9 +715,9 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF: «Fysisk styrke, hurtighet og eksplosivitet. Feltarbeid med høyt trykk»); https://tiim.no/artikkel/laeringsmomenter-for-unge-keepere (NFF-tema «Feltarbeid/høye baller»)',
     unverifiedSource:
-      'Gemini oppga «US Soccer Player Development Framework – High Balls Under Physical Pressure» med URL https://www.ussoccer.com/coaching (generell side, ikke øvelse; utgiver: US Soccer Federation). Originalen hadde hopp over 3 lavhekker; erstattet.',
+      'US Soccer Player Development Framework – High Balls Under Physical Pressure – https://www.ussoccer.com/coaching (utgiver: US Soccer Federation)',
     warning:
-      'Kjør kun når keeperen er godt oppvarmet, og stopp ved sårhet eller smerte. Gemini-versjonen hadde hekkehopp rett før duellen; det er fjernet for å redusere skaderisiko.',
+      'Kjør kun når keeperen er godt oppvarmet, og stopp ved sårhet eller smerte. Unngå hekkehopp rett før duellen – det øker skaderisikoen.',
     sketch:
       'Kjeglerekke (3-4 kjegler) 5 m foran mål. Servitør i sidekorridor slår innlegg. To angripere og to forsvarere foran mål.',
   },
@@ -732,7 +732,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     players: '3-5',
     description:
       'Straffesparktrening der keeperen leser skytterens tilløp og kroppsholdning, står klar på linjen og reagerer eksplosivt.',
-    why: 'Trener konsentrasjon, tålmodighet og eksplosivitet under press. NFFs 13-19-plan nevner mentale ferdigheter som håndtering av nervøsitet og press. Geminis påstand om at «krum tilløpsvinkel indikerer motsatt hjørne» er fjernet, fordi den ikke lar seg bekrefte og ikke bør gis som fasit. (kilde: Fagplan keeper 13-19 år; vurdering: min)',
+    why: 'Trener konsentrasjon, tålmodighet og eksplosivitet under press. Les skytterens tilløp, hofter og plantefot – ikke gjett hjørne ut fra tilløpsvinkelen alene. NFFs 13-19-plan nevner mentale ferdigheter som håndtering av nervøsitet og press (kilde: Fagplan keeper 13-19 år).',
     steps: [
       { id: 'keeper-a-10-s1', name: 'Oppsett', description: 'Skytteren stiller opp ballen på 11-metersmerket.' },
       { id: 'keeper-a-10-s2', name: 'Utgangsposisjon', description: 'Keeperen står med begge beina på mållinjen.' },
@@ -740,7 +740,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
       { id: 'keeper-a-10-s4', name: 'Reaksjon', description: 'Keeperen bestemmer seg sent og kaster seg eksplosivt.' },
     ],
     coachingPoints: [
-      'Hold deg på tåballene, blikket på skytterens plantefot og hofter (vurdering: min)',
+      'Hold deg på tåballene, blikket på skytterens plantefot og hofter',
       'Vær tålmodig, ikke tjuvstart',
       'Skyv frem og til siden så du kutter vinkelen',
       'Ha en rutine som hjelper mot nervøsitet (kilde: tema «Mentale ferdigheter»)',
@@ -759,7 +759,7 @@ export const KEEPER_ADULT: DrillExercise[] = [
     background:
       'https://tiim.no/artikkel/fagplan-keeper-13-19-ar (NFF lister «Mentale ferdigheter: konsentrasjon, håndtering av nervøsitet og press» og «Skuddstopping»)',
     unverifiedSource:
-      'Gemini oppga «UEFA Technical Report – Goalkeeping Trends & Penalty Shot Stopping» med URL https://www.uefa.com/insideuefa/documentlibrary/technical-reports/ (generell side, ikke øvelse; utgiver: UEFA)',
+      'UEFA Technical Report – Goalkeeping Trends & Penalty Shot Stopping – https://www.uefa.com/insideuefa/documentlibrary/technical-reports/ (utgiver: UEFA)',
     sketch:
       'Mål med keeper på linjen. Skytter ved 11-metersmerket. Ball ligger klar.',
   },

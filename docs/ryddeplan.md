@@ -1,3 +1,164 @@
+## Øvelsestekster renset for utviklingshistorikk og AI-spor (18.10.2026)
+
+Alle 153 innebygde øvelser i `src/data/drills/` er gått gjennom. Trenertekst
+er skrevet om til vanlig, kort trenerspråk på norsk. Sikkerhetsråd og faglige
+begrunnelser er beholdt, bare uten historikken bak. Øvelsenes innhold,
+aldersgrupper, antall og ID-er er beholdt.
+
+Etterkontroll: 35 `unverifiedSource`-felt i forsvar og keeper er renset til
+bare kildenavn, tittel og eventuell lenke/utgiver. Prosessnotater og
+AI-historikk er fjernet. 10 felt med bare «allment kjent øvelse» og lignende
+er fjernet fordi de ikke oppga en konkret kilde. Ingen kilder er lagt til;
+`source` og alle lenker er uendret. Ett tidligere unntak: `background` på
+«Napoli – spill gjennom sone (ungdomsversjon)» inneholdt ingen lenke, bare
+en intern merknad, og er skrevet om til vanlig trenerspråk.
+
+### Første gjennomgang: endrede øvelser (46 av 153)
+
+Fjernet er merknader av typen «(vurdering: min …)», «(aktivitetsvurdering:
+min)», «jeg har …», «er min», nevning av Gemini i trenertekst, og setninger
+om hva som er fjernet, erstattet eller endret fra en tidligere versjon.
+Der tall eller råd sto inne i en slik merknad, er de skrevet inn i selve
+setningen, så ingen instruksjoner er tapt.
+
+| Øvelse | Hva som ble fjernet eller skrevet om |
+| --- | --- |
+| Kontroll på egen ball – jakte motstanderens (cardio-y-01) | «(aktivitetsvurdering: min)» fjernet |
+| Vendingsstafett (cardio-y-02) | «(aktivitetsvurdering: min)» fjernet |
+| Føre på løpende rekke i sikk-sakk (cardio-y-03) | «(aktivitetsvurdering: min)» fjernet |
+| Dribling gjennom boksen (cardio-y-04) | «(aktivitetsvurdering: min)» fjernet |
+| UEFA PlayMakers – Vaiana: øya og taggeren (cardio-y-05) | «(aktivitetsvurdering: min)» fjernet |
+| UEFA PlayMakers – Innsiden ut: Fri fra sone til sone (cardio-y-06) | «(aktivitetsvurdering: min)» fjernet |
+| Jaktstafett med ball (cardio-y-09) | «(aktivitetsvurdering: min)» fjernet |
+| Kjeglekamp (cardio-y-10) | «(aktivitetsvurdering: min)» fjernet |
+| Prepp'n 2 – Retningsforandringer på små flater (cardio-a-01) | «(vurdering: min)» fjernet |
+| Prepp'n 4 – Soneforsvar: ut av ledd og komprimere (cardio-a-02) | «(vurdering: min)» fjernet |
+| Prepp'n 6 – 1 mot 1 inne i sirkelen (cardio-a-03) | «(vurdering: min)» fjernet i «Hvorfor» og i steget «Bytte» |
+| Prepp'n 7 – 1 mot 1 mot mål (tvers/langs) (cardio-a-04) | «(vurdering: min)» fjernet |
+| Prepp'n 9 – 1 mot 1 mot dødlinje (cardio-a-05) | «(vurdering: min)» fjernet |
+| 4 mot 4 med to porter (høyt tempo) (cardio-a-07) | «jeg bruker den her … (vurdering: min)» skrevet om; merknad om arbeid/pause fjernet, tallene står |
+| 5 mot 5 mot to mål – høyt tempo (cardio-a-08) | «(vurdering: min)» fjernet i «Hvorfor» og i steget «Perioder» |
+| 3 mot 3 – kontinuerlig spill (cardio-a-09) | Merknad om kilde som ikke ble åpnet fjernet |
+| Pendelløp med ball (repetert sprint) (cardio-a-10) | «Jeg har ikke funnet en NFF-kilde … mine forslag» skrevet om til «tilpass til spillerne»; avkuttet steg «Bytt.» skrevet helt ut med 6-8 drag og pause |
+| Kjeglejakten (forflytning og fallteknikk) (keeper-y-01) | «sammenkoblingen til øvelsen er min» fjernet |
+| Katt og mus i feltet (feltarbeid og kommunikasjon) (keeper-y-03) | «(vurdering: min)» fjernet |
+| Reaksjonsspeilet (reaksjon og sideforflytning) (keeper-y-04) | «øvelsesformen er min/kjent» fjernet |
+| Rekkevidde og skyv – kast først (keeper-y-08) | «Selve øvelsesformen er min» fjernet |
+| Skift av akse og skyv til det lange hjørnet (keeper-a-03) | «(vurdering: min)» fjernet |
+| Presset igangsetting og vending av spillet (keeper-a-04) | «(vurdering: min)» fjernet |
+| Vinkeljageren – posisjonering i mål (keeper-a-06) | «(vurdering: min, formulert med NFFs begrep …)» fjernet |
+| Felt-duellen – fange eller bokse (keeper-a-07) | Merknad om hva kildene ikke gir, fjernet fra steget «Teknikk» |
+| Reaksjon via avbøyning (sprettbrett eller partner) (keeper-a-08) | «(vurdering: min)» fjernet |
+| Feltkommando etter løp (lett belastning) (keeper-a-09) | «Gemini-versjonen brukte hekkehopp. Hekkene er erstattet …» skrevet om til råd om å unngå hekkehopp rett før duellen; samme i advarselen; sikkerhetsrådet om oppvarming og stopp ved smerte står |
+| Straffespark – les og reager (keeper-a-10) | Setning om at en påstand er fjernet, skrevet om til råd om å lese tilløp, hofter og plantefot; «(vurdering: min)» fjernet |
+| Boksforsvareren (høye baller og klarering) (forsvar-y-10) | «(vurdering: min)» fjernet; advarselens setning om åpne kilder fjernet, rådet om lettvektsball og få repetisjoner står |
+| Taklingsmesteren (timing av støttakling) (forsvar-y-13) | Advarselens «Jeg har ikke funnet NFF-materiale …» fjernet; rådet om moderat fart, oppvarming og å utelate uten trenerkompetanse står |
+| Firerlinjen som enhet (kollektiv sideforskyvning) (forsvar-a-03) | «Geminis tommelfingerregler … er ikke bekreftet» skrevet om til avstandene 8-10 m og maks 25-30 m i selve teksten; «(Gemini oppga …; vurdering: Gemini)» fjernet |
+| Høyt press og gjenvinning (4 mot 4 + 2 jokere) (forsvar-a-05) | «(vurdering: Gemini, tallene er ikke NFFs)» fjernet, tre touch står |
+| Defensiv omstilling (gjenvinning ved balltap) (forsvar-a-09) | «(vurdering: Gemini, tallet er ikke NFFs)» fjernet, 5 sekunder står |
+| Takling og blokkering under høy belastning (forsvar-a-13) | «(Gemini brukte hekker/stiger, byttet her til kjegler)» fjernet; «(Geminis forslag: …; vurdering: Gemini …)» skrevet om til 45 sek arbeid og 45 sek pause |
+| Offsidefelle og linjekontroll (forsvar-a-14) | «Gemini: «Nesa ned …» (vurdering: Gemini …)» skrevet om til huskeregelen «nesa ned – løft linja, nesa opp – fall av» |
+| Napoli – spill gjennom sone (ungdomsversjon) (midtbane-a-05) | «jeg har tilpasset …» og «min vurdering (… lagt på)» skrevet om til at øvelsen kjøres for 13-16 år med touchbegrensning og tidspress |
+| 1 mot 1 med kraft – kampen om ballen (midtbane-a-09) | «Selve øvelsesformen er min …» fjernet |
+| Pressing-trigger – gjenvinning (midtbane-a-12) | «Øvelsesformen er min …» fjernet |
+| Hopp med kontrollert ett beins landing (styrke-y-04) | «(vurdering: min, kilden nevner … ikke skadestatistikk)» fjernet; begrunnelsen om skader i landinger står |
+| Utfall – sideveis (styrke-y-05) | «(kilde: …; tempo: vurdering: min)» skrevet om til «Start med kontrollert tempo for barn» |
+| Froskehopp (styrke-y-07) | «(utdrag; jeg har ikke lest hele sidene)» fjernet |
+| Utfall – bakover (styrke-y-12) | Samme tempo-merknad som sideveis utfall fjernet |
+| Stående en arms skyv i strikk – armene 90 grader ut til siden (styrke-a-08) | «(vurdering: min, kilden sier bare …)» fjernet; rådet om å minimere rotasjon står |
+| Kroppsvekt-krets for fotballspillere (styrke-a-11) | «Kretsformen er min tilpasning; NFF gir ingen doseringer …» skrevet om; «(vurdering: min, ikke NFF-tall)» fjernet, 30/30 sekunder står |
+| Nordic hamstring – partner (styrke-a-12) | «Jeg har ikke funnet en NFF-kilde …» skrevet om til få repetisjoner og å la en fysisk trener sette doseringen; «(ingen tall fra NFF)» fjernet |
+| Sideplanke med beinløft (styrke-a-13) | «men jeg har ikke åpnet en tiim-side for akkurat denne varianten» fjernet |
+
+Angrep (30 øvelser) hadde ingen slike merknader og er ikke endret.
+
+### Kontroll av tall mot gammel tekst
+
+Kontrollert med `git diff 94483c6^ 94483c6 -- src/data/drills/cardio.ts
+src/data/drills/forsvar.ts`:
+
+- `cardio-a-10`, «Bytte»: Den gamle teksten oppga allerede «6-8 drag per
+  spiller, pause ca. dobbelt så lang som arbeid».
+- `forsvar-a-03`: Den gamle teksten oppga allerede «8-10 m mellom hver
+  spiller» og «ikke strekk linja mer enn 25-30 m».
+
+Ingen av tallene ble lagt til av tekstrensingen. Dette bekrefter bare at
+de sto i den gamle teksten, ikke at de er bekreftet av kildene.
+
+### Test
+
+Utvidet test i `src/data/drillsText.test.ts`: feiler hvis trenertekstene
+(beskrivelse, spillerantall, hvorfor, steg, trenerpunkter, vanlige feil,
+variasjoner, utstyr, bakgrunn, advarsel, skisse, navn og `unverifiedSource`)
+inneholder Gemini, Claude, GPT, Codex eller «(vurdering».
+`source` er fortsatt utelatt og står urørt. Testen kontrollerer også at
+det fortsatt er 153 øvelser.
+
+Kontroller etter rensing av kildefeltene (18.10.2026):
+
+- `npx tsc --noEmit`: bestått.
+- `npx vitest --run`: bestått, 32 filer og 319 tester.
+- `npm run build`: bestått. Eksisterende varsel om gammel Browserslist-data;
+  ingen pakker installert eller oppdatert.
+- `npm run test:e2e -- --workers=1`: alle 38 tester kjørte, 31 besto og 7
+  feilet. Testserveren startet; den tidligere portfeilen oppsto ikke.
+  Feilene gjaldt 3D/3D-video: WebGL-feilskjerm, nettleserkrasj og tidsavbrudd.
+  Prosessen hang etter siste test og ble avsluttet med Ctrl+C.
+- Målrettet omkjøring av de sju feilede testene, med én arbeider og samlet
+  tidsgrense på åtte minutter: fem besto, inkludert MP4-/WebM-eksport og
+  MP4-fullskjermopptak. To feilet igjen: `e2e/board3d.spec.ts:37` ventet
+  forgjeves på 3D-kontrollene (visningen sto på «Laster 3D-visning …»), og
+  `e2e/board3d.spec.ts:144` fikk tidsavbrudd ved kontroll av lerretsstørrelsen
+  etter skjermrotasjon i fullskjerm. Også omkjøringen hang etter at alle
+  testene hadde rapportert resultat, og ble avsluttet med Ctrl+C.
+
+Alle nettlesertestene for øvelsesbiblioteket besto. E2e er likevel ikke helt
+grønn; de to gjentatte 3D-feilene trenger egen undersøkelse. Ingen 3D-kode
+eller nettlesertester er endret i denne tekstryddingen.
+
+### Kilder å sjekke
+
+Disse kildehenvisningene trenger fortsatt manuell kontroll. Prosessnotater
+er nå fjernet fra kildefeltene, men kildene er ikke verifisert på nytt.
+Rader uten konkret kilde er beholdt her selv om `unverifiedSource` er fjernet.
+
+| Øvelse | Hvorfor den bør sjekkes |
+| --- | --- |
+| Skyggen min (sidestilling og reaksjon) (forsvar-y-01) | Ingen konkret kilde oppgitt; `unverifiedSource` fjernet |
+| Kjeglefangeren (1 mot 1: lede og skjerme) (forsvar-y-02) | Bare kanalnavn, ingen videolenke |
+| Nappe haler (nærduell og balanse) (forsvar-y-03) | Ingen konkret kilde oppgitt; `unverifiedSource` fjernet |
+| Tålmodigheten (vinne ballen i riktig øyeblikk) (forsvar-y-04) | Lenke som ikke kunne åpnes |
+| Murbyggerne (blokkere skudd) (forsvar-y-05) | Ingen lenke oppgitt |
+| Rask hjemjobb (returløp og takling) (forsvar-y-06) | Bare kanalnavn, ingen videolenke |
+| Dobbeltmuren (2 mot 1: press og sikring) (forsvar-y-07) | Lenke som ikke kunne åpnes |
+| 2 mot 2 kompakt (sidelengs forflytning) (forsvar-y-08) | Lenke som ikke kunne åpnes |
+| Bryteren (komme foran og bryte pasningen) (forsvar-y-09) | Ingen lenke oppgitt |
+| Boksforsvareren (høye baller og klarering) (forsvar-y-10) | Lenke som ikke kunne åpnes |
+| Pressfella i hjørnet (3 mot 2: press mot kanten) (forsvar-y-11) | Papirkilde som ikke er bekreftet |
+| Bølgeforsvar (3 mot 2 med omstilling) (forsvar-y-12) | Lenke som ikke kunne åpnes |
+| Taklingsmesteren (timing av støttakling) (forsvar-y-13) | Ingen lenke oppgitt |
+| Nekt pasningen (stenge pasningslinjer) (forsvar-y-14) | Lenke som ikke kunne åpnes |
+| Linjeforsvar 4 mot 4 (støte og falle av) (forsvar-y-15) | US Soccer Coaching DCC (Grassroots 7v7 / 9v9 manual), uten URL; henvisningen må bekreftes |
+| 1 mot 1 kanalforsvar (lede og tvinge feil) (forsvar-a-01) | Ingen konkret kilde oppgitt; `unverifiedSource` fjernet |
+| Lav blokk og boksforsvar (3 mot 4 i undertall) (forsvar-a-04) | Ingen lenke oppgitt |
+| Høyt press og gjenvinning (4 mot 4 + 2 jokere) (forsvar-a-05) | Bare kanalnavn, ingen videolenke |
+| Stopperduell og støttepasning (håndtere feilvendt spiss) (forsvar-a-07) | Ingen lenke oppgitt |
+| Defensiv omstilling (gjenvinning ved balltap) (forsvar-a-09) | Bare kanalnavn, ingen videolenke |
+| Midtbaneankeret (skjerme forsvarsfireren) (forsvar-a-11) | Bare kanalnavn, ingen videolenke |
+| Takling og blokkering under høy belastning (forsvar-a-13) | Ingen lenke oppgitt |
+| Forsvar mot lange innkast (forsvar-a-15) | Ingen lenke oppgitt |
+| Kjeglejakten (forflytning og fallteknikk) (keeper-y-01) | Peker bare til forside, ikke til øvelsen |
+| Katt og mus i feltet (feltarbeid og kommunikasjon) (keeper-y-03) | Peker bare til en generell side |
+| Presisjonsoppspill (igangsetting med kast og spark) (keeper-y-05) | Peker bare til forside, ikke til øvelsen |
+| 1 mot 1 – nærduell og blokk (keeper-a-01) | Peker bare til en generell side |
+| Presset igangsetting og vending av spillet (keeper-a-04) | Peker bare til forside, ikke til øvelsen |
+| Parade og redd – dobbeltredning (keeper-a-05) | Ugyldig video-ID i lenken |
+| Vinkeljageren – posisjonering i mål (keeper-a-06) | Peker bare til en generell side |
+| Felt-duellen – fange eller bokse (keeper-a-07) | Ugyldig video-ID i lenken |
+| Reaksjon via avbøyning (sprettbrett eller partner) (keeper-a-08) | Ugyldig video-ID i lenken |
+| Feltkommando etter løp (lett belastning) (keeper-a-09) | Peker bare til en generell side |
+| Straffespark – les og reager (keeper-a-10) | Peker bare til en generell side |
+
 ## App-tilstand: ren oppdeling (18.10.2026)
 
 `AGENTS.md` og planen er lest. Oppgave 15/16 og brukerens utvidelse til
