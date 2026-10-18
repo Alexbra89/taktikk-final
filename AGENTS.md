@@ -76,3 +76,31 @@ Kontroller: `e2e/training.spec.ts` dekker oppretting, øvelser/advarsel, notat,
 fremmøte/navneliste, taktikk, rekkefølge, stoppeklokke, fullført, deling,
 sletting og omlasting på desktop og mobil (390 × 844).
 `src/lib/backup.test.ts` dekker også lagrede treningsdata.
+
+# Kart over app-tilstanden
+
+`src/store/useAppStore.ts` er fortsatt offentlig inngang med samme `useAppStore`,
+`AppStore` og reparasjons-/backup-eksporter. Den setter sammen Zustand-slices
+under ett felles `persist`, med uendret nøkkel `taktikkboard-storage`, versjon 2,
+migrering, merge, partialize og fanesynkronisering. Ingen komponentimporter er endret.
+
+| Fil i `src/store/` | Ansvar |
+| --- | --- |
+| `types.ts` | Det uendrede `AppStore`-grensesnittet og intern slice-type. |
+| `tacticsSlice.ts` | Taktikker, sport/formasjon, faser, spillere, ball, tegninger og utstyr. |
+| `tacticModel.ts` | Rene hjelpere for taktikker, faser, spillerplasser og utstyr. |
+| `calendarSlice.ts` | Kalender, trenings-/kampnotater, egne øvelser og fremmøtenavneliste. |
+| `reportsSlice.ts` | Kamptid og kamprapporter. |
+| `reportText.ts` | Rapporttekst og kategorinavn. |
+| `momentsSlice.ts` | Lagrede øyeblikksbilder av en taktikkfase. |
+| `backupSlice.ts` | Kontroll, eksport/import av store-data og enhetens eksporttidspunkt. |
+| `repair.ts` | Reparasjon av lagrede data og den eksisterende v1-migreringen. |
+| `id.ts` | Den eksisterende lokale id-generatoren. |
+
+`src/lib/backup.ts` beholder sikkerhetskopiens konvolutt, format og versjon 1.
+Eksisterende tester i `useAppStore.test.ts`, `tabSync.test.ts`, `selectors.test.ts`
+og `src/lib/backup.test.ts` er beholdt. `storageCompatibility.test.ts` bruker
+`src/lib/__fixtures__/backup-v1.json` og faste SHA-256-resultater registrert før
+oppdelingen: lokal lagringsversjon 0/1/2 og sikkerhetskopiversjon 0/1, inkludert
+ekte innlasting, ny lagring, import og ny eksport. Nettleserkontroller:
+`e2e/backup.spec.ts`, den fulle e2e-pakken og `npm run test:offline`.
