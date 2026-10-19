@@ -19,6 +19,8 @@ import { CameraRig, type CameraView, type CameraState, type CameraPose } from '.
 
 export type { CameraView, CameraState, CameraPose } from './cameraRig';
 export interface SceneFrame {
+  /** Optional fixed exercise crop in world metres. Ordinary boards fit the full pitch. */
+  cameraBounds?: { minX: number; maxX: number; minZ: number; maxZ: number };
   players: StagePlayer[];
   ball: Position;
   items: BoardItem[];

@@ -2,11 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, X } from 'lucide-react';
-import { VW, VH } from '@/data/formations';
 import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
 import { Board3DSlot } from '@/components/board/Board3DSlot';
 import { SvgDefs } from '@/components/board/svg/SvgDefs';
-import { PITCH_BOX } from '@/components/board/constants';
 import { ballArcHeight } from '@/components/board/three/coordinates';
 import { Button, IconButton } from '@/components/ui/Button';
 import { interpolatePlayers, interpolateBall } from '@/hooks/usePhasePlayback';
@@ -16,6 +14,7 @@ import { interpolateItems } from '@/lib/exportVideo';
 import { cn } from '@/lib/cn';
 import { DrillAnimationControls } from './DrillAnimationControls';
 import { useDrillPlayback } from './playback';
+import { drillFraming } from './framing';
 import styles from './DrillAnimationViewer.module.css';
 import { feedbackMailto } from './feedback';
 import { useReducedMotion } from './useReducedMotion';
@@ -66,6 +65,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   const [canFullscreen] = useState(() => !!(document.fullscreenEnabled || (document as WebkitDocument).webkitFullscreenEnabled));
 
   const phases = animation.phases;
+  const framing = useMemo(() => drillFraming(animation), [animation]);
   const { isPlaying, moving, shown, from, interpT, select, togglePlay } = useDrillPlayback(phases, speed, reducedMotion);
   const phase = phases[shown];
   const local = phases[from];
@@ -171,17 +171,21 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
           {view === '2d' ? (
             <div className="flex-1 min-w-0 min-h-0 p-1 overflow-hidden">
               <div className="w-full h-full flex flex-col">
-                <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet" role="img"
-                  aria-label={`Bane i 2D. ${phase.name}.`} style={PITCH_BOX}>
+                <svg data-testid="drill-animation-pitch" viewBox={framing.viewBox} preserveAspectRatio="xMidYMid meet" role="img"
+                  aria-label={`Bane i 2D. ${phase.name}.`} style={{ display: 'block', width: '100%', height: '100%', minHeight: 0 }}>
                   <SvgDefs />
-                  <BoardStage players={stagePlayers} playerStyle={playerStyle} ball={ball}
-                    drawings={local.drawings ?? []} items={items} progress={progress} />
+                  <defs><clipPath id="drill-animation-crop"><rect {...framing.board} /></clipPath></defs>
+                  <g clipPath="url(#drill-animation-crop)">
+                    <BoardStage players={stagePlayers} playerStyle={playerStyle} ball={ball}
+                      drawings={local.drawings ?? []} items={items} />
+                  </g>
                 </svg>
               </div>
             </div>
           ) : (
             <Board3DSlot onSwitchTo2D={() => setView('2d')}
               tactic={tactic} players={stagePlayers} ball={ball} drawings={local.drawings ?? []}
+              cameraBounds={framing.bounds} playerRoles={animation.cast}
               items={items} playerStyle={playerStyle} isPlaying={isPlaying} speed={speed}
               teamName="Øvelse" isMobile={isMobile}
               onSelectPhase={select} onTogglePlay={togglePlay} onSpeed={setSpeed}

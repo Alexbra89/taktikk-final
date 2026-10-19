@@ -26,6 +26,10 @@
   flex-shrink: 0;
 }
 
+.pitch [data-player] > text {
+  font-size: 12px;
+}
+
 /* Telefon på tvers: teksten ved siden av banen gir begge plass. */
 @media (max-height: 500px) and (min-width: 640px) {
   .content {

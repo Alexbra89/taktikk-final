@@ -13,8 +13,11 @@ import { getSlot, SPORT_LABELS } from '@/store/selectors';
 import { ROLE_INFO } from '@/data/roleInfo';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import type { Tactic } from '@/types';
+import type { StagePlayer } from './BoardStage';
 
 interface Props extends SceneFrame {
+  /** Explicit drill roles, also used by the existing video exporter. */
+  playerRoles?: Record<string, Pick<StagePlayer, 'label' | 'family'>>;
   tactic: Tactic;
   playerStyle: PlayerStyle;
   isPlaying: boolean;
@@ -119,7 +122,7 @@ export default function Board3D(props: Props) {
     element.appendChild(board.renderer.domElement);
     // Redrawn at once: resizing clears the canvas, and on phones the next frame can be 30 ms away
     // (entering fullscreen, rotating the phone).
-    const resize = () => { board.resize(element.clientWidth, element.clientHeight); board.render(0); };
+    const resize = () => { board.resize(element.clientWidth, element.clientHeight); board.render(0, !!latest.current.cameraBounds); };
     const observer = new ResizeObserver(resize); observer.observe(element); resize();
     board.setFrame(sceneFrame(latest.current), false); board.render(0, true);
     board.setDrawings(latest.current.drawings, latest.current.trails).catch(() => setError('Tegningene kunne ikke lastes i 3D. Prøv å åpne 3D på nytt.'));
@@ -295,10 +298,12 @@ export default function Board3D(props: Props) {
         const f = playbackFrame(snapshot.phases, elapsed, speed);
         const drawings = snapshot.phases[f.fromIdx].drawings ?? [];
         const frame: SceneFrame = { ...f, drawings, phaseName: snapshot.phases[f.fromIdx].name || `Fase ${f.fromIdx + 1}`, stickyNote: snapshot.phases[f.fromIdx].stickyNote,
+          cameraBounds: props.cameraBounds,
           progress: snapshot.phases.length > 1 ? Math.min(1, elapsed * speed / ((snapshot.phases.length - 1) * VIDEO_PHASE_MS)) : null,
           ballHeight: playbackBallHeight(snapshot.phases, elapsed, speed, snapshot.sport), players: f.players.map(p => ({
           id: p.id, num: p.num, name: p.name.trim(), position: p.position,
-          label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
+          label: props.playerRoles ? props.playerRoles[p.id]?.label ?? '' : getSlot(snapshot, p.slotIdx).label,
+          family: props.playerRoles ? props.playerRoles[p.id]?.family ?? 'mid' : ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
         })) };
         return { frame, drawings, phase: f.fromIdx };
       };
@@ -393,7 +398,7 @@ export default function Board3D(props: Props) {
   const pitch = PITCHES[props.tactic.sport];
   const playerSelect = (className: string) => <select aria-label="Velg spillerperspektiv" value={selectedId}
     onChange={e => setPlayerId(e.target.value)} className={className}>
-    {props.players.map(p => <option key={p.id} value={p.id}>{p.num}{p.num === 1 ? ' · Keeper' : ''}{p.name ? ` · ${p.name}` : ''}</option>)}
+    {props.players.map(p => <option key={p.id} value={p.id}>{p.num}{props.playerRoles ? (p.label ? ` · ${p.label}` : '') : p.num === 1 ? ' · Keeper' : ''}{p.name ? ` · ${p.name}` : ''}</option>)}
   </select>;
   return (
     <section aria-label="3D-visning" className="flex flex-col flex-1 min-w-0 bg-canvas" style={{ minHeight: 360 }}>
@@ -470,7 +475,9 @@ export default function Board3D(props: Props) {
           <p className="text-caption text-ink-muted">{lowPower
             ? 'Én finger: roter · To fingre: flytt kameraet og klyp for å zoome · ↺ tilbakestiller'
             : 'Dra: roter · Høyreklikk og dra (eller Shift + dra): flytt kameraet · Rull: zoom · ↺ tilbakestiller'}</p>
-          <p className="font-mono text-meta text-ink-subtle">{SPORT_LABELS[props.tactic.sport]} · {pitch.length} × {pitch.width} m · Rediger i 2D</p>
+          <p className="font-mono text-meta text-ink-subtle">{props.cameraBounds
+            ? `Øvelsesutsnitt · ${Math.round(props.cameraBounds.maxX - props.cameraBounds.minX)} × ${Math.round(props.cameraBounds.maxZ - props.cameraBounds.minZ)} m`
+            : `${SPORT_LABELS[props.tactic.sport]} · ${pitch.length} × ${pitch.width} m · Rediger i 2D`}</p>
         </div>
         <Button size="sm" icon={<Video size={15} />} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.tactic.phases.length < 2}
           title={props.tactic.phases.length < 2 ? 'Legg til en fase til for å lage video' : choice?.label} onClick={() => exportVideo()}>Eksporter 3D-video</Button>

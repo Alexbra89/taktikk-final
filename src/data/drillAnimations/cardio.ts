@@ -14,8 +14,8 @@ const VENDINGSSTAFETT = defineDrillAnimation({
   name: 'Vendingsstafett',
   sport: 'football5',
   cast: {
-    s1: { label: '1', family: 'mid' },
-    s2: { label: '2', family: 'mid' },
+    s1: { label: '', family: 'mid' },
+    s2: { label: '', family: 'mid' },
     k1: { label: '', family: 'mid' },
     k2: { label: '', family: 'mid' },
     k3: { label: '', family: 'mid' },
