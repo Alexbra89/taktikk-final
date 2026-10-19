@@ -1,6 +1,6 @@
 // «Ser noe feil ut?» under en animert øvelse åpner en e-post med øvelsens
 // navn ferdig utfylt. Bytt adressen her til den som skal motta meldingene.
-export const FEEDBACK_EMAIL = 'post@example.com';
+export const FEEDBACK_EMAIL = 'alex_bratland@live.no';
 
 /** mailto-lenke med emne og tekst ferdig utfylt. */
 export function feedbackMailto(drillName: string, phase: number, phaseCount: number, email = FEEDBACK_EMAIL): string {

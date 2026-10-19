@@ -13,6 +13,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3100',
     acceptDownloads: true,
+    // Nettverksavskjæring må også virke når en lokal produksjonsserver gjenbrukes.
+    // Service worker og bruk uten nett testes i playwright.offline.config.ts.
+    serviceWorkers: 'block',
   },
   projects: [
     { name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge', viewport: { width: 1400, height: 900 } } },

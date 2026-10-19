@@ -1,29 +1,44 @@
+'use client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePhasePlayback } from '@/hooks/usePhasePlayback';
 import type { TacticPhase } from '@/types';
 
-// ══════════════════════════════════════════════════════════════
-//  AVSPILLING AV EN ANIMERT ØVELSE
-//
-//  Bruker brettets egen faseklokke (usePhasePlayback) uendret. Klokka
-//  glir fra fase til fase uten opphold, så hver fase legges inn to
-//  ganger: først selve stillingen, så en kopi. Overgangen mellom dem
-//  er en pause der teksten kan leses; overgangen videre er bevegelsen.
-//  Klokkas indeks 0, 1 = fase 1 · 2, 3 = fase 2 · osv.
-// ══════════════════════════════════════════════════════════════
+/** Lesepause ved hver stilling, også før første og etter siste bevegelse. */
+export const PHASE_PAUSE_MS = 1200;
 
-/** Fasene slik klokka spiller dem: hver fase etterfulgt av en pause i samme stilling. */
-export function withPauses(phases: TacticPhase[]): TacticPhase[] {
-  return phases.flatMap(phase => [phase, { ...phase, id: `${phase.id}-pause` }]);
-}
+/** Brettets uendrede klokke spiller én ekte overgang om gangen.
+ * Mellom overgangene er klokka stoppet; ingen fasekopier interpoleres. */
+export function useDrillPlayback(phases: TacticPhase[], speed: number, reducedMotion: boolean) {
+  const [state, setState] = useState<{ index: number; mode: 'stopped' | 'hold' | 'move' }>({ index: 0, mode: 'stopped' });
+  const segment = useMemo(() => phases.slice(state.index, state.index + 2), [phases, state.index]);
+  const arrived = useCallback((index: number) => {
+    if (index === 1) setState(current => ({ index: current.index + 1, mode: 'hold' }));
+  }, []);
+  const { isPlaying: clockRunning, interpT, startPlayback, stopPlayback } = usePhasePlayback(segment, speed, arrived);
 
-/** Klokkas indeks for starten av en fase. */
-export const clockIndexOf = (phaseIdx: number) => phaseIdx * 2;
+  useEffect(() => {
+    if (state.mode === 'move') {
+      startPlayback();
+      return stopPlayback;
+    }
+    if (state.mode === 'hold') {
+      const timer = setTimeout(() => setState(current => ({
+        ...current, mode: current.index === phases.length - 1 ? 'stopped' : 'move',
+      })), PHASE_PAUSE_MS / speed);
+      return () => clearTimeout(timer);
+    }
+  }, [state, phases.length, speed, startPlayback, stopPlayback]);
 
-/**
- * Fasen som vises nå. Under en bevegelse er det fasen spillerne er på vei
- * til, så teksten forklarer det som skjer. Uten glidning (redusert
- * bevegelse) står spillerne i klokkas fase til de hopper videre.
- */
-export function shownPhase(clockIdx: number, interpFrom: number, interpT: number, gliding: boolean): number {
-  const step = gliding && interpT > 0 ? interpFrom + 1 : clockIdx;
-  return Math.floor(step / 2);
+  const isPlaying = state.mode !== 'stopped';
+  const moving = state.mode === 'move' && clockRunning && !reducedMotion;
+  const shown = state.index + (moving && interpT > 0 ? 1 : 0);
+  const select = (index: number) => {
+    stopPlayback();
+    setState({ index: Math.max(0, Math.min(phases.length - 1, index)), mode: 'stopped' });
+  };
+  const togglePlay = () => {
+    if (isPlaying) { select(shown); return; }
+    setState({ index: shown === phases.length - 1 ? 0 : shown, mode: 'hold' });
+  };
+  return { isPlaying, moving, shown, from: state.index, interpT: moving ? interpT : 0, select, togglePlay };
 }

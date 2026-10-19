@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { VW, VH } from '@/data/formations';
@@ -9,13 +9,14 @@ import { SvgDefs } from '@/components/board/svg/SvgDefs';
 import { PITCH_BOX } from '@/components/board/constants';
 import { ballArcHeight } from '@/components/board/three/coordinates';
 import { Button, IconButton } from '@/components/ui/Button';
-import { usePhasePlayback, interpolatePlayers, interpolateBall } from '@/hooks/usePhasePlayback';
+import { interpolatePlayers, interpolateBall } from '@/hooks/usePhasePlayback';
 import { usePlayerStyle } from '@/hooks/usePlayerStyle';
 import { useViewport } from '@/hooks/useViewport';
 import { interpolateItems } from '@/lib/exportVideo';
 import { cn } from '@/lib/cn';
 import { DrillAnimationControls } from './DrillAnimationControls';
-import { clockIndexOf, shownPhase, withPauses } from './playback';
+import { useDrillPlayback } from './playback';
+import styles from './DrillAnimationViewer.module.css';
 import { feedbackMailto } from './feedback';
 import { useReducedMotion } from './useReducedMotion';
 import type { DrillAnimation } from './types';
@@ -57,7 +58,6 @@ interface Props {
 export default function DrillAnimationViewer({ animation, drillName, onClose }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
-  const gliding = !reducedMotion;
   const { isMobile } = useViewport();
   const [playerStyle] = usePlayerStyle();
   const [view, setView] = useState<'2d' | '3d'>('2d');
@@ -65,42 +65,18 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   const [fullscreen, setFullscreen] = useState(false);
   const [canFullscreen] = useState(() => !!(document.fullscreenEnabled || (document as WebkitDocument).webkitFullscreenEnabled));
 
-  // Klokka spiller fra `offset` (starten av en fase), så «Spill av» fortsetter
-  // fra fasen som vises. clockIdx er klokkas indeks i hele lista.
-  const allClockPhases = useMemo(() => withPauses(animation.phases), [animation]);
-  const [offset, setOffset] = useState(0);
-  const [clockIdx, setClockIdx] = useState(0);
-  const clockPhases = useMemo(() => allClockPhases.slice(offset), [allClockPhases, offset]);
-  const setFromClock = useCallback((idx: number) => setClockIdx(offset + idx), [offset]);
-  const { isPlaying, interpFrom, interpT, startPlayback, stopPlayback } = usePhasePlayback(clockPhases, speed, setFromClock);
-
-  // Start etter at klokka har fått de nye fasene (offset settes i samme klikk).
-  const [playRequest, setPlayRequest] = useState(0);
-  const handledRequest = useRef(0);
-  useEffect(() => {
-    if (playRequest === handledRequest.current) return;
-    handledRequest.current = playRequest;
-    startPlayback();
-  }, [playRequest, startPlayback]);
-
   const phases = animation.phases;
-  const last = phases.length - 1;
-  const glide = isPlaying && gliding;
-  const from = offset + interpFrom;
-  const shown = Math.min(last, shownPhase(clockIdx, from, interpT, glide));
+  const { isPlaying, moving, shown, from, interpT, select, togglePlay } = useDrillPlayback(phases, speed, reducedMotion);
   const phase = phases[shown];
-  // Bevegelse pågår: overgangen fra en pause til neste fase (oddetall i klokka).
-  const moving = glide && interpT > 0 && from % 2 === 1;
-
-  const local = clockPhases[clockIdx - offset] ?? allClockPhases[clockIdx] ?? phases[0];
-  const players = interpolatePlayers(local, clockPhases, interpFrom, interpT, glide);
-  const ball = interpolateBall(local, clockPhases, interpFrom, interpT, glide);
-  const items = glide && interpT > 0
-    ? interpolateItems(clockPhases[interpFrom]?.items, clockPhases[interpFrom + 1]?.items, interpT)
+  const local = phases[from];
+  const players = interpolatePlayers(local, phases, from, interpT, moving);
+  const ball = interpolateBall(local, phases, from, interpT, moving);
+  const items = moving && interpT > 0
+    ? interpolateItems(phases[from]?.items, phases[from + 1]?.items, interpT)
     : local.items ?? [];
-  const progress = isPlaying && allClockPhases.length > 1 ? (from + (glide ? interpT : 0)) / (allClockPhases.length - 1) : null;
-  const ballHeight = moving && allClockPhases[from + 1]
-    ? ballArcHeight(allClockPhases[from].ball, allClockPhases[from + 1].ball, interpT, animation.sport) : 0;
+  const progress = isPlaying ? (from + interpT) / (phases.length - 1) : null;
+  const ballHeight = moving && phases[from + 1]
+    ? ballArcHeight(phases[from].ball, phases[from + 1].ball, interpT, animation.sport) : 0;
 
   const stagePlayers: StagePlayer[] = players.map(p => ({
     id: p.id, num: p.num, position: p.position, name: '',
@@ -108,20 +84,6 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   }));
   // 3D viser fasens navn og tekst i pillen; fasen er den som vises nå.
   const tactic = useMemo(() => ({ ...animation, activePhaseIdx: shown }), [animation, shown]);
-
-  const select = (index: number) => {
-    stopPlayback();
-    const next = Math.max(0, Math.min(last, index));
-    setOffset(clockIndexOf(next));
-    setClockIdx(clockIndexOf(next));
-  };
-  const togglePlay = () => {
-    // Pause midt i en bevegelse: stå i fasen teksten forklarer.
-    if (isPlaying) { select(shown); return; }
-    // Fra siste fase starter avspillingen forfra.
-    setOffset(shown === last ? 0 : clockIndexOf(shown));
-    setPlayRequest(n => n + 1);
-  };
 
   // Escape lukker. 3D-fullskjermen tar Escape selv først (preventDefault).
   // Tab og Shift+Tab går rundt inne i dialogen.
@@ -171,7 +133,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
       return;
     }
     const element = rootRef.current as WebkitElement | null;
-    const request = element?.requestFullscreen ?? element?.webkitRequestFullscreen;
+    const request = (element?.requestFullscreen ?? element?.webkitRequestFullscreen) as (() => Promise<void> | void) | undefined;
     try { Promise.resolve(request?.call(element)).catch(() => {}); } catch { /* ikke støttet */ }
   };
 
@@ -204,15 +166,19 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
         </IconButton>
       </header>
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
-        <div className={cn('relative flex flex-col', view === '2d' ? 'flex-1 min-h-[180px] p-1' : 'flex-1')}>
+      <div className={styles.content}>
+        <div className={styles.pitch}>
           {view === '2d' ? (
-            <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet" role="img"
-              aria-label={`Bane i 2D. ${phase.name}.`} style={PITCH_BOX}>
-              <SvgDefs />
-              <BoardStage players={stagePlayers} playerStyle={playerStyle} ball={ball}
-                drawings={local.drawings ?? []} items={items} progress={progress} />
-            </svg>
+            <div className="flex-1 min-w-0 min-h-0 p-1 overflow-hidden">
+              <div className="w-full h-full flex flex-col">
+                <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet" role="img"
+                  aria-label={`Bane i 2D. ${phase.name}.`} style={PITCH_BOX}>
+                  <SvgDefs />
+                  <BoardStage players={stagePlayers} playerStyle={playerStyle} ball={ball}
+                    drawings={local.drawings ?? []} items={items} progress={progress} />
+                </svg>
+              </div>
+            </div>
           ) : (
             <Board3DSlot onSwitchTo2D={() => setView('2d')}
               tactic={tactic} players={stagePlayers} ball={ball} drawings={local.drawings ?? []}
@@ -229,12 +195,18 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
           )}
         </div>
 
-        <div className="flex-shrink-0 border-t border-rule bg-canvas-sunken px-4 pt-3 pb-2 space-y-3 sheet-safe sm:pb-3">
+        <div className={cn(styles.notes, 'border-t border-rule bg-canvas-sunken px-4 pt-3 pb-2 space-y-3 sheet-safe sm:pb-3')}>
           <div className="min-h-[3.25rem] text-center">
-            <p className="font-mono text-meta text-ink-subtle">Fase {shown + 1} av {phases.length} · {phase.name}</p>
-            <p data-testid="drill-animation-text" aria-live="polite" className="text-body text-ink mt-0.5">
-              {phase.text}{phase.highlight ? ` ${phase.highlight}` : ''}
-            </p>
+            <p className="font-mono text-meta text-ink-subtle truncate">Fase {shown + 1} av {phases.length} · {phase.name}</p>
+            {/* Mål alle tekstene i samme rute, så banen står stille når teksten byttes. */}
+            <div className="grid mt-0.5">
+              {phases.map(p => <p key={p.id} aria-hidden="true" className="invisible col-start-1 row-start-1 text-body">
+                {p.text}{p.highlight ? ` ${p.highlight}` : ''}
+              </p>)}
+              <p data-testid="drill-animation-text" aria-live="polite" className="col-start-1 row-start-1 text-body text-ink">
+                {phase.text}{phase.highlight ? ` ${phase.highlight}` : ''}
+              </p>
+            </div>
           </div>
           <DrillAnimationControls phaseNames={phases.map(p => p.name)} shown={shown} isPlaying={isPlaying}
             speed={speed} onTogglePlay={togglePlay} onSelect={select} onSpeed={setSpeed} />

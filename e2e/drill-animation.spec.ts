@@ -1,8 +1,8 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 
 // Animert øvelse: «Se animert» i øvelsesbiblioteket, avspilling i 2D og 3D,
 // faseteksten under banen, «reduser bevegelse», mobil og fullskjerm.
-test.use({ serviceWorkers: 'block' });
+test.use({ serviceWorkers: 'block', reducedMotion: 'no-preference' });
 
 const FASE_1 = /^Pasningsleggeren står 12–15 m unna/;
 const FASE_2 = /^Angriperen gjør et lite møteløp/;
@@ -10,17 +10,18 @@ const FASE_3 = /^Forsvareren leser pasningen/;
 const FASE_4 = /^Pasningen slås/;
 const FASE_5 = /^Forsvareren fører ballen ut av sonen/;
 
-async function openBryteren(page: Page) {
+async function openAnimation(page: Page, search: string, age = 'Barn') {
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Øvelser', exact: true }).click();
-  await page.getByRole('button', { name: 'Barn', exact: true }).click();
-  await page.getByPlaceholder('Søk etter øvelse…').fill('Bryteren');
-  await page.getByRole('heading', { level: 3, name: /Bryteren/ }).click();
+  await page.getByRole('button', { name: age, exact: true }).click();
+  await page.getByPlaceholder('Søk etter øvelse…').fill(search);
+  await page.getByRole('heading', { level: 3, name: new RegExp(search) }).click();
   await page.getByRole('button', { name: 'Se animert', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Animert øvelse: Bryteren (komme foran og bryte pasningen)' });
+  const dialog = page.getByRole('dialog', { name: /^Animert øvelse:/ });
   await expect(dialog).toBeVisible();
   return dialog;
 }
+const openBryteren = (page: Page) => openAnimation(page, 'Bryteren');
 const storage = (page: Page) => page.evaluate(() => localStorage.getItem('taktikkboard-storage'));
 
 test('spiller av, bytter til 3D, og teksten følger fasen', async ({ page }) => {
@@ -31,7 +32,7 @@ test('spiller av, bytter til 3D, og teksten følger fasen', async ({ page }) => 
   await expect(text).toHaveText(FASE_1);
   await expect(dialog.getByText('Illustrasjon laget ut fra øvelsesteksten', { exact: false })).toBeVisible();
   const href = await dialog.getByRole('link', { name: 'Ser noe feil ut?', exact: true }).getAttribute('href');
-  expect(href).toMatch(/^mailto:/);
+  expect(href).toMatch(/^mailto:alex_bratland@live\.no\?/);
   expect(decodeURIComponent(href!)).toContain('Feil i animert øvelse: Bryteren (komme foran og bryte pasningen)');
 
   // 2D: avspillingen går videre, og teksten byttes med fasen.
@@ -141,4 +142,155 @@ test('bare øvelser med animasjon har knappen', async ({ page }) => {
   await page.getByRole('heading', { level: 3, name: /Kjeglejakten/ }).click();
   await expect(page.getByRole('heading', { level: 1, name: /Kjeglejakten/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Se animert', exact: true })).toHaveCount(0);
+});
+
+const viewports = [
+  { name: 'PC', width: 1400, height: 900 },
+  { name: 'mobil stående', width: 390, height: 844 },
+  { name: 'mobil liggende', width: 844, height: 390 },
+];
+const animations = [
+  { search: 'Bryteren', player: 1 },
+  { search: 'Murbyggerne', player: 0 },
+  { search: 'Pasning til mål', player: 0 },
+  { search: 'Vendespill', player: 3, age: 'Voksne' },
+  { search: 'Vendingsstafett', player: 0 },
+];
+
+/** Mål selve banens hjørner, ikke bare om deler av SVG-en er synlige. */
+async function sampleMotion(dialog: Locator, playerIndex: number) {
+  return dialog.evaluate(async (root, index) => {
+    const svg = root.querySelector<SVGSVGElement>('svg[viewBox="0 0 880 560"]')!;
+    const player = svg.querySelectorAll('[data-player]')[index];
+    const readPosition = () => {
+      const kit = player.querySelector<SVGGElement>('g[transform]');
+      if (kit) {
+        const matrix = kit.transform.baseVal.consolidate()!.matrix;
+        return { x: matrix.e, y: matrix.f };
+      }
+      const circle = player.querySelector<SVGCircleElement>('circle')!;
+      return { x: circle.cx.baseVal.value, y: circle.cy.baseVal.value };
+    };
+    const frames = [];
+    const start = performance.now();
+    do {
+      const matrix = svg.getScreenCTM()!;
+      const corners = [[0, 0], [880, 560]].map(([x, y]) => new DOMPoint(x, y).matrixTransform(matrix));
+      const area = svg.parentElement!.parentElement!.getBoundingClientRect();
+      frames.push({
+        time: performance.now() - start, ...readPosition(),
+        left: corners[0].x, top: corners[0].y, right: corners[1].x, bottom: corners[1].y,
+        fits: corners[0].x >= Math.max(0, area.left) - 1 && corners[0].y >= Math.max(0, area.top) - 1
+          && corners[1].x <= Math.min(innerWidth, area.right) + 1 && corners[1].y <= Math.min(innerHeight, area.bottom) + 1,
+      });
+      await new Promise(requestAnimationFrame);
+    } while (performance.now() - start < 5400);
+    return frames;
+  }, playerIndex);
+}
+
+for (const viewport of viewports) {
+  for (const animation of animations) {
+    test(`${animation.search}: gradvis bevegelse og stabil, hel bane på ${viewport.name}`, async ({ page }, info) => {
+      const dialog = await openAnimation(page, animation.search, animation.age);
+      await page.setViewportSize(viewport);
+      const text = dialog.getByTestId('drill-animation-text');
+      await expect(text).toBeVisible();
+      // Reservetekstene skal bare måle høyde, aldri tegnes over den aktive teksten.
+      await expect(dialog.locator('p[aria-hidden="true"]').first()).toBeHidden();
+      await expect(dialog.getByRole('button', { name: 'Spill av', exact: true })).toBeInViewport();
+      await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+      const sampling = sampleMotion(dialog, animation.player);
+      await page.waitForTimeout(1800); // midt i første overgang, etter lesepausen
+      if (animation.search === 'Bryteren') {
+        await page.screenshot({ path: info.outputPath('midt-i-bevegelse.png') });
+      }
+      const frames = await sampling;
+      expect(frames.every(frame => frame.fits), 'Hele banen må være synlig i hvert bilde').toBe(true);
+      for (const edge of ['left', 'top', 'right', 'bottom'] as const) {
+        const positions = frames.map(frame => frame[edge]);
+        expect(Math.max(...positions) - Math.min(...positions), `Banens ${edge} flyttet seg ved tekstbytte`).toBeLessThan(1);
+      }
+      const initial = frames[0];
+      const arrived = frames.find(frame => frame.time > 2550)!;
+      const distance = Math.hypot(arrived.x - initial.x, arrived.y - initial.y);
+      expect(distance).toBeGreaterThan(1);
+      const between = frames.filter(frame => {
+        const moved = Math.hypot(frame.x - initial.x, frame.y - initial.y);
+        return moved > distance * 0.05 && moved < distance * 0.95;
+      });
+      expect(new Set(between.map(frame => `${frame.x},${frame.y}`)).size).toBeGreaterThanOrEqual(3);
+      // En ekte pause: samme endeposisjon gjennom minst 600 ms etter ankomst.
+      const hold = frames.filter(frame => frame.time > 2600 && frame.time < 3250);
+      expect(hold.length).toBeGreaterThan(3);
+      expect(new Set(hold.map(frame => `${frame.x},${frame.y}`)).size).toBe(1);
+      // En overgang skal gli jevnt, uten et stort hopp mellom nabobilder.
+      const firstTransition = frames.filter(frame => frame.time < 2550);
+      for (let i = 1; i < firstTransition.length; i++) {
+        const before = firstTransition[i - 1], after = firstTransition[i];
+        expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(distance * 0.3);
+      }
+      await expect(dialog.getByTestId('drill-animation-text')).toBeInViewport();
+      await expect(dialog.getByRole('button', { name: 'Pause', exact: true })).toBeInViewport();
+    });
+  }
+
+  test(`fullskjerm under avspilling får plass i 2D og 3D på ${viewport.name}`, async ({ page }, info) => {
+    const dialog = await openBryteren(page);
+    await page.setViewportSize(viewport);
+    await dialog.getByRole('button', { name: 'Fullskjerm for animasjonen', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+    await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+    const frames = await sampleMotion(dialog, 1);
+    expect(frames.every(frame => frame.fits)).toBe(true);
+    await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
+    await dialog.getByRole('button', { name: '3D', exact: true }).click();
+    const region = dialog.getByRole('region', { name: '3D-visning' });
+    await expect(region.getByRole('button', { name: 'Oversikt', exact: true })).toBeEnabled({ timeout: 45_000 });
+    await expect(region.getByText('Laster spillermodell og himmel …', { exact: true })).toHaveCount(0, { timeout: 45_000 });
+    const canvas = region.locator('[data-testid="board-3d"] canvas');
+    const checkCanvas = async () => {
+      const box = (await canvas.boundingBox())!;
+      expect(box.width).toBeGreaterThan(100);
+      expect(box.height).toBeGreaterThan(60);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+      expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+    };
+    await checkCanvas();
+    await dialog.getByRole('button', { name: /^Fase 1:/ }).click();
+    await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+    await page.waitForTimeout(1800);
+    await checkCanvas();
+    await page.screenshot({ path: info.outputPath('3d-midt-i-bevegelse.png') });
+    await dialog.getByRole('button', { name: 'Lukk fullskjerm', exact: true }).click();
+    await checkCanvas();
+    // Gjenbruk også brettets egen 3D-fullskjerm og dens avspillingskontroller.
+    await region.getByRole('button', { name: 'Fullskjerm for 3D', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: '3D-bane i fullskjerm', exact: true })).toBeVisible();
+    await checkCanvas();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: '3D-bane i fullskjerm', exact: true })).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+  });
+}
+
+test('fasevalg og pause avbryter ventetiden, og siste fase kan spilles om igjen', async ({ page }) => {
+  const dialog = await openBryteren(page);
+  await dialog.getByRole('combobox', { name: 'Fart', exact: true }).selectOption('2');
+  await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.waitForTimeout(1500);
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_1);
+  await expect(dialog.getByRole('button', { name: 'Spill av', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+  await dialog.getByRole('button', { name: /^Fase 4:/ }).click();
+  await page.waitForTimeout(1500);
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_4);
+  await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_5);
+  await expect(dialog.getByRole('button', { name: 'Spill av', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_1);
 });

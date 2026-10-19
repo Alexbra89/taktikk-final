@@ -1,0 +1,41 @@
+.content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Bare dialogens plassfordeling. BoardStage/PITCH_BOX og Board3DSlot
+   står for banen og kameratilpasningen, som på taktikkbrettet. */
+.pitch {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pitch > section,
+.pitch [data-testid='board-3d-stage'] {
+  min-height: 0 !important;
+}
+
+.notes {
+  flex-shrink: 0;
+}
+
+/* Telefon på tvers: teksten ved siden av banen gir begge plass. */
+@media (max-height: 500px) and (min-width: 640px) {
+  .content {
+    flex-direction: row;
+  }
+
+  .notes {
+    width: 34%;
+    min-width: 260px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}

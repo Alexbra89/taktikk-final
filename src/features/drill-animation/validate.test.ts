@@ -6,7 +6,7 @@ import { MIDTBANE_ANIMATIONS } from '@/data/drillAnimations/midtbane';
 import { CARDIO_ANIMATIONS } from '@/data/drillAnimations/cardio';
 import { validateDrillAnimation, ballInGoal, closestGap } from './validate';
 import { defineDrillAnimation, metresToBoard, type AnimationSpec } from './define';
-import { clockIndexOf, shownPhase, withPauses } from './playback';
+import { interpolatePlayers, interpolateBall } from '@/hooks/usePhasePlayback';
 import { feedbackMailto } from './feedback';
 import type { DrillAnimation } from './types';
 
@@ -173,21 +173,22 @@ describe('byggeren', () => {
 });
 
 describe('avspillingen', () => {
-  it('legger en pause etter hver fase', () => {
-    const phases = defineDrillAnimation(spec()).phases;
-    const clock = withPauses(phases);
-    expect(clock).toHaveLength(6);
-    expect(clock[1].players).toBe(phases[0].players);
-    expect(new Set(clock.map(p => p.id)).size).toBe(6);
-    expect(clockIndexOf(2)).toBe(4);
-  });
-
-  it('viser fasen spillerne er på vei til, og står stille uten glidning', () => {
-    expect(shownPhase(0, 0, 0.5, true)).toBe(0);  // pause i fase 1
-    expect(shownPhase(1, 1, 0.5, true)).toBe(1);  // på vei til fase 2
-    expect(shownPhase(2, 2, 0.5, true)).toBe(1);  // pause i fase 2
-    expect(shownPhase(1, 1, 0.5, false)).toBe(0); // redusert bevegelse: hopper først ved fase 2
-    expect(shownPhase(5, 4, 0, false)).toBe(2);
+  it.each(ALL_DRILL_ANIMATIONS.map(a => [a.drillId, a] as const))('%s har mellomposisjoner med brettets interpolering', (_id, animation) => {
+    const before = JSON.stringify(animation);
+    for (let i = 0; i < animation.phases.length - 1; i++) {
+      const phase = animation.phases[i], next = animation.phases[i + 1];
+      const middle = interpolatePlayers(phase, animation.phases, i, 0.5, true);
+      for (const player of middle) {
+        const from = phase.players.find(p => p.id === player.id)!.position;
+        const to = next.players.find(p => p.id === player.id)!.position;
+        expect(player.position.x).toBeCloseTo((from.x + to.x) / 2);
+        expect(player.position.y).toBeCloseTo((from.y + to.y) / 2);
+      }
+      const ball = interpolateBall(phase, animation.phases, i, 0.5, true);
+      expect(ball.x).toBeCloseTo((phase.ball.x + next.ball.x) / 2);
+      expect(ball.y).toBeCloseTo((phase.ball.y + next.ball.y) / 2);
+    }
+    expect(JSON.stringify(animation)).toBe(before);
   });
 });
 
