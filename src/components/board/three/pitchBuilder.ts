@@ -25,12 +25,14 @@ export class PitchBuilder {
     }
     const grass = grassTexture(); grass.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy()); this.pool.textures.add(grass);
     const turf = new THREE.MeshStandardMaterial({ map: grass, roughness: .98, bumpMap: grass, bumpScale: .065 });
+    // GLSL needs float literals: 60 / 2 must be written as 30.0, not 30.
+    const float = (n: number) => Number.isInteger(n) ? n.toFixed(1) : String(n);
     turf.onBeforeCompile = shader => {
       shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 turfPosition;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nturfPosition = position;');
       shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 turfPosition;')
         .replace('#include <color_fragment>', `#include <color_fragment>
-          float stripe = mod(floor((turfPosition.x + ${p.length / 2}) / ${p.length / 18}), 2.0);
+          float stripe = mod(floor((turfPosition.x + ${float(p.length / 2)}) / ${float(p.length / 18)}), 2.0);
           float variation = sin(turfPosition.x * .71 + sin(turfPosition.y * .34)) * sin(turfPosition.y * .83) * .035;
           diffuseColor.rgb *= vec3(.65, .92, .59) * (.90 + stripe * .12 + variation);`);
     };

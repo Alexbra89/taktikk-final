@@ -189,8 +189,14 @@ function hiddenParts(dialog: Locator) {
   });
 }
 
+/** Vent til siden har tegnet to bilder, så en ny vindusstørrelse har nådd utsnittet (ResizeObserver). */
+const nextFrames = (page: Page) => page.evaluate(() =>
+  new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+
 async function allPhasesFit(dialog: Locator, screenshotName?: string) {
   const pitch = dialog.getByTestId('drill-animation-pitch');
+  // Utsnittet slik det tegnes i den nye størrelsen, ikke verdien fra før vinduet ble endret.
+  await nextFrames(dialog.page());
   const crop = await pitch.getAttribute('viewBox');
   const phaseButtons = dialog.getByRole('button', { name: /^Fase \d:/ });
   for (let i = 0; i < await phaseButtons.count(); i++) {
@@ -368,6 +374,8 @@ for (const viewport of viewports) {
       await expect(dialog.locator('p[aria-hidden="true"]').first()).toBeHidden();
       await expect(dialog.getByRole('button', { name: 'Spill av', exact: true })).toBeInViewport();
       await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+      // Sjekkes mens avspillingen pågår: øvelser med tre faser er ferdige etter 3,8 s.
+      await expect(dialog.getByRole('button', { name: 'Pause', exact: true })).toBeInViewport();
       const frames = await sampleMotion(dialog, animation.player);
       expect(frames.every(frame => frame.fits && frame.playersFit && frame.ballFits), 'Utsnitt, spillere og ball må være synlige i hvert bilde').toBe(true);
       for (const edge of ['left', 'top', 'right', 'bottom'] as const) {
@@ -398,7 +406,6 @@ for (const viewport of viewports) {
         expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(distance * 0.3);
       }
       await expect(dialog.getByTestId('drill-animation-text')).toBeInViewport();
-      await expect(dialog.getByRole('button', { name: 'Pause', exact: true })).toBeInViewport();
     });
   }
 
@@ -423,6 +430,11 @@ for (const viewport of viewports) {
   });
 
   test(`3D: hele lerretet synlig, i og utenfor fullskjerm, på ${viewport.name}`, async ({ page }) => {
+    // En shader som ikke kompilerer (f.eks. heltall i GLSL) gir grått gress.
+    const shaderErrors: string[] = [];
+    page.on('console', message => {
+      if (message.type() === 'error' && /WebGLProgram|Shader Error|wrong operand/i.test(message.text())) shaderErrors.push(message.text());
+    });
     for (const search of ['Vendingsstafett', 'Murbyggerne', 'Bryteren']) {
       const dialog = await openAnimation(page, search);
       await page.setViewportSize(viewport);
@@ -475,6 +487,7 @@ for (const viewport of viewports) {
       await dialog.getByRole('button', { name: 'Lukk animasjonen', exact: true }).click();
       await page.setViewportSize({ width: 1400, height: 900 });
     }
+    expect(shaderErrors).toEqual([]);
   });
 }
 

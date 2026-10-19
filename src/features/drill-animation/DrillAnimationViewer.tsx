@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { Board3DSlot } from '@/components/board/Board3DSlot';
 import { RecordingControls } from '@/components/board/RecordingControls';
@@ -149,13 +149,14 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   }, [video.error, video.notice, clearVideoError, clearVideoNotice]);
   const startRecording = () => { select(0); video.exportVideo(); };
 
-  // Flaten 2D-banen får. Utsnittet regnes ut på nytt når den endrer størrelse.
+  // Flaten 2D-banen får. Utsnittet regnes ut på nytt når den endrer størrelse,
+  // før bildet tegnes (flushSync), så banen aldri vises ett bilde med gammelt utsnitt.
   useLayoutEffect(() => {
     const element = areaRef.current;
     if (!element) return;
     const measure = () => setArea(current => current.width === element.clientWidth && current.height === element.clientHeight
       ? current : { width: element.clientWidth, height: element.clientHeight });
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(() => flushSync(measure));
     observer.observe(element); measure();
     return () => observer.disconnect();
   }, [view]);
