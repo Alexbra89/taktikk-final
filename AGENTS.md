@@ -104,3 +104,26 @@ og `src/lib/backup.test.ts` er beholdt. `storageCompatibility.test.ts` bruker
 oppdelingen: lokal lagringsversjon 0/1/2 og sikkerhetskopiversjon 0/1, inkludert
 ekte innlasting, ny lagring, import og ny eksport. Nettleserkontroller:
 `e2e/backup.spec.ts`, den fulle e2e-pakken og `npm run test:offline`.
+
+# Kart over animerte øvelser
+
+En animasjon er en vanlig `Tactic` med faser, pluss én kort tekst per fase og
+valgfri markering («MÅL!»). Den ligger fast i appen, lagres aldri i storen og
+endrer verken lagringsformat, backup eller 3D-scenen. All kode ligger i
+`src/features/drill-animation/`; DrillsView har bare knappen «Se animert».
+
+| Fil | Ansvar |
+| --- | --- |
+| `types.ts` | `DrillAnimation`, `DrillAnimationPhase` og rollelista (`CastMember`). |
+| `define.ts` | Bygger animasjonen fra meter (som i øvelsesteksten) til brettets 880 × 560. |
+| `validate.ts` | Reglene: innenfor banen, ingen spillere oppå hverandre (heller ikke underveis mellom fasene), ballen hos en spiller (eller i mål i siste fase), 3–6 faser, tekst på hver fase, øvelsen finnes. |
+| `playback.ts` | Pause etter hver fase i den eksisterende faseklokka, og hvilken fase som vises. |
+| `DrillAnimationViewer.tsx` | Visningen: `BoardStage` (2D), `Board3DSlot` (3D), `usePhasePlayback`, tekst under banen, fullskjerm, «reduser bevegelse». |
+| `DrillAnimationControls.tsx` | Spill/pause, forrige/neste, faseprikker og fart. |
+| `DrillAnimationButton.tsx` | «Se animert»; laster visningen først ved trykk. |
+| `feedback.ts` | `FEEDBACK_EMAIL` og mailto-lenken «Ser noe feil ut?». |
+
+Animasjonene ligger i `src/data/drillAnimations/`, én fil per kategori, koblet
+via `drillId`. Sorteringen av alle øvelser står i `docs/animasjon-plan.md`.
+Kontroller: `validate.test.ts` (alle animasjoner og hver regel), `plan.test.ts`
+(planen dekker alle øvelser) og `e2e/drill-animation.spec.ts`.
