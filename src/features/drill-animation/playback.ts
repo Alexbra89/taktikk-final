@@ -1,48 +1,115 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { usePhasePlayback } from '@/hooks/usePhasePlayback';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DrillAnimationPhase } from './types';
 
-/** Bevegelse ved 1×. Brettets felles klokke beholdes uendret. */
+// ══════════════════════════════════════════════════════════════
+//  KLOKKA FOR ANIMERTE ØVELSER
+//
+//  Én klokke for 2D, 3D og videoene: tiden måles med performance.now(),
+//  så posisjonen avhenger bare av hvor lang tid som har gått – aldri av
+//  hvor ofte nettleseren rekker å tegne. 3D leser den i hvert bilde
+//  (sample), 2D tegnes på nytt i hvert bilde (requestAnimationFrame).
+//  Rekkefølgen: pause i fasen → bevegelse til neste → pause → … → slutt.
+//  Teksten byttes når bevegelsen mot en ny fase starter.
+// ══════════════════════════════════════════════════════════════
+
+/** Bevegelse fra fase til fase ved 1×. */
 export const PHASE_MOVE_MS = 1300;
-/** Kort lesepause, også før første og etter siste bevegelse. */
-export function phasePauseMs(text: string) {
-  return Math.min(850, 650 + Math.max(0, text.length - 65) * 5);
+/** Kort pause i hver fase ved 1×, også før første og etter siste bevegelse. */
+export const PHASE_PAUSE_MS = 400;
+
+export interface Playhead {
+  /** Fasen bevegelsen går fra (eller fasen det står stille i). */
+  from: number;
+  /** Hvor langt bevegelsen har kommet, 0–1. 0 i pausene. */
+  t: number;
+  moving: boolean;
+  /** Fasen som vises: teksten, prikken og 3D-pillen. Neste fase så snart bevegelsen dit starter. */
+  shown: number;
+  /** Siste pause er over. */
+  done: boolean;
 }
 
-/** Brettets uendrede klokke spiller én ekte overgang om gangen.
- * Mellom overgangene er klokka stoppet; ingen fasekopier interpoleres. */
-export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, reducedMotion: boolean) {
-  const [state, setState] = useState<{ index: number; mode: 'stopped' | 'hold' | 'move' }>({ index: 0, mode: 'stopped' });
-  const segment = useMemo(() => phases.slice(state.index, state.index + 2), [phases, state.index]);
-  const arrived = useCallback((index: number) => {
-    if (index === 1) setState(current => ({ index: current.index + 1, mode: 'hold' }));
-  }, []);
-  const { isPlaying: clockRunning, interpT, startPlayback, stopPlayback } = usePhasePlayback(segment, speed * 1200 / PHASE_MOVE_MS, arrived);
+const still = (index: number): Playhead => ({ from: index, t: 0, moving: false, shown: index, done: false });
+
+/** Hele avspillingen fra fasen `start`, i ms ved farten `speed`. */
+export function playbackMs(start: number, count: number, speed = 1) {
+  return (Math.max(0, count - 1 - start) * (PHASE_MOVE_MS + PHASE_PAUSE_MS) + PHASE_PAUSE_MS) / speed;
+}
+
+/** Hvor avspillingen er `elapsed` ms etter at den startet i fasen `start`. */
+export function playheadAt(start: number, count: number, elapsed: number, speed = 1): Playhead {
+  const pause = PHASE_PAUSE_MS / speed, move = PHASE_MOVE_MS / speed;
+  const last = count - 1;
+  let time = Math.max(0, elapsed);
+  for (let i = start; i < last; i++) {
+    if (time < pause) return still(i);
+    time -= pause;
+    if (time < move) return { from: i, t: time / move, moving: true, shown: i + 1, done: false };
+    time -= move;
+  }
+  return { ...still(Math.max(0, last)), done: time >= pause };
+}
+
+/**
+ * Spill/pause, fasevalg og klokka. `everyFrame` = tegn på nytt i hvert bilde
+ * (2D). I 3D leser scenen klokka selv via `sample`, så siden tegnes bare
+ * på nytt når fasen eller pausen skifter.
+ */
+export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, reducedMotion: boolean, everyFrame = true) {
+  const count = phases.length;
+  const run = useRef<{ start: number; at: number; speed: number } | null>(null);
+  const [head, setHead] = useState<Playhead>(() => still(0));
+  const [playing, setPlaying] = useState(false);
+  const everyFrameRef = useRef(everyFrame);
+  everyFrameRef.current = everyFrame;
+
+  /** Klokka akkurat nå, uten å vente på React. null når den står. */
+  const sample = useCallback((now = performance.now()): Playhead | null => {
+    const current = run.current;
+    if (!current) return null;
+    const next = playheadAt(current.start, count, now - current.at, current.speed);
+    return reducedMotion ? { ...next, from: next.shown, t: 0, moving: false } : next;
+  }, [count, reducedMotion]);
 
   useEffect(() => {
-    if (state.mode === 'move') {
-      startPlayback();
-      return stopPlayback;
-    }
-    if (state.mode === 'hold') {
-      const timer = setTimeout(() => setState(current => ({
-        ...current, mode: current.index === phases.length - 1 ? 'stopped' : 'move',
-      })), phasePauseMs(phases[state.index].text) / speed);
-      return () => clearTimeout(timer);
-    }
-  }, [state, phases, speed, startPlayback, stopPlayback]);
+    if (!playing) return;
+    let raf = 0;
+    const tick = () => {
+      const next = sample();
+      if (!next) return;
+      if (next.done) {
+        run.current = null;
+        setPlaying(false);
+        setHead(still(count - 1));
+        return;
+      }
+      setHead(previous => everyFrameRef.current || previous.from !== next.from
+        || previous.moving !== next.moving || previous.shown !== next.shown ? next : previous);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, sample, count]);
 
-  const isPlaying = state.mode !== 'stopped';
-  const moving = state.mode === 'move' && clockRunning && !reducedMotion;
-  const shown = state.index + (state.mode === 'move' ? 1 : 0);
-  const select = (index: number) => {
-    stopPlayback();
-    setState({ index: Math.max(0, Math.min(phases.length - 1, index)), mode: 'stopped' });
-  };
+  const select = useCallback((index: number) => {
+    run.current = null;
+    setPlaying(false);
+    setHead(still(Math.max(0, Math.min(count - 1, index))));
+  }, [count]);
+
   const togglePlay = () => {
-    if (isPlaying) { select(shown); return; }
-    setState({ index: shown === phases.length - 1 ? 0 : shown, mode: 'hold' });
+    if (playing) { select(head.shown); return; }
+    const start = head.shown >= count - 1 ? 0 : head.shown;
+    run.current = { start, at: performance.now(), speed };
+    setHead(still(start));
+    setPlaying(true);
   };
-  return { isPlaying, moving, shown, from: reducedMotion ? shown : state.index, interpT: moving ? interpT : 0, select, togglePlay };
+
+  const moving = head.moving && !reducedMotion;
+  return {
+    isPlaying: playing, moving, shown: head.shown,
+    from: reducedMotion ? head.shown : head.from, interpT: moving ? head.t : 0,
+    select, togglePlay, sample,
+  };
 }

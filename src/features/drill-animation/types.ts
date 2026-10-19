@@ -16,11 +16,21 @@ export interface CastMember {
   family: RoleFamily;
 }
 
+/** Hvordan ballen spilles inn i fasen: langs bakken, i en bue, eller hardt mot mål. */
+export type Kick = 'pass' | 'cross' | 'shot';
+
 export interface DrillAnimationPhase extends TacticPhase {
   /** Kort tekst under banen, tro mot øvelsesteksten. Vises også som fasenotat i 3D. */
   text: string;
   /** Valgfri markering over banen, f.eks. «MÅL!». */
   highlight?: string;
+  /**
+   * Ballen spilles på vei inn i fasen. Mangler den, ser avspillingen det selv:
+   * ny ballholder = pasning, ballen i mål = skudd. Sentring må stå her.
+   */
+  kick?: Kick;
+  /** Ballholderen gjør en vending på slutten av bevegelsen (ballen går rundt spilleren). */
+  turn?: boolean;
 }
 
 export interface DrillAnimation extends Tactic {

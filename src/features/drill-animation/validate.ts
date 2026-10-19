@@ -1,7 +1,7 @@
 import { VW, VH } from '@/data/formations';
 import { ITEM_RADIUS } from '@/data/boardItems';
-import type { BoardItem, Position } from '@/types';
-import type { DrillAnimation } from './types';
+import type { BoardItem, Player, Position } from '@/types';
+import type { DrillAnimation, DrillAnimationPhase } from './types';
 
 // ══════════════════════════════════════════════════════════════
 //  VALIDERING AV ANIMASJONENE
@@ -10,7 +10,8 @@ import type { DrillAnimation } from './types';
 //  posisjonene er innenfor banen, ingen spillere står oppå hverandre
 //  (heller ikke mens de glir fra fase til fase), ballen er alltid hos en spiller (og dermed på vei mellom to i
 //  overgangene), 3–6 faser, tekst på hver fase og at øvelsen finnes.
-//  Eneste unntak for ballen: i siste fase kan den ligge i mål.
+//  Eneste unntak for ballen: i siste fase kan den ligge i mål. En pasning,
+//  sentring eller et skudd (kick) går fra én spiller til en annen eller i mål.
 // ══════════════════════════════════════════════════════════════
 
 /** Banens ytre linjer slik FootballPitch tegner dem (32 enheter inn fra kanten). */
@@ -55,6 +56,16 @@ export function ballInGoal(ball: Position, items: BoardItem[] = []): boolean {
     ball.x >= g.left && ball.x <= g.right && Math.abs(ball.y - VH / 2) <= GOAL_HALF);
   const inSmall = items.some(i => i.type === 'minigoal' && dist(i.position, ball) <= ITEM_RADIUS.minigoal);
   return inBig || inSmall;
+}
+
+/** Spilleren ballen er hos i fasen (nærmeste innenfor rekkevidde), eller ingen. */
+export function holderOf(phase: DrillAnimationPhase): Player | undefined {
+  let best: Player | undefined, bestDistance = BALL_REACH;
+  for (const player of phase.players) {
+    const d = dist(player.position, phase.ball);
+    if (d <= bestDistance) { best = player; bestDistance = d; }
+  }
+  return best;
 }
 
 /**
@@ -135,6 +146,14 @@ export function validateDrillAnimation(animation: DrillAnimation, drillIds: Iter
     if (scored && !last) errors.push(`${at}: ballen ligger i mål før siste fase.`);
     else if (!scored && !withPlayer) errors.push(`${at}: ballen er ikke hos en spiller.`);
     if (!scored && !insidePitch(phase.ball)) errors.push(`${at}: ballen er utenfor banen.`);
+
+    // En pasning, sentring eller et skudd går fra en spiller til en annen spiller eller i mål.
+    if (phase.kick) {
+      const passer = index > 0 ? holderOf(phases[index - 1]) : undefined;
+      if (!passer) errors.push(`${at}: ballen spilles, men ingen har den i fasen før.`);
+      else if (!scored && holderOf(phase)?.id === passer.id) errors.push(`${at}: ballen spilles, men ingen andre tar imot.`);
+    }
+    if (phase.turn && (index === 0 || !holderOf(phase))) errors.push(`${at}: vendingen trenger en spiller med ball.`);
   });
 
   return errors;

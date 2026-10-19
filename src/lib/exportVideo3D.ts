@@ -70,6 +70,8 @@ export async function exportVideo3D(options: {
   draw: (elapsedMs: number, index: number) => Promise<ImageData>;
   /** Fewer frames than the whole tactic, e.g. a fullscreen recording stopped early. */
   frameCount?: number;
+  /** The whole video in ms when it has its own tempo (animated drills); otherwise exportDuration. */
+  durationMs?: number;
 }) {
   const { choice, signal } = options;
   signal.throwIfAborted();
@@ -95,7 +97,7 @@ export async function exportVideo3D(options: {
   signal.addEventListener('abort', cancel, { once: true });
   try {
     encoder.configure(choice.config);
-    const whole = Math.ceil(exportDuration(options.phaseCount, options.speed) * VIDEO_FPS / 1000);
+    const whole = Math.ceil((options.durationMs ?? exportDuration(options.phaseCount, options.speed)) * VIDEO_FPS / 1000);
     const count = Math.min(whole, Math.max(1, options.frameCount ?? whole));
     for (let i = 0; i < count; i++) {
       check();

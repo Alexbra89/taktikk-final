@@ -114,16 +114,26 @@ endrer verken lagringsformat, backup eller 3D-scenen. All kode ligger i
 
 | Fil | Ansvar |
 | --- | --- |
-| `types.ts` | `DrillAnimation`, `DrillAnimationPhase` og rollelista (`CastMember`). |
+| `types.ts` | `DrillAnimation`, `DrillAnimationPhase` (med valgfri `kick`: pasning/sentring/skudd, og `turn`: vending) og rollelista (`CastMember`). |
 | `define.ts` | Bygger animasjonen fra meter (som i øvelsesteksten) til brettets 880 × 560. |
-| `validate.ts` | Reglene: innenfor banen, ingen spillere oppå hverandre (heller ikke underveis mellom fasene), ballen hos en spiller (eller i mål i siste fase), 3–6 faser, tekst på hver fase, øvelsen finnes. |
-| `playback.ts` | Pause etter hver fase i den eksisterende faseklokka, og hvilken fase som vises. |
-| `DrillAnimationViewer.tsx` | Visningen: `BoardStage` (2D), `Board3DSlot` (3D), `usePhasePlayback`, tekst under banen, fullskjerm, «reduser bevegelse». |
+| `validate.ts` | Reglene: innenfor banen, ingen spillere oppå hverandre (heller ikke underveis mellom fasene), ballen hos en spiller (eller i mål i siste fase), en pasning/sentring/skudd går til en annen spiller eller i mål, 3–6 faser, tekst på hver fase, øvelsen finnes. `holderOf` (ballholderen). |
+| `playback.ts` | Øvelsenes egen klokke (`performance.now()`, ikke brettets 30 ms-steg): 1,3 s bevegelse og 0,4 s pause per fase ved 1×, teksten byttes når fasen starter. `sample` lar 3D lese klokka i hvert bilde. |
+| `motion.ts` | Alt på banen i en overgang, felles for 2D, 3D og begge videoene: spillerne glir, ballen følger ballholderen (rundt spilleren i en vending), og ved pasning/sentring/skudd reiser den synlig med bue i 3D. |
+| `framing.ts` | Fast utsnitt for hele øvelsen: `bounds` (3D-kameraet) og `fitCrop` (2D, contain i både bredde og høyde, drakter i fast skjermstørrelse). |
+| `DrillPitch.tsx` | 2D-banen: `BoardStage` klippet til utsnittet, drakter/ball/kjegler krympet rundt eget midtpunkt, stiplet ballspor. Brukes på skjermen og i 2D-videoen. |
+| `DrillAnimationViewer.tsx` | Visningen: `DrillPitch` (2D), `Board3DSlot` (3D, med `liveFrame` og `timeline`), 2D-opptak via `useVideoExport` (`source`), tekst under banen, fullskjerm, «reduser bevegelse». |
 | `DrillAnimationControls.tsx` | Spill/pause, forrige/neste, faseprikker og fart. |
 | `DrillAnimationButton.tsx` | «Se animert»; laster visningen først ved trykk. |
 | `feedback.ts` | `FEEDBACK_EMAIL` og mailto-lenken «Ser noe feil ut?». |
 
+Delt kode har bare fått valgfrie tillegg som taktikkbrettet ikke sender:
+`Board3D` (`liveFrame`, `timeline`), `exportVideo3D` (`durationMs`) og
+`useVideoExport` (`source`, og tiden som andre argument til `onFrame`).
+
 Animasjonene ligger i `src/data/drillAnimations/`, én fil per kategori, koblet
 via `drillId`. Sorteringen av alle øvelser står i `docs/animasjon-plan.md`.
-Kontroller: `validate.test.ts` (alle animasjoner og hver regel), `plan.test.ts`
-(planen dekker alle øvelser) og `e2e/drill-animation.spec.ts`.
+Kontroller: `validate.test.ts` (alle animasjoner og hver regel), `motion.test.ts`
+(ballen reiser synlig, føring, innholdet i Vendingsstafett og Murbyggerne),
+`framing.test.ts` (utsnitt og tempo), `plan.test.ts` (planen dekker alle
+øvelser) og `e2e/drill-animation.spec.ts` (skjermbilder i `_skjermbilder/`,
+utenfor Git).

@@ -42,12 +42,12 @@ class BackgroundAbort extends Error {
 }
 
 /** Usynlig, men i dokumentet: ellers finnes ikke CSS-variablene vi bytter ut. */
-function createOffscreenSvg(): { host: HTMLDivElement; svg: SVGSVGElement; root: Root } {
+function createOffscreenSvg(viewBox = `0 0 ${VW} ${VH}`): { host: HTMLDivElement; svg: SVGSVGElement; root: Root } {
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
   host.style.cssText = 'position:fixed;left:-10000px;top:0;width:880px;height:560px;pointer-events:none;';
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+  svg.setAttribute('viewBox', viewBox);
   svg.setAttribute('width', String(VW));
   svg.setAttribute('height', String(VH));
   host.appendChild(svg);
@@ -90,15 +90,36 @@ export function videoFrameElement(tactic: Tactic, f: FrameState, playerStyle: Pl
   );
 }
 
+/**
+ * Noe annet enn brettets aktive taktikk, f.eks. en animert øvelse med egen
+ * klokke og eget utsnitt. Opptaket er det samme; bare bildene kommer herfra.
+ */
+export interface VideoSource {
+  /** Navnet til filen og fasene til fasepillen. */
+  tactic: Pick<Tactic, 'name' | 'phases'>;
+  /** Samme utsnitt som brettet på skjermen. */
+  viewBox: string;
+  /** Avspillingen ved 1×, uten forspann og hale. */
+  durationMs: number;
+  /** Stillingen `elapsedMs` inn i avspillingen ved 1×. fromIdx = fasen pillen viser. */
+  frameAt: (elapsedMs: number) => FrameState;
+  /** Innholdet i SVG-en på samme tidspunkt. */
+  render: (elapsedMs: number) => React.ReactElement;
+}
+
 export interface FullscreenVideoOptions {
   viewport: () => { width: number; height: number; x: number; y: number; boardWidth: number; boardHeight: number; clipX: number; clipY: number; clipWidth: number; clipHeight: number };
   speed: number;
-  onFrame: (frame: FrameState | null) => void;
+  /** Bildet som spilles inn, og tiden (ms ved 1×), så brettet kan vise det samme. */
+  onFrame: (frame: FrameState | null, elapsedMs?: number) => void;
+  source?: VideoSource;
 }
 
 export function useVideoExport(fullscreen?: FullscreenVideoOptions) {
   const teamName = useAppStore(s => s.homeTeamName);
-  const tactic = useActiveTactic();
+  const activeTactic = useActiveTactic();
+  const source = fullscreen?.source;
+  const tactic = source?.tactic ?? activeTactic;
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -144,7 +165,7 @@ export function useVideoExport(fullscreen?: FullscreenVideoOptions) {
       if (!fmt) throw new Error('Nettleseren din støtter ikke videoeksport.');
       const mime = fmt.mime;
 
-      created = createOffscreenSvg();
+      created = createOffscreenSvg(source?.viewBox);
       const { svg, root } = created;
 
       const canvas = document.createElement('canvas');
@@ -165,13 +186,14 @@ export function useVideoExport(fullscreen?: FullscreenVideoOptions) {
       let pill: HTMLCanvasElement | null = null, pillIdx = -1;
       const paint = async (elapsed: number) => {
         checkVisible();
-        let frame = frameAt(phases, elapsed * speed);
-        if (fullscreen && frame.progress >= 1) {
+        const time = elapsed * speed;
+        let frame = source ? source.frameAt(time) : frameAt(phases, time);
+        if (fullscreen && !source && frame.progress >= 1) {
           const last = phases[phases.length - 1];
           frame = { ...frame, players: last.players, ball: last.ball, items: last.items ?? [], fromIdx: phases.length - 1 };
         }
-        fullscreen?.onFrame(frame);
-        flushSync(() => root.render(videoFrameElement(tactic, frame, playerStyle)));
+        fullscreen?.onFrame(frame, time);
+        flushSync(() => root.render(source ? source.render(time) : videoFrameElement(activeTactic, frame, playerStyle)));
         const img = await svgMarkupToImage(serializeBoardSvg(svg, fit.width, fit.height));
         checkVisible();
         if (viewport) {
@@ -223,7 +245,7 @@ export function useVideoExport(fullscreen?: FullscreenVideoOptions) {
       };
       await holdFrame(performance.now() + VIDEO_LEAD_MS, 0);
 
-      const total = videoDurationMs(phases.length) / speed;
+      const total = (source ? source.durationMs : videoDurationMs(phases.length)) / speed;
       const started = performance.now();
       for (;;) {
         checkVisible();
@@ -275,7 +297,7 @@ export function useVideoExport(fullscreen?: FullscreenVideoOptions) {
       fullscreen?.onFrame(null);
       setBusy(false);
     }
-  }, [tactic, teamName, fullscreen]);
+  }, [tactic, activeTactic, source, teamName, fullscreen]);
 
   const clearError = useCallback(() => setError(null), []);
   const clearNotice = useCallback(() => setNotice(null), []);

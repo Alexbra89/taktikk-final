@@ -1,20 +1,19 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, X } from 'lucide-react';
-import { BoardStage, type StagePlayer } from '@/components/board/BoardStage';
 import { Board3DSlot } from '@/components/board/Board3DSlot';
-import { SvgDefs } from '@/components/board/svg/SvgDefs';
-import { ballArcHeight } from '@/components/board/three/coordinates';
+import { RecordingControls } from '@/components/board/RecordingControls';
 import { Button, IconButton } from '@/components/ui/Button';
-import { interpolatePlayers, interpolateBall } from '@/hooks/usePhasePlayback';
 import { usePlayerStyle } from '@/hooks/usePlayerStyle';
+import { useVideoExport, type VideoSource } from '@/hooks/useVideoExport';
 import { useViewport } from '@/hooks/useViewport';
-import { interpolateItems } from '@/lib/exportVideo';
 import { cn } from '@/lib/cn';
 import { DrillAnimationControls } from './DrillAnimationControls';
-import { useDrillPlayback } from './playback';
-import { drillFraming } from './framing';
+import { DrillPitch, stagePlayersOf } from './DrillPitch';
+import { playbackMs, playheadAt, useDrillPlayback, type Playhead } from './playback';
+import { drillFraming, fitCrop } from './framing';
+import { drillMotion } from './motion';
 import styles from './DrillAnimationViewer.module.css';
 import { feedbackMailto } from './feedback';
 import { useReducedMotion } from './useReducedMotion';
@@ -23,10 +22,11 @@ import type { DrillAnimation } from './types';
 // ══════════════════════════════════════════════════════════════
 //  ANIMERT ØVELSE – visningen
 //
-//  Gjenbruker brettets deler uten å røre storen: BoardStage (2D),
-//  Board3DSlot (3D) og faseklokka usePhasePlayback. Ingenting lagres.
-//  «Reduser bevegelse»: spillerne hopper fra fase til fase i stedet
-//  for å gli, i samme takt.
+//  Gjenbruker brettets deler uten å røre storen: BoardStage (2D, via
+//  DrillPitch), Board3DSlot (3D) og 2D-opptaket useVideoExport.
+//  Én klokke (playback.ts) og én bevegelse (motion.ts) for 2D, 3D og
+//  videoene. Ingenting lagres. «Reduser bevegelse»: spillerne hopper fra
+//  fase til fase i stedet for å gli, i samme takt.
 // ══════════════════════════════════════════════════════════════
 
 type WebkitDocument = Document & { webkitFullscreenElement?: Element | null; webkitFullscreenEnabled?: boolean; webkitExitFullscreen?: () => void };
@@ -48,6 +48,9 @@ function trapTab(e: KeyboardEvent, root: HTMLElement | null) {
   }
 }
 
+/** Hvor langt hele avspillingen har kommet, 0–1 (fremdriftslinja i 3D). */
+const progressOf = (head: Playhead, count: number) => (head.from + head.t) / Math.max(1, count - 1);
+
 interface Props {
   animation: DrillAnimation;
   drillName: string;
@@ -56,6 +59,9 @@ interface Props {
 
 export default function DrillAnimationViewer({ animation, drillName, onClose }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const pitchRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const reducedMotion = useReducedMotion();
   const { isMobile } = useViewport();
   const [playerStyle] = usePlayerStyle();
@@ -63,27 +69,96 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   const [speed, setSpeed] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [canFullscreen] = useState(() => !!(document.fullscreenEnabled || (document as WebkitDocument).webkitFullscreenEnabled));
+  const [area, setArea] = useState({ width: 0, height: 0 });
+  /** Under 2D-opptak: tiden i opptaket (ms ved 1×). Skjermen viser det samme som videoen. */
+  const [recordingAt, setRecordingAt] = useState<number | null>(null);
 
   const phases = animation.phases;
+  const count = phases.length;
   const framing = useMemo(() => drillFraming(animation), [animation]);
-  const { isPlaying, moving, shown, from, interpT, select, togglePlay } = useDrillPlayback(phases, speed, reducedMotion);
-  const phase = phases[shown];
-  const local = phases[from];
-  const players = interpolatePlayers(local, phases, from, interpT, moving);
-  const ball = interpolateBall(local, phases, from, interpT, moving);
-  const items = moving && interpT > 0
-    ? interpolateItems(phases[from]?.items, phases[from + 1]?.items, interpT)
-    : local.items ?? [];
-  const progress = isPlaying ? (from + interpT) / (phases.length - 1) : null;
-  const ballHeight = moving && phases[from + 1]
-    ? ballArcHeight(phases[from].ball, phases[from + 1].ball, interpT, animation.sport) : 0;
+  // Før flaten er målt: brettets egen størrelse.
+  const fit = useMemo(() => fitCrop(framing.content, area.width || 880, area.height || 560), [framing, area]);
+  const { isPlaying, moving, shown: playShown, from, interpT, select, togglePlay, sample } =
+    useDrillPlayback(phases, speed, reducedMotion, view === '2d');
 
-  const stagePlayers: StagePlayer[] = players.map(p => ({
-    id: p.id, num: p.num, position: p.position, name: '',
-    label: animation.cast[p.id]?.label ?? '', family: animation.cast[p.id]?.family ?? 'mid',
-  }));
-  // 3D viser fasens navn og tekst i pillen; fasen er den som vises nå.
+  // Opptaket styrer det som vises mens det pågår; ellers gjør klokka det.
+  const recordingHead = recordingAt === null ? null : playheadAt(0, count, recordingAt);
+  const head = recordingHead ?? { from, t: interpT, moving, shown: playShown };
+  const shown = head.shown;
+  const phase = phases[shown];
+  const drawings = phases[head.from]?.drawings ?? [];
+  const frame2d = drillMotion(animation, head.from, head.t, head.moving, fit.kitScale);
+  // 3D har egne figurer: ballen ligger der øvelsen sier, uten krymping.
+  const frame3d = view === '3d' ? drillMotion(animation, head.from, head.t, head.moving) : frame2d;
+  const progress = isPlaying ? (head.from + head.t) / Math.max(1, count - 1) : null;
+
+  // 3D-tilstanden ellers: fasen som vises (pillen og fullskjermens fasevalg).
   const tactic = useMemo(() => ({ ...animation, activePhaseIdx: shown }), [animation, shown]);
+  const players3d = useMemo(() => stagePlayersOf(animation, frame3d.players), [animation, frame3d.players]);
+
+  /** 3D leser klokka selv i hvert bilde, så den ikke venter på at siden tegnes på nytt. */
+  const liveFrame = useCallback(() => {
+    const now = sample();
+    if (!now) return null;
+    const f = drillMotion(animation, now.from, now.t, now.moving);
+    return { players: stagePlayersOf(animation, f.players), ball: f.ball, items: f.items, ballHeight: f.ballHeight, progress: progressOf(now, count) };
+  }, [sample, animation, count]);
+
+  /** 3D-videoen: samme tempo, pauser og pasninger som visningen. */
+  const timeline = useMemo(() => ({
+    durationMs: (s: number) => playbackMs(0, count, s),
+    frameAt: (elapsed: number, s: number) => {
+      const at = playheadAt(0, count, elapsed, s);
+      const f = drillMotion(animation, at.from, at.t, at.moving);
+      return { players: stagePlayersOf(animation, f.players), ball: f.ball, items: f.items, ballHeight: f.ballHeight,
+        progress: progressOf(at, count), phase: at.shown };
+    },
+  }), [animation, count]);
+
+  // 2D-opptak: samme opptak som 2D-fullskjermen på taktikkbrettet, med øvelsens bilder.
+  const videoSource: VideoSource = useMemo(() => {
+    const at = (elapsed: number) => playheadAt(0, count, elapsed);
+    return {
+      tactic: animation, viewBox: fit.viewBox, durationMs: playbackMs(0, count),
+      frameAt: elapsed => {
+        const h = at(elapsed), f = drillMotion(animation, h.from, h.t, h.moving);
+        return { players: f.players, ball: f.ball, items: f.items, fromIdx: h.shown, progress: progressOf(h, count) };
+      },
+      render: elapsed => {
+        const h = at(elapsed);
+        return <DrillPitch animation={animation} frame={drillMotion(animation, h.from, h.t, h.moving, fit.kitScale)}
+          drawings={animation.phases[h.from]?.drawings ?? []} crop={fit.crop} kitScale={fit.kitScale} playerStyle={playerStyle} />;
+      },
+    };
+  }, [animation, count, fit, playerStyle]);
+  const video = useVideoExport({
+    speed, source: videoSource,
+    onFrame: (f, elapsed) => setRecordingAt(f ? elapsed ?? 0 : null),
+    viewport: () => {
+      const screen = pitchRef.current!.getBoundingClientRect(), board = svgRef.current!.getBoundingClientRect();
+      return { width: screen.width, height: screen.height, x: board.left - screen.left, y: board.top - screen.top,
+        boardWidth: board.width, boardHeight: board.height, clipX: 0, clipY: 0, clipWidth: screen.width, clipHeight: screen.height };
+    },
+  });
+  const recording = video.busy;
+  const { clearError: clearVideoError, clearNotice: clearVideoNotice } = video;
+  useEffect(() => {
+    if (!video.error && !video.notice) return;
+    const timeout = setTimeout(() => { clearVideoError(); clearVideoNotice(); }, 5000);
+    return () => clearTimeout(timeout);
+  }, [video.error, video.notice, clearVideoError, clearVideoNotice]);
+  const startRecording = () => { select(0); video.exportVideo(); };
+
+  // Flaten 2D-banen får. Utsnittet regnes ut på nytt når den endrer størrelse.
+  useLayoutEffect(() => {
+    const element = areaRef.current;
+    if (!element) return;
+    const measure = () => setArea(current => current.width === element.clientWidth && current.height === element.clientHeight
+      ? current : { width: element.clientWidth, height: element.clientHeight });
+    const observer = new ResizeObserver(measure);
+    observer.observe(element); measure();
+    return () => observer.disconnect();
+  }, [view]);
 
   // Escape lukker. 3D-fullskjermen tar Escape selv først (preventDefault).
   // Tab og Shift+Tab går rundt inne i dialogen.
@@ -150,11 +225,16 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
           <p className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">Animert øvelse</p>
           <h2 className="text-body font-bold text-ink truncate">{drillName}</h2>
         </div>
-        <div role="group" aria-label="Visning" className="flex items-center gap-1">
+        {view === '2d' && video.format && (
+          <RecordingControls busy={recording} seconds={video.seconds} disabled={count < 2}
+            onStart={startRecording} onStop={video.stop} onCancel={video.cancel} />
+        )}
+        {/* Under opptak er visningen låst; knappene gir plass til opptakskontrollene på mobil. */}
+        {!recording && <div role="group" aria-label="Visning" className="flex items-center gap-1">
           {viewButton('2d', '2D')}
           <span aria-hidden className="text-ink-faint">|</span>
           {viewButton('3d', '3D')}
-        </div>
+        </div>}
         {canFullscreen && (
           <IconButton size="sm" aria-label={fullscreen ? 'Lukk fullskjerm' : 'Fullskjerm for animasjonen'}
             title={fullscreen ? 'Lukk fullskjerm' : 'Fullskjerm'} onClick={toggleFullscreen}>
@@ -167,31 +247,26 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
       </header>
 
       <div className={styles.content}>
-        <div className={styles.pitch}>
+        <div ref={pitchRef} className={styles.pitch}>
           {view === '2d' ? (
-            <div className="flex-1 min-w-0 min-h-0 p-1 overflow-hidden">
-              <div className="w-full h-full flex flex-col">
-                <svg data-testid="drill-animation-pitch" viewBox={framing.viewBox} preserveAspectRatio="xMidYMid meet" role="img"
-                  aria-label={`Bane i 2D. ${phase.name}.`} style={{ display: 'block', width: '100%', height: '100%', minHeight: 0 }}>
-                  <SvgDefs />
-                  <defs><clipPath id="drill-animation-crop"><rect {...framing.board} /></clipPath></defs>
-                  <g clipPath="url(#drill-animation-crop)">
-                    <BoardStage players={stagePlayers} playerStyle={playerStyle} ball={ball}
-                      drawings={local.drawings ?? []} items={items} />
-                  </g>
-                </svg>
-              </div>
+            <div ref={areaRef} data-testid="drill-animation-area" className="relative flex-1 min-w-0 min-h-0 overflow-hidden">
+              <svg ref={svgRef} data-testid="drill-animation-pitch" viewBox={fit.viewBox} preserveAspectRatio="xMidYMid meet" role="img"
+                aria-label={`Bane i 2D. ${phase.name}.`} className="absolute inset-0" style={{ display: 'block', width: '100%', height: '100%' }}>
+                <DrillPitch animation={animation} frame={frame2d} drawings={drawings}
+                  crop={fit.crop} kitScale={fit.kitScale} playerStyle={playerStyle} />
+              </svg>
             </div>
           ) : (
             <Board3DSlot onSwitchTo2D={() => setView('2d')}
-              tactic={tactic} players={stagePlayers} ball={ball} drawings={local.drawings ?? []}
+              tactic={tactic} players={players3d} ball={frame3d.ball} drawings={drawings}
               cameraBounds={framing.bounds} playerRoles={animation.cast}
-              items={items} playerStyle={playerStyle} isPlaying={isPlaying} speed={speed}
+              items={frame3d.items} playerStyle={playerStyle} isPlaying={isPlaying} speed={speed}
               teamName="Øvelse" isMobile={isMobile}
               onSelectPhase={select} onTogglePlay={togglePlay} onSpeed={setSpeed}
-              trails={null} progress={progress} ballHeight={ballHeight} />
+              trails={null} progress={progress} ballHeight={frame3d.ballHeight}
+              liveFrame={liveFrame} timeline={timeline} />
           )}
-          {phase.highlight && !moving && (
+          {phase.highlight && !head.moving && (
             <p aria-hidden className={cn('pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-pill bg-signal px-4 py-1.5',
               'text-lead font-bold text-signal-fg shadow-pop', view === '2d' ? 'top-3' : 'top-14', !reducedMotion && 'animate-pop')}>
               {phase.highlight}
@@ -201,7 +276,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
 
         <div className={cn(styles.notes, 'border-t border-rule bg-canvas-sunken px-4 pt-3 pb-2 space-y-3 sheet-safe sm:pb-3')}>
           <div className="min-h-[3.25rem] text-center">
-            <p className="font-mono text-meta text-ink-subtle truncate">Fase {shown + 1} av {phases.length} · {phase.name}</p>
+            <p className="font-mono text-meta text-ink-subtle truncate">Fase {shown + 1} av {count} · {phase.name}</p>
             {/* Mål alle tekstene i samme rute, så banen står stille når teksten byttes. */}
             <div className="grid mt-0.5">
               {phases.map(p => <p key={p.id} aria-hidden="true" className="invisible col-start-1 row-start-1 text-body">
@@ -212,11 +287,14 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
               </p>
             </div>
           </div>
-          <DrillAnimationControls phaseNames={phases.map(p => p.name)} shown={shown} isPlaying={isPlaying}
+          <DrillAnimationControls phaseNames={phases.map(p => p.name)} shown={shown} isPlaying={isPlaying} disabled={recording}
             speed={speed} onTogglePlay={togglePlay} onSelect={select} onSpeed={setSpeed} />
+          {(video.error || video.notice) && (
+            <p role={video.error ? 'alert' : 'status'} className="text-center text-caption text-ink">{video.error || video.notice}</p>
+          )}
           <p className="text-center text-meta text-ink-faint">
             Illustrasjon laget ut fra øvelsesteksten ·{' '}
-            <a href={feedbackMailto(drillName, shown + 1, phases.length)} className="text-signal underline">Ser noe feil ut?</a>
+            <a href={feedbackMailto(drillName, shown + 1, count)} className="text-signal underline">Ser noe feil ut?</a>
           </p>
         </div>
       </div>

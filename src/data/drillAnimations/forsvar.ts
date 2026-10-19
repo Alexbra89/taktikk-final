@@ -4,7 +4,10 @@
 import { defineDrillAnimation } from '@/features/drill-animation/define';
 
 /**
- * forsvar-y-05: angriper 10 m foran småmålet, forsvarer ved siden av målet rykker ut og blokkerer.
+ * forsvar-y-05: en angriper prøver å score i et småmål fra 8–10 m, mens en
+ * forsvarer ved siden av målet rykker ut og blokkerer skuddet med kroppen.
+ * Forsvareren rykker ut samtidig som angriperen tar touchen frem; så kommer
+ * skuddet, og forsvareren blokkerer det med fremsiden av kroppen.
  * Minste antall (4): én angriper og én forsvarer om gangen, de to andre venter ved startplassene.
  */
 const MURBYGGERNE = defineDrillAnimation({
@@ -27,22 +30,17 @@ const MURBYGGERNE = defineDrillAnimation({
       ball: { with: 'a', dir: [-1, 0] },
     },
     {
-      name: 'Skuddforsøk',
-      text: 'Angriperen tar et touch fremover og gjør seg klar til skudd. Forsvareren rykker ut.',
-      players: { a: [0.8, 0], f: [-5.5, 1.5] },
+      name: 'Touch og utrykning',
+      text: 'Angriperen tar et touch frem og gjør seg klar til skudd. Samtidig rykker forsvareren ut.',
+      players: { a: [1, 0], f: [-4.6, 0.9] },
       ball: { with: 'a', dir: [-1, 0] },
     },
     {
-      name: 'Dekk vinkelen',
-      text: 'Forsvareren gjør seg stor og dekker vinkelen.',
-      players: { f: [-2, 0.2] },
-      ball: { with: 'a', dir: [-1, 0] },
-    },
-    {
-      name: 'Blokk',
-      text: 'Forsvareren blokkerer skuddet med fremsiden av kroppen.',
+      name: 'Skudd og blokk',
+      text: 'Angriperen skyter mot småmålet. Forsvareren gjør seg stor og blokkerer med fremsiden av kroppen.',
       highlight: 'Blokk!',
-      players: {},
+      kick: 'shot',
+      players: { f: [-5, 0.2] },
       ball: { with: 'f', dir: [1, 0] },
     },
   ],

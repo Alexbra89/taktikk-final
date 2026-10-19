@@ -3,7 +3,7 @@ import { ROLE_INFO } from '@/data/roleInfo';
 import { PITCHES } from '@/components/board/three/coordinates';
 import { colorFields } from '@/components/board/drawTools';
 import type { BoardItem, BoardItemType, DrawColorKey, Drawing, Player, Position, Sport } from '@/types';
-import type { CastMember, DrillAnimation, DrillAnimationPhase } from './types';
+import type { CastMember, DrillAnimation, DrillAnimationPhase, Kick } from './types';
 
 // ══════════════════════════════════════════════════════════════
 //  BYGGER FOR ANIMASJONENE
@@ -30,6 +30,10 @@ export interface PhaseSpec {
   /** Spillere som ikke står her, blir stående der de var i fasen før. */
   players: Record<string, Metres>;
   ball: BallSpec;
+  /** Ballen spilles på vei inn i fasen (se DrillAnimationPhase.kick). */
+  kick?: Kick;
+  /** Ballholderen vender på slutten av bevegelsen. */
+  turn?: boolean;
 }
 
 export interface AnimationSpec {
@@ -129,6 +133,8 @@ export function defineDrillAnimation(spec: AnimationSpec): DrillAnimation {
       stickyNote: phase.text,
       text: phase.text,
       ...(phase.highlight ? { highlight: phase.highlight } : {}),
+      ...(phase.kick ? { kick: phase.kick } : {}),
+      ...(phase.turn ? { turn: true } : {}),
     };
   });
 

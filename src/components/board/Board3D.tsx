@@ -7,7 +7,7 @@ import { BoardScene, type CameraView, type SceneFrame } from './three/BoardScene
 import { PITCHES, exportDuration, playbackBallHeight, playbackFrame } from './three/coordinates';
 import { cameraAt, recordCameraTrack, type CameraSample } from './three/cameraTrack';
 import { chooseEncoder, exportVideo3D, warmEncoder, type EncoderChoice } from '@/lib/exportVideo3D';
-import { VIDEO_FPS, VIDEO_LEAD_MS, VIDEO_PHASE_MS, fullscreenVideoSize } from '@/lib/exportVideo';
+import { VIDEO_FPS, VIDEO_LEAD_MS, VIDEO_PHASE_MS, VIDEO_TAIL_MS, fullscreenVideoSize } from '@/lib/exportVideo';
 import { RecordingControls } from './RecordingControls';
 import { getSlot, SPORT_LABELS } from '@/store/selectors';
 import { ROLE_INFO } from '@/data/roleInfo';
@@ -15,9 +15,25 @@ import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import type { Tactic } from '@/types';
 import type { StagePlayer } from './BoardStage';
 
+/** What moves during playback; the rest of the frame comes from the props. */
+type LiveFrame = Pick<SceneFrame, 'players' | 'ball' | 'items' | 'ballHeight' | 'progress'>;
+
 interface Props extends SceneFrame {
   /** Explicit drill roles, also used by the existing video exporter. */
   playerRoles?: Record<string, Pick<StagePlayer, 'label' | 'family'>>;
+  /**
+   * Animated drills: read on every animation frame from their shared clock, so
+   * 3D moves in step with the clock rather than when React next renders.
+   * null while stopped. The tactic board passes none.
+   */
+  liveFrame?: () => LiveFrame | null;
+  /** Animated drills: their own tempo (pauses, passes) for the 3D video. The tactic board passes none. */
+  timeline?: {
+    /** Playback at `speed`, without lead-in and tail. */
+    durationMs: (speed: number) => number;
+    /** `phase` is the phase the pill and drawings show. */
+    frameAt: (elapsedMs: number, speed: number) => LiveFrame & { phase: number };
+  };
   tactic: Tactic;
   playerStyle: PlayerStyle;
   isPlaying: boolean;
@@ -93,7 +109,7 @@ export default function Board3D(props: Props) {
   const returnFocus = useRef<HTMLElement | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const selectedId = props.players.some(p => p.id === playerId) ? playerId : props.players.find(p => p.num === 1)?.id ?? props.players[0]?.id ?? '';
-  const sceneFrame = (p: Props): SceneFrame => ({ ...p,
+  const sceneFrame = (p: Props, live = recording.current ? null : p.liveFrame?.() ?? null): SceneFrame => ({ ...p, ...(live ?? {}),
     phaseName: p.tactic.phases[p.tactic.activePhaseIdx]?.name,
     stickyNote: p.tactic.phases[p.tactic.activePhaseIdx]?.stickyNote,
   });
@@ -132,6 +148,9 @@ export default function Board3D(props: Props) {
       if (!active) return;
       raf = requestAnimationFrame(render);
       if (document.hidden || livePaused.current || (lowPower && now - last < 32)) return;
+      // Animated drills: the moving players and ball straight from the clock, for this very frame.
+      const live = recording.current ? null : latest.current.liveFrame?.() ?? null;
+      if (live) board.setFrame(sceneFrame(latest.current, live), true);
       board.render(Math.min(.1, (now - last) / 1000)); last = now;
     };
     const lost = (event: Event) => { event.preventDefault(); setReady(false); setError('3D mistet forbindelsen til grafikkortet. Bytt til 2D og åpne 3D igjen.'); abort.current?.abort(); };
@@ -274,6 +293,8 @@ export default function Board3D(props: Props) {
       // Isolated scene and immutable snapshot: exporting never moves or seeks the board.
       const snapshot = structuredClone(props.tactic);
       const speed = props.speed;
+      const timeline = props.timeline;
+      const totalMs = timeline ? VIDEO_LEAD_MS + timeline.durationMs(speed) + VIDEO_TAIL_MS : exportDuration(snapshot.phases.length, speed);
       const camera = scene.current.cameraState();
       const size = fromFullscreen ? fullscreenVideoSize(host.current!.clientWidth, host.current!.clientHeight) : null;
       const selectedChoice = size ? await chooseEncoder(false, size) : choice;
@@ -295,6 +316,14 @@ export default function Board3D(props: Props) {
       controller.signal.throwIfAborted();
       /** The same frame for the live preview and the video, `elapsed` ms into playback. */
       const frameAt = (elapsed: number) => {
+        if (timeline) {
+          // The drill's own tempo and passes; same crop and camera as the live view.
+          const { phase, ...moving } = timeline.frameAt(elapsed, speed);
+          const drawings = snapshot.phases[phase]?.drawings ?? [];
+          const frame: SceneFrame = { ...moving, drawings, cameraBounds: props.cameraBounds,
+            phaseName: snapshot.phases[phase]?.name || `Fase ${phase + 1}`, stickyNote: snapshot.phases[phase]?.stickyNote };
+          return { frame, drawings, phase };
+        }
         const f = playbackFrame(snapshot.phases, elapsed, speed);
         const drawings = snapshot.phases[f.fromIdx].drawings ?? [];
         const frame: SceneFrame = { ...f, drawings, phaseName: snapshot.phases[f.fromIdx].name || `Fase ${f.fromIdx + 1}`, stickyNote: snapshot.phases[f.fromIdx].stickyNote,
@@ -326,7 +355,7 @@ export default function Board3D(props: Props) {
         // Live: only the camera path is recorded, which is cheap even on a slow PC.
         livePaused.current = true; setRecordStage('recording');
         const recorded = await recordCameraTrack({
-          durationMs: exportDuration(snapshot.phases.length, speed), signal: controller.signal,
+          durationMs: totalMs, signal: controller.signal,
           shouldStop: () => stopped.current, onElapsed: setRecordingSeconds,
           show: (time, dt, index) => {
             const { frame, drawings, phase } = frameAt(Math.max(0, time - VIDEO_LEAD_MS));
@@ -350,7 +379,7 @@ export default function Board3D(props: Props) {
       const path = track;
       await exportVideo3D({
         choice: selectedChoice, phaseCount: snapshot.phases.length, speed, team: props.teamName, tactic: snapshot.name,
-        signal: controller.signal, onProgress: setProgress, frameCount,
+        signal: controller.signal, onProgress: setProgress, frameCount, durationMs: totalMs,
         draw: async (elapsed, index) => {
           const { frame, drawings } = frameAt(elapsed);
           await board.setDrawings(drawings);
