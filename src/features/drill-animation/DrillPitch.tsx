@@ -1,5 +1,5 @@
 'use client';
-import { memo, useEffect, useLayoutEffect, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { StagePlayer } from '@/components/board/BoardStage';
 import { DrawingCanvas } from '@/components/board/DrawingCanvas';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
@@ -89,27 +89,37 @@ function placementOf(frame: MotionFrame, labels: LabelDrawing[], kitScale: numbe
   return { transforms, trail: trailOf(frame.flight, frame.ball, 13 * kitScale) };
 }
 
-function setLine(line: SVGLineElement | undefined, segment: Segment | null) {
-  if (!line) return;
-  if (!segment) { line.setAttribute('display', 'none'); return; }
-  line.removeAttribute('display');
-  for (const key of ['x1', 'y1', 'x2', 'y2'] as const) line.setAttribute(key, String(segment[key]));
+function setAttribute(element: SVGElement, name: string, value: string | null) {
+  if (element.getAttribute(name) === value) return;
+  if (value === null) element.removeAttribute(name);
+  else element.setAttribute(name, value);
 }
 
-/** Skriver et bilde rett i SVG-en: samme verdier som React ville satt. */
-function applyPlacement(root: SVGGElement, { transforms, trail }: Placement) {
-  root.querySelectorAll<SVGGElement>('[data-move]').forEach(el => {
-    const key = el.dataset.move!;
+function setLine(line: SVGLineElement | undefined, segment: Segment | null) {
+  if (!line) return;
+  if (!segment) { setAttribute(line, 'display', 'none'); return; }
+  setAttribute(line, 'display', null);
+  for (const key of ['x1', 'y1', 'x2', 'y2'] as const) setAttribute(line, key, String(segment[key]));
+}
+
+/** Finn nodene etter React har tegnet, aldri på nytt i hvert skjermbilde. */
+function bindPlacement(root: SVGGElement) {
+  const nodes = Array.from(root.querySelectorAll<SVGGElement>('[data-move]'), el => ({
+    el, key: el.dataset.move!, lines: Array.from(el.querySelectorAll('line')),
+  }));
+  // Som brettets React-tegning: skriv bare egenskaper som faktisk er endret.
+  // Uendrede display-/spor-attributter må ikke ugyldiggjøre SVG-en i pausene.
+  return ({ transforms, trail }: Placement) => nodes.forEach(({ el, key, lines }) => {
     if (key === 'trail') {
-      if (trail) { el.setAttribute('data-ball-trail', 'true'); el.removeAttribute('display'); }
-      else { el.removeAttribute('data-ball-trail'); el.setAttribute('display', 'none'); }
-      const [travelled, remaining] = Array.from(el.querySelectorAll('line'));
+      setAttribute(el, 'data-ball-trail', trail ? 'true' : null);
+      setAttribute(el, 'display', trail ? null : 'none');
+      const [travelled, remaining] = lines;
       setLine(travelled, trail?.travelled ?? null);
       setLine(remaining, trail?.remaining ?? null);
       return;
     }
     const transform = transforms[key];
-    if (transform !== undefined && el.getAttribute('transform') !== transform) el.setAttribute('transform', transform);
+    if (transform !== undefined) setAttribute(el, 'transform', transform);
   });
 }
 
@@ -143,13 +153,18 @@ export function LiveDrillPitch({ head, sample, isPlaying, ...props }: Omit<Props
   const root = useRef<SVGGElement>(null);
   const draw = useRef<(now?: number) => void>(() => {});
   const { animation, kitScale } = props;
+  const phaseLabels = useMemo(() => animation.phases.map(phase => labelsOf(phase.drawings)), [animation]);
 
   // Etter hver tegning i React, før skjermen males: figurene står der klokka er nå.
   useLayoutEffect(() => {
+    const apply = root.current && bindPlacement(root.current);
+    let painted: Pick<Playhead, 'from' | 't' | 'moving'> | null = null;
     draw.current = now => {
       const at = (isPlaying && sample(now)) || head;
+      if (painted && painted.from === at.from && painted.t === at.t && painted.moving === at.moving) return;
+      painted = at;
       const frame = drillMotion(animation, at.from, at.t, at.moving, kitScale);
-      if (root.current) applyPlacement(root.current, placementOf(frame, labelsOf(animation.phases[at.from].drawings), kitScale));
+      apply?.(placementOf(frame, phaseLabels[at.from], kitScale));
     };
     draw.current();
   });

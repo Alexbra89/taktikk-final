@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { test, expect, type Page, type Locator } from '@playwright/test';
+import { getDrillAnimation } from '../src/data/drillAnimations';
 
 // «Se animert» med Windows-skalering (devicePixelRatio som ikke er et heltall).
 // Reproduksjon av feilen fra PC-en med devicePixelRatio 1,65: dialogen bredere
@@ -9,8 +10,8 @@ test.use({ serviceWorkers: 'block', reducedMotion: 'no-preference' });
 
 const SHOTS = path.join(process.cwd(), '_skjermbilder');
 
-async function openBryteren(page: Page) {
-  await page.goto('/');
+async function openBryteren(page: Page, navigate = true) {
+  if (navigate) await page.goto('/');
   await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Øvelser', exact: true }).click();
   await page.getByRole('button', { name: 'Barn', exact: true }).click();
   await page.getByPlaceholder('Søk etter øvelse…').fill('Bryteren');
@@ -184,14 +185,13 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
     const react = (window as unknown as { __drillReact?: Record<string, number> }).__drillReact;
     const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0, beforeFigures = react?.DrillPitch ?? 0;
     if (mode === '3d' && !stats?.renders) throw new Error('3D-bildene telles ikke (watch3DRenders mangler eller ingen tegning ennå)');
-    let changed = 0, dirty = false, renders = 0, extraRenders = 0;
+    let changed = 0, renders = 0, extraRenders = 0;
     let lastRenders = stats?.renders ?? 0, lastSignature = stats?.signature ?? 0;
-    const observer = new MutationObserver(() => { dirty = true; });
     const target = root.querySelector('[data-testid="drill-animation-pitch"]');
-    if (mode === '2d') {
-      if (!target) throw new Error('Fant ikke 2D-banen');
-      observer.observe(target, { attributes: true, childList: true, subtree: true, characterData: true });
-    }
+    if (mode === '2d' && !target) throw new Error('Fant ikke 2D-banen');
+    const movers = Array.from(target?.querySelectorAll('[data-player], [data-ball]') ?? []);
+    const signature2d = () => movers.map(el => el.getAttribute('transform')).join('|');
+    let last2d = signature2d();
     const intervals: number[] = [];
     const start = performance.now();
     let last = start;
@@ -201,15 +201,17 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
         if (mode === '3d' && stats) {
           const delta = stats.renders - lastRenders;
           renders += delta; if (delta > 1) extraRenders += delta - 1;
-          if (delta > 0 && Math.abs(stats.signature - lastSignature) > 1e-6) dirty = true;
+          if (delta > 0 && Math.abs(stats.signature - lastSignature) > 1e-6) changed++;
           lastRenders = stats.renders; lastSignature = stats.signature;
+        } else if (mode === '2d') {
+          const next = signature2d();
+          if (next !== last2d) changed++;
+          last2d = next;
         }
-        if (dirty) { changed++; dirty = false; }
         if (now - start < duration) requestAnimationFrame(tick); else resolve();
       };
       requestAnimationFrame(tick);
     });
-    observer.disconnect();
     const seconds = (performance.now() - start) / 1000;
     const sorted = intervals.slice(1).sort((a, b) => a - b);
     return {
@@ -227,6 +229,93 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
     };
   }, { duration: durationMs, mode: view });
 }
+
+/** Samme posisjonsmåling i begge visninger, uten å telle uendrede SVG-skrivinger som bilder. */
+async function measureLiveMove(svg: Locator) {
+  return svg.evaluate(async root => {
+    const figures = Array.from(root.querySelectorAll<SVGGElement>('[data-player]'), player =>
+      player.hasAttribute('data-move') ? player : player.querySelector<SVGGElement>('g[transform]')!);
+    const signature = () => figures.map(el => el.getAttribute('transform')).join('|');
+    const react = (window as unknown as { __drillReact: Record<string, number> }).__drillReact;
+    const before = { ...react };
+    let redundantWrites = 0;
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.oldValue === (record.target as Element).getAttribute(record.attributeName!)) redundantWrites++;
+      }
+    });
+    observer.observe(root, { subtree: true, attributes: true, attributeOldValue: true });
+    let last = signature(), changed = 0;
+    const intervals: number[] = [];
+    const start = performance.now();
+    let previous = start;
+    await new Promise<void>(resolve => {
+      const tick = (now: number) => {
+        intervals.push(now - previous); previous = now;
+        const next = signature();
+        if (next !== last) changed++;
+        last = next;
+        if (now - start < 350) requestAnimationFrame(tick); else resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+    observer.disconnect();
+    const seconds = (performance.now() - start) / 1000;
+    const sorted = intervals.slice(1).sort((a, b) => a - b);
+    return {
+      fps: intervals.length / seconds, changedPerSecond: changed / seconds,
+      p95: sorted[Math.floor(sorted.length * .95)], redundantWrites,
+      viewerRenders: (react.DrillAnimationViewer ?? 0) - (before.DrillAnimationViewer ?? 0),
+      figureRenders: (react.DrillPitch ?? 0) - (before.DrillPitch ?? 0),
+      boardRenders: (react.TacticBoard ?? 0) - (before.TacticBoard ?? 0),
+      hookWorking: (react.DrillPitch ?? 0) > 0 && (react.TacticBoard ?? 0) > 0,
+    };
+  });
+}
+
+test.describe('live Play sammenlignet med taktikkbrettet på PC', () => {
+  test.use({ viewport: { width: 1536, height: 730 }, deviceScaleFactor: 1.65 });
+
+  test('samme faser: minst like jevn bevegelse, uten React-arbeid eller uendrede SVG-skrivinger', async ({ page }) => {
+    await watchReactRenders(page);
+    // Samme spillere og første overgang i begge visninger. Ingen endring av appens kode eller klokke.
+    const animation = getDrillAnimation('forsvar-y-09')!;
+    await page.addInitScript(tactic => {
+      localStorage.setItem('taktikkboard-storage', JSON.stringify({ version: 2, state: {
+        tactics: [tactic], activeTacticId: tactic.id,
+      } }));
+    }, animation);
+    await page.goto('/');
+    await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Taktikk', exact: true }).click();
+    const boardSvg = page.locator('svg[viewBox="0 0 880 560"]').first();
+    await expect(boardSvg).toBeVisible();
+    await page.getByRole('button', { name: 'Spill av fasene', exact: true }).click();
+    await page.waitForTimeout(100);
+    const board = await measureLiveMove(boardSvg);
+    await page.getByRole('button', { name: 'Stopp avspilling', exact: true }).click();
+    expect(board.changedPerSecond, 'Referansen må faktisk bevege spillerne').toBeGreaterThan(20);
+    expect(board.boardRenders, 'Målingen må se brettets React-oppdateringer').toBeGreaterThan(0);
+
+    const dialog = await openBryteren(page, false);
+    for (const speed of ['0.5', '1', '2']) {
+      await dialog.getByRole('button', { name: /^Fase 1:/ }).click();
+      await dialog.getByRole('combobox', { name: 'Fart', exact: true }).selectOption(speed);
+      await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+      await expect(dialog.getByRole('button', { name: /^Fase 2:/ })).toHaveAttribute('aria-current', 'step');
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const live = await measureLiveMove(dialog.getByTestId('drill-animation-pitch'));
+      console.log(`[live Play ${speed}× mot taktikkbrettet]`, JSON.stringify({ board, live }));
+      expect(live.hookWorking).toBe(true);
+      expect(live.fps).toBeGreaterThanOrEqual(board.fps * .85);
+      expect(live.changedPerSecond, 'Målte spillerposisjoner, ikke bare rAF-kall').toBeGreaterThanOrEqual(board.changedPerSecond * .8);
+      expect(live.p95).toBeLessThanOrEqual(board.p95 * 2 + 8);
+      expect(live.viewerRenders, 'Ingen React-tegning midt i en bevegelse').toBe(0);
+      expect(live.figureRenders).toBe(0);
+      expect(live.redundantWrites, 'Som React på brettet: uendrede attributter skal ikke skrives på nytt').toBe(0);
+      await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
+    }
+  });
+});
 
 const viewports = [
   { width: 1536, height: 730 },

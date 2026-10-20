@@ -81,6 +81,7 @@ export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, r
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
+    let previous: Playhead | null = null;
     const tick = () => {
       const next = sample();
       if (!next) return;
@@ -90,8 +91,14 @@ export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, r
         setHead(still(count - 1));
         return;
       }
-      setHead(previous => previous.from !== next.from
-        || previous.moving !== next.moving || previous.shown !== next.shown ? next : previous);
+      // Ikke send en oppdatering til React for hvert skjermbilde, heller ikke
+      // en funksjon som returnerer samme state. Bare fase-/pauseskifter angår
+      // dialogen; figurene leser klokka direkte, uten React i bevegelsesløypa.
+      if (!previous || previous.from !== next.from
+        || previous.moving !== next.moving || previous.shown !== next.shown) {
+        previous = next;
+        setHead(next);
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
