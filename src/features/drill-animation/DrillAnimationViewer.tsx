@@ -10,7 +10,7 @@ import { useVideoExport, type VideoSource } from '@/hooks/useVideoExport';
 import { useViewport } from '@/hooks/useViewport';
 import { cn } from '@/lib/cn';
 import { DrillAnimationControls } from './DrillAnimationControls';
-import { DrillPitch, LiveDrillPitch, stagePlayersOf } from './DrillPitch';
+import { DrillBackground, DrillPitch, LiveDrillPitch, stagePlayersOf } from './DrillPitch';
 import { playbackMs, playheadAt, useDrillPlayback, type Playhead } from './playback';
 import { drillFraming, fitCrop } from './framing';
 import { drillMotion } from './motion';
@@ -249,10 +249,16 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
         <div ref={pitchRef} className={styles.pitch}>
           {view === '2d' ? (
             <div ref={areaRef} data-testid="drill-animation-area" className="relative flex-1 min-w-0 min-h-0 overflow-hidden">
+              {/* To lag med samme utsnitt: gresset står stille i sitt eget lag, figurene flytter seg over.
+                  Utsnittet har flatens form, så SVG-ens egen kant klipper; ingen clipPath. */}
+              <svg data-testid="drill-animation-background" viewBox={fit.viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true"
+                className={cn(styles.layer, 'absolute inset-0')}>
+                <DrillBackground drawings={drawings} />
+              </svg>
               <svg ref={svgRef} data-testid="drill-animation-pitch" viewBox={fit.viewBox} preserveAspectRatio="xMidYMid meet" role="img"
-                aria-label={`Bane i 2D. ${phase.name}.`} className="absolute inset-0" style={{ display: 'block', width: '100%', height: '100%' }}>
+                aria-label={`Bane i 2D. ${phase.name}.`} className={cn(styles.layer, 'absolute inset-0')}>
                 <LiveDrillPitch animation={animation} head={head} sample={sample} isPlaying={isPlaying && !recording}
-                  crop={fit.crop} kitScale={fit.kitScale} playerStyle={playerStyle} />
+                  kitScale={fit.kitScale} playerStyle={playerStyle} />
               </svg>
             </div>
           ) : (

@@ -179,7 +179,7 @@ function hiddenParts(dialog: Locator) {
     const a = new DOMPoint(x, y).matrixTransform(matrix), b = new DOMPoint(x + width, y + height).matrixTransform(matrix);
     const left = Math.max(a.x, area.left, 0), top = Math.max(a.y, area.top, 0);
     const right = Math.min(b.x, area.right, innerWidth), bottom = Math.min(b.y, area.bottom, innerHeight);
-    const parts = Array.from(svg.querySelectorAll('[data-player], [data-item], g[filter="url(#dropShadow)"] circle[r="10"]'));
+    const parts = Array.from(svg.querySelectorAll('[data-player], [data-item], [data-ball] > circle[r="10"]'));
     if (parts.length < 3) return ['for få deler på banen'];
     return parts.flatMap(el => {
       const box = el.getBoundingClientRect();

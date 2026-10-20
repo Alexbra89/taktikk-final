@@ -75,7 +75,7 @@ function cropReport(dialog: Locator) {
     const parts: [string, Element][] = [
       ...Array.from(svg.querySelectorAll('[data-player="true"]'), (el, i): [string, Element] => [`spiller ${i + 1}`, el]),
       ...Array.from(svg.querySelectorAll('[data-item="true"] > g'), (el, i): [string, Element] => [`utstyr ${i + 1}`, el]),
-      ...Array.from(svg.querySelectorAll('g[filter] > circle[r="10"]'))
+      ...Array.from(svg.querySelectorAll('[data-ball] > circle[r="10"]'))
         .filter(el => !el.closest('[data-player]')).map((el): [string, Element] => ['ball', el]),
     ];
     const clipped = parts.flatMap(([name, el]) => {
@@ -183,7 +183,7 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
   return dialog.evaluate(async (root, { duration, mode }) => {
     const stats = (window as unknown as { __drill3d?: { renders: number; signature: number } }).__drill3d;
     const react = (window as unknown as { __drillReact?: Record<string, number> }).__drillReact;
-    const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0, beforeFigures = react?.DrillPitch ?? 0;
+    const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0, beforeFigures = react?.DrillFigures ?? 0;
     if (mode === '3d' && !stats?.renders) throw new Error('3D-bildene telles ikke (watch3DRenders mangler eller ingen tegning ennå)');
     let changed = 0, renders = 0, extraRenders = 0;
     let lastRenders = stats?.renders ?? 0, lastSignature = stats?.signature ?? 0;
@@ -224,7 +224,7 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
       longFrames: sorted.filter(ms => ms > 50).length,
       viewerRenders: (react?.DrillAnimationViewer ?? 0) - beforeViewer,
       pitchRenders: (react?.FootballPitch ?? 0) - beforePitch,
-      figureRenders: (react?.DrillPitch ?? 0) - beforeFigures,
+      figureRenders: (react?.DrillFigures ?? 0) - beforeFigures,
       reactHookWorking: beforeViewer > 0 && beforePitch > 0,
     };
   }, { duration: durationMs, mode: view });
@@ -266,9 +266,9 @@ async function measureLiveMove(svg: Locator) {
       fps: intervals.length / seconds, changedPerSecond: changed / seconds,
       p95: sorted[Math.floor(sorted.length * .95)], redundantWrites,
       viewerRenders: (react.DrillAnimationViewer ?? 0) - (before.DrillAnimationViewer ?? 0),
-      figureRenders: (react.DrillPitch ?? 0) - (before.DrillPitch ?? 0),
+      figureRenders: (react.DrillFigures ?? 0) - (before.DrillFigures ?? 0),
       boardRenders: (react.TacticBoard ?? 0) - (before.TacticBoard ?? 0),
-      hookWorking: (react.DrillPitch ?? 0) > 0 && (react.TacticBoard ?? 0) > 0,
+      hookWorking: (react.DrillFigures ?? 0) > 0 && (react.TacticBoard ?? 0) > 0,
     };
   });
 }
@@ -314,6 +314,80 @@ test.describe('live Play sammenlignet med taktikkbrettet på PC', () => {
       expect(live.redundantWrites, 'Som React på brettet: uendrede attributter skal ikke skrives på nytt').toBe(0);
       await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
     }
+  });
+});
+
+test.describe('live Play uten tunge effekter på PC', () => {
+  test.use({ viewport: { width: 1536, height: 730 }, deviceScaleFactor: 1.65 });
+
+  test('det som beveger seg har verken filter eller clipPath, og gresset står stille i eget lag', async ({ page }) => {
+    const dialog = await openBryteren(page);
+    await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: /^Fase 2:/ })).toHaveAttribute('aria-current', 'step');
+    const report = await dialog.evaluate(async root => {
+      const pitch = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
+      const background = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-background"]');
+      const movers = Array.from(pitch.querySelectorAll<SVGElement>('[data-move]'));
+      const heavy: string[] = [];
+      const check = (el: Element, mover: string) => {
+        const style = getComputedStyle(el);
+        for (const name of ['filter', 'clip-path', 'mask']) {
+          if (el.hasAttribute(name)) heavy.push(`${mover}: <${el.tagName} ${name}="${el.getAttribute(name)}">`);
+        }
+        if (style.filter !== 'none') heavy.push(`${mover}: <${el.tagName}> CSS filter ${style.filter}`);
+        if (style.clipPath !== 'none') heavy.push(`${mover}: <${el.tagName}> CSS clip-path ${style.clipPath}`);
+        if (style.mask !== 'none' && style.mask !== '') heavy.push(`${mover}: <${el.tagName}> CSS mask ${style.mask}`);
+      };
+      // Hele kjeden: figuren, alt inni den og alle gruppene over den, opp til SVG-en.
+      const scan = () => movers.forEach(el => {
+        const name = el.dataset.move!;
+        check(el, name);
+        el.querySelectorAll('*').forEach(child => check(child, name));
+        for (let up = el.parentElement; up && up !== pitch.parentElement; up = up.parentElement) check(up, name);
+      });
+      const transforms = () => movers.map(el => el.getAttribute('transform')).join('|');
+      let mutations = 0;
+      const observer = background && new MutationObserver(records => { mutations += records.length; });
+      observer?.observe(background!, { subtree: true, attributes: true, childList: true, characterData: true });
+      const first = transforms();
+      let changed = 0, last = first;
+      // Sjekk i hvert skjermbilde i ett sekund, mens spillerne beveger seg.
+      await new Promise<void>(resolve => {
+        const start = performance.now();
+        const tick = (now: number) => {
+          scan();
+          const next = transforms(); if (next !== last) changed++; last = next;
+          if (now - start < 1000) requestAnimationFrame(tick); else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+      observer?.disconnect();
+      return {
+        movers: movers.length, changed, heavy: Array.from(new Set(heavy)),
+        effectsInPitch: pitch.querySelectorAll('clipPath, filter, mask, [filter], [clip-path], [mask]').length,
+        grassInPitch: pitch.querySelectorAll('rect[width="880"][height="560"]').length,
+        hasBackground: !!background,
+        grassInBackground: background?.querySelectorAll('rect[width="880"][height="560"]').length ?? 0,
+        moversInBackground: background?.querySelectorAll('[data-move], [data-player], [data-ball]').length ?? -1,
+        backgroundViewBox: background?.getAttribute('viewBox'), pitchViewBox: pitch.getAttribute('viewBox'),
+        backgroundWillChange: background ? getComputedStyle(background).willChange : '',
+        backgroundMutations: mutations,
+      };
+    });
+    console.log('[live Play uten effekter]', JSON.stringify(report));
+    await page.screenshot({ path: path.join(SHOTS, 'live-play-uten-effekter-1536x730.png') });
+    expect(report.movers, 'Fant figurene som flytter seg').toBeGreaterThan(3);
+    expect(report.changed, 'Figurene må faktisk bevege seg under sjekken').toBeGreaterThan(20);
+    expect(report.heavy, 'Ingen filter, clipPath eller maske på noe som beveger seg').toEqual([]);
+    expect(report.effectsInPitch, 'Figurlaget skal ikke ha filter/clipPath i det hele tatt').toBe(0);
+    // Gresset og banestrekene: eget, fast lag bak figurene, med samme utsnitt.
+    expect(report.hasBackground).toBe(true);
+    expect(report.grassInPitch, 'Gresset skal ikke ligge i laget som tegnes på nytt').toBe(0);
+    expect(report.grassInBackground).toBeGreaterThanOrEqual(1);
+    expect(report.moversInBackground).toBe(0);
+    expect(report.backgroundViewBox).toBe(report.pitchViewBox);
+    expect(report.backgroundWillChange).toBe('transform');
+    expect(report.backgroundMutations, 'Gresslaget skal ikke røres mens spillerne beveger seg').toBe(0);
   });
 });
 

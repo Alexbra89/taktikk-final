@@ -20,10 +20,16 @@ import type { Playhead } from './playback';
 // ══════════════════════════════════════════════════════════════
 //  2D-BANEN FOR EN ANIMERT ØVELSE – på skjermen og i 2D-videoen
 //
-//  Brettets egne bane og figurer, klippet til utsnittet. Draktene, ballen,
-//  kjeglene og tekstene krympes rundt sitt eget midtpunkt (kitScale), så
-//  de har samme skjermstørrelse som på taktikkbrettet selv om banen zoomes.
-//  Mens ballen er på vei, viser en svak stiplet strek hvor den skal.
+//  Brettets egne bane og figurer. Draktene, ballen, kjeglene og tekstene
+//  krympes rundt sitt eget midtpunkt (kitScale), så de har samme
+//  skjermstørrelse som på taktikkbrettet selv om banen zoomes. Mens ballen
+//  er på vei, viser en svak stiplet strek hvor den skal.
+//
+//  To lag: DrillBackground (gress, banestreker, piler) står stille, og
+//  DrillFigures (drakter, ball, utstyr, tekster) flytter seg. Det som flytter
+//  seg, har verken filter eller clipPath: ballens skygge er en forskjøvet
+//  sirkel, som draktenes. På skjermen er lagene hver sin SVG (se
+//  DrillAnimationViewer), så gresset ikke tegnes på nytt i hvert bilde.
 //
 //  Hver figur tegnes rundt (0, 0) og flyttes med én transform. placementOf
 //  regner ut alle flyttingene i et bilde. Videoen (DrillPitch) gir dem til
@@ -140,12 +146,23 @@ const PitchBackground = memo(function PitchBackground() {
 });
 
 /**
- * Banen på skjermen. React tegner figurene bare når fasen skifter; i hvert
+ * Det faste laget: gress, banestreker og fasens piler/streker (alt unntatt
+ * tekstene, som følger kjeglene). Endres bare når fasen skifter.
+ */
+export const DrillBackground = memo(function DrillBackground({ drawings }: { drawings: Drawing[] }) {
+  return <>
+    <PitchBackground />
+    {drawings.filter(d => d.type !== 'label').map(drawing => <DrawingCanvas key={drawing.id} drawing={drawing} />)}
+  </>;
+});
+
+/**
+ * Figurlaget på skjermen. React tegner figurene bare når fasen skifter; i hvert
  * skjermbilde (requestAnimationFrame) leses klokka med bildets tidsstempel,
  * og drakter, ball og utstyr flyttes rett i SVG-en – samme playheadAt,
  * drillMotion og placementOf som bildene i 2D-opptaket.
  */
-export function LiveDrillPitch({ head, sample, isPlaying, ...props }: Omit<Props, 'frame' | 'drawings' | 'live'> & {
+export function LiveDrillPitch({ head, sample, isPlaying, ...props }: Omit<Props, 'frame' | 'drawings' | 'crop' | 'live'> & {
   head: Pick<Playhead, 'from' | 't' | 'moving'>;
   sample: (now?: number) => Playhead | null;
   isPlaying: boolean;
@@ -178,15 +195,31 @@ export function LiveDrillPitch({ head, sample, isPlaying, ...props }: Omit<Props
   }, [isPlaying]);
 
   return <g ref={root}>
-    <DrillPitch {...props} live frame={drillMotion(animation, head.from, 0, false, kitScale)}
+    <DrillFigures {...props} live frame={drillMotion(animation, head.from, 0, false, kitScale)}
       drawings={animation.phases[head.from].drawings} />
   </g>;
 }
 
-/** Innholdet i SVG-en (viewBox = utsnittet settes av den som tegner). */
-export function DrillPitch({ animation, frame, drawings, crop, kitScale, playerStyle, live = false }: Props) {
+/**
+ * Innholdet i SVG-en til 2D-videoen (viewBox = utsnittet settes av den som
+ * tegner). Videobildet har ikke utsnittets form, så banen klippes her, i en
+ * gruppe som står stille; hvert bilde tegnes uansett på nytt fra React.
+ */
+export function DrillPitch({ crop, ...props }: Props) {
+  return (
+    <>
+      <defs><clipPath id="drill-animation-crop"><rect x={crop.x} y={crop.y} width={crop.width} height={crop.height} /></clipPath></defs>
+      <g clipPath="url(#drill-animation-crop)">
+        <DrillBackground drawings={props.drawings} />
+        <DrillFigures {...props} />
+      </g>
+    </>
+  );
+}
+
+/** Det som flytter seg: utstyr, ball, ballspor, tekster og spillere. */
+export function DrillFigures({ animation, frame, drawings, kitScale, playerStyle, live = false }: Omit<Props, 'crop'>) {
   const labels = labelsOf(drawings);
-  const others = drawings.filter(d => d.type !== 'label');
   const { transforms, trail } = placementOf(frame, labels, kitScale);
   const move = (key: string) => ({ 'data-move': key, transform: live ? undefined : transforms[key] });
   const line = (segment: Segment | null | undefined) => live ? {} : segment ? segment : { display: 'none' };
@@ -194,37 +227,34 @@ export function DrillPitch({ animation, frame, drawings, crop, kitScale, playerS
   const kit = playerStyle === 'kit';
   return (
     <>
-      <defs><clipPath id="drill-animation-crop"><rect x={crop.x} y={crop.y} width={crop.width} height={crop.height} /></clipPath></defs>
-      <g clipPath="url(#drill-animation-crop)">
-        <PitchBackground />
-        {others.map(drawing => <DrawingCanvas key={drawing.id} drawing={drawing} />)}
-        {frame.items.map(item => (
-          <g key={item.id} data-item="true" {...move(`item:${item.id}`)}>
-            <g><BoardItemShape type={item.type} /></g>
-          </g>
-        ))}
-        <g data-ball="true" {...move('ball')} filter="url(#dropShadow)">
-          <circle cx={0} cy={0} r={10} style={{ fill: 'rgb(var(--k-ink))' }} />
-          <circle cx={0} cy={0} r={4} style={{ fill: 'rgb(var(--k-pitch))' }} />
+      {frame.items.map(item => (
+        <g key={item.id} data-item="true" {...move(`item:${item.id}`)}>
+          <g><BoardItemShape type={item.type} /></g>
         </g>
-        <g data-move="trail" {...(live ? {} : trail ? { 'data-ball-trail': 'true' } : { display: 'none' })}
-          style={{ pointerEvents: 'none' }} strokeLinecap="round">
-          <line {...line(trail?.travelled)} strokeWidth={2.5 * kitScale} opacity={0.22} style={stroke} />
-          <line {...line(trail?.remaining)} strokeWidth={2 * kitScale}
-            strokeDasharray={`${6 * kitScale} ${6 * kitScale}`} opacity={0.5} style={stroke} />
-        </g>
-        {labels.map(label => (
-          <g key={label.id} {...move(`label:${label.id}`)}><DrawingCanvas drawing={label} /></g>
-        ))}
-        {stagePlayersOf(animation, frame.players).map(player => (
-          <g key={player.id} data-player="true" {...move(`player:${player.id}`)}>
-            {kit
-              ? <PlayerKit x={0} y={0} num={player.num} family={player.family} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />
-              : <PlayerChip x={0} y={0} num={player.num} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />}
-            <RoleBadge x={0} y={kit ? KIT_BADGE_OFFSET : 22} label={player.label} />
-          </g>
-        ))}
+      ))}
+      <g data-ball="true" {...move('ball')}>
+        {/* Skygge: en forskjøvet, gjennomsiktig sirkel, ikke et filter – filtre gjør avspillingen tung. */}
+        <circle cx={0} cy={1.2} r={11} fill="#000" opacity={0.2} />
+        <circle cx={0} cy={0} r={10} style={{ fill: 'rgb(var(--k-ink))' }} />
+        <circle cx={0} cy={0} r={4} style={{ fill: 'rgb(var(--k-pitch))' }} />
       </g>
+      <g data-move="trail" {...(live ? {} : trail ? { 'data-ball-trail': 'true' } : { display: 'none' })}
+        style={{ pointerEvents: 'none' }} strokeLinecap="round">
+        <line {...line(trail?.travelled)} strokeWidth={2.5 * kitScale} opacity={0.22} style={stroke} />
+        <line {...line(trail?.remaining)} strokeWidth={2 * kitScale}
+          strokeDasharray={`${6 * kitScale} ${6 * kitScale}`} opacity={0.5} style={stroke} />
+      </g>
+      {labels.map(label => (
+        <g key={label.id} {...move(`label:${label.id}`)}><DrawingCanvas drawing={label} /></g>
+      ))}
+      {stagePlayersOf(animation, frame.players).map(player => (
+        <g key={player.id} data-player="true" {...move(`player:${player.id}`)}>
+          {kit
+            ? <PlayerKit x={0} y={0} num={player.num} family={player.family} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />
+            : <PlayerChip x={0} y={0} num={player.num} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />}
+          <RoleBadge x={0} y={kit ? KIT_BADGE_OFFSET : 22} label={player.label} />
+        </g>
+      ))}
     </>
   );
 }
