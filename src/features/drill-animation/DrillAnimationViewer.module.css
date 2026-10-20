@@ -1,7 +1,18 @@
+.dialog {
+  width: 100%;
+  max-width: 100dvw;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .content {
   display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   flex-direction: column;
   overflow: hidden;
 }
@@ -24,23 +35,27 @@
 
 .notes {
   flex-shrink: 0;
+  min-width: 0;
+  max-height: 50%;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
 }
 
 .pitch [data-player] > text {
   font-size: 12px;
 }
 
-/* Telefon på tvers og brede, lave PC-vinduer: teksten ved siden av banen
-   gir banen hele høyden. */
-@media (max-height: 500px) and (min-width: 640px), (min-aspect-ratio: 2/1) and (min-width: 1024px) {
+/* Bare lave vinduer med nok bredde til begge deler får sidekolonne.
+   Vanlige PC-vinduer beholder tekst under banen, også ved Windows-skalering. */
+@media (max-height: 500px) and (min-width: 800px) {
   .content {
     flex-direction: row;
   }
 
   .notes {
     width: 34%;
-    min-width: 260px;
     max-width: 420px;
+    max-height: 100%;
     min-height: 0;
     overflow-y: auto;
   }

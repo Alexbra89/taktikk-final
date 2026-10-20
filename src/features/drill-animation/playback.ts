@@ -8,7 +8,7 @@ import type { DrillAnimationPhase } from './types';
 //  Én klokke for 2D, 3D og videoene: tiden måles med performance.now(),
 //  så posisjonen avhenger bare av hvor lang tid som har gått – aldri av
 //  hvor ofte nettleseren rekker å tegne. 3D leser den i hvert bilde
-//  (sample), 2D tegnes på nytt i hvert bilde (requestAnimationFrame).
+//  (sample), det samme gjør 2D-figurene. Dialogen oppdateres ved fasebytte.
 //  Rekkefølgen: pause i fasen → bevegelse til neste → pause → … → slutt.
 //  Teksten byttes når bevegelsen mot en ny fase starter.
 // ══════════════════════════════════════════════════════════════
@@ -52,17 +52,14 @@ export function playheadAt(start: number, count: number, elapsed: number, speed 
 }
 
 /**
- * Spill/pause, fasevalg og klokka. `everyFrame` = tegn på nytt i hvert bilde
- * (2D). I 3D leser scenen klokka selv via `sample`, så siden tegnes bare
- * på nytt når fasen eller pausen skifter.
+ * Spill/pause, fasevalg og klokka. Både 2D og 3D leser `sample` selv,
+ * så dialogen tegnes bare på nytt når fasen eller pausen skifter.
  */
-export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, reducedMotion: boolean, everyFrame = true) {
+export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, reducedMotion: boolean) {
   const count = phases.length;
   const run = useRef<{ start: number; at: number; speed: number } | null>(null);
   const [head, setHead] = useState<Playhead>(() => still(0));
   const [playing, setPlaying] = useState(false);
-  const everyFrameRef = useRef(everyFrame);
-  everyFrameRef.current = everyFrame;
 
   /** Klokka akkurat nå, uten å vente på React. null når den står. */
   const sample = useCallback((now = performance.now()): Playhead | null => {
@@ -84,7 +81,7 @@ export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, r
         setHead(still(count - 1));
         return;
       }
-      setHead(previous => everyFrameRef.current || previous.from !== next.from
+      setHead(previous => previous.from !== next.from
         || previous.moving !== next.moving || previous.shown !== next.shown ? next : previous);
       raf = requestAnimationFrame(tick);
     };

@@ -45,6 +45,7 @@ function layoutReport(dialog: Locator) {
       outside,
       innerWidth, innerHeight, clientWidth: vw, clientHeight: vh, dpr: devicePixelRatio,
       dialogWidth: root.getBoundingClientRect().width, scrollWidth: document.documentElement.scrollWidth,
+      dialogHeight: root.getBoundingClientRect().height,
       dialogScrollWidth: root.scrollWidth,
       area: area && { width: area.clientWidth, height: area.clientHeight },
       viewBox: svg?.getAttribute('viewBox') ?? null,
@@ -145,6 +146,34 @@ function watch3DRenders(page: Page) {
   });
 }
 
+/** Reacts devtools-krok teller faktisk arbeid, uten målekode i appen. */
+function watchReactRenders(page: Page) {
+  return page.addInitScript(() => {
+    type Fiber = { flags: number; type?: { name?: string; displayName?: string }; child?: Fiber; sibling?: Fiber; alternate?: Fiber };
+    const counts: Record<string, number> = {};
+    const w = window as unknown as { __drillReact: typeof counts; __REACT_DEVTOOLS_GLOBAL_HOOK__: unknown };
+    w.__drillReact = counts;
+    const renderers = new Map();
+    w.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      supportsFiber: true, renderers,
+      inject(renderer: unknown) { const id = renderers.size + 1; renderers.set(id, renderer); return id; },
+      onCommitFiberRoot(_id: number, root: { current: Fiber }) {
+        const visit = (fiber?: Fiber) => {
+          for (let node = fiber; node; node = node.sibling) {
+            const name = node.type?.displayName || node.type?.name;
+            if (name && (node.flags & 1)) counts[name] = (counts[name] ?? 0) + 1;
+            // Memo gjenbruker hele child-pekeren; gamle flags på disse nodene
+            // er fra forrige tegning og betyr ikke at de ble tegnet nå.
+            if (node.child !== node.alternate?.child) visit(node.child);
+          }
+        };
+        visit(root.current);
+      },
+      onCommitFiberUnmount() {},
+    };
+  });
+}
+
 /**
  * requestAnimationFrame-teller under avspilling, og hvor mange bilder banen
  * faktisk endret seg i: 2D via SVG-en, 3D via scenen som faktisk ble tegnet.
@@ -152,6 +181,8 @@ function watch3DRenders(page: Page) {
 function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
   return dialog.evaluate(async (root, { duration, mode }) => {
     const stats = (window as unknown as { __drill3d?: { renders: number; signature: number } }).__drill3d;
+    const react = (window as unknown as { __drillReact?: Record<string, number> }).__drillReact;
+    const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0;
     if (mode === '3d' && !stats?.renders) throw new Error('3D-bildene telles ikke (watch3DRenders mangler eller ingen tegning ennå)');
     let changed = 0, dirty = false, renders = 0, extraRenders = 0;
     let lastRenders = stats?.renders ?? 0, lastSignature = stats?.signature ?? 0;
@@ -189,6 +220,9 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
       frames: intervals.length,
       p95: Math.round(sorted[Math.floor(sorted.length * .95)] ?? 0),
       longFrames: sorted.filter(ms => ms > 50).length,
+      viewerRenders: (react?.DrillAnimationViewer ?? 0) - beforeViewer,
+      pitchRenders: (react?.FootballPitch ?? 0) - beforePitch,
+      reactHookWorking: beforeViewer > 0 && beforePitch > 0,
     };
   }, { duration: durationMs, mode: view });
 }
@@ -214,6 +248,7 @@ for (const deviceScaleFactor of [1.65, 1.25, 1.5]) {
         await page.screenshot({ path: path.join(SHOTS, `dpr-${deviceScaleFactor}-${viewport.width}x${viewport.height}-2d.png`) });
         expect(report.dpr).toBeCloseTo(deviceScaleFactor, 2);
         expect(report.dialogWidth).toBeLessThanOrEqual(report.clientWidth + .5);
+        expect(report.dialogHeight).toBeLessThanOrEqual(report.clientHeight + .5);
         expect(report.scrollWidth).toBeLessThanOrEqual(report.clientWidth);
         expect(report.dialogScrollWidth).toBeLessThanOrEqual(report.clientWidth + 1);
         expect(report.outside, 'Ingenting i dialogen skal stikke utenfor vinduet').toEqual([]);
@@ -226,6 +261,47 @@ for (const deviceScaleFactor of [1.65, 1.25, 1.5]) {
     });
   }
 }
+
+test.describe('vindusendring og større tekst @1.65', () => {
+  test.use({ viewport: { width: 1536, height: 730 }, deviceScaleFactor: 1.65 });
+
+  test('tekst og kontroller får plass også etter endring mens 2D spiller', async ({ page }) => {
+    const dialog = await openBryteren(page);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '24px'; });
+    await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+    for (const viewport of [{ width: 1536, height: 730 }, { width: 752, height: 650 }, { width: 1890, height: 960 }]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const report = await layoutReport(dialog);
+      console.log('[vindusendring, 150% tekst]', JSON.stringify(report));
+      expect(report.outside).toEqual([]);
+      expect(report.dialogScrollWidth).toBeLessThanOrEqual(viewport.width);
+      await expect(dialog.getByTestId('drill-animation-text')).toBeInViewport({ ratio: 1 });
+      await expect(dialog.getByRole('group', { name: 'Avspilling', exact: true })).toBeInViewport({ ratio: 1 });
+    }
+  });
+});
+
+test.describe('3D-taket ved DPR 3', () => {
+  test.use({ viewport: { width: 1536, height: 730 }, deviceScaleFactor: 3 });
+  test('lerretet bruker høyst 1,75 også etter vindusendring', async ({ page }) => {
+    const dialog = await openBryteren(page);
+    await dialog.getByRole('button', { name: '3D', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Oversikt', exact: true })).toBeEnabled({ timeout: 45_000 });
+    for (const viewport of [{ width: 1536, height: 730 }, { width: 1890, height: 960 }]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const report = await layoutReport(dialog);
+      const canvas = report.canvas!;
+      expect(report.dpr).toBe(3);
+      expect(canvas.width / canvas.cssWidth).toBeCloseTo(1.75, 2);
+      expect(canvas.height / canvas.cssHeight).toBeCloseTo(1.75, 2);
+      expect(canvas.width / canvas.cssWidth).toBeLessThanOrEqual(1.75);
+      expect(canvas.height / canvas.cssHeight).toBeLessThanOrEqual(1.75);
+      expect(report.outside).toEqual([]);
+    }
+  });
+});
 
 // Utsnittet regnes i CSS-piksler: samme vindu gir samme flate, viewBox og
 // plassering på skjermen uansett devicePixelRatio, også mot 1 (som på telefon og i testene før).
@@ -261,17 +337,19 @@ for (const viewport of viewports) {
   });
 }
 
-test.describe('bildefrekvens @1.65 1536x730', () => {
-  test.use({ viewport: { width: 1536, height: 730 }, deviceScaleFactor: 1.65 });
+for (const viewport of [{ width: 1536, height: 730 }, { width: 1890, height: 960 }]) {
+test.describe(`bildefrekvens @1.65 ${viewport.width}x${viewport.height}`, () => {
+  test.use({ viewport, deviceScaleFactor: 1.65 });
 
   test('2D og 3D tegner jevnt, og 3D-lerretet har tak på oppløsningen', async ({ page }) => {
     test.setTimeout(120_000);
+    await watchReactRenders(page);
     await watch3DRenders(page);
     const dialog = await openBryteren(page);
 
     await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
     const fps2d = await measureFps(dialog, 3000, '2d');
-    console.log('[1.65 1536x730] 2D', JSON.stringify(fps2d));
+    console.log(`[1.65 ${viewport.width}x${viewport.height}] 2D`, JSON.stringify(fps2d));
     await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
 
     await dialog.getByRole('button', { name: '3D', exact: true }).click();
@@ -279,18 +357,20 @@ test.describe('bildefrekvens @1.65 1536x730', () => {
     await expect(region.getByRole('button', { name: 'Oversikt', exact: true })).toBeEnabled({ timeout: 45_000 });
     await expect(region.getByText('Laster spillermodell og himmel …', { exact: true })).toHaveCount(0, { timeout: 45_000 });
     const report = await layoutReport(dialog);
-    console.log('[1.65 1536x730] 3D', JSON.stringify(report));
-    await page.screenshot({ path: path.join(SHOTS, 'dpr-1.65-1536x730-3d.png') });
+    console.log(`[1.65 ${viewport.width}x${viewport.height}] 3D`, JSON.stringify(report));
+    await page.screenshot({ path: path.join(SHOTS, `dpr-1.65-${viewport.width}x${viewport.height}-3d.png`) });
     expect(report.outside, 'Ingenting i 3D-dialogen skal stikke utenfor vinduet').toEqual([]);
     await dialog.getByRole('button', { name: /^Fase 1:/ }).click();
     await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
     const fps3d = await measureFps(dialog, 3000, '3d');
-    console.log('[1.65 1536x730] 3D', JSON.stringify(fps3d));
+    console.log(`[1.65 ${viewport.width}x${viewport.height}] 3D`, JSON.stringify(fps3d));
 
-    // Oppløsningen på lerretet: høyst 2 enhetspiksler per CSS-piksel.
+    // Bekreft det faktiske taket i BoardScene, ikke et løsere tak på 2.
     const canvas = report.canvas!;
-    expect(canvas.width / canvas.cssWidth).toBeLessThanOrEqual(2.01);
-    expect(canvas.height / canvas.cssHeight).toBeLessThanOrEqual(2.01);
+    expect(canvas.width / canvas.cssWidth).toBeCloseTo(1.65, 2);
+    expect(canvas.height / canvas.cssHeight).toBeCloseTo(1.65, 2);
+    expect(canvas.width / canvas.cssWidth).toBeLessThanOrEqual(1.75);
+    expect(canvas.height / canvas.cssHeight).toBeLessThanOrEqual(1.75);
     // Jevnt: nesten hvert skjermbilde, uten lange stopp.
     for (const fps of [fps2d, fps3d]) {
       expect(fps.fps).toBeGreaterThan(45);
@@ -299,9 +379,13 @@ test.describe('bildefrekvens @1.65 1536x730', () => {
     // Banen endres faktisk under bevegelse: 2D-SVG-en, og i 3D scenen som tegnes
     // (en frosset 3D-scene med jevn rAF-løkke skal ikke bestå).
     expect(fps2d.changedPerSecond).toBeGreaterThan(30);
+    expect(fps2d.reactHookWorking, 'React-målingen må ha sett dialogen og banen').toBe(true);
+    expect(fps2d.viewerRenders, 'Dialogen skal bare oppdateres ved fasebytte').toBeLessThan(20);
+    expect(fps2d.pitchRenders, 'Fast bane skal gjenbrukes under avspilling').toBe(0);
     expect(fps3d.rendersPerSecond, '3D skal tegnes i (nesten) hvert skjermbilde').toBeGreaterThan(45);
     expect(fps3d.changedPerSecond, 'Figurene/ballen i 3D skal flytte seg under avspilling').toBeGreaterThan(30);
     // Én tegning per skjermbilde: ikke flere 3D-tegninger enn skjermbilder.
     expect(fps3d.extraRenders, 'Høyst én 3D-tegning per skjermbilde').toBeLessThanOrEqual(Math.ceil(fps3d.frames * .05));
   });
 });
+}

@@ -10,7 +10,7 @@ import { useVideoExport, type VideoSource } from '@/hooks/useVideoExport';
 import { useViewport } from '@/hooks/useViewport';
 import { cn } from '@/lib/cn';
 import { DrillAnimationControls } from './DrillAnimationControls';
-import { DrillPitch, stagePlayersOf } from './DrillPitch';
+import { DrillPitch, LiveDrillPitch, stagePlayersOf } from './DrillPitch';
 import { playbackMs, playheadAt, useDrillPlayback, type Playhead } from './playback';
 import { drillFraming, fitCrop } from './framing';
 import { drillMotion } from './motion';
@@ -22,8 +22,8 @@ import type { DrillAnimation } from './types';
 // ══════════════════════════════════════════════════════════════
 //  ANIMERT ØVELSE – visningen
 //
-//  Gjenbruker brettets deler uten å røre storen: BoardStage (2D, via
-//  DrillPitch), Board3DSlot (3D) og 2D-opptaket useVideoExport.
+//  Gjenbruker brettets bane og figurer (2D, via DrillPitch), Board3DSlot
+//  (3D) og 2D-opptaket useVideoExport, uten å røre storen.
 //  Én klokke (playback.ts) og én bevegelse (motion.ts) for 2D, 3D og
 //  videoene. Ingenting lagres. «Reduser bevegelse»: spillerne hopper fra
 //  fase til fase i stedet for å gli, i samme takt.
@@ -79,7 +79,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   // Før flaten er målt: brettets egen størrelse.
   const fit = useMemo(() => fitCrop(framing.content, area.width || 880, area.height || 560), [framing, area]);
   const { isPlaying, moving, shown: playShown, from, interpT, select, togglePlay, sample } =
-    useDrillPlayback(phases, speed, reducedMotion, view === '2d');
+    useDrillPlayback(phases, speed, reducedMotion);
 
   // Opptaket styrer det som vises mens det pågår; ellers gjør klokka det.
   const recordingHead = recordingAt === null ? null : playheadAt(0, count, recordingAt);
@@ -87,9 +87,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   const shown = head.shown;
   const phase = phases[shown];
   const drawings = phases[head.from]?.drawings ?? [];
-  const frame2d = drillMotion(animation, head.from, head.t, head.moving, fit.kitScale);
-  // 3D har egne figurer: ballen ligger der øvelsen sier, uten krymping.
-  const frame3d = view === '3d' ? drillMotion(animation, head.from, head.t, head.moving) : frame2d;
+  const frame3d = useMemo(() => drillMotion(animation, head.from, head.t, head.moving), [animation, head.from, head.t, head.moving]);
   const progress = isPlaying ? (head.from + head.t) / Math.max(1, count - 1) : null;
 
   // 3D-tilstanden ellers: fasen som vises (pillen og fullskjermens fasevalg).
@@ -220,7 +218,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
 
   return createPortal(
     <div ref={rootRef} role="dialog" aria-modal="true" aria-label={`Animert øvelse: ${drillName}`} tabIndex={-1}
-      className="fixed inset-0 z-[90] flex flex-col bg-canvas outline-none">
+      className={cn(styles.dialog, 'fixed inset-0 z-[90] flex flex-col bg-canvas outline-none')}>
       <header className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-rule bg-canvas-sunken">
         <div className="min-w-0 flex-1">
           <p className="font-mono text-meta uppercase tracking-[0.08em] text-ink-subtle">Animert øvelse</p>
@@ -253,7 +251,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
             <div ref={areaRef} data-testid="drill-animation-area" className="relative flex-1 min-w-0 min-h-0 overflow-hidden">
               <svg ref={svgRef} data-testid="drill-animation-pitch" viewBox={fit.viewBox} preserveAspectRatio="xMidYMid meet" role="img"
                 aria-label={`Bane i 2D. ${phase.name}.`} className="absolute inset-0" style={{ display: 'block', width: '100%', height: '100%' }}>
-                <DrillPitch animation={animation} frame={frame2d} drawings={drawings}
+                <LiveDrillPitch animation={animation} head={head} sample={sample} isPlaying={isPlaying && !recording}
                   crop={fit.crop} kitScale={fit.kitScale} playerStyle={playerStyle} />
               </svg>
             </div>
