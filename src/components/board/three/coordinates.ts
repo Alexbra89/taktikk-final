@@ -16,9 +16,11 @@ export const PITCHES = {
 export const figureScale = (sport: Sport) => 1.2 * (1.3 + 0.6 * PITCHES[sport].length / 105);
 
 /** SVG x goes along the pitch; SVG y goes across it. Y in Three is height. */
-export function boardToWorld(p: Position, sport: Sport, height = 0) {
+export function boardToWorld(p: Position, sport: Sport, height = 0, out = { x: 0, y: 0, z: 0 }) {
   const pitch = PITCHES[sport];
-  return { x: (p.x - VW / 2) / (VW - 64) * pitch.length, y: height, z: (p.y - VH / 2) / (VH - 64) * pitch.width };
+  out.x = (p.x - VW / 2) / (VW - 64) * pitch.length; out.y = height;
+  out.z = (p.y - VH / 2) / (VH - 64) * pitch.width;
+  return out;
 }
 
 /** Net depth in metres before figureScale; the goals are enlarged with the figures. */
@@ -35,8 +37,8 @@ const GOAL_TOUCH = 4;
  * the 2D position, only held inside the side netting. Continuous, so a shot
  * glides in instead of jumping.
  */
-export function ballToWorld(p: Position, sport: Sport, radius: number, height = 0) {
-  const world = boardToWorld(p, sport, height);
+export function ballToWorld(p: Position, sport: Sport, radius: number, height = 0, out = { x: 0, y: 0, z: 0 }) {
+  const world = boardToWorld(p, sport, height, out);
   const behind = Math.max(GOAL_LINE - p.x, p.x - (VW - GOAL_LINE));
   if (behind < -GOAL_TOUCH || Math.abs(p.y - VH / 2) > GOAL_BOX_HALF) return world;
   const pitch = PITCHES[sport], scale = figureScale(sport), side = p.x < VW / 2 ? -1 : 1;
@@ -47,7 +49,9 @@ export function ballToWorld(p: Position, sport: Sport, radius: number, height = 
   const linear = Math.abs(world.x) - pitch.length / 2;
   const half = pitch.goal / 2 * scale - clearance;
   const z = Math.max(-half, Math.min(half, world.z));
-  return { x: side * (pitch.length / 2 + linear + (inside - linear) * t), y: height, z: world.z + (z - world.z) * t };
+  world.x = side * (pitch.length / 2 + linear + (inside - linear) * t);
+  world.z += (z - world.z) * t;
+  return world;
 }
 
 export function worldToBoard(p: { x: number; z: number }, sport: Sport): Position {

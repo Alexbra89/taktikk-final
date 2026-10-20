@@ -30,6 +30,73 @@ async function openAnimation(page: Page, search: string, age = 'Barn') {
 const openBryteren = (page: Page) => openAnimation(page, 'Bryteren');
 const storage = (page: Page) => page.evaluate(() => localStorage.getItem('taktikkboard-storage'));
 
+test('live bevegelse: ingen React-commits, pekertreff eller layout mellom fasebyttene', async ({ page }) => {
+  await page.addInitScript(() => {
+    const state = { commits: 0 };
+    const renderers = new Map();
+    Object.assign(window, {
+      __drillPerf: state,
+      __REACT_DEVTOOLS_GLOBAL_HOOK__: {
+        supportsFiber: true, renderers,
+        inject: (renderer: unknown) => { const id = renderers.size + 1; renderers.set(id, renderer); return id; },
+        // Next's development tools have their own React root in a shadow tree.
+        onCommitFiberRoot: (_id: number, root: { containerInfo: Node }) => {
+          if (root.containerInfo === document) state.commits++;
+        },
+        onCommitFiberUnmount: () => {},
+      },
+    });
+  });
+  const dialog = await openBryteren(page);
+  await expect(dialog.getByTestId('board-3d')).toHaveCount(0);
+  const client = await page.context().newCDPSession(page);
+  await client.send('Performance.enable');
+  // A long movement keeps this measurement away from either boundary even on a busy PC.
+  await dialog.getByRole('combobox', { name: 'Fart', exact: true }).selectOption('0.5');
+  await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_2);
+  // Let the boundary commit and control transitions finish, then measure inside the move.
+  await page.waitForTimeout(250);
+  const before = await dialog.evaluate(root => {
+    const state = (window as unknown as { __drillPerf: { commits: number } }).__drillPerf;
+    const pitch = root.querySelector('[data-testid="drill-animation-area"]')!;
+    const player = pitch.querySelectorAll<SVGGElement>('[data-player]')[1];
+    const ball = pitch.querySelector<SVGGElement>('[data-ball]')!;
+    const observed = { mutations: [] as string[], hits: 0 };
+    const observer = new MutationObserver(records => { for (const r of records) observed.mutations.push(r.attributeName!); });
+    observer.observe(pitch, { attributes: true, childList: true, subtree: true });
+    pitch.addEventListener('pointerover', () => { observed.hits++; });
+    Object.assign(window, { __drillObserved: observed, __drillObserver: observer });
+    return { commits: state.commits, x: new DOMMatrixReadOnly(getComputedStyle(player.closest('[data-move]') ?? player).transform).e,
+      pointers: [getComputedStyle(player).pointerEvents, getComputedStyle(ball).pointerEvents] };
+  });
+  // Keep the real mouse over the path of the moving attacker.
+  const playerBox = await dialog.locator('[data-player]').nth(1).boundingBox();
+  await page.mouse.move(playerBox!.x + playerBox!.width / 2, playerBox!.y + playerBox!.height / 2);
+  await page.waitForTimeout(175);
+  const metricsBefore = await client.send('Performance.getMetrics');
+  await page.waitForTimeout(500);
+  const metricsAfter = await client.send('Performance.getMetrics');
+  const after = await dialog.evaluate(root => {
+    const win = window as unknown as { __drillPerf: { commits: number }; __drillObserved: { mutations: string[]; hits: number }; __drillObserver: MutationObserver };
+    win.__drillObserver.disconnect();
+    const player = root.querySelectorAll<SVGGElement>('[data-player]')[1];
+    return { commits: win.__drillPerf.commits, x: new DOMMatrixReadOnly(getComputedStyle(player.closest('[data-move]') ?? player).transform).e, ...win.__drillObserved };
+  });
+  expect(before.commits).toBeGreaterThan(0); // Prove the React hook actually observed this app.
+  expect(after.commits - before.commits).toBe(0);
+  expect(before.pointers).toEqual(['none', 'none']);
+  expect(after.hits).toBe(0);
+  expect(after.x).not.toBe(before.x);
+  // Compositor animation changes the visible matrix without touching DOM attributes.
+  expect(after.mutations.filter(name => name !== 'transform')).toEqual([]);
+  const metric = (metrics: typeof metricsBefore, name: string) => metrics.metrics.find(m => m.name === name)!.value;
+  expect(metric(metricsAfter, 'LayoutCount') - metric(metricsBefore, 'LayoutCount')).toBe(0);
+  // Compositor tracks must not recalculate CSS style every frame.
+  expect(metric(metricsAfter, 'RecalcStyleCount') - metric(metricsBefore, 'RecalcStyleCount')).toBeLessThanOrEqual(2);
+  await client.detach();
+});
+
 test('spiller av, bytter til 3D, og teksten følger fasen', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   const dialog = await openBryteren(page);
@@ -85,7 +152,7 @@ test('«reduser bevegelse»: spillerne hopper fra fase til fase uten å gli', as
   // Ballen flytter seg først i fase 4 (etter ca. 5 s), så vi ser i 8 s.
   const seen = new Set<string>();
   for (let i = 0; i < 80; i++) {
-    seen.add((await ball.getAttribute('transform'))!);
+    seen.add(await ball.evaluate(el => getComputedStyle(el.closest('[data-move]')!).transform));
     await page.waitForTimeout(100);
   }
   await expect(dialog.getByTestId('drill-animation-text')).not.toHaveText(FASE_1);
@@ -179,7 +246,7 @@ function hiddenParts(dialog: Locator) {
     const a = new DOMPoint(x, y).matrixTransform(matrix), b = new DOMPoint(x + width, y + height).matrixTransform(matrix);
     const left = Math.max(a.x, area.left, 0), top = Math.max(a.y, area.top, 0);
     const right = Math.min(b.x, area.right, innerWidth), bottom = Math.min(b.y, area.bottom, innerHeight);
-    const parts = Array.from(svg.querySelectorAll('[data-player], [data-item], [data-ball] > circle[r="10"]'));
+    const parts = Array.from(svg.parentElement!.querySelectorAll('[data-player], [data-item], [data-ball] > circle[r="10"]'));
     if (parts.length < 3) return ['for få deler på banen'];
     return parts.flatMap(el => {
       const box = el.getBoundingClientRect();
@@ -311,7 +378,7 @@ test('PC 1536 × 730: hele banen synlig, og «Spill av» glir jevnt bilde for bi
   // på en rett linje i tid gjennom første bevegelse (jevn fart, ingen hakk).
   const result = await dialog.evaluate(async root => {
     const svg = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
-    const at = () => (svg.querySelectorAll('[data-player]')[1] as SVGGElement).transform.baseVal.consolidate()!.matrix;
+    const at = () => new DOMMatrixReadOnly(getComputedStyle(svg.parentElement!.querySelectorAll('[data-player]')[1].closest('[data-move]')!).transform);
     const frames: { t: number; x: number; y: number }[] = [];
     await new Promise<void>(resolve => {
       const begin = performance.now();
@@ -340,7 +407,7 @@ test('PC 1536 × 730: hele banen synlig, og «Spill av» glir jevnt bilde for bi
 
 test('øvelsens roller vises i 2D, 3D og den eksporterte videoens etiketter', async ({ page }, info) => {
   const dialog = await openBryteren(page);
-  await expect(dialog.getByTestId('drill-animation-pitch').locator('[data-player] > text')).toHaveText(['P', 'A', 'F']);
+  await expect(dialog.getByTestId('drill-animation-figures').locator('[data-player] > text')).toHaveText(['P', 'A', 'F']);
   // Read the actual text drawn into Three's label textures, including the isolated exporter.
   await page.evaluate(() => {
     const captured: string[] = [];
@@ -394,10 +461,10 @@ async function sampleMotion(dialog: Locator, playerIndex: number, durationMs = 3
     const svg = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
     // Figurene tegnes rundt (0, 0) og flyttes med transform: plassen er matrisens e, f.
     const positionOf = (el: Element) => {
-      const matrix = (el as SVGGElement).transform.baseVal.consolidate()!.matrix;
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(el.closest('[data-move]') ?? el).transform);
       return { x: matrix.e, y: matrix.f };
     };
-    const readPosition = () => positionOf(svg.querySelectorAll('[data-player]')[index]);
+    const readPosition = () => positionOf(svg.parentElement!.querySelectorAll('[data-player]')[index]);
     const frames = [];
     const start = performance.now();
     do {
@@ -407,14 +474,14 @@ async function sampleMotion(dialog: Locator, playerIndex: number, durationMs = 3
       const area = root.querySelector('[data-testid="drill-animation-area"]')!.getBoundingClientRect();
       const visible = (box: DOMRect) => box.left >= Math.max(corners[0].x, 0) - .5 && box.right <= Math.min(corners[1].x, innerWidth) + .5
         && box.top >= Math.max(corners[0].y, 0) - .5 && box.bottom <= Math.min(corners[1].y, innerHeight) + .5;
-      const ball = svg.querySelector('[data-ball]')!;
+      const ball = svg.parentElement!.querySelector('[data-ball]')!;
       const ballAt = positionOf(ball);
       frames.push({
         time: performance.now() - start, ...readPosition(),
-        playersFit: Array.from(svg.querySelectorAll('[data-player]')).every(p => visible(p.getBoundingClientRect())),
+        playersFit: Array.from(svg.parentElement!.querySelectorAll('[data-player]')).every(p => visible(p.getBoundingClientRect())),
         ballFits: visible(ball.querySelector('circle[r="10"]')!.getBoundingClientRect()),
         ballX: ballAt.x, ballY: ballAt.y,
-        trail: !!svg.querySelector('[data-ball-trail]'),
+        trail: !!svg.parentElement!.querySelector('[data-ball-trail]'),
         left: corners[0].x, top: corners[0].y, right: corners[1].x, bottom: corners[1].y,
         fits: corners[0].x >= Math.max(0, area.left) - 1 && corners[0].y >= Math.max(0, area.top) - 1
           && corners[1].x <= Math.min(innerWidth, area.right) + 1 && corners[1].y <= Math.min(innerHeight, area.bottom) + 1,
@@ -584,7 +651,8 @@ test('sentringen i Vendingsstafett og skuddet i Murbyggerne reiser synlig', asyn
     // Skjermbilde midt i: start igjen, vent til streken vises og litt til.
     await dialog.getByRole('button', { name: new RegExp(`^Fase ${phase}:`) }).click();
     await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
-    await dialog.locator('[data-ball-trail]').waitFor();
+    // The semantic marker wraps absolutely positioned SVG layers and has no own box.
+    await dialog.locator('[data-ball-trail]').waitFor({ state: 'attached' });
     await page.waitForTimeout(350);
     await shot(page, name);
     await dialog.getByRole('button', { name: 'Pause', exact: true }).click();

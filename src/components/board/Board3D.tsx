@@ -143,6 +143,8 @@ export default function Board3D(props: Props) {
     board.setFrame(sceneFrame(latest.current), false); board.render(0, true);
     board.setDrawings(latest.current.drawings, latest.current.trails).catch(() => setError('Tegningene kunne ikke lastes i 3D. Prøv å åpne 3D på nytt.'));
     let raf = 0, last = performance.now(), active = true;
+    // Reuse the live scene envelope too; the drill's numeric buffers are borrowed.
+    const liveSceneFrame = sceneFrame(latest.current);
     board.assetsReady.then(() => { if (active) { setAssetNotice(board.assetWarnings.join(' ')); setAssetsLoaded(true); } });
     const render = (now: number) => {
       if (!active) return;
@@ -150,7 +152,12 @@ export default function Board3D(props: Props) {
       if (document.hidden || livePaused.current || (lowPower && now - last < 32)) return;
       // Animated drills: the moving players and ball straight from the clock, for this very frame.
       const live = recording.current ? null : latest.current.liveFrame?.() ?? null;
-      if (live) board.setFrame(sceneFrame(latest.current, live), true);
+      if (live) {
+        Object.assign(liveSceneFrame, latest.current, live);
+        liveSceneFrame.phaseName = latest.current.tactic.phases[latest.current.tactic.activePhaseIdx]?.name;
+        liveSceneFrame.stickyNote = latest.current.tactic.phases[latest.current.tactic.activePhaseIdx]?.stickyNote;
+        board.setMotionFrame(liveSceneFrame);
+      }
       board.render(Math.min(.1, (now - last) / 1000)); last = now;
     };
     const lost = (event: Event) => { event.preventDefault(); setReady(false); setError('3D mistet forbindelsen til grafikkortet. Bytt til 2D og åpne 3D igjen.'); abort.current?.abort(); };

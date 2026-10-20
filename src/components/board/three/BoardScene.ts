@@ -60,6 +60,8 @@ export class BoardScene {
   private offset = new THREE.Vector3();
   private ballTarget = new THREE.Vector3();
   private ballPlaced = false;
+  private motionPlayers: StagePlayer[] | null = null;
+  private motionItems: BoardItem[] | null = null;
   private reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   /** Circle-style kit; read once, since a theme change rebuilds the scene. */
   private readonly chipKit = { fill: themeColor('--k-signal', '#ff5a36'), fg: themeColor('--k-signal-fg', '#160704') };
@@ -157,6 +159,7 @@ export class BoardScene {
   restoreCamera(state: CameraState) { this.cameraRig.restoreCamera(state); }
 
   setFrame(frame: SceneFrame, animate = true) {
+    this.motionPlayers = frame.players; this.motionItems = frame.items;
     this.frame = frame; this.cameraRig.frame = frame; this.hud.frame = frame;
     this.hud.setPhase(frame.phaseName, frame.stickyNote);
     this.hud.layoutHud();
@@ -201,6 +204,28 @@ export class BoardScene {
     this.ballTarget.set(bp.x, bp.y, bp.z);
     if (!animate || !this.ballPlaced) { this.ball.position.copy(this.ballTarget); this.placeBallBlob(); }
     this.ballPlaced = true;
+  }
+
+  /** Compiled live drill buffers: reconcile models only when the phase buffer changes. */
+  setMotionFrame(frame: SceneFrame) {
+    if (frame.players !== this.motionPlayers || frame.items !== this.motionItems) {
+      this.setFrame(frame, true);
+      return;
+    }
+    this.frame = frame; this.cameraRig.frame = frame; this.hud.frame = frame;
+    this.hud.layoutHud();
+    for (let i = 0; i < frame.players.length; i++) {
+      const player = frame.players[i], figure = this.figures.get(player.id);
+      if (figure) boardToWorld(player.position, this.sport, 0, figure.target);
+    }
+    for (let i = 0; i < frame.items.length; i++) {
+      const item = frame.items[i], entry = this.equipment.get(item.id);
+      if (!entry) continue;
+      if (item.type === 'ball') ballToWorld(item.position, this.sport, BALL_RADIUS, 0, entry.target);
+      else boardToWorld(item.position, this.sport, 0, entry.target);
+      entry.turn = boardRotation(item.rotation);
+    }
+    ballToWorld(frame.ball, this.sport, BALL_RADIUS, BALL_RADIUS + Math.max(0, frame.ballHeight ?? 0), this.ballTarget);
   }
 
   private placeBallBlob() {

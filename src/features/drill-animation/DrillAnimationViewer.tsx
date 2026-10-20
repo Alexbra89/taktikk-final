@@ -13,7 +13,7 @@ import { DrillAnimationControls } from './DrillAnimationControls';
 import { DrillBackground, DrillPitch, LiveDrillPitch, stagePlayersOf } from './DrillPitch';
 import { playbackMs, playheadAt, useDrillPlayback, type Playhead } from './playback';
 import { drillFraming, fitCrop } from './framing';
-import { drillMotion } from './motion';
+import { createMotionSampler, drillMotion } from './motion';
 import styles from './DrillAnimationViewer.module.css';
 import { feedbackMailto } from './feedback';
 import { useReducedMotion } from './useReducedMotion';
@@ -51,6 +51,22 @@ function trapTab(e: KeyboardEvent, root: HTMLElement | null) {
 /** Hvor langt hele avspillingen har kommet, 0–1 (fremdriftslinja i 3D). */
 const progressOf = (head: Playhead, count: number) => (head.from + head.t) / Math.max(1, count - 1);
 
+/** Private mutable renderer buffers; these never become React props or state. */
+function createLiveMotion(animation: DrillAnimation) {
+  const motion = createMotionSampler(animation);
+  const count = animation.phases.length;
+  const frames = animation.phases.map((_, from) => {
+    const f = motion.sample(from, 0, false);
+    return { players: stagePlayersOf(animation, f.players), ball: f.ball, items: f.items, ballHeight: 0, progress: 0 };
+  });
+  return (head: Playhead) => {
+    const f = motion.sample(head.from, head.t, head.moving);
+    const out = frames[head.from];
+    out.ballHeight = f.ballHeight; out.progress = progressOf(head, count);
+    return out;
+  };
+}
+
 interface Props {
   animation: DrillAnimation;
   drillName: string;
@@ -78,7 +94,7 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   const framing = useMemo(() => drillFraming(animation), [animation]);
   // Før flaten er målt: brettets egen størrelse.
   const fit = useMemo(() => fitCrop(framing.content, area.width || 880, area.height || 560), [framing, area]);
-  const { isPlaying, moving, shown: playShown, from, interpT, select, togglePlay, sample } =
+  const { isPlaying, moving, shown: playShown, from, interpT, select, togglePlay, sample, time } =
     useDrillPlayback(phases, speed, reducedMotion);
 
   // Opptaket styrer det som vises mens det pågår; ellers gjør klokka det.
@@ -87,7 +103,8 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   const shown = head.shown;
   const phase = phases[shown];
   const drawings = phases[head.from]?.drawings ?? [];
-  const frame3d = useMemo(() => drillMotion(animation, head.from, head.t, head.moving), [animation, head.from, head.t, head.moving]);
+  const from3d = view === '3d' ? head.from : 0, t3d = view === '3d' ? head.t : 0, moving3d = view === '3d' && head.moving;
+  const frame3d = useMemo(() => drillMotion(animation, from3d, t3d, moving3d), [animation, from3d, t3d, moving3d]);
   const progress = isPlaying ? (head.from + head.t) / Math.max(1, count - 1) : null;
 
   // 3D-tilstanden ellers: fasen som vises (pillen og fullskjermens fasevalg).
@@ -95,12 +112,16 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
   const players3d = useMemo(() => stagePlayersOf(animation, frame3d.players), [animation, frame3d.players]);
 
   /** 3D leser klokka selv i hvert bilde, så den ikke venter på at siden tegnes på nytt. */
+  const liveMotion = useRef<ReturnType<typeof createLiveMotion> | null>(null);
+  useLayoutEffect(() => {
+    liveMotion.current = view === '3d' ? createLiveMotion(animation) : null;
+    return () => { liveMotion.current = null; };
+  }, [animation, view]);
   const liveFrame = useCallback(() => {
     const now = sample();
     if (!now) return null;
-    const f = drillMotion(animation, now.from, now.t, now.moving);
-    return { players: stagePlayersOf(animation, f.players), ball: f.ball, items: f.items, ballHeight: f.ballHeight, progress: progressOf(now, count) };
-  }, [sample, animation, count]);
+    return liveMotion.current?.(now) ?? null;
+  }, [sample]);
 
   /** 3D-videoen: samme tempo, pauser og pasninger som visningen. */
   const timeline = useMemo(() => ({
@@ -248,18 +269,21 @@ export default function DrillAnimationViewer({ animation, drillName, onClose }: 
       <div className={styles.content}>
         <div ref={pitchRef} className={styles.pitch}>
           {view === '2d' ? (
-            <div ref={areaRef} data-testid="drill-animation-area" className="relative flex-1 min-w-0 min-h-0 overflow-hidden">
-              {/* To lag med samme utsnitt: gresset står stille i sitt eget lag, figurene flytter seg over.
-                  Utsnittet har flatens form, så SVG-ens egen kant klipper; ingen clipPath. */}
+            <div ref={areaRef} data-testid="drill-animation-area" className={cn(styles.livePitch, 'relative flex-1 min-w-0 min-h-0 overflow-hidden')}>
+              {/* Gress og koordinatflate står stille. Figurene bruker egne transformlag;
+                  flaten klipper hele utsnittet uten et SVG-clipPath på figurene. */}
               <svg data-testid="drill-animation-background" viewBox={fit.viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true"
                 className={cn(styles.layer, 'absolute inset-0')}>
                 <DrillBackground drawings={drawings} />
               </svg>
               <svg ref={svgRef} data-testid="drill-animation-pitch" viewBox={fit.viewBox} preserveAspectRatio="xMidYMid meet" role="img"
-                aria-label={`Bane i 2D. ${phase.name}.`} className={cn(styles.layer, 'absolute inset-0')}>
-                <LiveDrillPitch animation={animation} head={head} sample={sample} isPlaying={isPlaying && !recording}
+                aria-label={`Bane i 2D. ${phase.name}.`} className={cn(styles.layer, 'absolute inset-0')} />
+              <div aria-hidden="true" className="absolute left-0 top-0" style={{ transformOrigin: '0 0',
+                transform: `translate(${-fit.crop.x * fit.scale}px, ${-fit.crop.y * fit.scale}px) scale(${fit.scale})` }}>
+                <LiveDrillPitch animation={animation} head={head} time={time} speed={speed} reducedMotion={reducedMotion}
+                  isPlaying={isPlaying && !recording}
                   kitScale={fit.kitScale} playerStyle={playerStyle} />
-              </svg>
+              </div>
             </div>
           ) : (
             <Board3DSlot onSwitchTo2D={() => setView('2d')}

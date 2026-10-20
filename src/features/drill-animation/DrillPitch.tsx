@@ -1,5 +1,5 @@
 'use client';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { StagePlayer } from '@/components/board/BoardStage';
 import { DrawingCanvas } from '@/components/board/DrawingCanvas';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
@@ -14,8 +14,8 @@ import type { BoardItem, Drawing, LabelDrawing, Player, Position } from '@/types
 import type { Box } from './framing';
 import type { BallFlight, MotionFrame } from './motion';
 import type { DrillAnimation } from './types';
-import { drillMotion } from './motion';
-import type { Playhead } from './playback';
+import { createMotionSampler, drillMotion, KICK_AT } from './motion';
+import { PHASE_MOVE_MS, PHASE_PAUSE_MS, type Playhead } from './playback';
 
 // ══════════════════════════════════════════════════════════════
 //  2D-BANEN FOR EN ANIMERT ØVELSE – på skjermen og i 2D-videoen
@@ -28,8 +28,8 @@ import type { Playhead } from './playback';
 //  To lag: DrillBackground (gress, banestreker, piler) står stille, og
 //  DrillFigures (drakter, ball, utstyr, tekster) flytter seg. Det som flytter
 //  seg, har verken filter eller clipPath: ballens skygge er en forskjøvet
-//  sirkel, som draktenes. På skjermen er lagene hver sin SVG (se
-//  DrillAnimationViewer), så gresset ikke tegnes på nytt i hvert bilde.
+//  sirkel, som draktenes. På skjermen har gresset en fast SVG; figurene
+//  har små SVG-er i egne HTML-lag, så bevegelse ikke gjør SVG-layout på nytt.
 //
 //  Hver figur tegnes rundt (0, 0) og flyttes med én transform. placementOf
 //  regner ut alle flyttingene i et bilde. Videoen (DrillPitch) gir dem til
@@ -95,38 +95,42 @@ function placementOf(frame: MotionFrame, labels: LabelDrawing[], kitScale: numbe
   return { transforms, trail: trailOf(frame.flight, frame.ball, 13 * kitScale) };
 }
 
-function setAttribute(element: SVGElement, name: string, value: string | null) {
-  if (element.getAttribute(name) === value) return;
-  if (value === null) element.removeAttribute(name);
-  else element.setAttribute(name, value);
-}
+/** CSS transforms are compiled before Play. WAAPI runs them on the compositor;
+ * even numeric SVGTransform writes would invalidate SVG layout/style every frame. */
+const cssTransform = (value: string) => value
+  .replace(/translate\(([^ ]+) ([^)]+)\)/g, 'translate3d($1px, $2px, 0px)')
+  .replace(/rotate\(([^)]+)\)/g, 'rotate($1deg)');
 
-function setLine(line: SVGLineElement | undefined, segment: Segment | null) {
-  if (!line) return;
-  if (!segment) { setAttribute(line, 'display', 'none'); return; }
-  setAttribute(line, 'display', null);
-  for (const key of ['x1', 'y1', 'x2', 'y2'] as const) setAttribute(line, key, String(segment[key]));
-}
-
-/** Finn nodene etter React har tegnet, aldri på nytt i hvert skjermbilde. */
-function bindPlacement(root: SVGGElement) {
-  const nodes = Array.from(root.querySelectorAll<SVGGElement>('[data-move]'), el => ({
-    el, key: el.dataset.move!, lines: Array.from(el.querySelectorAll('line')),
-  }));
-  // Som brettets React-tegning: skriv bare egenskaper som faktisk er endret.
-  // Uendrede display-/spor-attributter må ikke ugyldiggjøre SVG-en i pausene.
-  return ({ transforms, trail }: Placement) => nodes.forEach(({ el, key, lines }) => {
-    if (key === 'trail') {
-      setAttribute(el, 'data-ball-trail', trail ? 'true' : null);
-      setAttribute(el, 'display', trail ? null : 'none');
-      const [travelled, remaining] = lines;
-      setLine(travelled, trail?.travelled ?? null);
-      setLine(remaining, trail?.remaining ?? null);
-      return;
+function phaseKeyframes(animation: DrillAnimation, from: number, kitScale: number) {
+  const motion = createMotionSampler(animation, kitScale);
+  const labels = labelsOf(animation.phases[from].drawings);
+  const tracks: Record<string, Keyframe[]> = {};
+  const cycle = PHASE_PAUSE_MS + PHASE_MOVE_MS;
+  // 120 samples/s of nonlinear ball motion; players/items remain exactly linear.
+  for (let step = -1; step <= 156; step++) {
+    const t = Math.max(0, step / 156);
+    const offset = step < 0 ? 0 : (PHASE_PAUSE_MS + t * PHASE_MOVE_MS) / cycle;
+    const frame = motion.sample(from, t, true);
+    const placement = placementOf(frame, labels, kitScale);
+    for (const key in placement.transforms) {
+      (tracks[key] ??= []).push({ offset, transform: cssTransform(placement.transforms[key]) });
     }
-    const transform = transforms[key];
-    if (transform !== undefined) setAttribute(el, 'transform', transform);
-  });
+    for (let line = 0; line < 2; line++) {
+      const segment = line ? placement.trail?.remaining : placement.trail?.travelled;
+      const dx = segment ? segment.x2 - segment.x1 : 0, dy = segment ? segment.y2 - segment.y1 : 0;
+      const transform = segment
+        ? `translate3d(${segment.x1}px, ${segment.y1}px, 0px) rotate(${Math.atan2(dy, dx)}rad) scale(${Math.hypot(dx, dy)}, 1)`
+        : 'translate3d(0px, 0px, 0px) rotate(0rad) scale(0, 0)';
+      (tracks[`trail:${line}`] ??= []).push({ offset, transform });
+    }
+  }
+  for (const key in tracks) {
+    if (key.startsWith('player:') || key.startsWith('item:') || key.startsWith('label:')) {
+      const frames = tracks[key];
+      tracks[key] = [frames[0], frames[1], frames[frames.length - 1]];
+    }
+  }
+  return { tracks, flight: !!motion.sample(from, .8, true).flight };
 }
 
 interface Props {
@@ -136,8 +140,6 @@ interface Props {
   crop: Box;
   kitScale: number;
   playerStyle: PlayerStyle;
-  /** Plasseringen skrives av LiveDrillPitch, ikke av React. */
-  live?: boolean;
 }
 
 /** Gress og banestreker endrer seg aldri under avspilling. */
@@ -162,42 +164,107 @@ export const DrillBackground = memo(function DrillBackground({ drawings }: { dra
  * og drakter, ball og utstyr flyttes rett i SVG-en – samme playheadAt,
  * drillMotion og placementOf som bildene i 2D-opptaket.
  */
-export function LiveDrillPitch({ head, sample, isPlaying, ...props }: Omit<Props, 'frame' | 'drawings' | 'crop' | 'live'> & {
+export const LiveDrillPitch = memo(function LiveDrillPitch({ head, time, speed, reducedMotion, isPlaying, ...props }: Omit<Props, 'frame' | 'drawings' | 'crop'> & {
   head: Pick<Playhead, 'from' | 't' | 'moving'>;
-  sample: (now?: number) => Playhead | null;
+  time: () => number | null;
+  speed: number;
+  reducedMotion: boolean;
   isPlaying: boolean;
 }) {
-  const root = useRef<SVGGElement>(null);
-  const draw = useRef<(now?: number) => void>(() => {});
+  const root = useRef<HTMLDivElement>(null);
   const { animation, kitScale } = props;
-  const phaseLabels = useMemo(() => animation.phases.map(phase => labelsOf(phase.drawings)), [animation]);
+  const stillT = isPlaying ? 0 : head.t, stillMoving = !isPlaying && head.moving;
+  const initialFrame = useMemo(() => drillMotion(animation, head.from, stillT, stillMoving, kitScale),
+    [animation, head.from, stillT, stillMoving, kitScale]);
+  const compiled = useMemo(() => animation.phases.map((_, from) => phaseKeyframes(animation, from, kitScale)), [animation, kitScale]);
 
-  // Etter hver tegning i React, før skjermen males: figurene står der klokka er nå.
   useLayoutEffect(() => {
-    const apply = root.current && bindPlacement(root.current);
-    let painted: Pick<Playhead, 'from' | 't' | 'moving'> | null = null;
-    draw.current = now => {
-      const at = (isPlaying && sample(now)) || head;
-      if (painted && painted.from === at.from && painted.t === at.t && painted.moving === at.moving) return;
-      painted = at;
-      const frame = drillMotion(animation, at.from, at.t, at.moving, kitScale);
-      apply?.(placementOf(frame, phaseLabels[at.from], kitScale));
+    if (!root.current || !isPlaying || reducedMotion || head.from >= animation.phases.length - 1) return;
+    // Resolve a newly mounted phase once, before creating compositor tracks.
+    // No geometry is read after playback starts.
+    root.current.getBoundingClientRect();
+    const cycle = PHASE_PAUSE_MS + PHASE_MOVE_MS;
+    const phaseTime = (time() ?? head.from * cycle) - head.from * cycle;
+    const animations: Animation[] = [];
+    const tracks = compiled[head.from].tracks;
+    const nodes = root.current.querySelectorAll<HTMLElement>('[data-move]');
+    for (const node of nodes) {
+      const key = node.dataset.move!;
+      if (key === 'trail') continue;
+      const targets = [node];
+      for (let i = 0; i < targets.length; i++) {
+        const frames = tracks[key];
+        if (!frames) continue;
+        if (frames.every(frame => frame.transform === frames[0].transform)) continue;
+        const animation = targets[i].animate(frames, { duration: cycle, fill: 'both' });
+        animation.playbackRate = speed;
+        // Account for setup time so each compositor track follows the same clock.
+        animation.startTime = performance.now() - ((time() ?? head.from * cycle) - head.from * cycle) / speed;
+        animations.push(animation);
+      }
+    }
+    // Semantic marker for the visible ball trail, changed once when the kick starts.
+    const trail = root.current.querySelector('[data-move="trail"]')!;
+    const timer = compiled[head.from].flight ? setTimeout(() => trail.setAttribute('data-ball-trail', 'true'),
+      Math.max(0, (PHASE_PAUSE_MS + PHASE_MOVE_MS * KICK_AT + 12 - phaseTime) / speed)) : undefined;
+    return () => {
+      clearTimeout(timer); trail.removeAttribute('data-ball-trail');
+      for (const animation of animations) animation.cancel();
     };
-    draw.current();
-  });
+  }, [animation, compiled, head.from, isPlaying, reducedMotion, speed, time]);
 
-  useEffect(() => {
-    if (!isPlaying) return;
-    let raf = 0;
-    const tick = (now: number) => { draw.current(now); raf = requestAnimationFrame(tick); };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [isPlaying]);
+  return <div ref={root} data-testid="drill-animation-figures" style={{ position: 'absolute', left: 0, top: 0, width: VW, height: VH, pointerEvents: 'none' }}>
+    <LiveDrillFigures {...props} frame={initialFrame} drawings={animation.phases[head.from].drawings} />
+  </div>;
+}, (a, b) => a.animation === b.animation && a.kitScale === b.kitScale && a.playerStyle === b.playerStyle
+  && a.time === b.time && a.speed === b.speed && a.reducedMotion === b.reducedMotion
+  && a.isPlaying === b.isPlaying && a.head.from === b.head.from
+  && (b.isPlaying || (a.head.t === b.head.t && a.head.moving === b.head.moving)));
 
-  return <g ref={root}>
-    <DrillFigures {...props} live frame={drillMotion(animation, head.from, 0, false, kitScale)}
-      drawings={animation.phases[head.from].drawings} />
-  </g>;
+/** HTML transform layers keep SVG layout out of playback, including Chrome at non-100% browser zoom. */
+function LiveSprite({ moveKey, transform, children }: { moveKey: string; transform: string; children: ReactNode }) {
+  return <span data-move={moveKey} style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1,
+    transformOrigin: '0 0', transform: cssTransform(transform) }}>
+    <svg width={1} height={1} overflow="visible" style={{ display: 'block' }}>{children}</svg>
+  </span>;
+}
+
+function LiveDrillFigures({ animation, frame, drawings, kitScale, playerStyle }: Omit<Props, 'crop'>) {
+  const labels = labelsOf(drawings);
+  const { transforms } = placementOf(frame, labels, kitScale);
+  const kit = playerStyle === 'kit';
+  return <>
+    {frame.items.map(item => <LiveSprite key={item.id} moveKey={`item:${item.id}`} transform={transforms[`item:${item.id}`]}>
+      <g data-item="true"><g><BoardItemShape type={item.type} /></g></g>
+    </LiveSprite>)}
+    <LiveSprite moveKey="ball" transform={transforms.ball}>
+      <g data-ball="true">
+        <circle cx={0} cy={1.2} r={11} fill="#000" opacity={.2} />
+        <circle r={10} style={{ fill: 'rgb(var(--k-ink))' }} />
+        <circle r={4} style={{ fill: 'rgb(var(--k-pitch))' }} />
+      </g>
+    </LiveSprite>
+    <div data-move="trail">
+      <LiveSprite moveKey="trail:0" transform="scale(0)">
+        <line x1={0} y1={0} x2={1} y2={0} strokeWidth={2.5 * kitScale} opacity={.22} style={{ stroke: 'rgb(var(--k-ink))' }} />
+      </LiveSprite>
+      <LiveSprite moveKey="trail:1" transform="scale(0)">
+        <line x1={0} y1={0} x2={1} y2={0} strokeWidth={2 * kitScale} opacity={.5}
+          strokeDasharray="0.025 0.025" style={{ stroke: 'rgb(var(--k-ink))' }} />
+      </LiveSprite>
+    </div>
+    {labels.map(label => <LiveSprite key={label.id} moveKey={`label:${label.id}`} transform={transforms[`label:${label.id}`]}>
+      <DrawingCanvas drawing={label} />
+    </LiveSprite>)}
+    {stagePlayersOf(animation, frame.players).map(player => <LiveSprite key={player.id} moveKey={`player:${player.id}`} transform={transforms[`player:${player.id}`]}>
+      <g data-player="true">
+        {kit
+          ? <PlayerKit x={0} y={0} num={player.num} family={player.family} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />
+          : <PlayerChip x={0} y={0} num={player.num} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />}
+        <RoleBadge x={0} y={kit ? KIT_BADGE_OFFSET : 22} label={player.label} />
+      </g>
+    </LiveSprite>)}
+  </>;
 }
 
 /**
@@ -218,11 +285,11 @@ export function DrillPitch({ crop, ...props }: Props) {
 }
 
 /** Det som flytter seg: utstyr, ball, ballspor, tekster og spillere. */
-export function DrillFigures({ animation, frame, drawings, kitScale, playerStyle, live = false }: Omit<Props, 'crop'>) {
+export function DrillFigures({ animation, frame, drawings, kitScale, playerStyle }: Omit<Props, 'crop'>) {
   const labels = labelsOf(drawings);
   const { transforms, trail } = placementOf(frame, labels, kitScale);
-  const move = (key: string) => ({ 'data-move': key, transform: live ? undefined : transforms[key] });
-  const line = (segment: Segment | null | undefined) => live ? {} : segment ? segment : { display: 'none' };
+  const move = (key: string) => ({ 'data-move': key, transform: transforms[key] });
+  const line = (segment: Segment | null | undefined) => segment ?? { display: 'none' };
   const stroke = { stroke: 'rgb(var(--k-ink))' };
   const kit = playerStyle === 'kit';
   return (
@@ -238,7 +305,7 @@ export function DrillFigures({ animation, frame, drawings, kitScale, playerStyle
         <circle cx={0} cy={0} r={10} style={{ fill: 'rgb(var(--k-ink))' }} />
         <circle cx={0} cy={0} r={4} style={{ fill: 'rgb(var(--k-pitch))' }} />
       </g>
-      <g data-move="trail" {...(live ? {} : trail ? { 'data-ball-trail': 'true' } : { display: 'none' })}
+      <g data-move="trail" {...(trail ? { 'data-ball-trail': 'true' } : { display: 'none' })}
         style={{ pointerEvents: 'none' }} strokeLinecap="round">
         <line {...line(trail?.travelled)} strokeWidth={2.5 * kitScale} opacity={0.22} style={stroke} />
         <line {...line(trail?.remaining)} strokeWidth={2 * kitScale}

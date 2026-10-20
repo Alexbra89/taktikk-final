@@ -8,7 +8,8 @@ import type { DrillAnimationPhase } from './types';
 //  Én klokke for 2D, 3D og videoene: tiden måles med performance.now(),
 //  så posisjonen avhenger bare av hvor lang tid som har gått – aldri av
 //  hvor ofte nettleseren rekker å tegne. 3D leser den i hvert bilde
-//  (sample), det samme gjør 2D-figurene. Dialogen oppdateres ved fasebytte.
+//  (sample). 2D starter nettleserens animasjoner fra samme tid; klokka vekkes
+//  bare ved fasebytte, så den ikke gir nettleseren arbeid i hvert skjermbilde.
 //  Rekkefølgen: pause i fasen → bevegelse til neste → pause → … → slutt.
 //  Teksten byttes når bevegelsen mot en ny fase starter.
 // ══════════════════════════════════════════════════════════════
@@ -39,35 +40,55 @@ export function playbackMs(start: number, count: number, speed = 1) {
 
 /** Hvor avspillingen er `elapsed` ms etter at den startet i fasen `start`. */
 export function playheadAt(start: number, count: number, elapsed: number, speed = 1): Playhead {
+  return playheadAtInto(still(start), start, count, elapsed, speed);
+}
+
+/** Writes into a caller-owned buffer. Live readers must not retain it as a snapshot. */
+export function playheadAtInto(out: Playhead, start: number, count: number, elapsed: number, speed = 1): Playhead {
   const pause = PHASE_PAUSE_MS / speed, move = PHASE_MOVE_MS / speed;
   const last = count - 1;
+  out.t = 0; out.moving = false; out.done = false;
   let time = Math.max(0, elapsed);
   for (let i = start; i < last; i++) {
-    if (time < pause) return still(i);
+    out.from = i; out.shown = i;
+    if (time < pause) return out;
     time -= pause;
-    if (time < move) return { from: i, t: time / move, moving: true, shown: i + 1, done: false };
+    if (time < move) {
+      out.t = time / move; out.moving = true; out.shown = i + 1;
+      return out;
+    }
     time -= move;
   }
-  return { ...still(Math.max(0, last)), done: time >= pause };
+  out.from = out.shown = Math.max(0, last); out.done = time >= pause;
+  return out;
 }
 
 /**
- * Spill/pause, fasevalg og klokka. Både 2D og 3D leser `sample` selv,
- * så dialogen tegnes bare på nytt når fasen eller pausen skifter.
+ * Spill/pause, fasevalg og klokka. 2D starter fra `time`, 3D leser `sample`.
+ * Dialogen tegnes bare på nytt når fasen eller pausen skifter.
  */
 export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, reducedMotion: boolean) {
   const count = phases.length;
   const run = useRef<{ start: number; at: number; speed: number } | null>(null);
   const [head, setHead] = useState<Playhead>(() => still(0));
   const [playing, setPlaying] = useState(false);
+  const sampled = useRef<Playhead>(still(0));
 
   /** Klokka akkurat nå, uten å vente på React. null når den står. */
   const sample = useCallback((now = performance.now()): Playhead | null => {
     const current = run.current;
     if (!current) return null;
-    const next = playheadAt(current.start, count, now - current.at, current.speed);
-    return reducedMotion ? { ...next, from: next.shown, t: 0, moving: false } : next;
+    const next = playheadAtInto(sampled.current, current.start, count, now - current.at, current.speed);
+    if (reducedMotion) { next.from = next.shown; next.t = 0; next.moving = false; }
+    return next;
   }, [count, reducedMotion]);
+
+  /** Absolute drill time at 1×, including the current pause. Used to start compositor animations. */
+  const time = useCallback(() => {
+    const current = run.current;
+    return current ? current.start * (PHASE_MOVE_MS + PHASE_PAUSE_MS)
+      + (performance.now() - current.at) * current.speed : null;
+  }, []);
 
   // Ny fart midt i avspillingen: klokka fortsetter fra samme sted, i ny fart
   // for både bevegelse og pause (posisjonen avhenger av tid × fart).
@@ -80,10 +101,12 @@ export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, r
 
   useEffect(() => {
     if (!playing) return;
-    let raf = 0;
-    let previous: Playhead | null = null;
+    let timer: ReturnType<typeof setTimeout>;
+    const boundary = still(0);
+    let previousFrom = -1, previousMoving = false, previousShown = -1;
     const tick = () => {
-      const next = sample();
+      const now = performance.now();
+      const next = sample(now);
       if (!next) return;
       if (next.done) {
         run.current = null;
@@ -94,16 +117,25 @@ export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, r
       // Ikke send en oppdatering til React for hvert skjermbilde, heller ikke
       // en funksjon som returnerer samme state. Bare fase-/pauseskifter angår
       // dialogen; figurene leser klokka direkte, uten React i bevegelsesløypa.
-      if (!previous || previous.from !== next.from
-        || previous.moving !== next.moving || previous.shown !== next.shown) {
-        previous = next;
-        setHead(next);
+      if (previousFrom !== next.from || previousMoving !== next.moving || previousShown !== next.shown) {
+        previousFrom = next.from; previousMoving = next.moving; previousShown = next.shown;
+        // Only phase boundaries enter React. Never store the borrowed sample buffer in state.
+        setHead({ ...next });
       }
-      raf = requestAnimationFrame(tick);
+      const current = run.current;
+      if (!current) return;
+      const elapsed = (now - current.at) * current.speed;
+      playheadAtInto(boundary, current.start, count, now - current.at, current.speed);
+      const cycle = PHASE_PAUSE_MS + PHASE_MOVE_MS;
+      const end = boundary.from * cycle + (boundary.moving ? cycle : PHASE_PAUSE_MS);
+      const absoluteTime = current.start * cycle + elapsed;
+      // Wake only for a phase boundary. An otherwise empty RAF clock still
+      // makes Chrome sample compositor animations/styles on the main thread.
+      timer = setTimeout(tick, Math.max(1, (end - absoluteTime) / current.speed));
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [playing, sample, count]);
+    tick();
+    return () => clearTimeout(timer);
+  }, [playing, sample, count, speed]);
 
   const select = useCallback((index: number) => {
     run.current = null;
@@ -123,6 +155,6 @@ export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, r
   return {
     isPlaying: playing, moving, shown: head.shown,
     from: reducedMotion ? head.shown : head.from, interpT: moving ? head.t : 0,
-    select, togglePlay, sample,
+    select, togglePlay, sample, time,
   };
 }

@@ -73,9 +73,9 @@ function cropReport(dialog: Locator) {
       right: Math.min(p2.x, a.right), bottom: Math.min(p2.y, a.bottom),
     };
     const parts: [string, Element][] = [
-      ...Array.from(svg.querySelectorAll('[data-player="true"]'), (el, i): [string, Element] => [`spiller ${i + 1}`, el]),
-      ...Array.from(svg.querySelectorAll('[data-item="true"] > g'), (el, i): [string, Element] => [`utstyr ${i + 1}`, el]),
-      ...Array.from(svg.querySelectorAll('[data-ball] > circle[r="10"]'))
+      ...Array.from(svg.parentElement!.querySelectorAll('[data-player="true"]'), (el, i): [string, Element] => [`spiller ${i + 1}`, el]),
+      ...Array.from(svg.parentElement!.querySelectorAll('[data-item="true"] > g'), (el, i): [string, Element] => [`utstyr ${i + 1}`, el]),
+      ...Array.from(svg.parentElement!.querySelectorAll('[data-ball] > circle[r="10"]'))
         .filter(el => !el.closest('[data-player]')).map((el): [string, Element] => ['ball', el]),
     ];
     const clipped = parts.flatMap(([name, el]) => {
@@ -183,14 +183,14 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
   return dialog.evaluate(async (root, { duration, mode }) => {
     const stats = (window as unknown as { __drill3d?: { renders: number; signature: number } }).__drill3d;
     const react = (window as unknown as { __drillReact?: Record<string, number> }).__drillReact;
-    const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0, beforeFigures = react?.DrillFigures ?? 0;
+    const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0, beforeFigures = react?.LiveDrillFigures ?? 0;
     if (mode === '3d' && !stats?.renders) throw new Error('3D-bildene telles ikke (watch3DRenders mangler eller ingen tegning ennå)');
     let changed = 0, renders = 0, extraRenders = 0;
     let lastRenders = stats?.renders ?? 0, lastSignature = stats?.signature ?? 0;
     const target = root.querySelector('[data-testid="drill-animation-pitch"]');
     if (mode === '2d' && !target) throw new Error('Fant ikke 2D-banen');
-    const movers = Array.from(target?.querySelectorAll('[data-player], [data-ball]') ?? []);
-    const signature2d = () => movers.map(el => el.getAttribute('transform')).join('|');
+    const movers = Array.from(target?.parentElement?.querySelectorAll('[data-player], [data-ball]') ?? []);
+    const signature2d = () => movers.map(el => getComputedStyle(el.closest('[data-move]') ?? el).transform).join('|');
     let last2d = signature2d();
     const intervals: number[] = [];
     const start = performance.now();
@@ -224,7 +224,7 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
       longFrames: sorted.filter(ms => ms > 50).length,
       viewerRenders: (react?.DrillAnimationViewer ?? 0) - beforeViewer,
       pitchRenders: (react?.FootballPitch ?? 0) - beforePitch,
-      figureRenders: (react?.DrillFigures ?? 0) - beforeFigures,
+      figureRenders: (react?.LiveDrillFigures ?? 0) - beforeFigures,
       reactHookWorking: beforeViewer > 0 && beforePitch > 0,
     };
   }, { duration: durationMs, mode: view });
@@ -233,9 +233,9 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
 /** Samme posisjonsmåling i begge visninger, uten å telle uendrede SVG-skrivinger som bilder. */
 async function measureLiveMove(svg: Locator) {
   return svg.evaluate(async root => {
-    const figures = Array.from(root.querySelectorAll<SVGGElement>('[data-player]'), player =>
-      player.hasAttribute('data-move') ? player : player.querySelector<SVGGElement>('g[transform]')!);
-    const signature = () => figures.map(el => el.getAttribute('transform')).join('|');
+    const figures = Array.from(root.parentElement!.querySelectorAll<SVGGElement>('[data-player]'), player =>
+      player.closest('[data-move]') ?? player.querySelector<SVGGElement>('g[transform]')!);
+    const signature = () => figures.map(el => getComputedStyle(el.closest('[data-move]') ?? el).transform).join('|');
     const react = (window as unknown as { __drillReact: Record<string, number> }).__drillReact;
     const before = { ...react };
     let redundantWrites = 0;
@@ -266,9 +266,9 @@ async function measureLiveMove(svg: Locator) {
       fps: intervals.length / seconds, changedPerSecond: changed / seconds,
       p95: sorted[Math.floor(sorted.length * .95)], redundantWrites,
       viewerRenders: (react.DrillAnimationViewer ?? 0) - (before.DrillAnimationViewer ?? 0),
-      figureRenders: (react.DrillFigures ?? 0) - (before.DrillFigures ?? 0),
+      figureRenders: (react.LiveDrillFigures ?? 0) - (before.LiveDrillFigures ?? 0),
       boardRenders: (react.TacticBoard ?? 0) - (before.TacticBoard ?? 0),
-      hookWorking: (react.DrillFigures ?? 0) > 0 && (react.TacticBoard ?? 0) > 0,
+      hookWorking: (react.LiveDrillFigures ?? 0) > 0 && (react.TacticBoard ?? 0) > 0,
     };
   });
 }
@@ -327,7 +327,8 @@ test.describe('live Play uten tunge effekter på PC', () => {
     const report = await dialog.evaluate(async root => {
       const pitch = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
       const background = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-background"]');
-      const movers = Array.from(pitch.querySelectorAll<SVGElement>('[data-move]'));
+      const figures = root.querySelector('[data-testid="drill-animation-figures"]')!;
+      const movers = Array.from(figures.querySelectorAll<HTMLElement>('[data-move]'));
       const heavy: string[] = [];
       const check = (el: Element, mover: string) => {
         const style = getComputedStyle(el);
@@ -345,7 +346,7 @@ test.describe('live Play uten tunge effekter på PC', () => {
         el.querySelectorAll('*').forEach(child => check(child, name));
         for (let up = el.parentElement; up && up !== pitch.parentElement; up = up.parentElement) check(up, name);
       });
-      const transforms = () => movers.map(el => el.getAttribute('transform')).join('|');
+      const transforms = () => movers.map(el => getComputedStyle(el.closest('[data-move]') ?? el).transform).join('|');
       let mutations = 0;
       const observer = background && new MutationObserver(records => { mutations += records.length; });
       observer?.observe(background!, { subtree: true, attributes: true, childList: true, characterData: true });
@@ -364,8 +365,8 @@ test.describe('live Play uten tunge effekter på PC', () => {
       observer?.disconnect();
       return {
         movers: movers.length, changed, heavy: Array.from(new Set(heavy)),
-        effectsInPitch: pitch.querySelectorAll('clipPath, filter, mask, [filter], [clip-path], [mask]').length,
-        grassInPitch: pitch.querySelectorAll('rect[width="880"][height="560"]').length,
+        effectsInPitch: figures.querySelectorAll('clipPath, filter, mask, [filter], [clip-path], [mask]').length,
+        grassInPitch: figures.querySelectorAll('rect[width="880"][height="560"]').length,
         hasBackground: !!background,
         grassInBackground: background?.querySelectorAll('rect[width="880"][height="560"]').length ?? 0,
         moversInBackground: background?.querySelectorAll('[data-move], [data-player], [data-ball]').length ?? -1,

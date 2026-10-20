@@ -52,6 +52,17 @@
   contain: strict;
 }
 
+/* This pitch is a read-only illustration. Disable the whole subtree, including
+   descendants that explicitly enable pointer events in shared board figures. */
+.livePitch,
+.livePitch * {
+  pointer-events: none !important;
+}
+
+.livePitch [data-move] {
+  will-change: transform;
+}
+
 .pitch [data-player] > text {
   font-size: 12px;
 }
