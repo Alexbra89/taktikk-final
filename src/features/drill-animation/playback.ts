@@ -69,6 +69,15 @@ export function useDrillPlayback(phases: DrillAnimationPhase[], speed: number, r
     return reducedMotion ? { ...next, from: next.shown, t: 0, moving: false } : next;
   }, [count, reducedMotion]);
 
+  // Ny fart midt i avspillingen: klokka fortsetter fra samme sted, i ny fart
+  // for både bevegelse og pause (posisjonen avhenger av tid × fart).
+  useEffect(() => {
+    const current = run.current;
+    if (!current || current.speed === speed) return;
+    const now = performance.now();
+    run.current = { ...current, at: now - (now - current.at) * current.speed / speed, speed };
+  }, [speed]);
+
   useEffect(() => {
     if (!playing) return;
     let raf = 0;

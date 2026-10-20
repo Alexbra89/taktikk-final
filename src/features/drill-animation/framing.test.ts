@@ -66,20 +66,26 @@ describe('fast utsnitt og tempo for øvelser', () => {
   });
 
   for (const area of AREAS) {
-    it(`2D får plass i både bredde og høyde, og draktene vokser ikke med zoomen (${area.name})`, () => {
+    it(`2D viser hele banens høyde og hele øvelsen, og draktene vokser ikke med zoomen (${area.name})`, () => {
       const fullBoard = Math.min(area.width / VW, area.height / VH);
       for (const animation of ALL_DRILL_ANIMATIONS) {
         const { content } = drillFraming(animation);
         const { crop, scale, kitScale } = fitCrop(content, area.width, area.height);
-        // Contain: utsnittet får plass i begge retninger, og én av dem er fylt.
-        expect(crop.width * scale).toBeLessThanOrEqual(area.width + 1e-6);
-        expect(crop.height * scale).toBeLessThanOrEqual(area.height + 1e-6);
-        expect(Math.max(crop.width * scale / area.width, crop.height * scale / area.height)).toBeCloseTo(1);
+        // Utsnittet har flatens form og fyller den.
+        expect(crop.width * scale).toBeCloseTo(area.width);
+        expect(crop.height * scale).toBeCloseTo(area.height);
         // Hele innholdet pluss plass til draktene (ved den størrelsen de tegnes i).
-        expect(crop.x).toBeCloseTo(content.x - KIT_ROOM.side * kitScale);
-        expect(crop.y).toBeCloseTo(content.y - KIT_ROOM.top * kitScale);
-        expect(crop.x + crop.width).toBeCloseTo(content.x + content.width + KIT_ROOM.side * kitScale);
-        expect(crop.y + crop.height).toBeCloseTo(content.y + content.height + KIT_ROOM.bottom * kitScale);
+        expect(crop.x).toBeLessThanOrEqual(content.x - KIT_ROOM.side * kitScale + 1e-6);
+        expect(crop.y).toBeLessThanOrEqual(content.y - KIT_ROOM.top * kitScale + 1e-6);
+        expect(crop.x + crop.width).toBeGreaterThanOrEqual(content.x + content.width + KIT_ROOM.side * kitScale - 1e-6);
+        expect(crop.y + crop.height).toBeGreaterThanOrEqual(content.y + content.height + KIT_ROOM.bottom * kitScale - 1e-6);
+        // Banen kuttes aldri oppe eller nede, og på PC/liggende mobil vises hele banen.
+        expect(crop.y).toBeLessThanOrEqual(1e-6);
+        expect(crop.y + crop.height).toBeGreaterThanOrEqual(VH - 1e-6);
+        if (area.width >= area.height) {
+          expect(crop.x).toBeLessThanOrEqual(1e-6);
+          expect(crop.x + crop.width).toBeGreaterThanOrEqual(VW - 1e-6);
+        }
         // Draktens skjermstørrelse: som når hele banen vises, men aldri under mobilstørrelsen.
         const kitOnScreen = scale * kitScale;
         expect(kitScale).toBeLessThanOrEqual(1);
@@ -89,11 +95,23 @@ describe('fast utsnitt og tempo for øvelser', () => {
     });
   }
 
-  it('på PC blir draktene ikke større enn på taktikkbrettet', () => {
+  it('på PC vises hele banen, og draktene er like store som på taktikkbrettet', () => {
     const animation = ALL_DRILL_ANIMATIONS.find(a => a.drillId === 'cardio-y-02')!;
-    const { scale, kitScale } = fitCrop(drillFraming(animation).content, 1890, 760);
-    expect(scale).toBeGreaterThan(2);
+    const { scale, kitScale, crop } = fitCrop(drillFraming(animation).content, 1890, 760);
+    expect(scale).toBeCloseTo(Math.min(1890 / VW, 760 / VH));
     expect(scale * kitScale).toBeCloseTo(Math.min(1890 / VW, 760 / VH));
+    expect(crop.y).toBeCloseTo(0);
+    expect(crop.height).toBeCloseTo(VH);
+  });
+
+  it('Bryteren på PC (1536 × 730): hele banen, ikke kuttet oppe eller nede', () => {
+    const animation = ALL_DRILL_ANIMATIONS.find(a => a.drillId === 'forsvar-y-09')!;
+    // Flaten banen fikk på skjermbildet fra PC-en.
+    const { crop } = fitCrop(drillFraming(animation).content, 1436, 455);
+    expect(crop.x).toBeLessThanOrEqual(0);
+    expect(crop.y).toBeLessThanOrEqual(0);
+    expect(crop.x + crop.width).toBeGreaterThanOrEqual(VW);
+    expect(crop.y + crop.height).toBeGreaterThanOrEqual(VH);
   });
 
   for (const aspect of [1400 / 600, 390 / 380, 844 / 220, 390 / 844, 1400 / 900, 1890 / 600, 1920 / 360, 1500 / 520, 1440 / 560]) {

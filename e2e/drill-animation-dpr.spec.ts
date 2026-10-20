@@ -182,7 +182,7 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
   return dialog.evaluate(async (root, { duration, mode }) => {
     const stats = (window as unknown as { __drill3d?: { renders: number; signature: number } }).__drill3d;
     const react = (window as unknown as { __drillReact?: Record<string, number> }).__drillReact;
-    const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0;
+    const beforeViewer = react?.DrillAnimationViewer ?? 0, beforePitch = react?.FootballPitch ?? 0, beforeFigures = react?.DrillPitch ?? 0;
     if (mode === '3d' && !stats?.renders) throw new Error('3D-bildene telles ikke (watch3DRenders mangler eller ingen tegning ennå)');
     let changed = 0, dirty = false, renders = 0, extraRenders = 0;
     let lastRenders = stats?.renders ?? 0, lastSignature = stats?.signature ?? 0;
@@ -222,6 +222,7 @@ function measureFps(dialog: Locator, durationMs: number, view: '2d' | '3d') {
       longFrames: sorted.filter(ms => ms > 50).length,
       viewerRenders: (react?.DrillAnimationViewer ?? 0) - beforeViewer,
       pitchRenders: (react?.FootballPitch ?? 0) - beforePitch,
+      figureRenders: (react?.DrillPitch ?? 0) - beforeFigures,
       reactHookWorking: beforeViewer > 0 && beforePitch > 0,
     };
   }, { duration: durationMs, mode: view });
@@ -382,6 +383,8 @@ test.describe(`bildefrekvens @1.65 ${viewport.width}x${viewport.height}`, () => 
     expect(fps2d.reactHookWorking, 'React-målingen må ha sett dialogen og banen').toBe(true);
     expect(fps2d.viewerRenders, 'Dialogen skal bare oppdateres ved fasebytte').toBeLessThan(20);
     expect(fps2d.pitchRenders, 'Fast bane skal gjenbrukes under avspilling').toBe(0);
+    // Figurene flyttes rett i SVG-en i hvert bilde; React tegner dem bare ved fasebytte.
+    expect(fps2d.figureRenders, 'Figurene skal ikke tegnes av React i hvert bilde').toBeLessThan(20);
     expect(fps3d.rendersPerSecond, '3D skal tegnes i (nesten) hvert skjermbilde').toBeGreaterThan(45);
     expect(fps3d.changedPerSecond, 'Figurene/ballen i 3D skal flytte seg under avspilling').toBeGreaterThan(30);
     // Én tegning per skjermbilde: ikke flere 3D-tegninger enn skjermbilder.

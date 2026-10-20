@@ -7,8 +7,8 @@ import type { DrillAnimation } from './types';
 //
 //  3D: `bounds` i meter, som kameraet tilpasses (CameraRig).
 //  2D: `content` er boksen rundt alle spillere, baller, kjegler og tekster
-//  i alle faser. fitCrop legger til plass til draktene i skjermpiksler og
-//  velger minste skalering, så alt får plass i både bredde og høyde.
+//  i alle faser. fitCrop viser hele banen når den får plass (på smal mobil
+//  hele høyden), alltid med hele innholdet og plass til draktene.
 //  Draktene og ikonene vokser ikke med zoomen: de får samme skjermstørrelse
 //  som når hele banen vises (taktikkbrettet), men aldri mindre enn på mobil.
 // ══════════════════════════════════════════════════════════════
@@ -49,11 +49,21 @@ export function drillFraming(animation: DrillAnimation) {
   return { bounds, length, width, content };
 }
 
+/** Plassering langs én akse: helst hele banen, ellers rundt øvelsen, og alltid hele øvelsen. */
+function place(size: number, pitch: number, needStart: number, needSize: number) {
+  const wanted = size >= pitch
+    ? (pitch - size) / 2
+    : Math.min(Math.max(needStart + needSize / 2 - size / 2, 0), pitch - size);
+  return Math.min(Math.max(wanted, needStart + needSize - size), needStart);
+}
+
 /**
- * Utsnittet i 2D for en flate på `width` × `height` piksler: minste skalering
- * som får plass i begge retninger (contain), sentrert. `scale` er piksler per
- * brettenhet for banen, `kitScale` hvor mye draktene og ikonene krympes for
- * å beholde skjermstørrelsen (1 = som zoomen).
+ * Utsnittet i 2D for en flate på `width` × `height` piksler. Utsnittet har
+ * flatens form, så banen fyller hele flaten og aldri kuttes av en kant midt
+ * i gresset. Hele banen vises når den får plass; ellers (smal mobil) hele
+ * banens høyde, med øvelsen midt i bredden. Øvelsen og plass til draktene er
+ * alltid med. `scale` er piksler per brettenhet for banen, `kitScale` hvor
+ * mye draktene og ikonene krympes for å beholde skjermstørrelsen (1 = som zoomen).
  */
 export function fitCrop(content: Box, width: number, height: number) {
   const w = Math.max(1, width), h = Math.max(1, height);
@@ -61,16 +71,25 @@ export function fitCrop(content: Box, width: number, height: number) {
   const kit = Math.max(MIN_KIT_SCALE, Math.min(w / VW, h / VH));
   const roomX = 2 * KIT_ROOM.side, roomY = KIT_ROOM.top + KIT_ROOM.bottom;
   const cw = Math.max(1, content.width), ch = Math.max(1, content.height);
-  // Draktene følger zoomen …
-  let scale = Math.min(w / (cw + roomX), h / (ch + roomY));
+  // Største zoom der øvelsen med drakter får plass: draktene følger zoomen …
+  let fitsContent = Math.min(w / (cw + roomX), h / (ch + roomY));
   // … til de har nådd sin faste størrelse; da får banen resten av plassen.
-  if (scale > kit) scale = Math.min((w - roomX * kit) / cw, (h - roomY * kit) / ch);
+  if (fitsContent > kit) fitsContent = Math.min((w - roomX * kit) / cw, (h - roomY * kit) / ch);
+  // Hele banen, eller på smal mobil hele høyden uten at draktene blir for små.
+  const wholePitch = Math.min(w / VW, h / VH);
+  const scale = Math.min(fitsContent, Math.max(wholePitch, Math.min(h / VH, MIN_KIT_SCALE)));
   const kitScale = Math.min(1, kit / scale);
-  const crop: Box = {
+  const need: Box = {
     x: content.x - KIT_ROOM.side * kitScale,
     y: content.y - KIT_ROOM.top * kitScale,
     width: cw + roomX * kitScale,
     height: ch + roomY * kitScale,
+  };
+  const cropWidth = w / scale, cropHeight = h / scale;
+  const crop: Box = {
+    x: place(cropWidth, VW, need.x, need.width),
+    y: place(cropHeight, VH, need.y, need.height),
+    width: cropWidth, height: cropHeight,
   };
   return { crop, scale, kitScale, viewBox: `${crop.x} ${crop.y} ${crop.width} ${crop.height}` };
 }

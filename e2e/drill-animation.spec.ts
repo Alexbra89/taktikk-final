@@ -80,12 +80,12 @@ test('spiller av, bytter til 3D, og teksten følger fasen', async ({ page }) => 
 test('«reduser bevegelse»: spillerne hopper fra fase til fase uten å gli', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const dialog = await openBryteren(page);
-  const ball = dialog.locator('svg g[filter="url(#dropShadow)"] circle[r="10"]');
+  const ball = dialog.locator('svg [data-ball]');
   await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
   // Ballen flytter seg først i fase 4 (etter ca. 5 s), så vi ser i 8 s.
   const seen = new Set<string>();
   for (let i = 0; i < 80; i++) {
-    seen.add(`${await ball.getAttribute('cx')},${await ball.getAttribute('cy')}`);
+    seen.add((await ball.getAttribute('transform'))!);
     await page.waitForTimeout(100);
   }
   await expect(dialog.getByTestId('drill-animation-text')).not.toHaveText(FASE_1);
@@ -247,7 +247,7 @@ test('tempo: ca. 0,4 s pause og 1,3 s bevegelse, teksten byttes når fasen start
 test('farten påvirker både pausen og bevegelsen', async ({ page }) => {
   const dialog = await openBryteren(page);
   const durations = [];
-  for (const speed of ['1', '2']) {
+  for (const speed of ['1', '2', '2.5']) {
     await dialog.getByRole('button', { name: /^Fase 1:/ }).click();
     await dialog.getByRole('combobox', { name: 'Fart', exact: true }).selectOption(speed);
     durations.push(await dialog.evaluate(root => new Promise<{ hold: number; total: number }>(resolve => {
@@ -267,6 +267,75 @@ test('farten påvirker både pausen og bevegelsen', async ({ page }) => {
   }
   expect(durations[1].hold).toBeLessThan(durations[0].hold * .8);
   expect(durations[1].total).toBeLessThan(durations[0].total * .65);
+  // 2,5×: 0,4 av tiden ved 1×, for både pausen og hele avspillingen.
+  expect(durations[2].hold).toBeLessThan(durations[0].hold * .65);
+  expect(durations[2].total).toBeLessThan(durations[0].total * .5);
+  expect(durations[2].total).toBeGreaterThan(durations[0].total * .3);
+});
+
+test('farten kan byttes mens øvelsen spiller, uten hopp', async ({ page }) => {
+  const dialog = await openBryteren(page);
+  const start = Date.now();
+  await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_2);
+  const speed = dialog.getByRole('combobox', { name: 'Fart', exact: true });
+  await expect(speed).toBeEnabled();
+  await speed.selectOption('2.5');
+  // Fasen som vises, står der den sto; resten går i 2,5×.
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_2);
+  await expect(dialog.getByRole('button', { name: 'Spill av', exact: true })).toBeVisible({ timeout: 6_000 });
+  // 7,2 s ved 1× hele veien; bytte etter ca. 0,5 s gir ca. 3,3 s.
+  expect(Date.now() - start).toBeLessThan(5_500);
+  await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_5);
+});
+
+test('PC 1536 × 730: hele banen synlig, og «Spill av» glir jevnt bilde for bilde', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 730 });
+  const dialog = await openBryteren(page);
+  await nextFrames(page);
+  // Banen (hele gresset 0–880 × 0–560) ligger innenfor flaten, ikke kuttet oppe eller nede.
+  const pitch = await dialog.evaluate(root => {
+    const svg = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
+    const area = root.querySelector('[data-testid="drill-animation-area"]')!.getBoundingClientRect();
+    const ctm = svg.getScreenCTM()!;
+    const a = new DOMPoint(0, 0).matrixTransform(ctm), b = new DOMPoint(880, 560).matrixTransform(ctm);
+    return { left: a.x - area.left, top: a.y - area.top, right: b.x - area.left, bottom: b.y - area.top, width: area.width, height: area.height };
+  });
+  expect(pitch.left).toBeGreaterThanOrEqual(-.5);
+  expect(pitch.top).toBeGreaterThanOrEqual(-.5);
+  expect(pitch.right).toBeLessThanOrEqual(pitch.width + .5);
+  expect(pitch.bottom).toBeLessThanOrEqual(pitch.height + .5);
+  await shot(page, 'bryteren-2d-1536x730-hele-banen');
+
+  // I hvert skjermbilde står spilleren der klokka sier for bildets tidspunkt:
+  // på en rett linje i tid gjennom første bevegelse (jevn fart, ingen hakk).
+  const result = await dialog.evaluate(async root => {
+    const svg = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
+    const at = () => (svg.querySelectorAll('[data-player]')[1] as SVGGElement).transform.baseVal.consolidate()!.matrix;
+    const frames: { t: number; x: number; y: number }[] = [];
+    await new Promise<void>(resolve => {
+      const begin = performance.now();
+      const tick = (now: number) => {
+        const m = at(); frames.push({ t: now, x: m.e, y: m.f });
+        if (now - begin < 2000) requestAnimationFrame(tick); else resolve();
+      };
+      requestAnimationFrame(tick);
+      root.querySelector<HTMLButtonElement>('button[aria-label="Spill av"]')!.click();
+    });
+    const key = (f: { x: number; y: number }) => `${f.x},${f.y}`;
+    const first = frames.findIndex((f, i) => i > 0 && key(f) !== key(frames[i - 1]));
+    let last = first;
+    while (last + 1 < frames.length && key(frames[last + 1]) !== key(frames[last])) last++;
+    const move = frames.slice(first + 1, last);
+    // Rett linje gjennom første og siste bilde i bevegelsen; avvik i andeler av ett bildes steg.
+    const a = move[0], b = move.at(-1)!;
+    const speed = { x: (b.x - a.x) / (b.t - a.t), y: (b.y - a.y) / (b.t - a.t) };
+    const step = Math.hypot(speed.x, speed.y) * 16.7;
+    const worst = Math.max(...move.map(f => Math.hypot(a.x + speed.x * (f.t - a.t) - f.x, a.y + speed.y * (f.t - a.t) - f.y)));
+    return { frames: move.length, worstInSteps: worst / step };
+  });
+  expect(result.frames).toBeGreaterThan(40);
+  expect(result.worstInSteps, 'Spilleren skal stå der klokka sier i hvert bilde').toBeLessThan(0.1);
 });
 
 test('øvelsens roller vises i 2D, 3D og den eksporterte videoens etiketter', async ({ page }, info) => {
@@ -323,16 +392,12 @@ test('opptak i 2D: samme opptak som 2D-fullskjermen, med øvelsens tempo', async
 async function sampleMotion(dialog: Locator, playerIndex: number, durationMs = 3600) {
   return dialog.evaluate(async (root, [index, duration]) => {
     const svg = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
-    const readPosition = () => {
-      const player = svg.querySelectorAll('[data-player]')[index];
-      const kit = player.querySelector<SVGGElement>('g[transform]');
-      if (kit) {
-        const matrix = kit.transform.baseVal.consolidate()!.matrix;
-        return { x: matrix.e, y: matrix.f };
-      }
-      const circle = player.querySelector<SVGCircleElement>('circle')!;
-      return { x: circle.cx.baseVal.value, y: circle.cy.baseVal.value };
+    // Figurene tegnes rundt (0, 0) og flyttes med transform: plassen er matrisens e, f.
+    const positionOf = (el: Element) => {
+      const matrix = (el as SVGGElement).transform.baseVal.consolidate()!.matrix;
+      return { x: matrix.e, y: matrix.f };
     };
+    const readPosition = () => positionOf(svg.querySelectorAll('[data-player]')[index]);
     const frames = [];
     const start = performance.now();
     do {
@@ -342,12 +407,13 @@ async function sampleMotion(dialog: Locator, playerIndex: number, durationMs = 3
       const area = root.querySelector('[data-testid="drill-animation-area"]')!.getBoundingClientRect();
       const visible = (box: DOMRect) => box.left >= Math.max(corners[0].x, 0) - .5 && box.right <= Math.min(corners[1].x, innerWidth) + .5
         && box.top >= Math.max(corners[0].y, 0) - .5 && box.bottom <= Math.min(corners[1].y, innerHeight) + .5;
-      const ball = svg.querySelector<SVGCircleElement>('g[filter="url(#dropShadow)"] circle[r="10"]')!;
+      const ball = svg.querySelector('[data-ball]')!;
+      const ballAt = positionOf(ball);
       frames.push({
         time: performance.now() - start, ...readPosition(),
         playersFit: Array.from(svg.querySelectorAll('[data-player]')).every(p => visible(p.getBoundingClientRect())),
-        ballFits: visible(ball.getBoundingClientRect()),
-        ballX: ball.cx.baseVal.value, ballY: ball.cy.baseVal.value,
+        ballFits: visible(ball.querySelector('circle[r="10"]')!.getBoundingClientRect()),
+        ballX: ballAt.x, ballY: ballAt.y,
         trail: !!svg.querySelector('[data-ball-trail]'),
         left: corners[0].x, top: corners[0].y, right: corners[1].x, bottom: corners[1].y,
         fits: corners[0].x >= Math.max(0, area.left) - 1 && corners[0].y >= Math.max(0, area.top) - 1

@@ -7,7 +7,7 @@ import { IconButton } from '@/components/ui/Button';
 // Spill/pause, forrige/neste fase, faseprikker og fart. Ren visning:
 // tilstanden ligger i DrillAnimationViewer.
 
-export const SPEEDS = [0.5, 1, 1.5, 2];
+export const SPEEDS = [0.5, 1, 1.5, 2, 2.5, 3];
 
 interface Props {
   phaseNames: string[];
@@ -53,8 +53,8 @@ export const DrillAnimationControls: React.FC<Props> = ({
         ))}
       </div>
 
-      {/* Klokka leser farten når den starter, så den byttes mellom avspillingene. */}
-      <select aria-label="Fart" value={speed} disabled={disabled || isPlaying} onChange={e => onSpeed(Number(e.target.value))}
+      {/* Farten gjelder både bevegelse og pause, og kan byttes mens den spiller. */}
+      <select aria-label="Fart" value={speed} disabled={disabled} onChange={e => onSpeed(Number(e.target.value))}
         className="min-h-[36px] rounded-ctl bg-canvas-raised px-2 font-mono text-caption text-ink shadow-hair focus-ring disabled:opacity-40">
         {SPEEDS.map(s => <option key={s} value={s}>{s}×</option>)}
       </select>
