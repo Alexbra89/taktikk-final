@@ -7,14 +7,33 @@ import { BoardScene, type CameraView, type SceneFrame } from './three/BoardScene
 import { PITCHES, exportDuration, playbackBallHeight, playbackFrame } from './three/coordinates';
 import { cameraAt, recordCameraTrack, type CameraSample } from './three/cameraTrack';
 import { chooseEncoder, exportVideo3D, warmEncoder, type EncoderChoice } from '@/lib/exportVideo3D';
-import { VIDEO_FPS, VIDEO_LEAD_MS, VIDEO_PHASE_MS, fullscreenVideoSize } from '@/lib/exportVideo';
+import { VIDEO_FPS, VIDEO_LEAD_MS, VIDEO_PHASE_MS, VIDEO_TAIL_MS, fullscreenVideoSize } from '@/lib/exportVideo';
 import { RecordingControls } from './RecordingControls';
 import { getSlot, SPORT_LABELS } from '@/store/selectors';
 import { ROLE_INFO } from '@/data/roleInfo';
 import type { PlayerStyle } from '@/hooks/usePlayerStyle';
 import type { Tactic } from '@/types';
+import type { StagePlayer } from './BoardStage';
+
+/** What moves during playback; the rest of the frame comes from the props. */
+type LiveFrame = Pick<SceneFrame, 'players' | 'ball' | 'items' | 'ballHeight' | 'progress'>;
 
 interface Props extends SceneFrame {
+  /** Explicit drill roles, also used by the existing video exporter. */
+  playerRoles?: Record<string, Pick<StagePlayer, 'label' | 'family'>>;
+  /**
+   * Animated drills: read on every animation frame from their shared clock, so
+   * 3D moves in step with the clock rather than when React next renders.
+   * null while stopped. The tactic board passes none.
+   */
+  liveFrame?: () => LiveFrame | null;
+  /** Animated drills: their own tempo (pauses, passes) for the 3D video. The tactic board passes none. */
+  timeline?: {
+    /** Playback at `speed`, without lead-in and tail. */
+    durationMs: (speed: number) => number;
+    /** `phase` is the phase the pill and drawings show. */
+    frameAt: (elapsedMs: number, speed: number) => LiveFrame & { phase: number };
+  };
   tactic: Tactic;
   playerStyle: PlayerStyle;
   isPlaying: boolean;
@@ -90,7 +109,7 @@ export default function Board3D(props: Props) {
   const returnFocus = useRef<HTMLElement | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const selectedId = props.players.some(p => p.id === playerId) ? playerId : props.players.find(p => p.num === 1)?.id ?? props.players[0]?.id ?? '';
-  const sceneFrame = (p: Props): SceneFrame => ({ ...p,
+  const sceneFrame = (p: Props, live = recording.current ? null : p.liveFrame?.() ?? null): SceneFrame => ({ ...p, ...(live ?? {}),
     phaseName: p.tactic.phases[p.tactic.activePhaseIdx]?.name,
     stickyNote: p.tactic.phases[p.tactic.activePhaseIdx]?.stickyNote,
   });
@@ -119,16 +138,26 @@ export default function Board3D(props: Props) {
     element.appendChild(board.renderer.domElement);
     // Redrawn at once: resizing clears the canvas, and on phones the next frame can be 30 ms away
     // (entering fullscreen, rotating the phone).
-    const resize = () => { board.resize(element.clientWidth, element.clientHeight); board.render(0); };
+    const resize = () => { board.resize(element.clientWidth, element.clientHeight); board.render(0, !!latest.current.cameraBounds); };
     const observer = new ResizeObserver(resize); observer.observe(element); resize();
     board.setFrame(sceneFrame(latest.current), false); board.render(0, true);
     board.setDrawings(latest.current.drawings, latest.current.trails).catch(() => setError('Tegningene kunne ikke lastes i 3D. Prøv å åpne 3D på nytt.'));
     let raf = 0, last = performance.now(), active = true;
+    // Reuse the live scene envelope too; the drill's numeric buffers are borrowed.
+    const liveSceneFrame = sceneFrame(latest.current);
     board.assetsReady.then(() => { if (active) { setAssetNotice(board.assetWarnings.join(' ')); setAssetsLoaded(true); } });
     const render = (now: number) => {
       if (!active) return;
       raf = requestAnimationFrame(render);
       if (document.hidden || livePaused.current || (lowPower && now - last < 32)) return;
+      // Animated drills: the moving players and ball straight from the clock, for this very frame.
+      const live = recording.current ? null : latest.current.liveFrame?.() ?? null;
+      if (live) {
+        Object.assign(liveSceneFrame, latest.current, live);
+        liveSceneFrame.phaseName = latest.current.tactic.phases[latest.current.tactic.activePhaseIdx]?.name;
+        liveSceneFrame.stickyNote = latest.current.tactic.phases[latest.current.tactic.activePhaseIdx]?.stickyNote;
+        board.setMotionFrame(liveSceneFrame);
+      }
       board.render(Math.min(.1, (now - last) / 1000)); last = now;
     };
     const lost = (event: Event) => { event.preventDefault(); setReady(false); setError('3D mistet forbindelsen til grafikkortet. Bytt til 2D og åpne 3D igjen.'); abort.current?.abort(); };
@@ -271,6 +300,8 @@ export default function Board3D(props: Props) {
       // Isolated scene and immutable snapshot: exporting never moves or seeks the board.
       const snapshot = structuredClone(props.tactic);
       const speed = props.speed;
+      const timeline = props.timeline;
+      const totalMs = timeline ? VIDEO_LEAD_MS + timeline.durationMs(speed) + VIDEO_TAIL_MS : exportDuration(snapshot.phases.length, speed);
       const camera = scene.current.cameraState();
       const size = fromFullscreen ? fullscreenVideoSize(host.current!.clientWidth, host.current!.clientHeight) : null;
       const selectedChoice = size ? await chooseEncoder(false, size) : choice;
@@ -292,13 +323,23 @@ export default function Board3D(props: Props) {
       controller.signal.throwIfAborted();
       /** The same frame for the live preview and the video, `elapsed` ms into playback. */
       const frameAt = (elapsed: number) => {
+        if (timeline) {
+          // The drill's own tempo and passes; same crop and camera as the live view.
+          const { phase, ...moving } = timeline.frameAt(elapsed, speed);
+          const drawings = snapshot.phases[phase]?.drawings ?? [];
+          const frame: SceneFrame = { ...moving, drawings, cameraBounds: props.cameraBounds,
+            phaseName: snapshot.phases[phase]?.name || `Fase ${phase + 1}`, stickyNote: snapshot.phases[phase]?.stickyNote };
+          return { frame, drawings, phase };
+        }
         const f = playbackFrame(snapshot.phases, elapsed, speed);
         const drawings = snapshot.phases[f.fromIdx].drawings ?? [];
         const frame: SceneFrame = { ...f, drawings, phaseName: snapshot.phases[f.fromIdx].name || `Fase ${f.fromIdx + 1}`, stickyNote: snapshot.phases[f.fromIdx].stickyNote,
+          cameraBounds: props.cameraBounds,
           progress: snapshot.phases.length > 1 ? Math.min(1, elapsed * speed / ((snapshot.phases.length - 1) * VIDEO_PHASE_MS)) : null,
           ballHeight: playbackBallHeight(snapshot.phases, elapsed, speed, snapshot.sport), players: f.players.map(p => ({
           id: p.id, num: p.num, name: p.name.trim(), position: p.position,
-          label: getSlot(snapshot, p.slotIdx).label, family: ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
+          label: props.playerRoles ? props.playerRoles[p.id]?.label ?? '' : getSlot(snapshot, p.slotIdx).label,
+          family: props.playerRoles ? props.playerRoles[p.id]?.family ?? 'mid' : ROLE_INFO[getSlot(snapshot, p.slotIdx).role].family,
         })) };
         return { frame, drawings, phase: f.fromIdx };
       };
@@ -321,7 +362,7 @@ export default function Board3D(props: Props) {
         // Live: only the camera path is recorded, which is cheap even on a slow PC.
         livePaused.current = true; setRecordStage('recording');
         const recorded = await recordCameraTrack({
-          durationMs: exportDuration(snapshot.phases.length, speed), signal: controller.signal,
+          durationMs: totalMs, signal: controller.signal,
           shouldStop: () => stopped.current, onElapsed: setRecordingSeconds,
           show: (time, dt, index) => {
             const { frame, drawings, phase } = frameAt(Math.max(0, time - VIDEO_LEAD_MS));
@@ -345,7 +386,7 @@ export default function Board3D(props: Props) {
       const path = track;
       await exportVideo3D({
         choice: selectedChoice, phaseCount: snapshot.phases.length, speed, team: props.teamName, tactic: snapshot.name,
-        signal: controller.signal, onProgress: setProgress, frameCount,
+        signal: controller.signal, onProgress: setProgress, frameCount, durationMs: totalMs,
         draw: async (elapsed, index) => {
           const { frame, drawings } = frameAt(elapsed);
           await board.setDrawings(drawings);
@@ -393,7 +434,7 @@ export default function Board3D(props: Props) {
   const pitch = PITCHES[props.tactic.sport];
   const playerSelect = (className: string) => <select aria-label="Velg spillerperspektiv" value={selectedId}
     onChange={e => setPlayerId(e.target.value)} className={className}>
-    {props.players.map(p => <option key={p.id} value={p.id}>{p.num}{p.num === 1 ? ' · Keeper' : ''}{p.name ? ` · ${p.name}` : ''}</option>)}
+    {props.players.map(p => <option key={p.id} value={p.id}>{p.num}{props.playerRoles ? (p.label ? ` · ${p.label}` : '') : p.num === 1 ? ' · Keeper' : ''}{p.name ? ` · ${p.name}` : ''}</option>)}
   </select>;
   return (
     <section aria-label="3D-visning" className="flex flex-col flex-1 min-w-0 bg-canvas" style={{ minHeight: 360 }}>
@@ -470,7 +511,9 @@ export default function Board3D(props: Props) {
           <p className="text-caption text-ink-muted">{lowPower
             ? 'Én finger: roter · To fingre: flytt kameraet og klyp for å zoome · ↺ tilbakestiller'
             : 'Dra: roter · Høyreklikk og dra (eller Shift + dra): flytt kameraet · Rull: zoom · ↺ tilbakestiller'}</p>
-          <p className="font-mono text-meta text-ink-subtle">{SPORT_LABELS[props.tactic.sport]} · {pitch.length} × {pitch.width} m · Rediger i 2D</p>
+          <p className="font-mono text-meta text-ink-subtle">{props.cameraBounds
+            ? `Øvelsesutsnitt · ${Math.round(props.cameraBounds.maxX - props.cameraBounds.minX)} × ${Math.round(props.cameraBounds.maxZ - props.cameraBounds.minZ)} m`
+            : `${SPORT_LABELS[props.tactic.sport]} · ${pitch.length} × ${pitch.width} m · Rediger i 2D`}</p>
         </div>
         <Button size="sm" icon={<Video size={15} />} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.tactic.phases.length < 2}
           title={props.tactic.phases.length < 2 ? 'Legg til en fase til for å lage video' : choice?.label} onClick={() => exportVideo()}>Eksporter 3D-video</Button>

@@ -10,6 +10,7 @@ export class Hud {
   private phasePanel = new THREE.Sprite(new THREE.SpriteMaterial({ depthTest: false, toneMapped: false }));
   private phaseKey = '';
   private progressBar?: THREE.Mesh;
+  private readonly size = new THREE.Vector2();
 
   constructor(
     private readonly renderer: THREE.WebGLRenderer,
@@ -35,7 +36,7 @@ export class Hud {
     this.phasePanel.visible = !!(name || note); this.layoutHud();
   }
   layoutHud() {
-    const size = this.renderer.getSize(new THREE.Vector2());
+    const size = this.renderer.getSize(this.size);
     this.hudCamera.right = size.x; this.hudCamera.top = size.y; this.hudCamera.updateProjectionMatrix();
     if (this.progressBar) {
       const width = Math.max(0, size.x - 24) * (this.frame.progress ?? 0);

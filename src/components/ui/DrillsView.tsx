@@ -20,6 +20,7 @@ import {
 import { hasSketch } from '@/components/board/SketchPreview';
 import { ViewHeader } from '@/components/layout/Surface';
 import { AI_DRILL_LABEL, emptyDrill } from '@/lib/customDrills';
+import { DrillAnimationButton } from '@/features/drill-animation/DrillAnimationButton';
 import { DrillEditor } from './DrillEditor';
 import { AiDrillModal } from './AiDrillModal';
 
@@ -395,6 +396,7 @@ export const DrillsView: React.FC<{
               {drill.aiGenerated && <p className="text-body text-warn-300">{AI_DRILL_LABEL}</p>}
             </div>
             <div className="flex flex-wrap gap-2 mb-4">
+              {!drill.isCustom && <DrillAnimationButton drillId={drill.id} drillName={drill.name} />}
               <Button size="sm" onClick={() => setAiRequest({ baseDrill: drill })}>Foreslå variant med AI</Button>
               {drill.isCustom && <>
                 <Button size="sm" onClick={() => setEditor(drill)}>Rediger min øvelse</Button>

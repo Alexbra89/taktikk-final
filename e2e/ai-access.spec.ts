@@ -27,7 +27,7 @@ test('lenke renser adressen, huskes etter omlasting og deles med AI-øvelser ute
   await expect(page.getByText('Et falskt trenerråd.', { exact: true })).toBeVisible();
   // Dokket AI-panel lukkes fra hovedmenyen.
   await ai(page);
-  await page.getByRole('button', { name: 'Øvelser', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Øvelser', exact: true }).click();
   await page.getByRole('button', { name: 'Foreslå øvelse med AI' }).click();
   await expect(page.getByRole('dialog').getByText('AI-tilgang er aktiv på denne enheten.', { exact: true })).toBeVisible();
   await expect(page.getByRole('dialog').getByLabel('Tilgangskode', { exact: false })).toHaveCount(0);

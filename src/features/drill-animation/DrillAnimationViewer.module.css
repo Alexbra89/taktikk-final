@@ -1,0 +1,84 @@
+.dialog {
+  width: 100%;
+  max-width: 100dvw;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Bare dialogens plassfordeling. Utsnittet i 2D regnes ut av fitCrop
+   (framing.ts) for flaten banen får; 3D tilpasser kameraet selv. */
+.pitch {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pitch section,
+.pitch [data-testid='board-3d-stage'] {
+  min-height: 0 !important;
+}
+
+.notes {
+  flex-shrink: 0;
+  min-width: 0;
+  max-height: 50%;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+/* 2D-banens to lag (gress bak, figurer foran) får hvert sitt lag i
+   nettleseren: når figurene flytter seg, tegnes bare figurlaget på nytt,
+   ikke gresset og banestrekene – også når utsnittet er zoomet inn. */
+.layer {
+  display: block;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  contain: strict;
+}
+
+/* This pitch is a read-only illustration. Disable the whole subtree, including
+   descendants that explicitly enable pointer events in shared board figures. */
+.livePitch,
+.livePitch * {
+  pointer-events: none !important;
+}
+
+.livePitch [data-move] {
+  will-change: transform;
+}
+
+.pitch [data-player] > text {
+  font-size: 12px;
+}
+
+/* Bare lave vinduer med nok bredde til begge deler får sidekolonne.
+   Vanlige PC-vinduer beholder tekst under banen, også ved Windows-skalering. */
+@media (max-height: 500px) and (min-width: 800px) {
+  .content {
+    flex-direction: row;
+  }
+
+  .notes {
+    width: 34%;
+    max-width: 420px;
+    max-height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}

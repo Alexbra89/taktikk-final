@@ -27,6 +27,10 @@ export class CameraRig {
   private zoomFactor = 1;
   private desiredPosition = new THREE.Vector3();
   private desiredTarget = new THREE.Vector3();
+  private readonly direction = new THREE.Vector3();
+  private readonly fitRight = new THREE.Vector3();
+  private readonly fitUp = new THREE.Vector3();
+  private readonly fitCorner = new THREE.Vector3();
   private fromOffset = new THREE.Spherical();
   private toOffset = new THREE.Spherical();
   private stadiumShift = new THREE.Vector3();
@@ -90,22 +94,27 @@ export class CameraRig {
     }
     const p = PITCHES[this.sport]; const target = this.desiredTarget; const position = this.desiredPosition;
     target.set(0, 0, 0);
+    const bounds = this.frame.cameraBounds;
+    if (bounds) target.set((bounds.minX + bounds.maxX) / 2, 1.5 * this.figureSize, (bounds.minZ + bounds.maxZ) / 2);
     if (this.view === 'top') {
-      const direction = new THREE.Vector3(0, 1, .0001).normalize();
-      position.copy(direction).multiplyScalar(this.pitchFitDistance(direction) * this.zoomFactor);
+      const direction = this.direction.set(0, 1, .0001).normalize();
+      position.copy(direction).multiplyScalar(this.pitchFitDistance(direction) * this.zoomFactor).add(target);
     }
     else if (this.view === 'ball') {
-      target.copy(this.anchor); position.copy(target).add(new THREE.Vector3(0, 17 * this.zoomFactor, 24 * this.zoomFactor));
+      target.copy(this.anchor); position.copy(target);
+      position.y += 17 * this.zoomFactor; position.z += 24 * this.zoomFactor;
     } else if (this.view === 'player' && hasAnchor) {
       const f = this.povFigure()!;
-      const direction = new THREE.Vector3(Math.sin(f.heading), 0, Math.cos(f.heading));
+      const direction = this.direction.set(Math.sin(f.heading), 0, Math.cos(f.heading));
       // Zooming out steps back over the shoulder; fully in is the player's own eyes.
       const back = Math.max(0, this.zoomFactor - 1) * 7 * this.figureSize;
-      position.copy(f.group.position).add(new THREE.Vector3(0, 1.8 * this.figureSize + back * .35, 0)).addScaledVector(direction, .2 * this.figureSize - back);
+      position.copy(f.group.position).addScaledVector(direction, .2 * this.figureSize - back);
+      position.y += 1.8 * this.figureSize + back * .35;
       target.copy(f.group.position).addScaledVector(direction, 15); target.y = 1.6;
     } else {
-      const direction = new THREE.Vector3(p.length * .08, p.length * .55, p.width * 1.08).normalize();
-      position.copy(direction).multiplyScalar(this.pitchFitDistance(direction) * this.zoomFactor);
+      const direction = bounds ? this.direction.set(0, 1, .75).normalize()
+        : this.direction.set(p.length * .08, p.length * .55, p.width * 1.08).normalize();
+      position.copy(direction).multiplyScalar(this.pitchFitDistance(direction) * this.zoomFactor).add(target);
     }
     const alpha = snap || this.reducedMotion ? 1 : 1 - Math.exp(-dt * 6);
     // Ease the camera's offset from its target in spherical coordinates: a
@@ -137,14 +146,23 @@ export class CameraRig {
   /** Fit every pitch corner including runoff, at any container aspect ratio. */
   private pitchFitDistance(direction: THREE.Vector3) {
     const p = PITCHES[this.sport];
-    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
-    const up = new THREE.Vector3().crossVectors(direction, right).normalize();
+    const bounds = this.frame.cameraBounds;
+    const right = this.fitRight.set(0, 1, 0).cross(direction).normalize();
+    const up = this.fitUp.crossVectors(direction, right).normalize();
     const tan = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
     let distance = 0;
-    for (const x of [-p.length / 2 - 5, p.length / 2 + 5]) {
-      for (const z of [-p.width / 2 - 5, p.width / 2 + 5]) {
-        const corner = new THREE.Vector3(x, 0, z);
-        distance = Math.max(distance, Math.abs(corner.dot(right)) / (tan * this.camera.aspect) + corner.dot(direction), Math.abs(corner.dot(up)) / tan + corner.dot(direction));
+    const halfX = bounds ? (bounds.maxX - bounds.minX) / 2 : p.length / 2 + 5;
+    const halfZ = bounds ? (bounds.maxZ - bounds.minZ) / 2 : p.width / 2 + 5;
+    for (let xi = 0; xi < 2; xi++) {
+      const x = xi ? halfX : -halfX;
+      for (let zi = 0; zi < 2; zi++) {
+        const z = zi ? halfZ : -halfZ;
+        // Include the tops of the enlarged player labels in exercise views.
+        for (let yi = 0; yi < (bounds ? 2 : 1); yi++) {
+          const y = yi ? 3.5 * this.figureSize : 0;
+          const corner = this.fitCorner.set(x, y - (bounds ? 1.5 * this.figureSize : 0), z);
+          distance = Math.max(distance, Math.abs(corner.dot(right)) / (tan * this.camera.aspect) + corner.dot(direction), Math.abs(corner.dot(up)) / tan + corner.dot(direction));
+        }
       }
     }
     return distance * 1.04;
