@@ -118,13 +118,19 @@ const KJEGLEFANGEREN = defineDrillAnimation({
       name: 'Oppsett',
       text: 'Sone 10×10 m med to kjegler på bakkantlinjen. Forsvareren står 3 m foran angriperen med ballen.',
       players: { a: [-4.5, 0], f: [-1.5, 0], a2: [-6.5, 0], f2: [-1.5, -6.5] },
-      ball: { with: 'f', dir: [-1, 0.5] },
+      ball: { with: 'f', dir: [-1, 0] },
     },
     {
-      name: 'Start',
-      text: 'Forsvareren spiller ballen til angriperen og rykker ut for å presse.',
-      players: { f: [-2.6, 0.4] },
-      ball: { with: 'a', dir: [0.6, -1] },
+      name: 'Pasning',
+      text: 'Forsvareren spiller ballen til angriperen …',
+      players: {},
+      ball: { with: 'a', dir: [0, 1] },
+    },
+    {
+      name: 'Utrykning',
+      text: '… og rykker ut for å presse.',
+      players: { f: [-2.6, 0.5] },
+      ball: { with: 'a', dir: [0, 1] },
     },
     {
       name: 'Angrep',
@@ -172,21 +178,29 @@ const TALMODIGHETEN = defineDrillAnimation({
       ball: { with: 'a', dir: [1, 0] },
     },
     {
+      name: 'Rykker frem',
+      text: 'Forsvareren rykker frem og bremser 1–2 m foran angriperen.',
+      players: { a: [-3, 0], f: [-0.8, 0.3] },
+      ball: { with: 'a', dir: [1, 0] },
+    },
+    {
       name: 'Avvent',
-      text: 'Forsvareren rykker frem, bremser 1–2 m foran angriperen og avventer.',
-      players: { a: [-3, 0], f: [-1.1, 0.5] },
+      text: 'Forsvareren avventer og følger angriperen, uten å gå inn.',
+      players: { a: [-2.8, 0.4], f: [-0.9, 0.7] },
       ball: { with: 'a', dir: [1, 0] },
     },
     {
       name: 'Takling',
       text: 'Angriperen slår ballen for langt frem. Forsvareren går inn med en ren takling med innsiden av foten.',
-      players: { a: [-2.8, -0.1], f: [-1.2, 0.3] },
-      ball: { with: 'f', dir: [0.6, 1] },
+      highlight: 'Takling!',
+      kick: 'tackle',
+      players: { a: [-2.6, 0.4], f: [-0.6, 1.2] },
+      ball: { with: 'f', dir: [-0.5, 1] },
     },
     {
       name: 'Ut av korridoren',
       text: 'Forsvareren fører ballen ut av korridoren.',
-      players: { f: [-0.6, 3.6] },
+      players: { f: [-0.3, 3.8] },
       ball: { with: 'f', dir: [0, 1] },
     },
   ],
@@ -237,10 +251,11 @@ const RASK_HJEMJOBB = defineDrillAnimation({
     },
     {
       name: 'Takling',
-      text: 'Forsvareren tar ballen rent (eller presser den over dødlinjen).',
+      text: 'Forsvareren går inn og tar ballen rent (eller presser den over dødlinjen).',
       highlight: 'Ren takling!',
-      players: {},
-      ball: { with: 'f', dir: [-0.3, 1] },
+      kick: 'tackle',
+      players: { a: [20.6, -0.4], f: [23.4, 0.5] },
+      ball: { with: 'f', dir: [1, 1] },
     },
   ],
 });
@@ -249,7 +264,7 @@ const RASK_HJEMJOBB = defineDrillAnimation({
  * forsvar-y-07: bane 12×12 m med ett mål i enden. Angriperen starter med
  * ball i motsatt ende. Forsvarer 1 rykker ut og støter, forsvarer 2 sikrer
  * 3–4 m bak, på skrå. Dribler angriperen forbi forsvarer 1, tar forsvarer 2 over.
- * 6 spillere: én angriper og to forsvarere om gangen, de tre andre venter.
+ * Teksten har 6 spillere, men bare tre roller; de tre som venter, er utelatt for å gjøre det tydeligere.
  */
 const DOBBELTMUREN = defineDrillAnimation({
   drillId: 'forsvar-y-07',
@@ -259,9 +274,6 @@ const DOBBELTMUREN = defineDrillAnimation({
     a: { label: 'A', family: 'att' },
     f1: { label: 'F1', family: 'def' },
     f2: { label: 'F2', family: 'def' },
-    a2: { label: '', family: 'att' },
-    f3: { label: '', family: 'def' },
-    f4: { label: '', family: 'def' },
   },
   // Åpningen mot angriperen (venstre).
   items: [
@@ -275,7 +287,7 @@ const DOBBELTMUREN = defineDrillAnimation({
     {
       name: 'Oppsett',
       text: 'Bane 12×12 m med mål i enden. Angriperen starter med ball i motsatt ende.',
-      players: { a: [-5.5, 0], f1: [2.5, 0], f2: [4.5, 1.5], a2: [-8, 0], f3: [8, 3], f4: [8, -3] },
+      players: { a: [-5.5, 0], f1: [2.5, 0], f2: [4.5, 1.5] },
       ball: { with: 'a', dir: [1, 0] },
     },
     {

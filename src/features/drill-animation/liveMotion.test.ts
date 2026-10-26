@@ -50,7 +50,7 @@ describe('compiled live playback', () => {
 
   it('reuses and fully resets the clock buffer at boundaries and after a restart', () => {
     const out: Playhead = { from: -1, shown: -1, t: -1, moving: false, done: false };
-    expect(playheadAtInto(out, 0, 3, 1050)).toBe(out);
+    expect(playheadAtInto(out, 0, 3, 150 + 650)).toBe(out);
     expect(out).toEqual({ from: 0, shown: 1, t: .5, moving: true, done: false });
     playheadAtInto(out, 0, 3, playbackMs(0, 3));
     expect(out).toEqual({ from: 2, shown: 2, t: 0, moving: false, done: true });

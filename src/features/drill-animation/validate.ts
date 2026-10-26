@@ -10,8 +10,10 @@ import type { DrillAnimation, DrillAnimationPhase } from './types';
 //  posisjonene er innenfor banen, ingen spillere står oppå hverandre
 //  (heller ikke mens de glir fra fase til fase), ballen er alltid hos en spiller (og dermed på vei mellom to i
 //  overgangene), 3–6 faser, tekst på hver fase og at øvelsen finnes.
-//  Eneste unntak for ballen: i siste fase kan den ligge i mål. En pasning,
-//  sentring eller et skudd (kick) går fra én spiller til en annen eller i mål.
+//  Eneste unntak for ballen: i siste fase kan den ligge i mål, eller være
+//  bokset ut av keeperen (punch). En pasning, sentring eller et skudd (kick)
+//  går fra én spiller til en annen eller i mål. Den som slenger seg (dive),
+//  står i rollelista; en fanget ball (held) er hos en spiller.
 // ══════════════════════════════════════════════════════════════
 
 /** Banens ytre linjer slik FootballPitch tegner dem (32 enheter inn fra kanten). */
@@ -143,8 +145,13 @@ export function validateDrillAnimation(animation: DrillAnimation, drillIds: Iter
 
     const scored = ballInGoal(phase.ball, items);
     const withPlayer = phase.players.some(p => dist(p.position, phase.ball) <= BALL_REACH);
+    const punched = phase.kick === 'punch';
     if (scored && !last) errors.push(`${at}: ballen ligger i mål før siste fase.`);
-    else if (!scored && !withPlayer) errors.push(`${at}: ballen er ikke hos en spiller.`);
+    else if (punched && !last) errors.push(`${at}: en boksing avslutter øvelsen, så den må være i siste fase.`);
+    else if (!scored && !withPlayer && !punched) errors.push(`${at}: ballen er ikke hos en spiller.`);
+    if (punched && withPlayer) errors.push(`${at}: ballen er bokset, men ligger hos en spiller.`);
+    for (const id of phase.dive ?? []) if (!cast.includes(id)) errors.push(`${at}: «${id}» slenger seg, men står ikke i rollelista.`);
+    if (phase.held && !holderOf(phase)) errors.push(`${at}: ballen er fanget, men ingen har den.`);
     if (!scored && !insidePitch(phase.ball)) errors.push(`${at}: ballen er utenfor banen.`);
 
     // En pasning, sentring eller et skudd går fra en spiller til en annen spiller eller i mål.

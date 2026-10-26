@@ -178,7 +178,7 @@ export class BoardScene {
         else f.group.position.set(pos.x, 0, pos.z);
         this.figures.set(p.id, f); this.scene.add(f.group);
       }
-      f.target.set(pos.x, 0, pos.z);
+      f.target.set(pos.x, 0, pos.z); f.pose = p.pose;
       if (f.displaced) f.displaced.visible = !!p.outOfPos;
       if (!animate) { f.group.position.copy(f.target); f.motion = 0; f.speed = 0; }
     }
@@ -216,7 +216,7 @@ export class BoardScene {
     this.hud.layoutHud();
     for (let i = 0; i < frame.players.length; i++) {
       const player = frame.players[i], figure = this.figures.get(player.id);
-      if (figure) boardToWorld(player.position, this.sport, 0, figure.target);
+      if (figure) { boardToWorld(player.position, this.sport, 0, figure.target); figure.pose = player.pose; }
     }
     for (let i = 0; i < frame.items.length; i++) {
       const item = frame.items[i], entry = this.equipment.get(item.id);
@@ -226,6 +226,21 @@ export class BoardScene {
       entry.turn = boardRotation(item.rotation);
     }
     ballToWorld(frame.ball, this.sport, BALL_RADIUS, BALL_RADIUS + Math.max(0, frame.ballHeight ?? 0), this.ballTarget);
+  }
+
+  /**
+   * A diving keeper tips over onto the side the dive goes (a roll about the
+   * figure's own forward axis), lifted a little so the body lies on the grass.
+   * Board x/y are world x/z, so the dive direction is compared with the figure's
+   * own x axis, (cos h, −sin h) in the ground plane.
+   */
+  private applyPose(f: Figure) {
+    const lean = f.pose?.lean ?? 0;
+    if (lean < .001) { if (f.group.rotation.z) { f.group.rotation.z = 0; f.group.position.y = 0; } return; }
+    const h = f.group.rotation.y, d = f.pose!.dive;
+    const side = d.x * Math.cos(h) - d.y * Math.sin(h) >= 0 ? -1 : 1;
+    f.group.rotation.z = side * lean * 1.3;
+    f.group.position.y = lean * .25 * this.figureSize;
   }
 
   private placeBallBlob() {
@@ -248,8 +263,9 @@ export class BoardScene {
       const moved = Math.hypot(dx, dz);
       f.speed = THREE.MathUtils.lerp(f.speed, !snap && dt > 0 ? moved / dt : 0, this.exportMode || snap ? 1 : 1 - Math.exp(-dt * 14));
       f.group.position.x += dx; f.group.position.z += dz;
-      // Faces where it runs; slower than walking pace counts as standing.
-      if (!snap && moved > .0001 && moved / Math.max(dt, 1e-3) > .4) { f.heading = Math.atan2(dx, dz); f.stride += moved * 2.8; f.motion = 1; }
+      // Faces where it runs; slower than walking pace counts as standing. A diving keeper keeps facing the play.
+      if (f.pose && f.pose.lean > .01) f.heading = Math.atan2(f.pose.face.x, f.pose.face.y);
+      else if (!snap && moved > .0001 && moved / Math.max(dt, 1e-3) > .4) { f.heading = Math.atan2(dx, dz); f.stride += moved * 2.8; f.motion = 1; }
     });
     this.equipment.forEach(e => {
       const figure: Figure | undefined = e.group.userData.figure;
@@ -280,6 +296,7 @@ export class BoardScene {
     this.figures.forEach(f => {
       const delta = Math.atan2(Math.sin(f.heading - f.group.rotation.y), Math.cos(f.heading - f.group.rotation.y));
       f.group.rotation.y += delta * (snap ? 1 : 1 - Math.exp(-dt * 14));
+      this.applyPose(f);
       const swing = this.reducedMotion ? 0 : Math.sin(f.stride) * .65 * f.motion;
       f.limbs.forEach((limb, i) => { limb.rotation.x = swing * (i === 0 || i === 3 ? 1 : -1); });
       f.motion *= Math.exp(-dt * 4);

@@ -3,7 +3,7 @@ import { ALL_DRILLS } from '@/data/drills';
 import { ALL_DRILL_ANIMATIONS, getDrillAnimation } from '@/data/drillAnimations';
 import type { Position } from '@/types';
 import { defineDrillAnimation, type AnimationSpec } from './define';
-import { drillMotion, kickInto, KICK_AT } from './motion';
+import { drillMotion, kickInto, kickAt } from './motion';
 import { BALL_REACH, ballInGoal, holderOf, validateDrillAnimation } from './validate';
 
 const DRILL_IDS = ALL_DRILLS.map(d => d.id);
@@ -20,7 +20,7 @@ describe('ballen i overgangene', () => {
           const passer = holderOf(phase)!;
           const frames = STEPS.map(t => drillMotion(animation, from, t, true));
           // Pasningsleggeren har ballen til den spilles.
-          frames.filter((_, i) => STEPS[i] <= KICK_AT).forEach(f => {
+          frames.filter((_, i) => STEPS[i] <= kickAt(kick)).forEach(f => {
             expect(dist(f.ball, f.players.find(p => p.id === passer.id)!.position)).toBeLessThanOrEqual(BALL_REACH);
           });
           const flying = frames.filter(f => f.flight);
@@ -37,16 +37,18 @@ describe('ballen i overgangene', () => {
           for (let i = 1; i < frames.length; i++) {
             expect(dist(frames[i].ball, frames[i - 1].ball)).toBeLessThan(length * 0.35);
           }
-          // Fremme: hos mottakeren eller i mål.
-          const end = frames.at(-1)!;
-          expect(dist(end.ball, next.ball)).toBeLessThan(1e-6);
+          // Fremme: hos mottakeren (i hendene ved en fanget ball), i mål eller bokset ut.
+          const end = frames.at(-1)!, arrived = drillMotion(animation, from + 1, 0, false);
+          expect(dist(end.ball, arrived.ball)).toBeLessThan(1e-6);
           expect(ballInGoal(next.ball, next.items) || holderOf(next)?.id !== passer.id).toBe(true);
-          // 3D: langs bakken ved pasning, i en lav bue ved sentring og skudd.
-          const peak = Math.max(...frames.map(f => f.ballHeight));
-          if (kick === 'pass') expect(peak).toBe(0);
-          if (kick === 'cross') { expect(peak).toBeGreaterThan(1); expect(peak).toBeLessThanOrEqual(3); }
-          if (kick === 'shot') { expect(peak).toBeGreaterThan(0.2); expect(peak).toBeLessThan(1); }
-          expect(end.ballHeight).toBe(0);
+          // 3D: langs bakken ved pasning, lav bue ved skudd, bue ved sentring, høyt over figurene ved høy ball og boksing.
+          const base = Math.max(drillMotion(animation, from, 0, false).ballHeight, arrived.ballHeight);
+          const arc = Math.max(...frames.map(f => f.ballHeight)) - base;
+          if (kick === 'pass' || kick === 'tackle') expect(arc).toBeLessThanOrEqual(0);
+          if (kick === 'cross') { expect(arc).toBeGreaterThan(0.5); expect(arc).toBeLessThanOrEqual(3); }
+          if (kick === 'shot' || kick === 'deflect') { expect(arc).toBeGreaterThan(0.1); expect(arc).toBeLessThan(1); }
+          if (kick === 'high' || kick === 'punch') expect(arc).toBeGreaterThan(4);
+          expect(end.ballHeight).toBeCloseTo(arrived.ballHeight, 6);
         });
       } else if (holderOf(phase) && holderOf(phase)?.id === holderOf(next)?.id) {
         it(`${animation.drillId} fase ${from + 1}–${from + 2}: ballholderen har ballen hele veien`, () => {
@@ -77,7 +79,7 @@ describe('ballen i overgangene', () => {
   it('står stille når avspillingen ikke går', () => {
     const animation = ALL_DRILL_ANIMATIONS[0];
     const still = drillMotion(animation, 1, 0.5, false);
-    expect(still.players).toBe(animation.phases[1].players);
+    expect(still.players).toEqual(animation.phases[1].players);
     expect(still.ball).toEqual(animation.phases[1].ball);
     expect(still.flight).toBeNull();
   });
@@ -155,5 +157,49 @@ describe('valideringen av pasninger og vendinger', () => {
     const errors = validateDrillAnimation(defineDrillAnimation(s), DRILL_IDS).join();
     expect(errors).toMatch(/Fase 1: ballen spilles, men ingen har den i fasen før/);
     expect(errors).toMatch(/Fase 3: vendingen trenger en spiller med ball/);
+  });
+});
+
+describe('slenging, fanget ball og boksing', () => {
+  const keeper = (): AnimationSpec => ({
+    drillId: 'keeper-a-10',
+    name: 'Test',
+    sport: 'football',
+    cast: { s: { label: 'S', family: 'att' }, k: { label: 'K', family: 'gk' } },
+    phases: [
+      { name: 'En', text: 'Skytteren har ballen.', players: { s: [40, 0], k: [52, 0] }, ball: { with: 's' } },
+      { name: 'To', text: 'Keeperen slenger seg og fanger.', kick: 'shot', dive: ['k'], held: true,
+        players: { k: [52, -2.6] }, ball: { with: 'k', dir: [0, -1] } },
+      { name: 'Tre', text: 'Keeperen bokser ballen ut.', kick: 'punch', players: {}, ball: [40, -20] },
+    ],
+  });
+
+  it('godtar en keeper som slenger seg, fanger og bokser til slutt', () => {
+    expect(validateDrillAnimation(defineDrillAnimation(keeper()), DRILL_IDS)).toEqual([]);
+  });
+
+  it('keeperen faller sent i bevegelsen, og ballen ender i hendene', () => {
+    const animation = defineDrillAnimation(keeper());
+    const lean = (t: number) => drillMotion(animation, 0, t, true).players.find(p => p.id === 'k')!.pose!.lean;
+    expect(lean(0)).toBe(0);
+    expect(lean(0.3)).toBe(0);
+    expect(lean(0.7)).toBeGreaterThan(0.2);
+    expect(lean(1)).toBeCloseTo(1);
+    const caught = drillMotion(animation, 1, 0, false);
+    expect(caught.ballHeight).toBeGreaterThan(0.5);
+    // Fallet går mot siden keeperen beveger seg (opp på brettet).
+    expect(caught.players.find(p => p.id === 'k')!.pose!.dive.y).toBeLessThan(0);
+    expect(drillMotion(animation, 0, 0, false).players.find(p => p.id === 's')!.pose).toBeUndefined();
+  });
+
+  it('melder boksing før siste fase, fanget ball uten ballholder og ukjent spiller som slenger seg', () => {
+    const s = keeper();
+    s.phases[1].kick = 'punch';
+    s.phases[1].dive = ['x'];
+    s.phases[2].held = true;
+    const errors = validateDrillAnimation(defineDrillAnimation(s), DRILL_IDS).join();
+    expect(errors).toMatch(/Fase 2: en boksing avslutter øvelsen/);
+    expect(errors).toMatch(/Fase 2: «x» slenger seg, men står ikke i rollelista/);
+    expect(errors).toMatch(/Fase 3: ballen er fanget, men ingen har den/);
   });
 });

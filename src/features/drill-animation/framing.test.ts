@@ -42,27 +42,27 @@ describe('fast utsnitt og tempo for øvelser', () => {
     expect(duration).toBeLessThan(12_000);
   });
 
-  it('beveger seg ca. 1,2–1,5 s per fase og holder ca. 0,4 s pause', () => {
+  it('beveger seg ca. 1,2–1,5 s per fase og holder en kort pause (0,15 s)', () => {
     expect(PHASE_MOVE_MS).toBeGreaterThanOrEqual(1200);
     expect(PHASE_MOVE_MS).toBeLessThanOrEqual(1500);
-    expect(PHASE_PAUSE_MS).toBe(400);
+    expect(PHASE_PAUSE_MS).toBe(150);
   });
 
   it('klokka: pause, bevegelse og ny tekst når fasen starter; farten gjelder begge', () => {
     expect(playheadAt(0, 3, 0)).toMatchObject({ from: 0, moving: false, shown: 0 });
-    expect(playheadAt(0, 3, 399)).toMatchObject({ from: 0, moving: false, shown: 0 });
+    expect(playheadAt(0, 3, PHASE_PAUSE_MS - 1)).toMatchObject({ from: 0, moving: false, shown: 0 });
     // Teksten byttes i det bevegelsen mot fase 2 starter.
-    expect(playheadAt(0, 3, 401)).toMatchObject({ from: 0, moving: true, shown: 1 });
-    expect(playheadAt(0, 3, 400 + PHASE_MOVE_MS / 2).t).toBeCloseTo(0.5);
-    expect(playheadAt(0, 3, 400 + PHASE_MOVE_MS + 100)).toMatchObject({ from: 1, moving: false, shown: 1 });
+    expect(playheadAt(0, 3, PHASE_PAUSE_MS + 1)).toMatchObject({ from: 0, moving: true, shown: 1 });
+    expect(playheadAt(0, 3, PHASE_PAUSE_MS + PHASE_MOVE_MS / 2).t).toBeCloseTo(0.5);
+    expect(playheadAt(0, 3, PHASE_PAUSE_MS + PHASE_MOVE_MS + 50)).toMatchObject({ from: 1, moving: false, shown: 1 });
     expect(playheadAt(0, 3, playbackMs(0, 3) - 1)).toMatchObject({ from: 2, done: false });
     expect(playheadAt(0, 3, playbackMs(0, 3))).toMatchObject({ from: 2, done: true });
     // Dobbel fart: både pausen og bevegelsen halveres.
-    expect(playheadAt(0, 3, 201, 2)).toMatchObject({ moving: true, shown: 1 });
-    expect(playheadAt(0, 3, 200 + PHASE_MOVE_MS / 4, 2).t).toBeCloseTo(0.5);
+    expect(playheadAt(0, 3, PHASE_PAUSE_MS / 2 + 1, 2)).toMatchObject({ moving: true, shown: 1 });
+    expect(playheadAt(0, 3, PHASE_PAUSE_MS / 2 + PHASE_MOVE_MS / 4, 2).t).toBeCloseTo(0.5);
     expect(playbackMs(0, 3, 2)).toBe(playbackMs(0, 3) / 2);
     // Start midt i: fra fasen som vises.
-    expect(playheadAt(1, 3, 401)).toMatchObject({ from: 1, moving: true, shown: 2 });
+    expect(playheadAt(1, 3, PHASE_PAUSE_MS + 1)).toMatchObject({ from: 1, moving: true, shown: 2 });
   });
 
   for (const area of AREAS) {

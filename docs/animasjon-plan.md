@@ -16,6 +16,33 @@ Animasjonene ligger i `src/data/drillAnimations/` (én fil per kategori) og
 kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 `plan.test.ts` i samme mappe sjekker at hver øvelse står nøyaktig én gang her.
 
+## Hva animasjonene kan vise
+
+- Spillere som glir, føring, vending, og ballen som synlig pasning (langs
+  bakken), sentring (bue), skudd (sent og raskt, lav bue), høy ball (høyt over
+  figurene), avbøyning og takling (ballen bytter eier straks).
+- Keeper som slenger seg (`dive`): drakten tippes i 2D, figuren legger seg på
+  siden i 3D. Fallet går langs mållinjen, så i 3D synes det best fra
+  «Ovenfra» eller med kameraet dreid; fra «Oversikt» går det rett innover i bildet.
+- Fanget ball (`held`): ballen ligger inntil drakten i 2D og i brysthøyde i 3D.
+  Boksing (`punch`): ballen slås høyt og langt ut, bare i siste fase.
+- Ikke mulig: hender og armer som griper eller bokser, å gå ned på ett kne.
+  Spillermodellen har bare stå/jogge/sprinte.
+- Tempo ved 1×: 1,3 s bevegelse og 0,15 s pause per fase.
+
+### Runde 1, rettet etter gjennomgang
+
+- Ballskjoldet, Katt og mus, Rekkevidde og skyv, Reaksjon på kort hold, Felt-duellen,
+  Reaksjon via avbøyning, Feltkommando, Straffespark: slenging, fanging, høy ball,
+  boksing og avbøyning der teksten beskriver det.
+- 1 mot 1 – nærduell og blokk: skuddet kommer raskere og fra litt lenger unna.
+- Kjeglefangeren: forsvareren spiller ballen før utrykningen (ikke føring).
+- Tålmodigheten og Rask hjemjobb: taklingen er en egen, tydelig ballbevegelse.
+- Dobbeltmuren: de tre ventende spillerne er fjernet (ingen rolle i teksten).
+- 1 mot 1 kanalforsvar: de to ventende beholdes (parene bytter på, og uten dem
+  får ikke 2D-utsnittet plass langs sidelinjen).
+- Firerlinjen: ingen sentring, takling eller keeper står i teksten, så ingen er lagt til.
+
 ## Egnet (46)
 
 ### Keeper (12)

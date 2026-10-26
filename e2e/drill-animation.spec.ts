@@ -287,7 +287,7 @@ for (const animation of animations) {
   });
 }
 
-test('tempo: ca. 0,4 s pause og 1,3 s bevegelse, teksten byttes når fasen starter', async ({ page }) => {
+test('tempo: ca. 0,15 s pause og 1,3 s bevegelse, teksten byttes når fasen starter', async ({ page }) => {
   const dialog = await openBryteren(page);
   const changes = await dialog.evaluate(root => new Promise<number[]>(resolve => {
     const text = root.querySelector('[data-testid="drill-animation-text"]')!;
@@ -303,11 +303,11 @@ test('tempo: ca. 0,4 s pause og 1,3 s bevegelse, teksten byttes når fasen start
     button.click();
   }));
   // Første tekstbytte etter pausen; deretter én bevegelse + én pause mellom hvert bytte.
-  expect(changes[0]).toBeGreaterThan(300);
-  expect(changes[0]).toBeLessThan(700);
+  expect(changes[0]).toBeGreaterThan(80);
+  expect(changes[0]).toBeLessThan(500);
   for (const gap of [changes[1] - changes[0], changes[2] - changes[1]]) {
-    expect(gap).toBeGreaterThan(1500);
-    expect(gap).toBeLessThan(1950);
+    expect(gap).toBeGreaterThan(1250);
+    expect(gap).toBeLessThan(1700);
   }
 });
 
@@ -351,7 +351,7 @@ test('farten kan byttes mens øvelsen spiller, uten hopp', async ({ page }) => {
   // Fasen som vises, står der den sto; resten går i 2,5×.
   await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_2);
   await expect(dialog.getByRole('button', { name: 'Spill av', exact: true })).toBeVisible({ timeout: 6_000 });
-  // 7,2 s ved 1× hele veien; bytte etter ca. 0,5 s gir ca. 3,3 s.
+  // 6,0 s ved 1× hele veien; bytte etter ca. 0,5 s gir ca. 2,7 s.
   expect(Date.now() - start).toBeLessThan(5_500);
   await expect(dialog.getByTestId('drill-animation-text')).toHaveText(FASE_5);
 });
@@ -407,7 +407,7 @@ test('PC 1536 × 730: hele banen synlig, og «Spill av» glir jevnt bilde for bi
 
 test('øvelsens roller vises i 2D, 3D og den eksporterte videoens etiketter', async ({ page }, info) => {
   const dialog = await openBryteren(page);
-  await expect(dialog.getByTestId('drill-animation-figures').locator('[data-player] > text')).toHaveText(['P', 'A', 'F']);
+  await expect(dialog.getByTestId('drill-animation-figures').locator('[data-role-badge] > text')).toHaveText(['P', 'A', 'F']);
   // Read the actual text drawn into Three's label textures, including the isolated exporter.
   await page.evaluate(() => {
     const captured: string[] = [];
@@ -507,7 +507,7 @@ for (const viewport of viewports) {
       await expect(dialog.locator('p[aria-hidden="true"]').first()).toBeHidden();
       await expect(dialog.getByRole('button', { name: 'Spill av', exact: true })).toBeInViewport();
       await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
-      // Sjekkes mens avspillingen pågår: øvelser med tre faser er ferdige etter 3,8 s.
+      // Sjekkes mens avspillingen pågår: øvelser med tre faser er ferdige etter ca. 3,1 s.
       await expect(dialog.getByRole('button', { name: 'Pause', exact: true })).toBeInViewport();
       const frames = await sampleMotion(dialog, animation.player);
       expect(frames.every(frame => frame.fits && frame.playersFit && frame.ballFits), 'Utsnitt, spillere og ball må være synlige i hvert bilde').toBe(true);
@@ -515,12 +515,12 @@ for (const viewport of viewports) {
         const positions = frames.map(frame => frame[edge]);
         expect(Math.max(...positions) - Math.min(...positions), `Banens ${edge} flyttet seg ved tekstbytte`).toBeLessThan(1);
       }
-      // Pause 0,4 s, bevegelse 1,3 s, pause 0,4 s i fase 2. Tidene måles fra når spilleren begynner å gå.
+      // Pause 0,15 s, bevegelse 1,3 s, pause 0,15 s i fase 2. Tidene måles fra når spilleren begynner å gå.
       const initial = frames[0];
       const moveStart = frames.find(frame => frame.x !== initial.x || frame.y !== initial.y)!.time;
       expect(moveStart).toBeLessThan(700);
       const arrivedAt = moveStart + 1300;
-      const arrived = frames.find(frame => frame.time > arrivedAt + 150)!;
+      const arrived = frames.find(frame => frame.time > arrivedAt + 60)!;
       const distance = Math.hypot(arrived.x - initial.x, arrived.y - initial.y);
       expect(distance).toBeGreaterThan(1);
       const between = frames.filter(frame => {
@@ -529,11 +529,11 @@ for (const viewport of viewports) {
       });
       expect(new Set(between.map(frame => `${frame.x},${frame.y}`)).size).toBeGreaterThanOrEqual(3);
       // En ekte pause: samme stilling gjennom pausen i fase 2.
-      const hold = frames.filter(frame => frame.time > arrivedAt + 60 && frame.time < arrivedAt + 340);
+      const hold = frames.filter(frame => frame.time > arrivedAt + 30 && frame.time < arrivedAt + 120);
       expect(hold.length).toBeGreaterThan(3);
       expect(new Set(hold.map(frame => `${frame.x},${frame.y}`)).size).toBe(1);
       // En overgang skal gli jevnt, uten et stort hopp mellom nabobilder.
-      const firstTransition = frames.filter(frame => frame.time < arrivedAt + 150);
+      const firstTransition = frames.filter(frame => frame.time < arrivedAt + 60);
       for (let i = 1; i < firstTransition.length; i++) {
         const before = firstTransition[i - 1], after = firstTransition[i];
         expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(distance * 0.3);
@@ -663,8 +663,8 @@ test('sentringen i Vendingsstafett og skuddet i Murbyggerne reiser synlig', asyn
     await expect(region.getByRole('button', { name: 'Oversikt', exact: true })).toBeEnabled({ timeout: 45_000 });
     await dialog.getByRole('button', { name: new RegExp(`^Fase ${phase}:`) }).click();
     await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
-    // Pause (0,4 s) + 30 % av bevegelsen før ballen spilles + litt av flukten.
-    await page.waitForTimeout(400 + 390 + 400);
+    // Pause (0,15 s) + 30 % av bevegelsen før ballen spilles + litt av flukten.
+    await page.waitForTimeout(150 + 390 + 400);
     await shot(page, `${name}-3d`);
     await dialog.getByRole('button', { name: 'Lukk animasjonen', exact: true }).click();
   }

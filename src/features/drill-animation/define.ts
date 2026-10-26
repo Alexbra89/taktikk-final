@@ -34,6 +34,10 @@ export interface PhaseSpec {
   kick?: Kick;
   /** Ballholderen vender på slutten av bevegelsen. */
   turn?: boolean;
+  /** Spillere som slenger seg i fasen (se DrillAnimationPhase.dive). */
+  dive?: string[];
+  /** Ballholderen har ballen i hendene. */
+  held?: boolean;
 }
 
 export interface AnimationSpec {
@@ -135,6 +139,8 @@ export function defineDrillAnimation(spec: AnimationSpec): DrillAnimation {
       ...(phase.highlight ? { highlight: phase.highlight } : {}),
       ...(phase.kick ? { kick: phase.kick } : {}),
       ...(phase.turn ? { turn: true } : {}),
+      ...(phase.dive?.length ? { dive: [...phase.dive] } : {}),
+      ...(phase.held ? { held: true } : {}),
     };
   });
 
