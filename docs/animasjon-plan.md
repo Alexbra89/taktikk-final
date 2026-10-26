@@ -10,7 +10,7 @@ Alle 153 øvelsene i biblioteket er gått gjennom og sortert i to lister.
   kan vise (vegg, rop, strikk). Også øvelser der ballen ikke kan ende hos en
   spiller, fordi valideringen krever det.
 
-**Totalt: 46 egnet og 107 ikke egnet.** Fem er animert (merket «animert»).
+**Totalt: 46 egnet og 107 ikke egnet.** 22 er animert (merket «animert»). Tre er hoppet over foreløpig (merket «hoppet over», med grunnen).
 
 Animasjonene ligger i `src/data/drillAnimations/` (én fil per kategori) og
 kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
@@ -20,31 +20,31 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 
 ### Keeper (12)
 
-- `keeper-y-02` Ballskjoldet – trener triller ballen fra 8 m, keeperen rykker frem og griper.
-- `keeper-y-03` Katt og mus i feltet – servitør, angriper og keeper har faste plasser i skissen; innlegget fanges.
-- `keeper-y-06` Grep og fall – to og to – fast rekkefølge med fire skudd fra én skytter (må samles i maks seks faser).
-- `keeper-y-08` Rekkevidde og skyv – trener kaster fra 5–6 m mot sidene, keeperen skyver fra.
-- `keeper-a-01` 1 mot 1 – nærduell og blokk – angriperen fører fra 20 m; teksten beskriver valgene keeperen har.
-- `keeper-a-02` Reaksjon på kort hold – to dukker 11 m ut, skytter 16 m ut som skyter mellom dem.
-- `keeper-a-03` Skift av akse og skyv – fast rekkefølge: rull, forflytning, skudd mot lange hjørne (to baller).
-- `keeper-a-05` Parade og redd – to trenere på hver sin side skyter etter hverandre (to baller).
-- `keeper-a-07` Felt-duellen – innlegg mot 5-meteren med en forsvarer og en angriper foran keeperen.
-- `keeper-a-08` Reaksjon via avbøyning – skudd fra 16 m mot en medspiller 8–10 m ut som avbøyer.
-- `keeper-a-09` Feltkommando etter løp – kjeglerekke, innlegg fra siden og duell i 5-meteren i fast rekkefølge.
-- `keeper-a-10` Straffespark – les og reager – skytter på 11-meteren og keeper på linja.
+- `keeper-y-02` Ballskjoldet – trener triller ballen fra 8 m, keeperen rykker frem og griper. **(animert)**
+- `keeper-y-03` Katt og mus i feltet – servitør, angriper og keeper har faste plasser i skissen; innlegget fanges. **(animert)**
+- `keeper-y-06` Grep og fall – to og to – fast rekkefølge med fire skudd fra én skytter (må samles i maks seks faser). *(hoppet over: fire skudd og tre returer er åtte ballbevegelser, mer enn seks faser)*
+- `keeper-y-08` Rekkevidde og skyv – trener kaster fra 5–6 m mot sidene, keeperen skyver fra. **(animert)**
+- `keeper-a-01` 1 mot 1 – nærduell og blokk – angriperen fører fra 20 m; teksten beskriver valgene keeperen har. **(animert)**
+- `keeper-a-02` Reaksjon på kort hold – to dukker 11 m ut, skytter 16 m ut som skyter mellom dem. **(animert)**
+- `keeper-a-03` Skift av akse og skyv – fast rekkefølge: rull, forflytning, skudd mot lange hjørne (to baller). *(hoppet over: den første ballen ender ikke hos noen før skuddet med den andre ballen)*
+- `keeper-a-05` Parade og redd – to trenere på hver sin side skyter etter hverandre (to baller). *(hoppet over: andre skudd kommer med en ny ball, og brettet har én ball)*
+- `keeper-a-07` Felt-duellen – innlegg mot 5-meteren med en forsvarer og en angriper foran keeperen. **(animert)**
+- `keeper-a-08` Reaksjon via avbøyning – skudd fra 16 m mot en medspiller 8–10 m ut som avbøyer. **(animert)**
+- `keeper-a-09` Feltkommando etter løp – kjeglerekke, innlegg fra siden og duell i 5-meteren i fast rekkefølge. **(animert)**
+- `keeper-a-10` Straffespark – les og reager – skytter på 11-meteren og keeper på linja. **(animert)**
 
 ### Forsvar (17)
 
-- `forsvar-y-02` Kjeglefangeren – sone 10×10 m med to kjegler; forsvareren leder angriperen bort fra dem.
-- `forsvar-y-04` Tålmodigheten – korridor 12×5 m; forsvareren rykker frem og stopper 1–2 m foran.
+- `forsvar-y-02` Kjeglefangeren – sone 10×10 m med to kjegler; forsvareren leder angriperen bort fra dem. **(animert)**
+- `forsvar-y-04` Tålmodigheten – korridor 12×5 m; forsvareren rykker frem og stopper 1–2 m foran. **(animert)**
 - `forsvar-y-05` Murbyggerne – angriper 10 m foran småmålet, forsvareren rykker ut og blokkerer. **(animert)**
-- `forsvar-y-06` Rask hjemjobb – angriper 20 m ute, forsvarer 3 m bak som løper hjem.
-- `forsvar-y-07` Dobbeltmuren – bane 12×12 m; én presser, én sikrer 3–4 m bak.
-- `forsvar-y-08` 2 mot 2 kompakt – forsvarerne flytter seg sidelengs når ballen spilles på tvers.
+- `forsvar-y-06` Rask hjemjobb – angriper 20 m ute, forsvarer 3 m bak som løper hjem. **(animert)**
+- `forsvar-y-07` Dobbeltmuren – bane 12×12 m; én presser, én sikrer 3–4 m bak. **(animert)**
+- `forsvar-y-08` 2 mot 2 kompakt – forsvarerne flytter seg sidelengs når ballen spilles på tvers. **(animert)**
 - `forsvar-y-09` Bryteren – pasningslegger 12–15 m unna, forsvareren kommer foran og bryter. **(animert)**
-- `forsvar-y-13` Taklingsmesteren – to løper side om side før en støttakling.
-- `forsvar-a-01` 1 mot 1 kanalforsvar – korridor 15×8 m; forsvareren styrer mot sidelinjen.
-- `forsvar-a-03` Firerlinjen som enhet – fire forsvarere forskyver seg når ballen spilles fra side til side.
+- `forsvar-y-13` Taklingsmesteren – to løper side om side før en støttakling. **(animert)**
+- `forsvar-a-01` 1 mot 1 kanalforsvar – korridor 15×8 m; forsvareren styrer mot sidelinjen. **(animert)**
+- `forsvar-a-03` Firerlinjen som enhet – fire forsvarere forskyver seg når ballen spilles fra side til side. **(animert)**
 - `forsvar-a-07` Stopperduell og støttepasning – oppspill fra 20 m til feilvendt spiss med stopper bak.
 - `forsvar-a-08` Backspill: stenge innlegg – back rykker ut mot kantspiller 25 m fra mål.
 - `forsvar-a-10` Dødballforsvar – fast oppstilling med soneforsvarere og mannsmarkører ved hjørnespark.
