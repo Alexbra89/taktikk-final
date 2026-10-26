@@ -110,9 +110,14 @@ export class Figures {
     if (number) {
       const tex = textTexture(number, foreground, color); resources.push(tex);
       const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }); resources.push(mat);
+      // On the shirt: spiller-v2.glb faces +z with its chest at z ≈ +0.10 and back at
+      // z ≈ −0.20 (the spine is behind the origin), and the torso is about 0.22 wide.
+      // A wider or further-out patch stands off the body like a flag when it moves.
+      const size = this.playerAsset ? .22 : .4;
       for (const side of [-1, 1]) {
-        const label = new THREE.Mesh(this.pool.geo('number', () => new THREE.PlaneGeometry(.4, .4)), mat);
-        label.position.set(0, 1.36, side * (this.playerAsset ? .235 : .176)); label.rotation.y = side < 0 ? Math.PI : 0; group.add(label);
+        const label = new THREE.Mesh(this.pool.geo(`number-${size}`, () => new THREE.PlaneGeometry(size, size)), mat);
+        const z = this.playerAsset ? (side > 0 ? .115 : -.215) : side * .176;
+        label.position.set(0, 1.36, z); label.rotation.y = side < 0 ? Math.PI : 0; group.add(label);
         if (spine) { group.updateMatrixWorld(true); spine.attach(label); }
       }
       const title = numberOnKit ? role.toUpperCase() : `${number}${role ? ` · ${role.toUpperCase()}` : ''}`;

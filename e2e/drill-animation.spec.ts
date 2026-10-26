@@ -674,7 +674,8 @@ test('sentringen i Vendingsstafett og skuddet i Murbyggerne reiser synlig', asyn
 
 test('fasevalg og pause avbryter ventetiden, og siste fase kan spilles om igjen', async ({ page }) => {
   const dialog = await openBryteren(page);
-  await dialog.getByRole('combobox', { name: 'Fart', exact: true }).selectOption('2');
+  // 0,5×: pausen før første bevegelse er 0,3 s, så «Pause» rekker å komme inne i den (ved 2× bare 75 ms).
+  await dialog.getByRole('combobox', { name: 'Fart', exact: true }).selectOption('0.5');
   await dialog.getByRole('button', { name: 'Spill av', exact: true }).click();
   await dialog.getByRole('button', { name: 'Pause', exact: true }).click();
   await page.waitForTimeout(1500);
