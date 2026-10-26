@@ -10,7 +10,7 @@ Alle 153 øvelsene i biblioteket er gått gjennom og sortert i to lister.
   kan vise (vegg, rop, strikk). Også øvelser der ballen ikke kan ende hos en
   spiller, fordi valideringen krever det.
 
-**Totalt: 46 egnet og 107 ikke egnet.** 22 er animert (merket «animert»). Tre er hoppet over foreløpig (merket «hoppet over», med grunnen).
+**Totalt: 46 egnet og 107 ikke egnet.** 32 er animert (merket «animert»). Sju er hoppet over (merket «hoppet over», med grunnen).
 
 Animasjonene ligger i `src/data/drillAnimations/` (én fil per kategori) og
 kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
@@ -29,6 +29,7 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 - Ikke mulig: hender og armer som griper eller bokser, å gå ned på ett kne.
   Spillermodellen har bare stå/jogge/sprinte.
 - Tempo ved 1×: 1,3 s bevegelse og 0,15 s pause per fase.
+- Draktnummeret står på bryst og rygg i 3D; over hodet står bare rollen (A, F, K …).
 
 ### Runde 1, rettet etter gjennomgang
 
@@ -42,6 +43,19 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 - 1 mot 1 kanalforsvar: de to ventende beholdes (parene bytter på, og uten dem
   får ikke 2D-utsnittet plass langs sidelinjen).
 - Firerlinjen: ingen sentring, takling eller keeper står i teksten, så ingen er lagt til.
+
+### Runde 2
+
+- Animert: Fire hjørner, Pasningsfirkant, Pasningsslalåm, Tredjemannsløp,
+  Skyting på mål – stafett, Spill til feilvendt spiss, Føre på løpende rekke i
+  sikk-sakk, Jaktstafett med ball, Prepp'n 4 – Soneforsvar og Pendelløp med ball.
+- Der flere par eller lag jobber samtidig med hver sin ball, vises ett
+  (Pasningsslalåm, Skytestafett, Jaktstafett). I Fire hjørner vises ballen i
+  kombinasjonen; teksten sier ikke hvor den andre ballen er.
+- Spill til feilvendt spiss: teksten gir valget «legge igjen eller vinkle ut på
+  kant»; animasjonen viser kanten, siden kanten må utfordre kjegla og slå innlegg.
+- Hoppet over: Dortmund-firkanten, Føring i sikk sakk, 1 mot 1 – vende, drible
+  og skyte, og Avslutningskonkurranse (grunnen står ved hver øvelse).
 
 ## Egnet (46)
 
@@ -82,29 +96,29 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 
 ### Midtbane (7)
 
-- `midtbane-y-04` Fire hjørner – A til B, støttepasning tilbake, vending og pasning til C (to baller).
-- `midtbane-y-05` Pasningsfirkant – pass og følg – pasning til neste kjegle og løp etter ballen.
-- `midtbane-y-06` Dortmund-firkanten – fast rekkefølge mellom A, B og C med løp bak markøren.
-- `midtbane-y-11` Pasningsslalåm – to og to – pasninger frem og tilbake gjennom en slalåmløype.
+- `midtbane-y-04` Fire hjørner – A til B, støttepasning tilbake, vending og pasning til C (to baller). **(animert)**
+- `midtbane-y-05` Pasningsfirkant – pass og følg – pasning til neste kjegle og løp etter ballen. **(animert)**
+- `midtbane-y-06` Dortmund-firkanten – fast rekkefølge mellom A, B og C med løp bak markøren. *(hoppet over: markørene står i to rekker, men det står ikke hvor B sin markør er, som B løper bak)*
+- `midtbane-y-11` Pasningsslalåm – to og to – pasninger frem og tilbake gjennom en slalåmløype. **(animert)**
 - `midtbane-y-14` Pasning til mål – tre hjørner – 1 til 2, 2 til 3, avslutning, alle følger pasningen. **(animert)**
 - `midtbane-a-10` Vendespill – ut av press – A til B, B vender bort fra presset og spiller til C. **(animert)**
-- `midtbane-a-14` Tredjemannsløp – fast kombinasjon: A til B, B legger av til C.
+- `midtbane-a-14` Tredjemannsløp – fast kombinasjon: A til B, B legger av til C. **(animert)**
 
 ### Angrep (5)
 
-- `angrep-y-01` Føring i sikk sakk med avslutning – kjeglerekke, rundt kjegla og avslutning (to baller samtidig).
-- `angrep-y-10` 1 mot 1 – vende, drible og skyte – pasning til midtspiller som vender rundt kjegla og avslutter.
-- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg.
-- `angrep-y-15` Skyting på mål – stafett – føring til en kjegle og skudd på mål.
-- `angrep-a-09` Spill til feilvendt spiss – oppspill, legg igjen til kant, innlegg og duell i boksen.
+- `angrep-y-01` Føring i sikk sakk med avslutning – kjeglerekke, rundt kjegla og avslutning (to baller samtidig). *(hoppet over: to spillere fører hver sin ball samtidig mot samme mål, og løypa (to sikk-sakk-rekker mot hverandre) er uklar; brettet har én ball)*
+- `angrep-y-10` 1 mot 1 – vende, drible og skyte – pasning til midtspiller som vender rundt kjegla og avslutter. *(hoppet over: ballen starter likt på begge sider (to baller samtidig), og forsvareren er den som slo den andre ballens pasning)*
+- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg. *(hoppet over: tre skudd, en veggpasning og et innlegg med flere baller er for mange ballbevegelser for seks faser, og det står ikke hvem som skyter etter at ballen er lagt igjen)*
+- `angrep-y-15` Skyting på mål – stafett – føring til en kjegle og skudd på mål. **(animert)**
+- `angrep-a-09` Spill til feilvendt spiss – oppspill, legg igjen til kant, innlegg og duell i boksen. **(animert)**
 
 ### Cardio (5)
 
 - `cardio-y-02` Vendingsstafett – blå og rød kjegle 10 m fra hverandre, føring, vendinger og sentring. **(animert)**
-- `cardio-y-03` Føre på løpende rekke i sikk-sakk – to rekker, føring gjennom sikk-sakk over til den andre siden.
-- `cardio-y-09` Jaktstafett med ball – én fører rundt sløyfen, siste i rekka jager.
-- `cardio-a-02` Prepp'n 4 – Soneforsvar – trener spiller mot en kjegle, én presser og resten skyver mot ballsiden.
-- `cardio-a-10` Pendelløp med ball – føring mellom to kjegler 15–20 m fra hverandre.
+- `cardio-y-03` Føre på løpende rekke i sikk-sakk – to rekker, føring gjennom sikk-sakk over til den andre siden. **(animert)**
+- `cardio-y-09` Jaktstafett med ball – én fører rundt sløyfen, siste i rekka jager. **(animert)**
+- `cardio-a-02` Prepp'n 4 – Soneforsvar – trener spiller mot en kjegle, én presser og resten skyver mot ballsiden. **(animert)**
+- `cardio-a-10` Pendelløp med ball – føring mellom to kjegler 15–20 m fra hverandre. **(animert)**
 
 ### Styrke (0)
 

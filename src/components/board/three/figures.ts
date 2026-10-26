@@ -60,7 +60,11 @@ export class Figures {
     ball.position.y = BALL_RADIUS; ball.castShadow = true; return ball;
   }
 
-  figure(color: string, number: string, name: string, foreground = '#ffffff', role = ''): Figure {
+  /**
+   * `numberOnKit` (animated drills): the shirt number is only on the chest and
+   * back, and the tag above the head shows just the role.
+   */
+  figure(color: string, number: string, name: string, foreground = '#ffffff', role = '', numberOnKit = false): Figure {
     const group = new THREE.Group();
     const limbs: THREE.Group[] = [];
     const resources: Figure['resources'] = [];
@@ -111,13 +115,15 @@ export class Figures {
         label.position.set(0, 1.36, side * (this.playerAsset ? .235 : .176)); label.rotation.y = side < 0 ? Math.PI : 0; group.add(label);
         if (spine) { group.updateMatrixWorld(true); spine.attach(label); }
       }
-      const title = `${number}${role ? ` · ${role.toUpperCase()}` : ''}`;
-      const tag = textTexture(title, '#ffffff'); resources.push(tag);
-      const tagMat = new THREE.SpriteMaterial({ map: tag, depthTest: true, depthWrite: false, toneMapped: false }); resources.push(tagMat);
-      // Just above the head (the model is 2 tall), so the tag reads as part of the player, not floating over it.
-      const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.4; group.add(sprite);
-      // textTexture is 4:1 with a role and square for a bare number; keep glyphs undistorted.
-      sprite.scale.set(role ? 3 : .75, .75, 1);
+      const title = numberOnKit ? role.toUpperCase() : `${number}${role ? ` · ${role.toUpperCase()}` : ''}`;
+      if (title) {
+        const tag = textTexture(title, '#ffffff'); resources.push(tag);
+        const tagMat = new THREE.SpriteMaterial({ map: tag, depthTest: true, depthWrite: false, toneMapped: false }); resources.push(tagMat);
+        // Just above the head (the model is 2 tall), so the tag reads as part of the player, not floating over it.
+        const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.4; group.add(sprite);
+        // textTexture is 4:1 unless the text is a bare number (square); keep glyphs undistorted.
+        sprite.scale.set(/^\d+$/.test(title) ? .75 : 3, .75, 1);
+      }
       if (name) {
         const texture = textTexture(name, '#ffffff'); resources.push(texture);
         const material = new THREE.SpriteMaterial({ map: texture, depthWrite: false, toneMapped: false }); resources.push(material);

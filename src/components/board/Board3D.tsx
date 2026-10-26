@@ -131,7 +131,7 @@ export default function Board3D(props: Props) {
     if (!host.current) return;
     let board: BoardScene;
     setReady(false); setError(''); setAssetNotice(''); setAssetsLoaded(false);
-    try { board = new BoardScene(props.tactic.sport, props.playerStyle, lowPower); }
+    try { board = new BoardScene(props.tactic.sport, props.playerStyle, lowPower, false, !!latest.current.playerRoles); }
     catch { setError('3D kunne ikke startes. Prøv å slå på maskinvareakselerasjon i nettleseren. 2D kan fortsatt brukes.'); return; }
     scene.current = board;
     const element = host.current;
@@ -309,7 +309,7 @@ export default function Board3D(props: Props) {
       if (!selectedChoice) throw new Error('Nettleseren støtter ikke opptak i denne skjermstørrelsen. Prøv en annen nettleser.');
       // The encoder starts up while models and sky load, before any clock runs.
       const encoderWarm = fromFullscreen ? warmEncoder(selectedChoice) : Promise.resolve();
-      exporter = new BoardScene(snapshot.sport, props.playerStyle, lowPower, true);
+      exporter = new BoardScene(snapshot.sport, props.playerStyle, lowPower, true, !!props.playerRoles);
       const board = exporter;
       board.resize(selectedChoice.config.width, selectedChoice.config.height, 1);
       // Reuse one CPU buffer, including the HUD. Allocating a new full-HD

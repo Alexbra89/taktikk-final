@@ -128,8 +128,10 @@ endrer verken lagringsformat, backup eller 3D-scenen. All kode ligger i
 
 Delt kode har bare fått valgfrie tillegg som taktikkbrettet ikke sender:
 `Board3D` (`liveFrame`, `timeline`), `exportVideo3D` (`durationMs`),
-`useVideoExport` (`source`, og tiden som andre argument til `onFrame`) og
-`StagePlayer.pose` (`BoardStage`, lest av `BoardScene`/`figures` i 3D).
+`useVideoExport` (`source`, og tiden som andre argument til `onFrame`),
+`StagePlayer.pose` (`BoardStage`, lest av `BoardScene`/`figures` i 3D) og
+`BoardScene`s `numberOnKit` (satt av `Board3D` når `playerRoles` finnes: nummeret
+bare på drakten, rollen over hodet).
 
 Animasjonene ligger i `src/data/drillAnimations/`, én fil per kategori, koblet
 via `drillId`. Sorteringen av alle øvelser står i `docs/animasjon-plan.md`.

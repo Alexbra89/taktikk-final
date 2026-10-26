@@ -4,6 +4,7 @@ import { ALL_DRILL_ANIMATIONS, getDrillAnimation, hasDrillAnimation } from '@/da
 import { KEEPER_ANIMATIONS } from '@/data/drillAnimations/keeper';
 import { FORSVAR_ANIMATIONS } from '@/data/drillAnimations/forsvar';
 import { MIDTBANE_ANIMATIONS } from '@/data/drillAnimations/midtbane';
+import { ANGREP_ANIMATIONS } from '@/data/drillAnimations/angrep';
 import { CARDIO_ANIMATIONS } from '@/data/drillAnimations/cardio';
 import { validateDrillAnimation, ballInGoal, closestGap } from './validate';
 import { defineDrillAnimation, metresToBoard, type AnimationSpec } from './define';
@@ -25,7 +26,7 @@ describe('alle animasjonene', () => {
   });
 
   it('ligger i filen for øvelsens kategori', () => {
-    const files = { keeper: KEEPER_ANIMATIONS, forsvar: FORSVAR_ANIMATIONS, midtbane: MIDTBANE_ANIMATIONS, cardio: CARDIO_ANIMATIONS };
+    const files = { keeper: KEEPER_ANIMATIONS, forsvar: FORSVAR_ANIMATIONS, midtbane: MIDTBANE_ANIMATIONS, angrep: ANGREP_ANIMATIONS, cardio: CARDIO_ANIMATIONS };
     for (const [category, animations] of Object.entries(files)) {
       for (const animation of animations) {
         expect(ALL_DRILLS.find(d => d.id === animation.drillId)?.category).toBe(category);

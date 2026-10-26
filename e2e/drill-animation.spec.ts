@@ -422,8 +422,9 @@ test('øvelsens roller vises i 2D, 3D og den eksporterte videoens etiketter', as
   await dialog.getByRole('button', { name: '3D', exact: true }).click();
   const exportButton = dialog.getByRole('button', { name: 'Eksporter 3D-video', exact: true });
   await expect(exportButton).toBeEnabled({ timeout: 45_000 });
-  expect(await labels()).toEqual(expect.arrayContaining(['1 · P', '2 · A', '3 · F']));
-  expect((await labels()).filter(label => /^\d+ · /.test(label)).every(label => /^\d+ · [PAF]$/.test(label))).toBe(true);
+  // Øvelsen: rollen over hodet, nummeret bare på drakten (ikke «1 · P» over hodet).
+  expect(await labels()).toEqual(expect.arrayContaining(['P', 'A', 'F']));
+  expect((await labels()).some(label => /^\d+ · /.test(label))).toBe(false);
   await dialog.getByRole('combobox', { name: 'Fart', exact: true }).selectOption('2');
   await page.evaluate(() => { (window as Window & { drillRoleTexts?: string[] }).drillRoleTexts!.length = 0; });
   const downloadPromise = page.waitForEvent('download', { timeout: 55_000 });
@@ -431,8 +432,9 @@ test('øvelsens roller vises i 2D, 3D og den eksporterte videoens etiketter', as
   const download = await downloadPromise;
   await download.saveAs(info.outputPath(download.suggestedFilename()));
   expect(await download.failure()).toBeNull();
-  expect(await labels()).toEqual(expect.arrayContaining(['1 · P', '2 · A', '3 · F']));
-  expect((await labels()).filter(label => /^\d+ · /.test(label)).every(label => /^\d+ · [PAF]$/.test(label))).toBe(true);
+  // Øvelsen: rollen over hodet, nummeret bare på drakten (ikke «1 · P» over hodet).
+  expect(await labels()).toEqual(expect.arrayContaining(['P', 'A', 'F']));
+  expect((await labels()).some(label => /^\d+ · /.test(label))).toBe(false);
 });
 
 test('opptak i 2D: samme opptak som 2D-fullskjermen, med øvelsens tempo', async ({ page }, info) => {
