@@ -16,8 +16,8 @@ import type { DrillAnimationPhase } from './types';
 
 /** Bevegelse fra fase til fase ved 1×. */
 export const PHASE_MOVE_MS = 1300;
-/** Kort pause i hver fase ved 1×, også før første og etter siste bevegelse. */
-export const PHASE_PAUSE_MS = 400;
+/** Kort pause i hver fase ved 1×, også før første og etter siste bevegelse. Kort, så fasene flyter over i hverandre. */
+export const PHASE_PAUSE_MS = 150;
 
 export interface Playhead {
   /** Fasen bevegelsen går fra (eller fasen det står stille i). */

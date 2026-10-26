@@ -1,5 +1,6 @@
 /** Creates, animates and releases player figures and builds the match ball. */
 import * as THREE from 'three';
+import type { FigurePose } from '../BoardStage';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { textTexture } from './textures';
 import { clonePlayer, kitMaterial } from './assets';
@@ -26,6 +27,8 @@ export interface Figure {
   speed: number;
   resources: (THREE.Material | THREE.Texture)[];
   displaced?: THREE.Mesh;
+  /** Animated drills only: a keeper diving (borrowed from the frame, read every render). */
+  pose?: FigurePose;
 }
 
 export class Figures {
@@ -111,13 +114,14 @@ export class Figures {
       const title = `${number}${role ? ` · ${role.toUpperCase()}` : ''}`;
       const tag = textTexture(title, '#ffffff'); resources.push(tag);
       const tagMat = new THREE.SpriteMaterial({ map: tag, depthTest: true, depthWrite: false, toneMapped: false }); resources.push(tagMat);
-      const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.75; group.add(sprite);
+      // Just above the head (the model is 2 tall), so the tag reads as part of the player, not floating over it.
+      const sprite = new THREE.Sprite(tagMat); sprite.position.y = 2.4; group.add(sprite);
       // textTexture is 4:1 with a role and square for a bare number; keep glyphs undistorted.
       sprite.scale.set(role ? 3 : .75, .75, 1);
       if (name) {
         const texture = textTexture(name, '#ffffff'); resources.push(texture);
         const material = new THREE.SpriteMaterial({ map: texture, depthWrite: false, toneMapped: false }); resources.push(material);
-        const label = new THREE.Sprite(material); label.position.y = 3.45; label.scale.set(4, 1, 1); group.add(label);
+        const label = new THREE.Sprite(material); label.position.y = 3.1; label.scale.set(4, 1, 1); group.add(label);
       }
     }
     const displacedMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .55, toneMapped: false });

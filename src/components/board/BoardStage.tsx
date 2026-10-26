@@ -26,6 +26,9 @@ import type { PlayerStyle } from '../../hooks/usePlayerStyle';
 //  bane → spillerbaner → tegninger → ball → spillere → fremdrift.
 // ══════════════════════════════════════════════════════════════
 
+/** En spiller som slenger seg: `lean` 0 = står, 1 = ligger på siden. Retningene er enhetsvektorer i brettets plan. */
+export interface FigurePose { lean: number; face: Position; dive: Position }
+
 export interface StagePlayer {
   id: string;
   num: number;
@@ -44,6 +47,8 @@ export interface StagePlayer {
   dragOpacity?: number;
   /** Sprett etter et slipp. Styles av brettet via playerGroupProps. */
   bounce?: boolean;
+  /** Bare animerte øvelser: keeperen som slenger seg. */
+  pose?: FigurePose;
 }
 
 export interface BoardStageProps {

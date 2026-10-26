@@ -16,8 +16,13 @@ export interface CastMember {
   family: RoleFamily;
 }
 
-/** Hvordan ballen spilles inn i fasen: langs bakken, i en bue, eller hardt mot mål. */
-export type Kick = 'pass' | 'cross' | 'shot';
+/**
+ * Hvordan ballen spilles inn i fasen: langs bakken, i en lav bue (sentring),
+ * hardt (skudd), som en høy ball i luften, bokset høyt og langt ut av keeperen,
+ * avbøyd av en spiller (deflect) eller tatt i en takling (tackle). De to siste
+ * skjer i det ballen kommer, uten at noen holder den først.
+ */
+export type Kick = 'pass' | 'cross' | 'shot' | 'high' | 'punch' | 'deflect' | 'tackle';
 
 export interface DrillAnimationPhase extends TacticPhase {
   /** Kort tekst under banen, tro mot øvelsesteksten. Vises også som fasenotat i 3D. */
@@ -31,6 +36,10 @@ export interface DrillAnimationPhase extends TacticPhase {
   kick?: Kick;
   /** Ballholderen gjør en vending på slutten av bevegelsen (ballen går rundt spilleren). */
   turn?: boolean;
+  /** Spillere som slenger seg (ligger på siden) i denne fasen. Fallet skjer sent i bevegelsen inn hit. */
+  dive?: string[];
+  /** Ballholderen har ballen i hendene (fanget): i brysthøyde i 3D, inntil drakten i 2D. */
+  held?: boolean;
 }
 
 export interface DrillAnimation extends Tactic {

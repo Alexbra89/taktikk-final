@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_DRILLS } from '@/data/drills';
 import { ALL_DRILL_ANIMATIONS, getDrillAnimation, hasDrillAnimation } from '@/data/drillAnimations';
+import { KEEPER_ANIMATIONS } from '@/data/drillAnimations/keeper';
 import { FORSVAR_ANIMATIONS } from '@/data/drillAnimations/forsvar';
 import { MIDTBANE_ANIMATIONS } from '@/data/drillAnimations/midtbane';
 import { CARDIO_ANIMATIONS } from '@/data/drillAnimations/cardio';
@@ -24,7 +25,7 @@ describe('alle animasjonene', () => {
   });
 
   it('ligger i filen for øvelsens kategori', () => {
-    const files = { forsvar: FORSVAR_ANIMATIONS, midtbane: MIDTBANE_ANIMATIONS, cardio: CARDIO_ANIMATIONS };
+    const files = { keeper: KEEPER_ANIMATIONS, forsvar: FORSVAR_ANIMATIONS, midtbane: MIDTBANE_ANIMATIONS, cardio: CARDIO_ANIMATIONS };
     for (const [category, animations] of Object.entries(files)) {
       for (const animation of animations) {
         expect(ALL_DRILLS.find(d => d.id === animation.drillId)?.category).toBe(category);

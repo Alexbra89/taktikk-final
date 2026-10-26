@@ -1,5 +1,5 @@
 'use client';
-import { memo, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Fragment, memo, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { StagePlayer } from '@/components/board/BoardStage';
 import { DrawingCanvas } from '@/components/board/DrawingCanvas';
 import { FootballPitch } from '@/components/board/pitches/FootballPitch';
@@ -14,7 +14,7 @@ import type { BoardItem, Drawing, LabelDrawing, Player, Position } from '@/types
 import type { Box } from './framing';
 import type { BallFlight, MotionFrame } from './motion';
 import type { DrillAnimation } from './types';
-import { createMotionSampler, drillMotion, KICK_AT } from './motion';
+import { createMotionSampler, drillMotion, type MotionPlayer } from './motion';
 import { PHASE_MOVE_MS, PHASE_PAUSE_MS, type Playhead } from './playback';
 
 // ══════════════════════════════════════════════════════════════
@@ -44,10 +44,11 @@ const around = (p: Position, scale: number) =>
 const placed = (p: Position, scale: number, rotation = 0) =>
   `translate(${p.x} ${p.y})${scale === 1 ? '' : ` scale(${scale})`}${rotation ? ` rotate(${rotation})` : ''}`;
 
-export function stagePlayersOf(animation: DrillAnimation, players: Player[]): StagePlayer[] {
+export function stagePlayersOf(animation: DrillAnimation, players: MotionPlayer[]): StagePlayer[] {
   return players.map(p => ({
     id: p.id, num: p.num, position: p.position, name: '',
     label: animation.cast[p.id]?.label ?? '', family: animation.cast[p.id]?.family ?? 'mid',
+    ...(p.pose ? { pose: p.pose } : {}),
   }));
 }
 
@@ -87,9 +88,24 @@ const labelsOf = (drawings: Drawing[]) => drawings.filter((d): d is LabelDrawing
 /** Alt som flytter seg i ett bilde: transform per figur (data-move) og ballsporet. */
 interface Placement { transforms: Record<string, string>; trail: Trail | null }
 
+/** Hvor mye drakten tippes (grader) når spilleren slenger seg: mot siden fallet går. */
+export function diveRotation(player: MotionPlayer) {
+  const pose = player.pose;
+  if (!pose || pose.lean < 1e-3) return 0;
+  const side = pose.face.x * pose.dive.y - pose.face.y * pose.dive.x >= 0 ? 1 : -1;
+  return Math.round(pose.lean * 75 * side * 10) / 10;
+}
+
+/** Ballen ser litt større ut høyt i luften, så en høy ball synes også ovenfra. */
+const ballScale = (height: number) => 1 + Math.min(1, height / 6) * 0.6;
+
 function placementOf(frame: MotionFrame, labels: LabelDrawing[], kitScale: number): Placement {
-  const transforms: Record<string, string> = { ball: placed(frame.ball, kitScale) };
-  for (const p of frame.players) transforms[`player:${p.id}`] = placed(p.position, kitScale);
+  const transforms: Record<string, string> = { ball: placed(frame.ball, kitScale * ballScale(frame.ballHeight)) };
+  for (const p of frame.players) {
+    transforms[`player:${p.id}`] = placed(p.position, kitScale, diveRotation(p));
+    // Rolleetiketten står rett også når drakten tippes.
+    transforms[`badge:${p.id}`] = placed(p.position, kitScale);
+  }
   for (const item of frame.items) transforms[`item:${item.id}`] = placed(item.position, kitScale, item.rotation ?? 0);
   for (const label of labels) transforms[`label:${label.id}`] = anchoredLabel(label, frame.items, kitScale);
   return { transforms, trail: trailOf(frame.flight, frame.ball, 13 * kitScale) };
@@ -106,11 +122,13 @@ function phaseKeyframes(animation: DrillAnimation, from: number, kitScale: numbe
   const labels = labelsOf(animation.phases[from].drawings);
   const tracks: Record<string, Keyframe[]> = {};
   const cycle = PHASE_PAUSE_MS + PHASE_MOVE_MS;
+  let flightAt = -1;
   // 120 samples/s of nonlinear ball motion; players/items remain exactly linear.
   for (let step = -1; step <= 156; step++) {
     const t = Math.max(0, step / 156);
     const offset = step < 0 ? 0 : (PHASE_PAUSE_MS + t * PHASE_MOVE_MS) / cycle;
     const frame = motion.sample(from, t, true);
+    if (frame.flight && flightAt < 0) flightAt = t;
     const placement = placementOf(frame, labels, kitScale);
     for (const key in placement.transforms) {
       (tracks[key] ??= []).push({ offset, transform: cssTransform(placement.transforms[key]) });
@@ -125,12 +143,12 @@ function phaseKeyframes(animation: DrillAnimation, from: number, kitScale: numbe
     }
   }
   for (const key in tracks) {
-    if (key.startsWith('player:') || key.startsWith('item:') || key.startsWith('label:')) {
-      const frames = tracks[key];
-      tracks[key] = [frames[0], frames[1], frames[frames.length - 1]];
-    }
+    const frames = tracks[key];
+    // Straight lines need only their ends; a figure that tips over (rotate) keeps every sample.
+    const linear = key.startsWith('player:') ? !frames.some(f => String(f.transform).includes('rotate(')) : /^(badge|item|label):/.test(key);
+    if (linear) tracks[key] = [frames[0], frames[1], frames[frames.length - 1]];
   }
-  return { tracks, flight: !!motion.sample(from, .8, true).flight };
+  return { tracks, flightAt };
 }
 
 interface Props {
@@ -205,8 +223,9 @@ export const LiveDrillPitch = memo(function LiveDrillPitch({ head, time, speed, 
     }
     // Semantic marker for the visible ball trail, changed once when the kick starts.
     const trail = root.current.querySelector('[data-move="trail"]')!;
-    const timer = compiled[head.from].flight ? setTimeout(() => trail.setAttribute('data-ball-trail', 'true'),
-      Math.max(0, (PHASE_PAUSE_MS + PHASE_MOVE_MS * KICK_AT + 12 - phaseTime) / speed)) : undefined;
+    const flightAt = compiled[head.from].flightAt;
+    const timer = flightAt >= 0 ? setTimeout(() => trail.setAttribute('data-ball-trail', 'true'),
+      Math.max(0, (PHASE_PAUSE_MS + PHASE_MOVE_MS * flightAt + 12 - phaseTime) / speed)) : undefined;
     return () => {
       clearTimeout(timer); trail.removeAttribute('data-ball-trail');
       for (const animation of animations) animation.cancel();
@@ -256,14 +275,18 @@ function LiveDrillFigures({ animation, frame, drawings, kitScale, playerStyle }:
     {labels.map(label => <LiveSprite key={label.id} moveKey={`label:${label.id}`} transform={transforms[`label:${label.id}`]}>
       <DrawingCanvas drawing={label} />
     </LiveSprite>)}
-    {stagePlayersOf(animation, frame.players).map(player => <LiveSprite key={player.id} moveKey={`player:${player.id}`} transform={transforms[`player:${player.id}`]}>
-      <g data-player="true">
-        {kit
-          ? <PlayerKit x={0} y={0} num={player.num} family={player.family} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />
-          : <PlayerChip x={0} y={0} num={player.num} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />}
-        <RoleBadge x={0} y={kit ? KIT_BADGE_OFFSET : 22} label={player.label} />
-      </g>
-    </LiveSprite>)}
+    {stagePlayersOf(animation, frame.players).map(player => <Fragment key={player.id}>
+      <LiveSprite moveKey={`player:${player.id}`} transform={transforms[`player:${player.id}`]}>
+        <g data-player="true">
+          {kit
+            ? <PlayerKit x={0} y={0} num={player.num} family={player.family} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />
+            : <PlayerChip x={0} y={0} num={player.num} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />}
+        </g>
+      </LiveSprite>
+      <LiveSprite moveKey={`badge:${player.id}`} transform={transforms[`badge:${player.id}`]}>
+        <g data-role-badge="true"><RoleBadge x={0} y={kit ? KIT_BADGE_OFFSET : 22} label={player.label} /></g>
+      </LiveSprite>
+    </Fragment>)}
   </>;
 }
 
@@ -315,12 +338,14 @@ export function DrillFigures({ animation, frame, drawings, kitScale, playerStyle
         <g key={label.id} {...move(`label:${label.id}`)}><DrawingCanvas drawing={label} /></g>
       ))}
       {stagePlayersOf(animation, frame.players).map(player => (
-        <g key={player.id} data-player="true" {...move(`player:${player.id}`)}>
-          {kit
-            ? <PlayerKit x={0} y={0} num={player.num} family={player.family} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />
-            : <PlayerChip x={0} y={0} num={player.num} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />}
-          <RoleBadge x={0} y={kit ? KIT_BADGE_OFFSET : 22} label={player.label} />
-        </g>
+        <Fragment key={player.id}>
+          <g data-player="true" {...move(`player:${player.id}`)}>
+            {kit
+              ? <PlayerKit x={0} y={0} num={player.num} family={player.family} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />
+              : <PlayerChip x={0} y={0} num={player.num} selected={false} isDragging={false} isTarget={false} isOutOfPos={false} />}
+          </g>
+          <g data-role-badge="true" {...move(`badge:${player.id}`)}><RoleBadge x={0} y={kit ? KIT_BADGE_OFFSET : 22} label={player.label} /></g>
+        </Fragment>
       ))}
     </>
   );
