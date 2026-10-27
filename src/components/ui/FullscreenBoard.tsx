@@ -1,5 +1,5 @@
 'use client';
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useActiveTactic, getSlot } from '@/store/selectors';
 import { VW, VH, getFormationSlots } from '@/data/formations';
@@ -58,7 +58,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
     onFrame: setRecordingFrame,
     viewport: () => {
       const screen = fullscreenRef.current!.getBoundingClientRect(), board = svgRef.current!.getBoundingClientRect();
-      const clip = zoomCtl.containerRef.current!.getBoundingClientRect();
+      const clip = zoomContainerRef.current!.getBoundingClientRect();
       return { width: screen.width, height: screen.height, x: board.left - screen.left, y: board.top - screen.top, boardWidth: board.width, boardHeight: board.height,
         clipX: clip.left - screen.left, clipY: clip.top - screen.top, clipWidth: clip.width, clipHeight: clip.height };
     },
@@ -90,7 +90,14 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   // Samme grunn som i TacticBoard: håndtererne under er useCallback-er, og
   // ville ellers fryse gest-flagget fra renderen de sist ble laget i.
   const gestureRef = useRef({ isGesturing: false, spaceHeld: false });
-  gestureRef.current = { isGesturing: zoomCtl.isGesturing, spaceHeld: zoomCtl.spaceHeld };
+  const {
+    isGesturing: zoomGesturing, spaceHeld: zoomSpaceHeld, containerRef: zoomContainerRef,
+    transformStyle: zoomTransformStyle, canZoomIn, canZoomOut, isZoomed, zoom, onPointerDown: zoomPointerDown,
+    onPointerMove: zoomPointerMove, onPointerUp: zoomPointerUp, zoomIn, zoomOut, reset: resetZoom,
+  } = zoomCtl;
+  useLayoutEffect(() => {
+    gestureRef.current = { isGesturing: zoomGesturing, spaceHeld: zoomSpaceHeld };
+  }, [zoomGesturing, zoomSpaceHeld]);
 
   const [activeIdx, setActiveIdx]   = useState(activePhaseIdx);
   const [playSpeed, setPlaySpeed]   = useState(1);
@@ -107,15 +114,26 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
   // Auto-hide controls after 3s of inactivity
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function resetHideTimer() {
-    setShowControls(true);
+  function restartHideTimer() {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setShowControls(false), 4000);
   }
-  useEffect(() => { if (!video.busy) resetHideTimer(); }, [video.busy]);
+  function resetHideTimer() {
+    setShowControls(true);
+    restartHideTimer();
+  }
+  // Kontrollene vises igjen når et opptak er ferdig (justert i renderen,
+  // ikke i en effekt); effekten under starter bare skjule-tiden på nytt.
+  const [wasBusy, setWasBusy] = useState(video.busy);
+  if (video.busy !== wasBusy) {
+    setWasBusy(video.busy);
+    if (!video.busy) setShowControls(true);
+  }
+  useEffect(() => { if (!video.busy) restartHideTimer(); }, [video.busy]);
 
+  // Kontrollene er synlige fra start (showControls starter som true).
   useEffect(() => {
-    resetHideTimer();
+    restartHideTimer();
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
@@ -129,8 +147,8 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   }, [activeIdx, isPlaying, activePhaseIdx, setActivePhaseIdx]);
 
   // Zoom skal ikke henge igjen når man bytter fase.
-  const zoomResetRef = useRef(zoomCtl.reset);
-  useEffect(() => { zoomResetRef.current = zoomCtl.reset; }, [zoomCtl.reset]);
+  const zoomResetRef = useRef(resetZoom);
+  useEffect(() => { zoomResetRef.current = resetZoom; }, [resetZoom]);
   useEffect(() => { zoomResetRef.current(); }, [activeIdx, tactic.id, formation, sport]);
 
   // ─── Koordinater ────────────────────────────────────────────
@@ -230,8 +248,8 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
   }, [drawCancel, equipCancel]);
 
   const onZoomDown = useCallback((e: React.PointerEvent) => {
-    if (zoomCtl.onPointerDown(e)) cancelDrag();
-  }, [zoomCtl, cancelDrag]);
+    if (zoomPointerDown(e)) cancelDrag();
+  }, [zoomPointerDown, cancelDrag]);
 
   const phase = phases[recordingFrame?.fromIdx ?? activeIdx];
   if (!phase) return null;
@@ -300,22 +318,22 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
           })}
         </div>
 
-        <button onClick={() => { zoomCtl.zoomOut(); resetHideTimer(); }} disabled={video.busy || !zoomCtl.canZoomOut}
+        <button onClick={() => { zoomOut(); resetHideTimer(); }} disabled={video.busy || !canZoomOut}
           aria-label="Zoom ut" title="Zoom ut"
           className="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30">
           <Minus size={16} strokeWidth={1.75} />
         </button>
-        <button onClick={() => { zoomCtl.zoomIn(); resetHideTimer(); }} disabled={video.busy || !zoomCtl.canZoomIn}
+        <button onClick={() => { zoomIn(); resetHideTimer(); }} disabled={video.busy || !canZoomIn}
           aria-label="Zoom inn" title="Zoom inn (Ctrl+scroll)"
           className="tap-auto w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-ctl text-ink-subtle hover:text-ink hover:bg-canvas-hover transition-colors disabled:opacity-30">
           <Plus size={16} strokeWidth={1.75} />
         </button>
-        {zoomCtl.isZoomed && (
-          <button disabled={video.busy} onClick={() => { zoomCtl.reset(); resetHideTimer(); }}
+        {isZoomed && (
+          <button disabled={video.busy} onClick={() => { resetZoom(); resetHideTimer(); }}
             aria-label="Nullstill zoom" title="Nullstill zoom"
             className="tap-auto flex-shrink-0 inline-flex items-center gap-1 px-2 min-h-[36px] rounded-ctl
               bg-signal/10 text-signal shadow-hair-signal font-mono text-caption transition-colors">
-            {zoomCtl.zoom.toFixed(1)}× <X size={13} strokeWidth={2} aria-hidden />
+            {zoom.toFixed(1)}× <X size={13} strokeWidth={2} aria-hidden />
           </button>
         )}
 
@@ -404,15 +422,15 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
 
       {/* -- Banen tar hele hoyden som er igjen -- */}
       <div
-        ref={zoomCtl.containerRef}
+        ref={zoomContainerRef}
         className="flex-1 min-h-0 p-1 overflow-hidden"
         onPointerDownCapture={video.busy ? undefined : onZoomDown}
-        onPointerMoveCapture={video.busy ? undefined : zoomCtl.onPointerMove}
-        onPointerUpCapture={zoomCtl.onPointerUp}
-        onPointerCancelCapture={zoomCtl.onPointerUp}
+        onPointerMoveCapture={video.busy ? undefined : zoomPointerMove}
+        onPointerUpCapture={zoomPointerUp}
+        onPointerCancelCapture={zoomPointerUp}
       >
         {/* Zoom som CSS-transform, ikke viewBox – da er toSVG uendret. */}
-        <div className="w-full h-full flex flex-col" style={zoomCtl.transformStyle}>
+        <div className="w-full h-full flex flex-col" style={zoomTransformStyle}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VW} ${VH}`}
@@ -422,7 +440,7 @@ export const FullscreenBoard: React.FC<FullscreenBoardProps> = ({ onClose, inter
             ...PITCH_BOX,
             touchAction: 'none',
             userSelect: 'none',
-            cursor: zoomCtl.spaceHeld ? 'grab'
+            cursor: zoomSpaceHeld ? 'grab'
               : drawMode && interactive ? (draw.tool === 'label' ? 'text' : 'crosshair') : 'default',
           }}
           onPointerDown={draw.onPointerDown}

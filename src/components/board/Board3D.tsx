@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Maximize2, Minimize2, Minus, Pause, Play, Plus, RotateCcw, SkipBack, SkipForward, Video, X } from 'lucide-react';
 import { Button, IconButton } from '../ui/Button';
 import { cn } from '@/lib/cn';
@@ -78,7 +78,9 @@ export default function Board3D(props: Props) {
   const lowPower = props.isMobile || matchMedia('(pointer: coarse)').matches;
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<BoardScene | null>(null);
-  const latest = useRef(props); latest.current = props;
+  const latest = useRef(props);
+  // Effects, the render loop and the export read the newest props through this ref.
+  useLayoutEffect(() => { latest.current = props; });
   const abort = useRef<AbortController | null>(null);
   const recording = useRef(false);
   const stopped = useRef(false);
@@ -120,9 +122,11 @@ export default function Board3D(props: Props) {
     return () => observer.disconnect();
   }, []);
 
+  // A new device class needs a new encoder check: reset while rendering, then ask in the effect.
+  const [encoderFor, setEncoderFor] = useState(lowPower);
+  if (encoderFor !== lowPower) { setEncoderFor(lowPower); setChecking(true); setChoice(null); }
   useEffect(() => {
     let active = true;
-    setChecking(true); setChoice(null);
     chooseEncoder(lowPower).then(result => { if (active) { setChoice(result); setChecking(false); } }).catch(() => { if (active) setChecking(false); });
     return () => { active = false; abort.current?.abort(); };
   }, [lowPower]);
@@ -184,10 +188,16 @@ export default function Board3D(props: Props) {
   }, [view, selectedId, props.tactic.id, props.tactic.sport, props.playerStyle, lowPower, theme]);
 
   const phaseIdx = props.tactic.activePhaseIdx;
+  const currentPhase = props.tactic.phases[phaseIdx];
+  /** The fullscreen recording runs (stays in step with `recording`, which effects and the render loop read). */
+  const isRecording = recordStage !== null;
   const activePhase = props.tactic.phases[recordingPhase ?? phaseIdx];
   const pillName = activePhase ? activePhase.name || `Fase ${(recordingPhase ?? phaseIdx) + 1}` : '';
   const pillNote = activePhase?.stickyNote?.trim() ?? '';
-  useEffect(() => { setNoteOpen(false); }, [phaseIdx, pillNote]);
+  // A new phase or note closes the open note (adjusted while rendering, not in an effect).
+  const noteKey = `${phaseIdx}\n${pillNote}`;
+  const [noteFor, setNoteFor] = useState(noteKey);
+  if (noteFor !== noteKey) { setNoteFor(noteKey); setNoteOpen(false); }
 
   const chooseView = (value: CameraView) => { setView(value); scene.current?.selectCamera(value, selectedId); };
   const resetCamera = () => { setView('overview'); scene.current?.selectCamera('overview'); };
@@ -219,15 +229,22 @@ export default function Board3D(props: Props) {
     if (native) lockLandscape();
   };
 
-  const wakeControls = useCallback(() => {
-    setControlsShown(true);
+  const restartHideTimer = useCallback(() => {
     clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setControlsShown(false), CONTROLS_MS);
   }, []);
+  const wakeControls = useCallback(() => {
+    setControlsShown(true);
+    restartHideTimer();
+  }, [restartHideTimer]);
 
+  // Entering, changing or leaving fullscreen shows the controls (adjusted while
+  // rendering, not in an effect); in fullscreen the effect starts the hide timer.
+  const [controlsFor, setControlsFor] = useState(fullscreen);
+  if (controlsFor !== fullscreen) { setControlsFor(fullscreen); setControlsShown(true); }
   useEffect(() => {
-    if (!fullscreen) { setControlsShown(true); return; }
-    wakeControls();
+    if (!fullscreen) return;
+    restartHideTimer();
     const changed = () => { if (fullscreen === 'native' && !fullscreenElement()) leaveFullscreen(); };
     const refused = () => { if (fullscreen === 'native' && !fullscreenElement()) setFullscreen('css'); };
     const key = (event: KeyboardEvent) => {
@@ -257,7 +274,7 @@ export default function Board3D(props: Props) {
       window.removeEventListener('popstate', back);
       document.documentElement.style.overflow = overflow;
     };
-  }, [fullscreen, wakeControls, exitFullscreen, leaveFullscreen]);
+  }, [fullscreen, restartHideTimer, exitFullscreen, leaveFullscreen]);
 
   // Fullscreen is modal: focus moves in, cannot leave (the page behind is covered, but its
   // buttons can still be reached with Tab), and returns to where it was on close.
@@ -460,7 +477,7 @@ export default function Board3D(props: Props) {
         onKeyDownCapture={fullscreen ? wakeControls : undefined}
         onFocusCapture={fullscreen ? wakeControls : undefined}>
         <div ref={host} data-testid="board-3d" className="absolute inset-0" />
-        <span className="sr-only">{sceneFrame(props).phaseName}. {sceneFrame(props).stickyNote}</span>
+        <span className="sr-only">{currentPhase?.name}. {currentPhase?.stickyNote}</span>
         {/* Small corner pill; a long note is cut with … and opens on tap. Screen readers get the text above. */}
         {pillName && (pillNote
           ? <button type="button" className={cn('board3d-phase', noteOpen && 'is-open')} aria-expanded={noteOpen}
@@ -470,24 +487,24 @@ export default function Board3D(props: Props) {
             </button>
           : <div aria-hidden className="board3d-phase"><span className="board3d-phase-name">{pillName}</span></div>)}
         {!ready && !error && <p role="status" className="absolute inset-0 flex items-center justify-center text-caption text-ink-muted">Laster 3D-banen …</p>}
-        {fullscreen && <div role="group" aria-label="Kontroller" className={cn('board3d-fsbar no-scrollbar', !controlsShown && !recording.current && 'is-hidden')}>
-          <RecordingControls busy={recording.current} seconds={recordingSeconds} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.isPlaying}
+        {fullscreen && <div role="group" aria-label="Kontroller" className={cn('board3d-fsbar no-scrollbar', !controlsShown && !isRecording && 'is-hidden')}>
+          <RecordingControls busy={isRecording} seconds={recordingSeconds} disabled={!ready || !assetsLoaded || !choice || progress !== null || props.isPlaying}
             preparing={recordStage === 'preparing'} progress={recordStage === 'rendering' ? progress : null}
             onStart={() => exportVideo(true)} onStop={() => { stopped.current = true; }} onCancel={() => abort.current?.abort()} />
-          <select aria-label="Fase" className="board3d-fsselect" value={recordingPhase ?? phaseIdx} disabled={props.isPlaying || recording.current}
+          <select aria-label="Fase" className="board3d-fsselect" value={recordingPhase ?? phaseIdx} disabled={props.isPlaying || isRecording}
             onChange={e => props.onSelectPhase(Number(e.target.value))}>
             {props.tactic.phases.map((phase, index) => <option key={phase.id} value={index}>
               {phase.name || `Fase ${index + 1}`}{phase.stickyNote ? ' ·' : ''}</option>)}
           </select>
-          <button type="button" aria-label="Forrige fase" className="board3d-fsbtn" disabled={props.isPlaying || recording.current || phaseIdx === 0}
+          <button type="button" aria-label="Forrige fase" className="board3d-fsbtn" disabled={props.isPlaying || isRecording || phaseIdx === 0}
             onClick={() => props.onSelectPhase(Math.max(0, phaseIdx - 1))}><SkipBack size={15} strokeWidth={1.75} /></button>
           <button type="button" aria-label={props.isPlaying ? 'Stopp avspilling' : 'Spill av fasene'} className="board3d-fsbtn is-play"
-            disabled={props.tactic.phases.length < 2 || recording.current} onClick={props.onTogglePlay}>
+            disabled={props.tactic.phases.length < 2 || isRecording} onClick={props.onTogglePlay}>
             {props.isPlaying ? <Pause size={15} strokeWidth={2} fill="currentColor" /> : <Play size={15} strokeWidth={2} fill="currentColor" />}
           </button>
-          <button type="button" aria-label="Neste fase" className="board3d-fsbtn" disabled={props.isPlaying || recording.current || phaseIdx === props.tactic.phases.length - 1}
+          <button type="button" aria-label="Neste fase" className="board3d-fsbtn" disabled={props.isPlaying || isRecording || phaseIdx === props.tactic.phases.length - 1}
             onClick={() => props.onSelectPhase(Math.min(props.tactic.phases.length - 1, phaseIdx + 1))}><SkipForward size={15} strokeWidth={1.75} /></button>
-          <select aria-label="Avspillingsfart" className="board3d-fsselect" value={props.speed} disabled={props.isPlaying || recording.current}
+          <select aria-label="Avspillingsfart" className="board3d-fsselect" value={props.speed} disabled={props.isPlaying || isRecording}
             onChange={e => props.onSpeed(Number(e.target.value))}>
             {SPEEDS.map(speed => <option key={speed} value={speed}>{speed}×</option>)}
           </select>
