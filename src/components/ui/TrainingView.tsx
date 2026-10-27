@@ -38,11 +38,13 @@ export const TrainingView: React.FC<TrainingViewProps> = ({ initialTraining, onB
   const [selectedEventId, setSelectedEventId] = useState<string | null>(initialTraining?.id || null);
   const [showNewTraining, setShowNewTraining] = useState(!!initialNew);
 
-  useEffect(() => {
+  const [previousInitialTraining, setPreviousInitialTraining] = useState(initialTraining);
+  if (initialTraining !== previousInitialTraining) {
+    setPreviousInitialTraining(initialTraining);
     if (initialTraining?.id) {
       setSelectedEventId(initialTraining.id);
     }
-  }, [initialTraining]);
+  }
 
   useEffect(() => { onSelectedChange?.(selectedEventId); }, [selectedEventId, onSelectedChange]);
 

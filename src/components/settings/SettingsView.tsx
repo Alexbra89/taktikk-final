@@ -230,7 +230,11 @@ export const SettingsView: React.FC = () => {
   const { theme, setTheme } = useTheme();
 
   const [home, setHome] = useState(homeTeamName);
-  useEffect(() => setHome(homeTeamName), [homeTeamName]);
+  const [previousHomeTeamName, setPreviousHomeTeamName] = useState(homeTeamName);
+  if (homeTeamName !== previousHomeTeamName) {
+    setPreviousHomeTeamName(homeTeamName);
+    setHome(homeTeamName);
+  }
   const [saved, setSaved] = useState(false);
   const dirty = home.trim() !== '' && home.trim() !== homeTeamName;
 
