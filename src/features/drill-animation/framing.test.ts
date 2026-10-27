@@ -66,7 +66,7 @@ describe('fast utsnitt og tempo for øvelser', () => {
   });
 
   for (const area of AREAS) {
-    it(`2D viser hele banens høyde og hele øvelsen, og draktene vokser ikke med zoomen (${area.name})`, () => {
+    it(`2D viser hele banen og hele øvelsen, med draktene i fast skjermstørrelse (${area.name})`, () => {
       const fullBoard = Math.min(area.width / VW, area.height / VH);
       for (const animation of ALL_DRILL_ANIMATIONS) {
         const { content } = drillFraming(animation);
@@ -79,18 +79,13 @@ describe('fast utsnitt og tempo for øvelser', () => {
         expect(crop.y).toBeLessThanOrEqual(content.y - KIT_ROOM.top * kitScale + 1e-6);
         expect(crop.x + crop.width).toBeGreaterThanOrEqual(content.x + content.width + KIT_ROOM.side * kitScale - 1e-6);
         expect(crop.y + crop.height).toBeGreaterThanOrEqual(content.y + content.height + KIT_ROOM.bottom * kitScale - 1e-6);
-        // Banen kuttes aldri oppe eller nede, og på PC/liggende mobil vises hele banen.
+        // Hele banen vises alltid, også på mobil i stående modus.
+        expect(crop.x).toBeLessThanOrEqual(1e-6);
         expect(crop.y).toBeLessThanOrEqual(1e-6);
+        expect(crop.x + crop.width).toBeGreaterThanOrEqual(VW - 1e-6);
         expect(crop.y + crop.height).toBeGreaterThanOrEqual(VH - 1e-6);
-        if (area.width >= area.height) {
-          expect(crop.x).toBeLessThanOrEqual(1e-6);
-          expect(crop.x + crop.width).toBeGreaterThanOrEqual(VW - 1e-6);
-        }
         // Draktens skjermstørrelse: som når hele banen vises, men aldri under mobilstørrelsen.
-        const kitOnScreen = scale * kitScale;
-        expect(kitScale).toBeLessThanOrEqual(1);
-        expect(kitOnScreen).toBeLessThanOrEqual(Math.max(fullBoard, MIN_KIT_SCALE) + 1e-9);
-        if (kitScale < 1) expect(kitOnScreen).toBeCloseTo(Math.max(fullBoard, MIN_KIT_SCALE));
+        expect(scale * kitScale).toBeCloseTo(Math.max(fullBoard, MIN_KIT_SCALE));
       }
     });
   }

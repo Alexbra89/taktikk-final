@@ -169,6 +169,20 @@ test('mobil og fullskjerm: banen, teksten og kontrollene får plass', async ({ p
   expect(box.width).toBeGreaterThanOrEqual(388);
   const pitch = (await dialog.getByTestId('drill-animation-pitch').boundingBox())!;
   expect(pitch.width).toBeGreaterThan(300);
+  // Stående mobil: hele banen (gresset 0–880 × 0–560) synes, ikke bare et utsnitt av den.
+  await nextFrames(page);
+  const whole = await dialog.evaluate(root => {
+    const svg = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
+    const area = root.querySelector('[data-testid="drill-animation-area"]')!.getBoundingClientRect();
+    const ctm = svg.getScreenCTM()!;
+    const a = new DOMPoint(0, 0).matrixTransform(ctm), b = new DOMPoint(880, 560).matrixTransform(ctm);
+    return { left: a.x - area.left, top: a.y - area.top, right: b.x - area.left, bottom: b.y - area.top, width: area.width, height: area.height };
+  });
+  expect(whole.left).toBeGreaterThanOrEqual(-.5);
+  expect(whole.top).toBeGreaterThanOrEqual(-.5);
+  expect(whole.right).toBeLessThanOrEqual(whole.width + .5);
+  expect(whole.bottom).toBeLessThanOrEqual(whole.height + .5);
+  expect(await hiddenParts(dialog)).toEqual([]);
   for (const name of ['Spill av', 'Forrige fase', 'Neste fase']) {
     await expect(dialog.getByRole('button', { name, exact: true })).toBeInViewport();
   }
