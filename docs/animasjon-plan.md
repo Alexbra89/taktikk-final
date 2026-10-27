@@ -10,7 +10,7 @@ Alle 153 øvelsene i biblioteket er gått gjennom og sortert i to lister.
   kan vise (vegg, rop, strikk). Også øvelser der ballen ikke kan ende hos en
   spiller, fordi valideringen krever det.
 
-**Totalt: 46 egnet og 107 ikke egnet.** 34 er animert (merket «animert»). Fem er hoppet over (merket «hoppet over», med grunnen).
+**Totalt: 46 egnet og 107 ikke egnet.** 35 er animert (merket «animert»). Fire er hoppet over (merket «hoppet over», med grunnen).
 
 Animasjonene ligger i `src/data/drillAnimations/` (én fil per kategori) og
 kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
@@ -66,8 +66,10 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 - Føring i sikk sakk med avslutning og 1 mot 1 – vende, drible og skyte er animert med
   den andre ballen som utstyr som følger spilleren. Løypa i sikk-sakk-øvelsen er tolket:
   to kjeglerekker inn mot én kjegle i midten, med målet i enden.
-- Avslutningskonkurranse er fortsatt hoppet over: den trenger 8 faser. Grensen kan heves
-  hvis vi vil (hele øvelsen holder seg da fortsatt under 12 sekunder).
+- Grensen er hevet fra 6 til 8 faser (8 faser er ca. 10 s ved 1×, under 12 s).
+  Avslutningskonkurranse er animert med 8 faser: ballene til spiller 1 og 2 er utstyr som
+  flytter seg, innleggsballen hos spiller 3 er spillballen. «Legger i igjen, så skudd» er
+  tolket som at spiller 2 skyter («de to som har skutt» er 1 og 2).
 
 ## Egnet (46)
 
@@ -120,7 +122,7 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 
 - `angrep-y-01` Føring i sikk sakk med avslutning – kjeglerekke, rundt kjegla og avslutning (to baller samtidig). **(animert)**
 - `angrep-y-10` 1 mot 1 – vende, drible og skyte – pasning til midtspiller som vender rundt kjegla og avslutter. **(animert)**
-- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg. *(hoppet over: fast rekkefølge med sju ballhendelser – føring og skudd, pasning, legg igjen, skudd, ut av feltet og vente, innlegg, avslutning – trenger 8 faser; grensen er 6)*
+- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg. **(animert)**
 - `angrep-y-15` Skyting på mål – stafett – føring til en kjegle og skudd på mål. **(animert)**
 - `angrep-a-09` Spill til feilvendt spiss – oppspill, legg igjen til kant, innlegg og duell i boksen. **(animert)**
 

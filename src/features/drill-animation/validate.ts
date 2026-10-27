@@ -9,7 +9,7 @@ import type { DrillAnimation, DrillAnimationPhase } from './types';
 //  Kjøres på alle animasjoner i testene (validate.test.ts). Reglene:
 //  posisjonene er innenfor banen, ingen spillere står oppå hverandre
 //  (heller ikke mens de glir fra fase til fase), ballen er alltid hos en spiller (og dermed på vei mellom to i
-//  overgangene), 3–6 faser, tekst på hver fase og at øvelsen finnes.
+//  overgangene), 3–8 faser, tekst på hver fase og at øvelsen finnes.
 //  Eneste unntak for ballen: i siste fase kan den ligge i mål, eller være
 //  bokset ut av keeperen (punch). En pasning, sentring eller et skudd (kick)
 //  går fra én spiller til en annen eller i mål. Den som slenger seg (dive),
@@ -23,7 +23,8 @@ export const MIN_PLAYER_GAP = 30;
 /** Så nær en spiller må ballen ligge for å være «hos» spilleren. */
 export const BALL_REACH = 30;
 export const MIN_PHASES = 3;
-export const MAX_PHASES = 6;
+/** 8 faser ved 1× er ca. 10 s, under grensen på 12 s for hele øvelsen. */
+export const MAX_PHASES = 8;
 /** Fase-tekstene skal være korte. */
 export const MAX_TEXT_LENGTH = 110;
 export const MAX_HIGHLIGHT_LENGTH = 16;

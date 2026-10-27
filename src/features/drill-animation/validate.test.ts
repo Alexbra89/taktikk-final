@@ -72,11 +72,11 @@ describe('valideringen', () => {
     expect(errorsOf(defineDrillAnimation({ ...spec(), drillId: 'finnes-ikke' })).join()).toMatch(/finnes ikke/);
   });
 
-  it('krever 3–6 faser', () => {
+  it('krever 3–8 faser', () => {
     const s = spec();
     expect(errorsOf(defineDrillAnimation({ ...s, phases: s.phases.slice(0, 2) })).join()).toMatch(/2 faser/);
-    const many = [...s.phases, ...s.phases, s.phases[2]];
-    expect(errorsOf(defineDrillAnimation({ ...s, phases: many })).join()).toMatch(/7 faser/);
+    const many = [...s.phases, ...s.phases, ...s.phases];
+    expect(errorsOf(defineDrillAnimation({ ...s, phases: many })).join()).toMatch(/9 faser/);
   });
 
   it('krever tekst på hver fase', () => {

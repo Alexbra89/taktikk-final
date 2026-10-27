@@ -255,4 +255,89 @@ const VENDE_DRIBLE_SKYTE = defineDrillAnimation({
   ],
 });
 
-export const ANGREP_ANIMATIONS = [SKYTESTAFETT, FEILVENDT_SPISS, SIKK_SAKK_AVSLUTNING, VENDE_DRIBLE_SKYTE];
+/**
+ * angrep-y-13: tre kjegler i en trekant rundt 16-meteren, mål med keeper.
+ * Spiller 1 fører forbi kjegle 1 og skyter, vender opp og får pasning fra
+ * spiller 2, legger igjen, og spiller 2 skyter («de to som har skutt»).
+ * Spiller 1 går ut av 16-meteren; begge venter med innløpet til spiller 3
+ * har berørt ballen, så slår 3 innlegg og 1 avslutter.
+ * Tre baller: ballen til spiller 1 og spiller 2 er utstyr som flytter seg,
+ * innleggsballen hos spiller 3 er spillballen. Én gruppe på tre vises.
+ */
+const AVSLUTNINGSKONKURRANSE = defineDrillAnimation({
+  drillId: 'angrep-y-13',
+  name: 'Avslutningskonkurranse – tre og tre',
+  sport: 'football',
+  cast: {
+    s1: { label: '1', family: 'att' },
+    s2: { label: '2', family: 'att' },
+    s3: { label: '3', family: 'att' },
+    kv: { label: 'K', family: 'gk' },
+  },
+  items: [
+    { id: 'kjegle-1', type: 'cone', at: [34, -4] },
+    { id: 'kjegle-2', type: 'cone', at: [31, 7] },
+    { id: 'kjegle-3', type: 'cone', at: [44, 21] },
+    { id: 'ball-1', type: 'ball', at: [31.2, -5] },
+    { id: 'ball-2', type: 'ball', at: [31.2, 8.4] },
+  ],
+  phases: [
+    {
+      name: 'Oppsett',
+      text: 'Tre kjegler i en trekant rundt 16-meteren, mål med keeper. En spiller ved hver kjegle.',
+      players: { s1: [29.7, -5], s2: [29.7, 8.4], s3: [44, 23.1], kv: [51.8, 0] },
+      ball: { with: 's3', dir: [0, -1] },
+    },
+    {
+      name: 'Føring',
+      text: 'Spiller 1 fører forbi kjegle 1 …',
+      players: { s1: [37, -3] },
+      ball: { with: 's3', dir: [0, -1] },
+      moveItems: { 'ball-1': [38.2, -3] },
+    },
+    {
+      name: 'Skudd 1',
+      text: '… og skyter.',
+      players: {},
+      ball: { with: 's3', dir: [0, -1] },
+      moveItems: { 'ball-1': [52.5, -2] },
+    },
+    {
+      name: 'Pasning fra 2',
+      text: 'Spiller 1 vender opp og får pasning fra spiller 2.',
+      players: { s1: [36, -1] },
+      ball: { with: 's3', dir: [0, -1] },
+      moveItems: { 'ball-2': [35, -0.2] },
+    },
+    {
+      name: 'Legger igjen',
+      text: 'Spiller 1 legger igjen til spiller 2.',
+      players: {},
+      ball: { with: 's3', dir: [0, -1] },
+      moveItems: { 'ball-2': [31.2, 7.6] },
+    },
+    {
+      name: 'Skudd 2',
+      text: 'Spiller 2 skyter. Spiller 1 går ut av 16-meteren, og begge venter på innlegget.',
+      players: { s1: [33, -2] },
+      ball: { with: 's3', dir: [0, -1] },
+      moveItems: { 'ball-2': [52.5, 2] },
+    },
+    {
+      name: 'Innlegg',
+      text: 'Spiller 3 berører ballen og slår innlegg. Først da løper 1 og 2 inn i boksen.',
+      kick: 'cross',
+      players: { s1: [46, -1], s2: [43, 6] },
+      ball: { with: 's1', dir: [0, -1] },
+    },
+    {
+      name: 'Avslutning',
+      text: 'Spiller 1 avslutter. Gruppene teller mål.',
+      highlight: 'MÅL!',
+      players: {},
+      ball: { goal: 'right' },
+    },
+  ],
+});
+
+export const ANGREP_ANIMATIONS = [SKYTESTAFETT, FEILVENDT_SPISS, SIKK_SAKK_AVSLUTNING, VENDE_DRIBLE_SKYTE, AVSLUTNINGSKONKURRANSE];
