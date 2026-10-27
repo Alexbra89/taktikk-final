@@ -32,7 +32,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           </p>
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             <button type="button" onClick={isChunkLoadError(error) ? reloadApp : reset} style={{ ...button, background: '#E8ECF2', color: '#0A0D13' }}>{isChunkLoadError(error) ? 'Last inn på nytt' : 'Prøv igjen'}</button>
-            <button type="button" onClick={() => window.location.assign('/')} style={{ ...button, background: 'transparent', color: '#E8ECF2' }}>Gå til forsiden</button>
+            <button type="button" onClick={() => window.location.assign(new URL('/', window.location.href).href)} style={{ ...button, background: 'transparent', color: '#E8ECF2' }}>Gå til forsiden</button>
           </div>
         </div>
       </body>
