@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, StopCircle } from 'lucide-react';
 
 // ═══ STOPPEKLOKKE (RESPONSIV OPPDATERT) ═══════════════════════
@@ -11,21 +11,21 @@ export const Stopwatch: React.FC<{
   onCancel: () => void;
 }> = ({ duration, onComplete, onCancel }) => {
   const [timeLeft, setTimeLeft] = useState((duration || 5) * 60);
-  const [isActive, setIsActive] = useState(true);
+  const isActive = useRef(true);
   const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isActive && !isPaused && timeLeft > 0) {
+    if (isActive.current && !isPaused && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0 && isActive) {
-      setIsActive(false);
+    } else if (timeLeft === 0 && isActive.current) {
+      isActive.current = false;
       onComplete();
     }
     return () => clearInterval(interval);
-  }, [isActive, isPaused, timeLeft, onComplete]);
+  }, [isPaused, timeLeft, onComplete]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

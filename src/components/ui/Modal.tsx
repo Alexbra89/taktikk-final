@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/cn';
 import { IconButton } from './Button';
@@ -28,6 +28,11 @@ export interface ModalProps {
   children: React.ReactNode;
 }
 
+// Samme snapshot på serveren og ved hydrering; portalen krever DOM.
+const subscribeToMount = () => () => {};
+const getMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
+
 const SIZES = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' } as const;
 
 export const Modal: React.FC<ModalProps> = ({
@@ -40,11 +45,9 @@ export const Modal: React.FC<ModalProps> = ({
   centerOnMobile = false,
   children,
 }) => {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribeToMount, getMountedSnapshot, getServerMountedSnapshot);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<Element | null>(null);
-
-  useEffect(() => setMounted(true), []);
 
   // Escape lukker, og fokus føres tilbake dit brukeren kom fra.
   useEffect(() => {
