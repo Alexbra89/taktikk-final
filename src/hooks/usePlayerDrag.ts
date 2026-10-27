@@ -166,7 +166,7 @@ export function usePlayerDrag({
           activeDragRef.current.longPressReady = true;
       }, LONG_PRESS);
     }
-  }, [isPlaying, drawMode, phase]);
+  }, [isPlaying, drawMode, gestureRef]);
 
   const moveDrag = useCallback((e: React.PointerEvent) => {
     const ad = activeDragRef.current;
@@ -199,7 +199,7 @@ export function usePlayerDrag({
       const near = findPlayerAt(sp.x, sp.y, ad.playerId);
       setDragOverId(near?.id ?? null);
     });
-  }, [toSVG, currentHomePlayers, findPlayerAt]);
+  }, [toSVG, currentHomePlayers, findPlayerAt, gestureRef]);
 
   const endDrag = useCallback((e: React.PointerEvent) => {
     const ad = activeDragRef.current;

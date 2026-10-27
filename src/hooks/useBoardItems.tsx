@@ -51,7 +51,11 @@ export function useBoardItems({ phase, enabled, toSVG, toSVGRaw, isGesturing, dr
 
   // Markeringen hører til fasen det står i.
   const phaseId = phase?.id;
-  useEffect(() => { setSelectedId(null); }, [phaseId]);
+  const [previousPhaseId, setPreviousPhaseId] = useState(phaseId);
+  if (phaseId !== previousPhaseId) {
+    setPreviousPhaseId(phaseId);
+    setSelectedId(null);
+  }
 
   /** Avbryter et pågående drag, f.eks. når en andre finger lander. */
   const cancel = useCallback(() => {
@@ -181,12 +185,13 @@ export function useBoardItems({ phase, enabled, toSVG, toSVGRaw, isGesturing, dr
 
   // Rotasjonshåndtaket: en liten ring over det markerte elementet, som følger
   // rotasjonen. Arbeidsmarkering – ikke med i eksportert bilde.
-  const rotHandle = (!finePointer || !enabled || !shown || dragPos) ? null : (() => {
+  let rotHandle: React.ReactNode = null;
+  if (finePointer && enabled && shown && !dragPos) {
     const { x, y } = shown.position;
     const rad = ((shown.rotation ?? 0) - 90) * Math.PI / 180;
     const dist = ITEM_RADIUS[shown.type] + 18;
     const hx = x + Math.cos(rad) * dist, hy = y + Math.sin(rad) * dist;
-    return (
+    rotHandle = (
       <g data-export="skip" data-item="true">
         <line x1={x} y1={y} x2={hx} y2={hy} strokeWidth={1} strokeDasharray="3,3"
           style={{ stroke: 'rgb(var(--k-ink))', pointerEvents: 'none' }} opacity={0.5}/>
@@ -198,7 +203,7 @@ export function useBoardItems({ phase, enabled, toSVG, toSVGRaw, isGesturing, dr
         </circle>
       </g>
     );
-  })();
+  }
 
   return {
     displayItems, selectedItem, selectedId: selectedItem ? selectedId : null,

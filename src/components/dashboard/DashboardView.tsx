@@ -90,7 +90,8 @@ export const DashboardView: React.FC<DashboardProps> = ({
   const tactic          = useActiveTactic();
 
   const now = new Date();
-  const today = localIso(now);
+  // Eksplisitt primitiv datonøkkel lar React Compiler bevare memoene nedenfor.
+  const today = String(localIso(now));
 
   const upcoming = useMemo(() => events.filter(e => e.date >= today).sort(sortEvents), [events, today]);
   const nextTraining = upcoming.find(e => e.type === 'training');

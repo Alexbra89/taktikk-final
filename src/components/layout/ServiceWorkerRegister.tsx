@@ -15,6 +15,11 @@ export function ServiceWorkerRegister() {
   const [ready, setReady] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const currentView = useAppStore(state => state.currentView);
+  const [previousView, setPreviousView] = useState(currentView);
+  if (currentView !== previousView) {
+    setPreviousView(currentView);
+    setDismissed(false);
+  }
   const watcher = useRef<ReturnType<typeof watchAppUpdate> | null>(null);
   useEffect(() => {
     // Utvikling skal ikke lagre midlertidige moduler for bruk uten nett.
@@ -25,7 +30,6 @@ export function ServiceWorkerRegister() {
     return () => { watcher.current?.dispose(); watcher.current = null; };
   }, []);
   useEffect(() => {
-    setDismissed(false);
     watcher.current?.check();
   }, [currentView]);
   if (!ready || dismissed) return null;

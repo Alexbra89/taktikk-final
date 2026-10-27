@@ -1,6 +1,6 @@
 'use client';
 import { localDate } from '@/lib/dates';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import {
   ALL_DRILLS,
@@ -286,10 +286,15 @@ export const DrillsView: React.FC<{
     setScheduleDate('');
   }
 
-  useEffect(() => {
+  const [previousFocus, setPreviousFocus] = useState<{
+    focusDrillId: string | undefined;
+    allDrills: DrillExercise[];
+  } | null>(null);
+  if (!previousFocus || previousFocus.focusDrillId !== focusDrillId || previousFocus.allDrills !== allDrills) {
+    setPreviousFocus({ focusDrillId, allDrills });
     const drill = focusDrillId ? allDrills.find(d => d.id === focusDrillId) : undefined;
     if (drill) openDrill(drill);
-  }, [focusDrillId, allDrills]);
+  }
 
   function buildTeamNote(drill: DrillExercise, extra?: string): string {
     const parts = [

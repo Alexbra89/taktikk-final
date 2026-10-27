@@ -16,7 +16,8 @@ export const ERROR_TITLE = 'Noe gikk galt i denne delen';
 
 /** Full omlasting til startsiden: nullstiller også det som feilet. Dataene ligger i lagringen. */
 export function goHome() {
-  window.location.assign('/');
+  // Full dokumentnavigering må også nullstille en feil i appens rot.
+  window.location.assign(new URL('/', window.location.href).href);
 }
 
 /** Kan nettleseren lage en WebGL 2-flate? Three krever WebGL 2; uten den kan 3D ikke vises. */
