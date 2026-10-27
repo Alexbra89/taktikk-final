@@ -40,6 +40,13 @@ export interface DrillAnimationPhase extends TacticPhase {
   dive?: string[];
   /** Ballholderen har ballen i hendene (fanget): i brysthøyde i 3D, inntil drakten i 2D. */
   held?: boolean;
+  /**
+   * Ekstra baller (utstyr) som spilles på vei inn i fasen: id → slag. Brukes
+   * når flere baller er i spill samtidig; hovedballen bruker `kick`.
+   */
+  itemKicks?: Record<string, Kick>;
+  /** Ekstra baller som er hos en spiller i fasen: id → spiller-id. */
+  itemsWith?: Record<string, string>;
 }
 
 export interface DrillAnimation extends Tactic {

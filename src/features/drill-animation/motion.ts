@@ -2,7 +2,7 @@ import { boardToWorld, figureScale } from '@/components/board/three/coordinates'
 import type { FigurePose } from '@/components/board/BoardStage';
 import { VW } from '@/data/formations';
 import type { BoardItem, Player, Position } from '@/types';
-import { ballInGoal, holderOf } from './validate';
+import { BALL_REACH, ballInGoal, holderOf } from './validate';
 import type { DrillAnimation, DrillAnimationPhase, Kick } from './types';
 
 // ══════════════════════════════════════════════════════════════
@@ -15,7 +15,9 @@ import type { DrillAnimation, DrillAnimationPhase, Kick } from './types';
 //  boksing, og raskt og lavt ved skudd. En keeper som slenger seg, tippes
 //  over på siden sent i bevegelsen (pose), og en utespiller i en sklitakling
 //  legger seg langs glidet; en fanget ball ligger i hendene
-//  (brysthøyde i 3D, inntil drakten i 2D).
+//  (brysthøyde i 3D, inntil drakten i 2D). Ekstra baller (utstyr, når flere
+//  baller er i spill) følger spilleren som har dem, og spilles på samme måte,
+//  men langs bakken (høyden gjelder bare hovedballen).
 //
 //  Alt regnes ut av createMotionSampler, som skriver i faste buffere (3D og
 //  2D-avspillingen leser den i hvert bilde). drillMotion gir en kopi.
@@ -160,6 +162,51 @@ function poseInto(pose: FigurePose, keeper: boolean, at: Position, dir: Position
   }
 }
 
+/** En ekstra ball (utstyr) slik den tegnes: hos spilleren, med avstanden skalert som drakten. */
+function shownItem(phase: DrillAnimationPhase, item: BoardItem, kitScale: number): Position {
+  const holder = phase.itemsWith?.[item.id];
+  const at = holder ? phase.players.find(p => p.id === holder)?.position : undefined;
+  if (!at || kitScale === 1) return item.position;
+  return add(at, { x: item.position.x - at.x, y: item.position.y - at.y }, kitScale);
+}
+
+/**
+ * Bevegelsen til en ekstra ball fra fasen `a` til `b`, når den er hos en
+ * spiller eller spilles. Ellers null: da glir den i rett linje, som annet utstyr.
+ * Spilles den (itemKicks), holder spilleren den til slaget, og så reiser den
+ * til målet som hovedballen (en pasning ruller ut, de andre holder farten).
+ */
+function extraBallMotion(a: DrillAnimationPhase, b: DrillAnimationPhase, item: BoardItem, target: BoardItem,
+  targets: Player[], kitScale: number) {
+  if (item.type !== 'ball' || (!a.itemsWith?.[item.id] && !b.itemsWith?.[item.id] && !b.itemKicks?.[item.id])) return null;
+  const from = shownItem(a, item, kitScale), to = shownItem(b, target, kitScale);
+  const kick = b.itemKicks?.[item.id] ?? null;
+  let passerIndex = -1, best = BALL_REACH;
+  a.players.forEach((p, i) => {
+    const d = Math.hypot(p.position.x - item.position.x, p.position.y - item.position.y);
+    if (d <= best) { best = d; passerIndex = i; }
+  });
+  const start = passerIndex < 0 ? from : a.players[passerIndex].position;
+  const end = passerIndex < 0 ? from : targets[passerIndex].position;
+  const offset = { x: from.x - start.x, y: from.y - start.y };
+  const release = kick && passerIndex >= 0 ? kickAt(kick) : 0;
+  const launch = add(lerp(start, end, release), offset);
+  return { from, to, kick, passerIndex, offset, release, launch };
+}
+
+function moveExtraBall(out: Position, m: NonNullable<ReturnType<typeof extraBallMotion>>, players: Player[], k: number) {
+  if (!m.kick) {
+    out.x = m.from.x + (m.to.x - m.from.x) * k; out.y = m.from.y + (m.to.y - m.from.y) * k;
+  } else if (k <= m.release && m.passerIndex >= 0) {
+    const holder = players[m.passerIndex].position;
+    out.x = holder.x + m.offset.x; out.y = holder.y + m.offset.y;
+  } else {
+    const travel = m.release >= 1 ? 1 : (k - m.release) / (1 - m.release);
+    const progress = m.kick === 'pass' || m.kick === 'tackle' ? 1 - (1 - travel) * (1 - travel) : travel;
+    out.x = m.launch.x + (m.to.x - m.launch.x) * progress; out.y = m.launch.y + (m.to.y - m.launch.y) * progress;
+  }
+}
+
 /**
  * Compile the immutable drill once. Each phase owns its player/item/ball buffers;
  * sample() only changes numbers, never allocates arrays, objects or closures.
@@ -184,6 +231,7 @@ export function createMotionSampler(animation: DrillAnimation, kitScale = 1) {
     // Mens spilleren reiser seg eller faller, peker fallet dit spilleren ligger.
     const dives = a.players.map(p => divers.has(p.id) ? diveDir[leanOf(b, p.id) ? index + 1 : index]?.get(p.id) ?? diveDir[index].get(p.id)! : null);
     const itemTargets = (a.items ?? []).map(item => b.items?.find(next => next.id === item.id) ?? item);
+    const extraBalls = (a.items ?? []).map((item, i) => extraBallMotion(a, b, item, itemTargets[i], targets, kitScale));
     const startBall = shownBall(a, kitScale), targetBall = shownBall(b, kitScale);
     const passer = holderOf(a), receiver = holderOf(b);
     const passerIndex = passer ? a.players.findIndex(p => p.id === passer.id) : -1;
@@ -201,7 +249,7 @@ export function createMotionSampler(animation: DrillAnimation, kitScale = 1) {
     const peak = kick ? flightPeak(kick, launch, targetBall, animation) : 0;
     const flight: BallFlight = { kind: kick ?? 'pass', from: launch, to: targetBall, progress: 0 };
     const frame: MotionFrame = { players, items, ball: { ...startBall }, ballHeight: startHeight, flight: null };
-    return { a, b, frame, targets, leans, keeper, dives, itemTargets, startBall, targetBall, passerIndex, start, end,
+    return { a, b, frame, targets, leans, keeper, dives, itemTargets, extraBalls, startBall, targetBall, passerIndex, start, end,
       offset, endOffset, kick, release, launch, peak, startHeight, endHeight, flight,
       dribble: !!passer && passer.id === receiver?.id };
   });
@@ -221,7 +269,11 @@ export function createMotionSampler(animation: DrillAnimation, kitScale = 1) {
         }
       }
       for (let i = 0; i < f.items.length; i++) {
-        const a = c.a.items![i], b = c.itemTargets[i], out = f.items[i];
+        const a = c.a.items![i], b = c.itemTargets[i], out = f.items[i], extra = c.extraBalls[i];
+        if (extra) {
+          moveExtraBall(out.position, extra, f.players, k);
+          continue;
+        }
         out.position.x = a.position.x + (b.position.x - a.position.x) * k;
         out.position.y = a.position.y + (b.position.y - a.position.y) * k;
         const r = a.rotation ?? 0;

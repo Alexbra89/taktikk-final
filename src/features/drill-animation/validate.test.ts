@@ -229,3 +229,58 @@ describe('utstyr som flytter seg (moveItems)', () => {
     expect(() => defineDrillAnimation(s)).toThrow(/«finnes» flyttes, men finnes ikke/);
   });
 });
+
+describe('flere baller samtidig (ekstra baller som utstyr)', () => {
+  // Tre baller: hovedballen hos A, en ekstra hos B og en ekstra hos C. B og C spiller sine samtidig.
+  const threeBalls = (): AnimationSpec => ({
+    ...spec(),
+    cast: { a: { label: 'A', family: 'att' }, b: { label: 'B', family: 'mid' }, c: { label: 'C', family: 'mid' }, k: { label: 'K', family: 'gk' } },
+    items: [{ id: 'ball-b', type: 'ball', at: [0, 0] }, { id: 'ball-c', type: 'ball', at: [0, 0] }],
+    phases: [
+      { name: 'En', text: 'Tre baller.', players: { a: [-5, 0], b: [0, -6], c: [0, 6], k: [15, 0] },
+        ball: { with: 'a' }, moveItems: { 'ball-b': { with: 'b', dir: [1, 0] }, 'ball-c': { with: 'c', dir: [1, 0] } } },
+      { name: 'To', text: 'B og C spiller samtidig.', players: { a: [-3, 0] }, ball: { with: 'a' },
+        kickItems: { 'ball-b': 'pass', 'ball-c': 'shot' }, moveItems: { 'ball-b': { with: 'k', dir: [0, -1] }, 'ball-c': [10, 9] } },
+      { name: 'Tre', text: 'K fører ballen fra B.', players: { k: [14, -3] }, ball: { with: 'a' } },
+    ],
+  });
+  const at = (animation: DrillAnimation, phase: number, id: string) => animation.phases[phase].items!.find(i => i.id === id)!.position;
+
+  it('er gyldig, og en ball hos en spiller følger spilleren til den flyttes', () => {
+    const animation = defineDrillAnimation(threeBalls());
+    expect(validateDrillAnimation(animation, DRILL_IDS)).toEqual([]);
+    const k = (i: number) => animation.phases[i].players.find(p => p.id === 'k')!.position;
+    expect(at(animation, 0, 'ball-b')).toEqual({ x: animation.phases[0].players.find(p => p.id === 'b')!.position.x + 18, y: animation.phases[0].players.find(p => p.id === 'b')!.position.y });
+    expect(at(animation, 1, 'ball-b')).toEqual({ x: k(1).x, y: k(1).y - 18 });
+    expect(at(animation, 2, 'ball-b')).toEqual({ x: k(2).x, y: k(2).y - 18 });
+    expect(at(animation, 2, 'ball-c')).toEqual(metresToBoard('football5', [10, 9]));
+    expect(animation.phases[1].itemKicks).toEqual({ 'ball-b': 'pass', 'ball-c': 'shot' });
+    expect(animation.phases[2].itemsWith).toEqual({ 'ball-b': 'k' });
+  });
+
+  it('melder en ekstra ball som spilles uten at noen har den', () => {
+    const s = threeBalls();
+    s.phases[2].kickItems = { 'ball-c': 'pass' };
+    s.phases[2].moveItems = { 'ball-c': { with: 'a' } };
+    expect(validateDrillAnimation(defineDrillAnimation(s), DRILL_IDS)).toContain('Fase 3: ballen «ball-c» spilles, men ingen har den i fasen før.');
+  });
+
+  it('melder en ekstra ball som spilles, men blir hos samme spiller', () => {
+    const s = threeBalls();
+    s.phases[1].moveItems = { 'ball-b': { with: 'b', dir: [0, 1] }, 'ball-c': [10, 9] };
+    expect(validateDrillAnimation(defineDrillAnimation(s), DRILL_IDS)).toContain('Fase 2: ballen «ball-b» spilles, men ingen andre tar imot.');
+  });
+
+  it('melder et slag med utstyr som ikke er en ball', () => {
+    const s = threeBalls();
+    s.items = [...s.items!, { id: 'kjegle', type: 'cone', at: [-10, 8] }];
+    s.phases[1].kickItems = { ...s.phases[1].kickItems, kjegle: 'pass' };
+    expect(validateDrillAnimation(defineDrillAnimation(s), DRILL_IDS)).toContain('Fase 2: «kjegle» spilles, men er ikke en ball i utstyret.');
+  });
+
+  it('stopper en ball som skal være hos en spiller utenfor rollelista', () => {
+    const s = threeBalls();
+    s.phases[1].moveItems = { 'ball-b': { with: 'x' } };
+    expect(() => defineDrillAnimation(s)).toThrow(/«ball-b» skal være hos «x»/);
+  });
+});

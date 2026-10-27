@@ -421,6 +421,213 @@ const STRAFFESPARK = defineDrillAnimation({
   ],
 });
 
+/**
+ * keeper-y-06: en keeper i mål og en skytter. Skudd rett på i grep
+ * mellomhøyt, retur, skudd nede på keeperens venstre side, retur og opp i
+ * stående, nytt skudd rett på og nede, retur, og til slutt skudd nede på
+ * motsatt side. Keeperen ser ut mot banen (mot venstre på brettet), så
+ * keeperens venstre side er nedover på brettet. Avstanden står ikke i teksten.
+ * 2 spillere: keeper og skytter. Én ball.
+ */
+const GREP_OG_FALL = defineDrillAnimation({
+  drillId: 'keeper-y-06',
+  name: 'Grep og fall – to og to (egentrening med skytter)',
+  sport: 'football5',
+  cast: {
+    s: { label: 'S', family: 'att' },
+    k: { label: 'K', family: 'gk' },
+  },
+  phases: [
+    {
+      name: 'Oppsett',
+      text: 'Én keeper i mål og én skytter. Keeperen står avslappet, med ledige hender.',
+      players: { s: [13, 0], k: [19.4, 0] },
+      ball: { with: 's', dir: [1, 0] },
+    },
+    {
+      name: 'Skudd 1',
+      text: 'Skudd rett på keeperen, mellomhøyt. Keeperen tar ballen i grep.',
+      kick: 'shot',
+      held: true,
+      players: {},
+      ball: { with: 'k', dir: [-1, 0] },
+    },
+    {
+      name: 'Retur',
+      text: 'Keeperen returnerer ballen til skytteren.',
+      players: {},
+      ball: { with: 's', dir: [1, 0] },
+    },
+    {
+      name: 'Skudd 2',
+      text: 'Skudd nede på keeperens venstre side. Keeperen faller og tar ballen.',
+      kick: 'shot',
+      dive: ['k'],
+      held: true,
+      players: { k: [19.3, 1.2] },
+      ball: { with: 'k', dir: [0, 1] },
+    },
+    {
+      name: 'Retur og opp',
+      text: 'Keeperen returnerer ballen og kommer hurtig opp i stående, skuddklar igjen.',
+      players: { k: [19.4, 0] },
+      ball: { with: 's', dir: [1, 0] },
+    },
+    {
+      name: 'Skudd 3',
+      text: 'Nytt skudd rett på keeperen, nede. Keeperen tar ballen.',
+      kick: 'shot',
+      held: true,
+      players: {},
+      ball: { with: 'k', dir: [-1, 0] },
+    },
+    {
+      name: 'Retur',
+      text: 'Keeperen returnerer ballen til skytteren.',
+      players: {},
+      ball: { with: 's', dir: [1, 0] },
+    },
+    {
+      name: 'Skudd 4',
+      text: 'Til slutt skudd nede på motsatt side. Keeperen faller og tar ballen.',
+      kick: 'shot',
+      dive: ['k'],
+      held: true,
+      players: { k: [19.3, -1.2] },
+      ball: { with: 'k', dir: [0, -1] },
+    },
+  ],
+});
+
+/**
+ * keeper-a-03: keeperen starter ved den ene stolpen. Treneren ruller en ball
+ * rolig mot midten, og keeperen berører den med foten. Keeperen flytter seg
+ * raskt mot den andre stolpen, og idet keeperen nærmer seg, skyter en
+ * medspiller (ved siden, med en annen ball) hardt mot det lange hjørnet.
+ * Keeperen stopper, skyver fra, strekker seg og lander på siden.
+ * 3 spillere: keeper, trener og medspiller. To baller: trenerens og skuddet.
+ * Teksten sier ikke hvor ballen havner etter berøringen; den blir liggende.
+ */
+const SKIFT_AV_AKSE = defineDrillAnimation({
+  drillId: 'keeper-a-03',
+  name: 'Skift av akse og skyv til det lange hjørnet',
+  sport: 'football',
+  cast: {
+    t: { label: 'T', family: 'mid' },
+    m: { label: 'M', family: 'att' },
+    k: { label: 'K', family: 'gk' },
+  },
+  items: [
+    { id: 'ball-trener', type: 'ball', at: [45, 0] },
+  ],
+  phases: [
+    {
+      name: 'Start',
+      text: 'Keeperen starter ved den ene stolpen. Treneren har én ball, medspilleren ved siden en annen.',
+      players: { t: [44, 0], m: [41, 8], k: [51.8, 3.2] },
+      ball: { with: 'm', dir: [1, -0.5] },
+      moveItems: { 'ball-trener': { with: 't', dir: [1, 0] } },
+    },
+    {
+      name: 'Berøring',
+      text: 'Treneren ruller ballen rolig mot midten. Keeperen berører den med foten.',
+      players: { k: [51.5, 1.2] },
+      ball: { with: 'm', dir: [1, -0.5] },
+      kickItems: { 'ball-trener': 'pass' },
+      moveItems: { 'ball-trener': [49.2, 0.9] },
+    },
+    {
+      name: 'Forflytning',
+      text: 'Keeperen flytter seg raskt mot den andre stolpen.',
+      players: { k: [51.6, -1.6] },
+      ball: { with: 'm', dir: [1, -0.5] },
+    },
+    {
+      name: 'Skudd og skyv',
+      text: 'Medspilleren skyter hardt mot det lange hjørnet. Keeperen stopper, skyver fra og strekker seg.',
+      kick: 'shot',
+      dive: ['k'],
+      held: true,
+      players: { k: [51.8, -3.3] },
+      ball: { with: 'k', dir: [0, -1] },
+    },
+    {
+      name: 'Landing og hvile',
+      text: 'Keeperen lander på siden av kroppen. Gi nok hvile mellom seriene.',
+      dive: ['k'],
+      held: true,
+      players: {},
+      ball: { with: 'k', dir: [0, -1] },
+    },
+  ],
+});
+
+/**
+ * keeper-a-05: trener A står ca. 10 m unna, skrått foran, og skyter lavt mot
+ * ett hjørne. Keeperen kaster seg og styrer ballen (teksten: fanger eller
+ * styrer), kommer raskt opp, og trener B på motsatt side skyter et nytt skudd
+ * 2–3 sekunder etter. Keeperen omstiller seg og redder på nytt (her fanget).
+ * 3 spillere: keeper, trener A og trener B. To baller: én hos hver trener.
+ * Den styrte ballen blir liggende ute på siden.
+ */
+const PARADE_OG_REDD = defineDrillAnimation({
+  drillId: 'keeper-a-05',
+  name: 'Parade og redd – dobbeltredning',
+  sport: 'football',
+  cast: {
+    a: { label: 'A', family: 'mid' },
+    b: { label: 'B', family: 'mid' },
+    k: { label: 'K', family: 'gk' },
+  },
+  items: [
+    { id: 'ball-a', type: 'ball', at: [44, -5] },
+  ],
+  phases: [
+    {
+      name: 'Oppsett',
+      text: 'Keeperen står i mål. Trener A står ca. 10 m unna, skrått foran. Trener B står på motsatt side.',
+      players: { a: [44, -5], b: [44, 5], k: [51.8, 0] },
+      ball: { with: 'b', dir: [1, -0.4] },
+      moveItems: { 'ball-a': { with: 'a', dir: [1, 0.4] } },
+    },
+    {
+      name: 'Første skudd',
+      text: 'Trener A skyter lavt mot ett hjørne. Keeperen kaster seg mot ballen.',
+      dive: ['k'],
+      players: { k: [51.8, -2.8] },
+      ball: { with: 'b', dir: [1, -0.4] },
+      kickItems: { 'ball-a': 'shot' },
+      moveItems: { 'ball-a': { with: 'k', dir: [0, -1] } },
+    },
+    {
+      name: 'Redning og opp',
+      text: 'Keeperen styrer ballen ut, og kommer raskt opp med hjelp av hender og bein.',
+      players: { k: [51.8, -1] },
+      ball: { with: 'b', dir: [1, -0.4] },
+      kickItems: { 'ball-a': 'deflect' },
+      moveItems: { 'ball-a': [49.5, -8.1] },
+    },
+    {
+      name: 'Andre skudd',
+      text: 'Trener B skyter et nytt skudd 2–3 sekunder etter. Keeperen omstiller seg og kaster seg.',
+      kick: 'shot',
+      dive: ['k'],
+      held: true,
+      players: { k: [51.8, 2.8] },
+      ball: { with: 'k', dir: [0, 1] },
+    },
+    {
+      name: 'Ny redning',
+      text: 'Keeperen redder på nytt. Spillet lever til ballen er død.',
+      dive: ['k'],
+      held: true,
+      players: {},
+      ball: { with: 'k', dir: [0, 1] },
+    },
+  ],
+});
+
 export const KEEPER_ANIMATIONS = [
   BALLSKJOLDET, KATT_OG_MUS, REKKEVIDDE, NAERDUELL, KORT_HOLD, FELT_DUELLEN, AVBOYNING, FELTKOMMANDO, STRAFFESPARK,
+  GREP_OG_FALL, SKIFT_AV_AKSE, PARADE_OG_REDD,
 ];

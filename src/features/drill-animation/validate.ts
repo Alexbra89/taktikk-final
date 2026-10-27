@@ -13,7 +13,9 @@ import type { DrillAnimation, DrillAnimationPhase } from './types';
 //  Eneste unntak for ballen: i siste fase kan den ligge i mål, eller være
 //  bokset ut av keeperen (punch). En pasning, sentring eller et skudd (kick)
 //  går fra én spiller til en annen eller i mål. Den som slenger seg (dive),
-//  står i rollelista; en fanget ball (held) er hos en spiller.
+//  står i rollelista; en fanget ball (held) er hos en spiller. Er flere
+//  baller i spill, er de ekstra ballene utstyr: de kan ligge fritt, men
+//  spilles de (itemKicks), gjelder samme regel som for hovedballen.
 // ══════════════════════════════════════════════════════════════
 
 /** Banens ytre linjer slik FootballPitch tegner dem (32 enheter inn fra kanten). */
@@ -61,14 +63,19 @@ export function ballInGoal(ball: Position, items: BoardItem[] = []): boolean {
   return inBig || inSmall;
 }
 
-/** Spilleren ballen er hos i fasen (nærmeste innenfor rekkevidde), eller ingen. */
-export function holderOf(phase: DrillAnimationPhase): Player | undefined {
+/** Nærmeste spiller innenfor rekkevidde av ballen, eller ingen. */
+function nearest(players: Player[], ball: Position): Player | undefined {
   let best: Player | undefined, bestDistance = BALL_REACH;
-  for (const player of phase.players) {
-    const d = dist(player.position, phase.ball);
+  for (const player of players) {
+    const d = dist(player.position, ball);
     if (d <= bestDistance) { best = player; bestDistance = d; }
   }
   return best;
+}
+
+/** Spilleren ballen er hos i fasen (nærmeste innenfor rekkevidde), eller ingen. */
+export function holderOf(phase: DrillAnimationPhase): Player | undefined {
+  return nearest(phase.players, phase.ball);
 }
 
 /**
@@ -162,6 +169,22 @@ export function validateDrillAnimation(animation: DrillAnimation, drillIds: Iter
       else if (!scored && holderOf(phase)?.id === passer.id) errors.push(`${at}: ballen spilles, men ingen andre tar imot.`);
     }
     if (phase.turn && (index === 0 || !holderOf(phase))) errors.push(`${at}: vendingen trenger en spiller med ball.`);
+
+    // Ekstra baller (utstyr) når flere baller er i spill: samme regel for slaget.
+    // Utenom slaget kan en ekstra ball ligge fritt, f.eks. etter en redning.
+    for (const [id, with_] of Object.entries(phase.itemsWith ?? {})) {
+      const ball = items.find(i => i.id === id), player = phase.players.find(p => p.id === with_);
+      if (!ball || !player || dist(ball.position, player.position) > BALL_REACH) errors.push(`${at}: ballen «${id}» skal være hos «${with_}», men er ikke det.`);
+    }
+    for (const id of Object.keys(phase.itemKicks ?? {})) {
+      const ball = items.find(i => i.id === id);
+      if (ball?.type !== 'ball') { errors.push(`${at}: «${id}» spilles, men er ikke en ball i utstyret.`); continue; }
+      const prev = phases[index - 1];
+      const before = prev?.items?.find(i => i.id === id);
+      const passer = prev && before ? nearest(prev.players, before.position) : undefined;
+      if (!passer) errors.push(`${at}: ballen «${id}» spilles, men ingen har den i fasen før.`);
+      else if (nearest(phase.players, ball.position)?.id === passer.id) errors.push(`${at}: ballen «${id}» spilles, men ingen andre tar imot.`);
+    }
   });
 
   return errors;

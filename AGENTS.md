@@ -114,11 +114,11 @@ endrer verken lagringsformat, backup eller 3D-scenen. All kode ligger i
 
 | Fil | Ansvar |
 | --- | --- |
-| `types.ts` | `DrillAnimation`, `DrillAnimationPhase` (med valgfri `kick`: pasning/sentring/skudd/høy ball/boksing/avbøyning/takling, `turn`: vending, `dive`: spillere som slenger seg, `held`: ballen i hendene) og rollelista (`CastMember`). |
-| `define.ts` | Bygger animasjonen fra meter (som i øvelsesteksten) til brettets 880 × 560. `moveItems` flytter utstyr fra fase til fase (f.eks. en ekstra ball når to baller er i spill). |
-| `validate.ts` | Reglene: innenfor banen, ingen spillere oppå hverandre (heller ikke underveis mellom fasene), ballen hos en spiller (eller i mål eller bokset ut i siste fase), en pasning/sentring/skudd går til en annen spiller eller i mål, den som slenger seg står i rollelista, en fanget ball er hos en spiller, 3–8 faser, tekst på hver fase, øvelsen finnes. `holderOf` (ballholderen). |
+| `types.ts` | `DrillAnimation`, `DrillAnimationPhase` (med valgfri `kick`: pasning/sentring/skudd/høy ball/boksing/avbøyning/takling, `turn`: vending, `dive`: spillere som slenger seg, `held`: ballen i hendene, `itemKicks`/`itemsWith`: ekstra baller som spilles eller er hos en spiller) og rollelista (`CastMember`). |
+| `define.ts` | Bygger animasjonen fra meter (som i øvelsesteksten) til brettets 880 × 560. `moveItems` flytter utstyr fra fase til fase; når flere baller er i spill, kan en ekstra ball også være hos en spiller (`{ with }`, følger spilleren) og spilles (`kickItems`). |
+| `validate.ts` | Reglene: innenfor banen, ingen spillere oppå hverandre (heller ikke underveis mellom fasene), ballen hos en spiller (eller i mål eller bokset ut i siste fase), en pasning/sentring/skudd går til en annen spiller eller i mål, en ekstra ball som spilles har en spiller i fasen før og går til en annen (ellers kan den ligge fritt), den som slenger seg står i rollelista, en fanget ball er hos en spiller, 3–8 faser, tekst på hver fase, øvelsen finnes. `holderOf` (ballholderen). |
 | `playback.ts` | Øvelsenes egen klokke (`performance.now()`, ikke brettets 30 ms-steg): 1,3 s bevegelse og 0,15 s pause per fase ved 1×, teksten byttes når fasen starter. `sample` lar 3D lese klokka i hvert bilde. |
-| `motion.ts` | Alt på banen i en overgang, felles for 2D, 3D og begge videoene (`createMotionSampler`; `drillMotion` gir en kopi): spillerne glir, ballen følger ballholderen (rundt spilleren i en vending), og ved pasning/sentring/skudd reiser den synlig med bue i 3D (høy ball og boksing over figurene, skudd sent og raskt). En keeper som slenger seg tippes over på siden (`pose`), en utespiller i sklitakling legger seg langs glidet; en fanget ball ligger i brysthøyde. |
+| `motion.ts` | Alt på banen i en overgang, felles for 2D, 3D og begge videoene (`createMotionSampler`; `drillMotion` gir en kopi): spillerne glir, ballen følger ballholderen (rundt spilleren i en vending), og ved pasning/sentring/skudd reiser den synlig med bue i 3D (høy ball og boksing over figurene, skudd sent og raskt). Ekstra baller følger spilleren som har dem og spilles på samme måte, langs bakken. En keeper som slenger seg tippes over på siden (`pose`), en utespiller i sklitakling legger seg langs glidet; en fanget ball ligger i brysthøyde. |
 | `framing.ts` | Fast utsnitt for hele øvelsen: `bounds` (3D-kameraet) og `fitCrop` (2D: alltid hele banen, også på mobil i stående modus; drakter i fast skjermstørrelse, aldri mindre enn på mobil). |
 | `DrillPitch.tsx` | 2D-banen: `BoardStage` klippet til utsnittet, drakter/ball/kjegler krympet rundt eget midtpunkt, stiplet ballspor. Brukes på skjermen og i 2D-videoen. |
 | `DrillAnimationViewer.tsx` | Visningen: `DrillPitch` (2D), `Board3DSlot` (3D, med `liveFrame` og `timeline`), 2D-opptak via `useVideoExport` (`source`), tekst under banen, fullskjerm, «reduser bevegelse». |
@@ -136,7 +136,7 @@ bare på drakten, rollen over hodet).
 Animasjonene ligger i `src/data/drillAnimations/`, én fil per kategori, koblet
 via `drillId`. Sorteringen av alle øvelser står i `docs/animasjon-plan.md`.
 Kontroller: `validate.test.ts` (alle animasjoner og hver regel), `motion.test.ts`
-(ballen reiser synlig, føring, slenging/fanget ball/boksing, innholdet i Vendingsstafett og Murbyggerne),
+(ballen reiser synlig, føring, slenging/fanget ball/boksing, innholdet i Vendingsstafett og Murbyggerne, flere baller og de tre keeperøvelsene med dem),
 `framing.test.ts` (utsnitt og tempo), `plan.test.ts` (planen dekker alle
 øvelser) og `e2e/drill-animation.spec.ts` (skjermbilder i `_skjermbilder/`,
 utenfor Git).
