@@ -60,18 +60,24 @@ test('3D is read-only, camera controls work, and switching back preserves 2D', a
 
 test('switching views during playback keeps the same shared phase clock', async ({ page }) => {
   await openBoard(page);
-  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+  // 8 faser ved 0,5× er 16,8 s. Klokka er tidsbasert og går videre mens 3D lages,
+  // så avspillingen må vare lenger enn byttet til 3D, også på en treg maskin.
+  for (let i = 0; i < 7; i++) await page.getByRole('button', { name: 'Legg til fase', exact: true }).click();
+  await page.getByTitle('Oppsett, notat, øyeblikk og fart', { exact: true }).click();
+  await page.getByRole('group', { name: 'Avspillingsfart', exact: true }).getByRole('button', { name: '0.5×', exact: true }).click();
+  await page.getByRole('button', { name: 'Lukk panelet', exact: true }).click();
   await open3D(page); // warm lazy chunk before starting the clock
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await page.getByRole('button', { name: 'Spill av fasene', exact: true }).click();
-  await page.waitForTimeout(1400);
-  await open3D(page);
+  await page.waitForTimeout(2800);
+  await page.getByRole('button', { name: '3D', exact: true }).click();
+  await expect(page.getByRole('region', { name: '3D-visning' })).toBeVisible();
   const active = await page.getByRole('tablist', { name: 'Faser', exact: true }).getByRole('tab', { selected: true }).textContent();
   expect(active).not.toBe('Fase 1');
   await expect(page.getByRole('button', { name: 'Stopp avspilling', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '2D', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Spill av fasene', exact: true })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole('tablist', { name: 'Faser', exact: true }).getByRole('tab', { selected: true })).toContainText('Fase 4');
+  await expect(page.getByRole('button', { name: 'Spill av fasene', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('tablist', { name: 'Faser', exact: true }).getByRole('tab', { selected: true })).toContainText('Fase 8');
 });
 
 test('mobile 3D has a visible pitch and controls without page overflow', async ({ page }, info) => {

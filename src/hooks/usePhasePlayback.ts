@@ -1,14 +1,34 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { VIDEO_PHASE_MS } from '@/lib/exportVideo';
 import type { Player, Position, TacticPhase } from '@/types';
 
 // ══════════════════════════════════════════════════════════════
 //  AVSPILLING AV FASENE – felles for TacticBoard og FullscreenBoard,
-//  som før hadde hver sin kopi av løkka. Klokka går i steg på 30 ms
-//  og sier hvilken overgang som vises (interpFrom) og hvor langt den
-//  har kommet (interpT). Brettet sier hvilken fase som skal markeres.
-//  Mellomposisjonene regnes ut med interpolatePlayers/interpolateBall.
+//  som før hadde hver sin kopi av løkka. Klokka er tidsbasert:
+//  posisjonen regnes ut av performance.now(), så tempoet er det samme
+//  uansett hvor ofte nettleseren rekker å kjøre løkka. En overgang tar
+//  VIDEO_PHASE_MS (1,2 s) ved 1×, samme tempo som videoene. Løkka vekker
+//  React hvert 30. ms og sier hvilken overgang som vises (interpFrom) og
+//  hvor langt den har kommet (interpT). Brettet sier hvilken fase som skal
+//  markeres. Mellomposisjonene regnes ut med interpolatePlayers/interpolateBall.
 // ══════════════════════════════════════════════════════════════
+
+/** Hvor ofte løkka oppdaterer brettet. Påvirker ikke tempoet. */
+const TICK_MS = 30;
+
+/** Klokka: hvor langt avspillingen var (i overganger, f.eks. 1,5) ved tidspunktet `at`, og farten siden da. */
+export interface PhaseClock { at: number; position: number; speed: number }
+
+/** Hvor langt avspillingen er kommet ved tidspunktet `now` (ms, performance.now()). */
+export function clockPosition(clock: PhaseClock, now: number): number {
+  return clock.position + (now - clock.at) * clock.speed / VIDEO_PHASE_MS;
+}
+
+/** Samme klokke i ny fart fra `now`: posisjonen fortsetter der den var. */
+export function retimeClock(clock: PhaseClock, now: number, speed: number): PhaseClock {
+  return { at: now, position: clockPosition(clock, now), speed };
+}
 
 export function usePhasePlayback(
   phases: TacticPhase[],
@@ -17,7 +37,7 @@ export function usePhasePlayback(
   setPhaseIdx: (idx: number) => void,
 ) {
   const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
-  const playRef  = useRef({ from:0, t:0 });
+  const clockRef = useRef<PhaseClock>({ at: 0, position: 0, speed: playSpeed });
 
   const [isPlaying,  setIsPlaying]  = useState(false);
   const [interpFrom, setInterpFrom] = useState(0);
@@ -27,26 +47,30 @@ export function usePhasePlayback(
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
+  // Ny fart midt i avspillingen: klokka fortsetter fra samme sted, i ny fart.
+  useEffect(() => {
+    if (clockRef.current.speed === playSpeed) return;
+    clockRef.current = retimeClock(clockRef.current, performance.now(), playSpeed);
+  }, [playSpeed]);
+
   const startPlayback = useCallback(() => {
     if (phases.length < 2) return;
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
-    playRef.current = { from:0, t:0 };
+    const last = phases.length - 1;
+    clockRef.current = { at: performance.now(), position: 0, speed: clockRef.current.speed };
+    let shownFrom = 0;
     setInterpFrom(0); setInterpT(0); setPhaseIdx(0); setIsPlaying(true);
     timerRef.current = setInterval(() => {
-      playRef.current.t += 0.025 * playSpeed;
-      if (playRef.current.t >= 1) {
-        const next = playRef.current.from + 1;
-        if (next >= phases.length - 1) {
-          clearInterval(timerRef.current!); timerRef.current=null;
-          setIsPlaying(false); setPhaseIdx(phases.length-1); setInterpT(0); return;
-        }
-        playRef.current.from=next; playRef.current.t=0;
-        setInterpFrom(next); setInterpT(0); setPhaseIdx(next);
-      } else {
-        setInterpT(playRef.current.t); setInterpFrom(playRef.current.from);
+      const position = clockPosition(clockRef.current, performance.now());
+      if (position >= last) {
+        clearInterval(timerRef.current!); timerRef.current=null;
+        setIsPlaying(false); setPhaseIdx(last); setInterpT(0); return;
       }
-    }, 30);
-  }, [phases, playSpeed, setPhaseIdx]);
+      const from = Math.floor(position);
+      if (from !== shownFrom) { shownFrom = from; setPhaseIdx(from); }
+      setInterpT(position - from); setInterpFrom(from);
+    }, TICK_MS);
+  }, [phases, setPhaseIdx]);
 
   const stopPlayback = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current=null; }
