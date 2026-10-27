@@ -1,6 +1,6 @@
 'use client';
 import React, {
-  useRef, useState, useEffect, useCallback, useMemo,
+  useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo,
 } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useActiveTactic, getSlot } from '../../store/selectors';
@@ -102,6 +102,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
 
   const { isMobile } = useViewport();
   const zoomCtl = useBoardZoom();
+  const {
+    containerRef: zoomContainerRef, transformStyle: zoomTransformStyle,
+    zoomIn, zoomOut, canZoomIn, canZoomOut, isZoomed, zoom, reset: resetZoom,
+  } = zoomCtl;
 
   // Via ref, slik at nullstillingseffekten under ikke kjører på nytt bare
   // fordi funksjonsidentiteten endrer seg – den skal følge fase og formasjon.
@@ -114,7 +118,10 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
   // isGesturing=true midt i en slik render, og da ble drag blokkert for godt
   // etterpå – uten at noe var galt med selve tilstanden.
   const gestureRef = useRef({ isGesturing: false, spaceHeld: false });
-  gestureRef.current = { isGesturing: zoomCtl.isGesturing, spaceHeld: zoomCtl.spaceHeld };
+  const { isGesturing: zoomGesturing, spaceHeld: zoomSpaceHeld } = zoomCtl;
+  useLayoutEffect(() => {
+    gestureRef.current = { isGesturing: zoomGesturing, spaceHeld: zoomSpaceHeld };
+  }, [zoomGesturing, zoomSpaceHeld]);
 
   // Pekerposisjon → banekoordinater (se useSvgCoordinates).
   const { toSVGRaw, toSVG, clampToPitch } = useSvgCoordinates(svgRef);
@@ -331,7 +338,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
       />}
       <div className={cn('flex-1 min-h-0 overflow-hidden', boardView === '2d' ? 'flex' : 'hidden')} style={isMobile ? { touchAction: 'none' } : undefined}>
         <div
-          ref={zoomCtl.containerRef}
+          ref={zoomContainerRef}
           className="flex-1 min-w-0 h-full flex flex-col items-stretch p-1 overflow-hidden"
           onPointerDownCapture={onZoomPtrDown}
           onPointerMoveCapture={onZoomPtrMove}
@@ -341,7 +348,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
           {/* Zoom er en CSS-transform her, ikke en endring av viewBox – da er
               toSVG uendret, fordi getBoundingClientRect() allerede tar med
               transformen. Se kommentaren i useBoardZoom.ts. */}
-          <div className="flex-1 min-h-0 flex flex-col" style={zoomCtl.transformStyle}>
+          <div className="flex-1 min-h-0 flex flex-col" style={zoomTransformStyle}>
           <svg
             ref={svgRef}
             viewBox={`0 0 ${VW} ${VH}`}
@@ -353,7 +360,7 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
               // en gammel stripe av banen. Bredt brett: høyden begrenser,
               // og tomrommet havner på sidene som før.
               ...PITCH_BOX,
-              cursor: zoomCtl.spaceHeld ? 'grab' : drawMode ? (draw.tool === 'label' ? 'text' : 'crosshair') : 'default',
+              cursor: zoomSpaceHeld ? 'grab' : drawMode ? (draw.tool === 'label' ? 'text' : 'crosshair') : 'default',
               // Pinch håndteres av oss når vi kan zoome, ellers lar vi
               // nettleseren beholde sin vanlige oppførsel.
               touchAction: 'none',
@@ -506,20 +513,20 @@ export const TacticBoard: React.FC<TacticBoardProps> = ({
         <div className="flex-1 min-w-[4px]"/>
 
         {boardView === '2d' && <>
-        <button onClick={zoomCtl.zoomOut} disabled={!zoomCtl.canZoomOut}
+        <button onClick={zoomOut} disabled={!canZoomOut}
           aria-label="Zoom ut" title="Zoom ut" className={iconBtn}>
           <Minus size={16} strokeWidth={1.75} />
         </button>
-        <button onClick={zoomCtl.zoomIn} disabled={!zoomCtl.canZoomIn}
+        <button onClick={zoomIn} disabled={!canZoomIn}
           aria-label="Zoom inn" title="Zoom inn (Ctrl+scroll)" className={iconBtn}>
           <PlusIcon size={16} strokeWidth={1.75} />
         </button>
-        {zoomCtl.isZoomed && (
-          <button onClick={zoomCtl.reset}
+        {isZoomed && (
+          <button onClick={resetZoom}
             aria-label="Nullstill zoom" title="Nullstill zoom"
             className="tap-auto flex-shrink-0 inline-flex items-center gap-1 px-2 min-h-[36px] rounded-ctl
               bg-signal/10 text-signal shadow-hair-signal font-mono text-caption transition-colors">
-            {zoomCtl.zoom.toFixed(1)}× <X size={13} strokeWidth={2} aria-hidden />
+            {zoom.toFixed(1)}× <X size={13} strokeWidth={2} aria-hidden />
           </button>
         )}
 
