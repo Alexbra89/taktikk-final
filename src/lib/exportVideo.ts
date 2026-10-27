@@ -11,7 +11,7 @@ import type { BoardItem, Player, Position, TacticPhase } from '@/types';
 //  resultatet males på et canvas. Canvaset spilles inn med MediaRecorder.
 // ══════════════════════════════════════════════════════════════
 
-/** Samme tempo som ▶: 40 steg à 30 ms per overgang. */
+/** Én overgang ved 1×. Samme tempo som ▶: faseklokka (usePhasePlayback) bruker denne. */
 export const VIDEO_PHASE_MS = 1200;
 /** Litt ekstra på slutten, så siste stilling rekker å bli sett. */
 export const VIDEO_TAIL_MS = 600;
