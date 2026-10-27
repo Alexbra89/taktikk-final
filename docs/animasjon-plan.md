@@ -10,7 +10,7 @@ Alle 153 øvelsene i biblioteket er gått gjennom og sortert i to lister.
   kan vise (vegg, rop, strikk). Også øvelser der ballen ikke kan ende hos en
   spiller, fordi valideringen krever det.
 
-**Totalt: 46 egnet og 107 ikke egnet.** 22 er animert (merket «animert»). Tre er hoppet over foreløpig (merket «hoppet over», med grunnen).
+**Totalt: 46 egnet og 107 ikke egnet.** 35 er animert (merket «animert»). Fire er hoppet over (merket «hoppet over», med grunnen).
 
 Animasjonene ligger i `src/data/drillAnimations/` (én fil per kategori) og
 kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
@@ -29,6 +29,9 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 - Ikke mulig: hender og armer som griper eller bokser, å gå ned på ett kne.
   Spillermodellen har bare stå/jogge/sprinte.
 - Tempo ved 1×: 1,3 s bevegelse og 0,15 s pause per fase.
+- Draktnummeret står på bryst og rygg i 3D; over hodet står bare rollen (A, F, K …).
+- En ekstra ball kan være utstyr som flytter seg fra fase til fase (`moveItems`), når to
+  baller er i spill samtidig. Den glir i rett linje, uten bue.
 
 ### Runde 1, rettet etter gjennomgang
 
@@ -42,6 +45,31 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 - 1 mot 1 kanalforsvar: de to ventende beholdes (parene bytter på, og uten dem
   får ikke 2D-utsnittet plass langs sidelinjen).
 - Firerlinjen: ingen sentring, takling eller keeper står i teksten, så ingen er lagt til.
+
+### Runde 2
+
+- Animert: Fire hjørner, Pasningsfirkant, Pasningsslalåm, Tredjemannsløp,
+  Skyting på mål – stafett, Spill til feilvendt spiss, Føre på løpende rekke i
+  sikk-sakk, Jaktstafett med ball, Prepp'n 4 – Soneforsvar og Pendelløp med ball.
+- Der flere par eller lag jobber samtidig med hver sin ball, vises ett
+  (Pasningsslalåm, Skytestafett, Jaktstafett). I Fire hjørner vises ballen i
+  kombinasjonen; teksten sier ikke hvor den andre ballen er.
+- Spill til feilvendt spiss: teksten gir valget «legge igjen eller vinkle ut på
+  kant»; animasjonen viser kanten, siden kanten må utfordre kjegla og slå innlegg.
+- Hoppet over: Dortmund-firkanten, Føring i sikk sakk, 1 mot 1 – vende, drible
+  og skyte, og Avslutningskonkurranse (grunnen står ved hver øvelse).
+
+### Runde 2, rettet etter gjennomgang
+
+- 1 mot 1 – nærduell og blokk: keeperen rykker ut mens angriperen fører, og går i blokk ca. 5 m ut.
+- Rask hjemjobb: taklingen er en sklitakling (forsvareren går i bakken).
+- Føring i sikk sakk med avslutning og 1 mot 1 – vende, drible og skyte er animert med
+  den andre ballen som utstyr som følger spilleren. Løypa i sikk-sakk-øvelsen er tolket:
+  to kjeglerekker inn mot én kjegle i midten, med målet i enden.
+- Grensen er hevet fra 6 til 8 faser (8 faser er ca. 10 s ved 1×, under 12 s).
+  Avslutningskonkurranse er animert med 8 faser: ballene til spiller 1 og 2 er utstyr som
+  flytter seg, innleggsballen hos spiller 3 er spillballen. «Legger i igjen, så skudd» er
+  tolket som at spiller 2 skyter («de to som har skutt» er 1 og 2).
 
 ## Egnet (46)
 
@@ -82,29 +110,29 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 
 ### Midtbane (7)
 
-- `midtbane-y-04` Fire hjørner – A til B, støttepasning tilbake, vending og pasning til C (to baller).
-- `midtbane-y-05` Pasningsfirkant – pass og følg – pasning til neste kjegle og løp etter ballen.
-- `midtbane-y-06` Dortmund-firkanten – fast rekkefølge mellom A, B og C med løp bak markøren.
-- `midtbane-y-11` Pasningsslalåm – to og to – pasninger frem og tilbake gjennom en slalåmløype.
+- `midtbane-y-04` Fire hjørner – A til B, støttepasning tilbake, vending og pasning til C (to baller). **(animert)**
+- `midtbane-y-05` Pasningsfirkant – pass og følg – pasning til neste kjegle og løp etter ballen. **(animert)**
+- `midtbane-y-06` Dortmund-firkanten – fast rekkefølge mellom A, B og C med løp bak markøren. *(hoppet over: markørene står i to rekker, men det står ikke hvor B sin markør er, som B løper bak)*
+- `midtbane-y-11` Pasningsslalåm – to og to – pasninger frem og tilbake gjennom en slalåmløype. **(animert)**
 - `midtbane-y-14` Pasning til mål – tre hjørner – 1 til 2, 2 til 3, avslutning, alle følger pasningen. **(animert)**
 - `midtbane-a-10` Vendespill – ut av press – A til B, B vender bort fra presset og spiller til C. **(animert)**
-- `midtbane-a-14` Tredjemannsløp – fast kombinasjon: A til B, B legger av til C.
+- `midtbane-a-14` Tredjemannsløp – fast kombinasjon: A til B, B legger av til C. **(animert)**
 
 ### Angrep (5)
 
-- `angrep-y-01` Føring i sikk sakk med avslutning – kjeglerekke, rundt kjegla og avslutning (to baller samtidig).
-- `angrep-y-10` 1 mot 1 – vende, drible og skyte – pasning til midtspiller som vender rundt kjegla og avslutter.
-- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg.
-- `angrep-y-15` Skyting på mål – stafett – føring til en kjegle og skudd på mål.
-- `angrep-a-09` Spill til feilvendt spiss – oppspill, legg igjen til kant, innlegg og duell i boksen.
+- `angrep-y-01` Føring i sikk sakk med avslutning – kjeglerekke, rundt kjegla og avslutning (to baller samtidig). **(animert)**
+- `angrep-y-10` 1 mot 1 – vende, drible og skyte – pasning til midtspiller som vender rundt kjegla og avslutter. **(animert)**
+- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg. **(animert)**
+- `angrep-y-15` Skyting på mål – stafett – føring til en kjegle og skudd på mål. **(animert)**
+- `angrep-a-09` Spill til feilvendt spiss – oppspill, legg igjen til kant, innlegg og duell i boksen. **(animert)**
 
 ### Cardio (5)
 
 - `cardio-y-02` Vendingsstafett – blå og rød kjegle 10 m fra hverandre, føring, vendinger og sentring. **(animert)**
-- `cardio-y-03` Føre på løpende rekke i sikk-sakk – to rekker, føring gjennom sikk-sakk over til den andre siden.
-- `cardio-y-09` Jaktstafett med ball – én fører rundt sløyfen, siste i rekka jager.
-- `cardio-a-02` Prepp'n 4 – Soneforsvar – trener spiller mot en kjegle, én presser og resten skyver mot ballsiden.
-- `cardio-a-10` Pendelløp med ball – føring mellom to kjegler 15–20 m fra hverandre.
+- `cardio-y-03` Føre på løpende rekke i sikk-sakk – to rekker, føring gjennom sikk-sakk over til den andre siden. **(animert)**
+- `cardio-y-09` Jaktstafett med ball – én fører rundt sløyfen, siste i rekka jager. **(animert)**
+- `cardio-a-02` Prepp'n 4 – Soneforsvar – trener spiller mot en kjegle, én presser og resten skyver mot ballsiden. **(animert)**
+- `cardio-a-10` Pendelløp med ball – føring mellom to kjegler 15–20 m fra hverandre. **(animert)**
 
 ### Styrke (0)
 

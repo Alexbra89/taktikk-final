@@ -67,7 +67,9 @@ export class BoardScene {
   private readonly chipKit = { fill: themeColor('--k-signal', '#ff5a36'), fg: themeColor('--k-signal-fg', '#160704') };
   private onManual = () => { this.cameraRig.manual = true; };
 
-  constructor(readonly sport: Sport, readonly playerStyle: PlayerStyle, mobile: boolean, private readonly exportMode = false) {
+  /** `numberOnKit`: animated drills show the shirt number only on the kit, not above the head. */
+  constructor(readonly sport: Sport, readonly playerStyle: PlayerStyle, mobile: boolean, private readonly exportMode = false,
+    private readonly numberOnKit = false) {
     // Offscreen export must retain the rendered pixels until VideoFrame copies them.
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: exportMode });
     this.renderer.setPixelRatio(mobile ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -172,7 +174,7 @@ export class BoardScene {
       const pos = boardToWorld(p.position, this.sport);
       if (!f || f.signature !== signature) {
         const old = f;
-        f = this.figureFactory.figure(kit.fill, String(p.num), p.name, kit.fg, p.label); f.signature = signature;
+        f = this.figureFactory.figure(kit.fill, String(p.num), p.name, kit.fg, p.label, this.numberOnKit); f.signature = signature;
         // A changed name or kit keeps where the figure stands and faces.
         if (old) { f.group.position.copy(old.group.position); f.heading = old.heading; f.group.rotation.y = old.group.rotation.y; this.figureFactory.releaseFigure(old); }
         else f.group.position.set(pos.x, 0, pos.z);

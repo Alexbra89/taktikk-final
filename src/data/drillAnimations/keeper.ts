@@ -137,8 +137,9 @@ const REKKEVIDDE = defineDrillAnimation({
 
 /**
  * keeper-a-01: angriperen starter ca. 20 m fra mål med ball og fører i
- * kontrollert tempo. Keeperen leser touch og avstand. Her vises valget
- * «angriperen er nær: gå i blokk», og keeperen holder posisjonen til skuddet.
+ * kontrollert tempo. Keeperen leser touch og avstand og rykker ut mens
+ * angriperen fører. Her vises valget «angriperen er nær: gå i blokk», ca. 5 m
+ * ut fra mål, og keeperen holder posisjonen til skuddet.
  * Minste antall (3): angriper, keeper og neste angriper som venter.
  */
 const NAERDUELL = defineDrillAnimation({
@@ -159,14 +160,14 @@ const NAERDUELL = defineDrillAnimation({
     },
     {
       name: 'Føring',
-      text: 'Angriperen fører i kontrollert tempo. Keeperen leser touch og avstand.',
-      players: { a: [10, 0] },
+      text: 'Angriperen fører i kontrollert tempo. Keeperen leser touch og avstand, og rykker ut.',
+      players: { a: [10, 0], k: [16.5, 0] },
       ball: { with: 'a', dir: [1, 0] },
     },
     {
       name: 'Blokk',
       text: 'Angriperen er nær, så keeperen går i blokk og gjør seg størst mulig.',
-      players: { a: [13.5, 0], k: [18.5, 0] },
+      players: { a: [12, 0], k: [15.4, 0] },
       ball: { with: 'a', dir: [1, 0] },
     },
     {

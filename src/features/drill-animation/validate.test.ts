@@ -4,6 +4,7 @@ import { ALL_DRILL_ANIMATIONS, getDrillAnimation, hasDrillAnimation } from '@/da
 import { KEEPER_ANIMATIONS } from '@/data/drillAnimations/keeper';
 import { FORSVAR_ANIMATIONS } from '@/data/drillAnimations/forsvar';
 import { MIDTBANE_ANIMATIONS } from '@/data/drillAnimations/midtbane';
+import { ANGREP_ANIMATIONS } from '@/data/drillAnimations/angrep';
 import { CARDIO_ANIMATIONS } from '@/data/drillAnimations/cardio';
 import { validateDrillAnimation, ballInGoal, closestGap } from './validate';
 import { defineDrillAnimation, metresToBoard, type AnimationSpec } from './define';
@@ -25,7 +26,7 @@ describe('alle animasjonene', () => {
   });
 
   it('ligger i filen for øvelsens kategori', () => {
-    const files = { keeper: KEEPER_ANIMATIONS, forsvar: FORSVAR_ANIMATIONS, midtbane: MIDTBANE_ANIMATIONS, cardio: CARDIO_ANIMATIONS };
+    const files = { keeper: KEEPER_ANIMATIONS, forsvar: FORSVAR_ANIMATIONS, midtbane: MIDTBANE_ANIMATIONS, angrep: ANGREP_ANIMATIONS, cardio: CARDIO_ANIMATIONS };
     for (const [category, animations] of Object.entries(files)) {
       for (const animation of animations) {
         expect(ALL_DRILLS.find(d => d.id === animation.drillId)?.category).toBe(category);
@@ -71,11 +72,11 @@ describe('valideringen', () => {
     expect(errorsOf(defineDrillAnimation({ ...spec(), drillId: 'finnes-ikke' })).join()).toMatch(/finnes ikke/);
   });
 
-  it('krever 3–6 faser', () => {
+  it('krever 3–8 faser', () => {
     const s = spec();
     expect(errorsOf(defineDrillAnimation({ ...s, phases: s.phases.slice(0, 2) })).join()).toMatch(/2 faser/);
-    const many = [...s.phases, ...s.phases, s.phases[2]];
-    expect(errorsOf(defineDrillAnimation({ ...s, phases: many })).join()).toMatch(/7 faser/);
+    const many = [...s.phases, ...s.phases, ...s.phases];
+    expect(errorsOf(defineDrillAnimation({ ...s, phases: many })).join()).toMatch(/9 faser/);
   });
 
   it('krever tekst på hver fase', () => {
@@ -199,5 +200,32 @@ describe('«Ser noe feil ut?»', () => {
     expect(link.startsWith('mailto:trener@example.com?subject=')).toBe(true);
     expect(decodeURIComponent(link)).toContain('Feil i animert øvelse: Bryteren (komme foran)');
     expect(decodeURIComponent(link)).toContain('Fase: 2 av 4');
+  });
+});
+
+describe('utstyr som flytter seg (moveItems)', () => {
+  const twoBalls = (): AnimationSpec => ({
+    ...spec(),
+    items: [{ id: 'ball-2', type: 'ball', at: [0, 5] }],
+    phases: [
+      { name: 'En', text: 'A har ballen.', players: { a: [-5, 0], b: [5, 0] }, ball: { with: 'a' } },
+      { name: 'To', text: 'A spiller til B; den andre ballen ruller.', players: {}, ball: { with: 'b', dir: [-1, 0] }, moveItems: { 'ball-2': [6, 5] } },
+      { name: 'Tre', text: 'B fører.', players: { b: [8, 2] }, ball: { with: 'b' } },
+    ],
+  });
+
+  it('flytter utstyret i fasen og lar det stå der etterpå', () => {
+    const animation = defineDrillAnimation(twoBalls());
+    const at = (i: number) => animation.phases[i].items!.find(item => item.id === 'ball-2')!.position;
+    expect(at(0)).toEqual(metresToBoard('football5', [0, 5]));
+    expect(at(1)).toEqual(metresToBoard('football5', [6, 5]));
+    expect(at(2)).toEqual(at(1));
+    expect(validateDrillAnimation(animation, DRILL_IDS)).toEqual([]);
+  });
+
+  it('stopper en flytting av utstyr som ikke finnes', () => {
+    const s = twoBalls();
+    s.phases[1].moveItems = { finnes: [1, 1] };
+    expect(() => defineDrillAnimation(s)).toThrow(/«finnes» flyttes, men finnes ikke/);
   });
 });

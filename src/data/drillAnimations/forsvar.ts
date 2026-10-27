@@ -210,7 +210,8 @@ const TALMODIGHETEN = defineDrillAnimation({
  * forsvar-y-06: angriperen starter 20 m fra mål, forsvareren 3 m bak og litt
  * til siden. Treneren triller ballen frem til angriperen, som løper mot mål.
  * Forsvareren spurter tilbake, kommer inn på rett side (mellom angriper og
- * mål) og tar ballen rent.
+ * mål) og tar ballen rent. Taklingen vises som en sklitakling (forsvareren
+ * går i bakken), slik at den synes.
  * Minste antall (4): ett par om gangen, det andre paret venter. Pluss treneren.
  */
 const RASK_HJEMJOBB = defineDrillAnimation({
@@ -251,9 +252,10 @@ const RASK_HJEMJOBB = defineDrillAnimation({
     },
     {
       name: 'Takling',
-      text: 'Forsvareren går inn og tar ballen rent (eller presser den over dødlinjen).',
-      highlight: 'Ren takling!',
+      text: 'Forsvareren går i bakken i en takling og tar ballen rent (eller presser den over dødlinjen).',
+      highlight: 'Sklitakling!',
       kick: 'tackle',
+      dive: ['f'],
       players: { a: [20.6, -0.4], f: [23.4, 0.5] },
       ball: { with: 'f', dir: [1, 1] },
     },

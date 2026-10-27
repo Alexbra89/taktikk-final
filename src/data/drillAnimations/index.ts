@@ -5,12 +5,14 @@ import type { DrillAnimation } from '@/features/drill-animation/types';
 import { KEEPER_ANIMATIONS } from './keeper';
 import { FORSVAR_ANIMATIONS } from './forsvar';
 import { MIDTBANE_ANIMATIONS } from './midtbane';
+import { ANGREP_ANIMATIONS } from './angrep';
 import { CARDIO_ANIMATIONS } from './cardio';
 
 export const ALL_DRILL_ANIMATIONS: DrillAnimation[] = [
   ...KEEPER_ANIMATIONS,
   ...FORSVAR_ANIMATIONS,
   ...MIDTBANE_ANIMATIONS,
+  ...ANGREP_ANIMATIONS,
   ...CARDIO_ANIMATIONS,
 ];
 

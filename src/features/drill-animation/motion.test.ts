@@ -192,6 +192,19 @@ describe('slenging, fanget ball og boksing', () => {
     expect(drillMotion(animation, 0, 0, false).players.find(p => p.id === 's')!.pose).toBeUndefined();
   });
 
+  it('en utespiller i sklitakling legger seg langs glidet med beina først', () => {
+    const animation = getDrillAnimation('forsvar-y-06')!;
+    const last = animation.phases.length - 1;
+    const f = drillMotion(animation, last, 0, false).players.find(p => p.id === 'f')!;
+    const before = animation.phases[last - 1].players.find(p => p.id === 'f')!.position;
+    const after = animation.phases[last].players.find(p => p.id === 'f')!.position;
+    const slide = { x: after.x - before.x, y: after.y - before.y };
+    expect(f.pose!.lean).toBe(1);
+    // Hodet faller bakover (mot glidet), og figuren vender på tvers av det.
+    expect(f.pose!.dive.x * slide.x + f.pose!.dive.y * slide.y).toBeLessThan(0);
+    expect(Math.abs(f.pose!.face.x * slide.x + f.pose!.face.y * slide.y)).toBeLessThan(1e-6);
+  });
+
   it('melder boksing før siste fase, fanget ball uten ballholder og ukjent spiller som slenger seg', () => {
     const s = keeper();
     s.phases[1].kick = 'punch';
