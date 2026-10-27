@@ -231,6 +231,34 @@ test('bare øvelser med animasjon har knappen', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Se animert', exact: true })).toHaveCount(0);
 });
 
+test('øvelseslista viser hvilke øvelser som har animasjon, og kan vise bare dem', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Øvelser', exact: true }).click();
+  await page.getByRole('button', { name: 'Barn', exact: true }).click();
+  const heading = (name: RegExp) => page.getByRole('heading', { level: 3, name });
+  // Ikonet står i tittelen på øvelser med animasjon, ikke på andre.
+  await expect(heading(/Bryteren/).getByRole('img', { name: 'Har animasjon' })).toBeVisible();
+  await expect(heading(/Kjeglejakten/).getByRole('img', { name: 'Har animasjon' })).toHaveCount(0);
+
+  const filter = page.getByRole('button', { name: 'Vis bare animerte', exact: true });
+  await filter.click();
+  await expect(filter).toHaveAttribute('aria-pressed', 'true');
+  await expect(heading(/Kjeglejakten/)).toHaveCount(0);
+  const rows = page.getByRole('heading', { level: 3 }).filter({ has: page.getByRole('img', { name: 'Har animasjon' }) });
+  const all = page.locator('h3');
+  await expect(rows.first()).toBeVisible();
+  expect(await rows.count()).toBe(await all.count());
+  expect(await rows.count()).toBeGreaterThan(10);
+
+  // Mobil: ikonet står på samme linje som tittelen, og lista ruller ikke sidelengs.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(heading(/Bryteren/).getByRole('img', { name: 'Har animasjon' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: path.join(SHOTS, 'ovelseslista-animerte-390x844.png') });
+  await filter.click();
+  await expect(heading(/Kjeglejakten/)).toBeVisible();
+});
+
 /** Vindusstørrelsene brukeren testet på PC og mobil. */
 const viewports = [
   { name: '1890x960', width: 1890, height: 960 },

@@ -11,7 +11,7 @@ import type { DrillExercise, DrillCategory, DrillAgeBand, DrillDifficulty } from
 import {
   Hand, Shield, Shuffle, Zap, HeartPulse, Dumbbell,
   Clock, Users, Cake, Package, Calendar, Check, ChevronLeft,
-  AlertTriangle, CircleDot, X, Goal, type LucideIcon,
+  AlertTriangle, CircleDot, X, Goal, Film, type LucideIcon,
 } from 'lucide-react';
 import {
   Card, SectionLabel, Button, IconButton, Badge, Meta,
@@ -21,10 +21,14 @@ import { hasSketch } from '@/components/board/SketchPreview';
 import { ViewHeader } from '@/components/layout/Surface';
 import { AI_DRILL_LABEL, emptyDrill } from '@/lib/customDrills';
 import { DrillAnimationButton } from '@/features/drill-animation/DrillAnimationButton';
+import { hasDrillAnimation } from '@/data/drillAnimations';
 import { DrillEditor } from './DrillEditor';
 import { AiDrillModal } from './AiDrillModal';
 
 type ViewMode = 'browse' | 'detail';
+
+/** Øvelsen har en animasjon («Se animert»). Egne øvelser har aldri det. */
+const isAnimated = (drill: DrillExercise) => !drill.isCustom && hasDrillAnimation(drill.id);
 type AgeGroup = 'youth' | 'adult';
 
 const CATEGORIES: DrillCategory[] = ['keeper', 'forsvar', 'midtbane', 'angrep', 'cardio', 'styrke'];
@@ -140,6 +144,11 @@ const DrillRow: React.FC<{
               <Goal size={14} strokeWidth={1.75} aria-label="Har skisse av oppsettet"
                 className="inline-block mr-1 -mt-0.5 text-ink-faint" />
             )}
+            {/* Markerer at øvelsen kan ses animert («Se animert»). */}
+            {isAnimated(drill) && (
+              <Film size={14} strokeWidth={1.75} role="img" aria-label="Har animasjon"
+                className="inline-block mr-1 -mt-0.5 text-signal" />
+            )}
             {drill.name}
           </h3>
           <Badge tone={DIFFICULTY_TONE[drill.difficulty]} className="mt-0.5">
@@ -186,6 +195,7 @@ export const DrillsView: React.FC<{
   const [aiRequest, setAiRequest] = useState<{ baseDrill?: DrillExercise } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [mineOnly, setMineOnly] = useState(false);
+  const [animatedOnly, setAnimatedOnly] = useState(false);
 
   // Starter på appens aldersgruppe, men kan byttes lokalt i biblioteket.
   const [ageGroup, setAgeGroup]                 = useState<AgeGroup>(storeAgeGroup);
@@ -219,17 +229,19 @@ export const DrillsView: React.FC<{
   const categoryCounts = useMemo(() => {
     const counts = {} as Record<DrillCategory, number>;
     CATEGORIES.forEach(cat => {
-      counts[cat] = allDrills.filter(d => d.category === cat && d.ageGroup === ageGroup && (!mineOnly || d.isCustom)).length;
+      counts[cat] = allDrills.filter(d => d.category === cat && d.ageGroup === ageGroup && (!mineOnly || d.isCustom)
+        && (!animatedOnly || isAnimated(d))).length;
     });
     return counts;
-  }, [ageGroup, allDrills, mineOnly]);
+  }, [ageGroup, allDrills, mineOnly, animatedOnly]);
 
   // Ukens anbefalte øvelser: én fra hver av fire kategorier, roterer med ukenummer
   const weeklyDrills = useMemo(() => getWeeklyDrills(ageGroup), [ageGroup]);
 
   const filteredDrills = useMemo(() => {
     let drills = allDrills.filter(d => d.ageGroup === ageGroup &&
-      (activeCategory === 'alle' || d.category === activeCategory) && (!mineOnly || d.isCustom));
+      (activeCategory === 'alle' || d.category === activeCategory) && (!mineOnly || d.isCustom)
+      && (!animatedOnly || isAnimated(d)));
 
     if (ageBand !== 'alle') {
       drills = drills.filter(d => d.ageBand.includes(ageBand));
@@ -248,13 +260,14 @@ export const DrillsView: React.FC<{
     }
 
     return drills;
-  }, [activeCategory, ageGroup, ageBand, difficultyFilter, searchQuery, allDrills, mineOnly]);
+  }, [activeCategory, ageGroup, ageBand, difficultyFilter, searchQuery, allDrills, mineOnly, animatedOnly]);
 
   const hasFilters = activeCategory !== 'alle' || ageBand !== 'alle'
-    || difficultyFilter !== 'alle' || searchQuery.trim() !== '' || mineOnly;
+    || difficultyFilter !== 'alle' || searchQuery.trim() !== '' || mineOnly || animatedOnly;
 
   function resetFilters() {
     setMineOnly(false);
+    setAnimatedOnly(false);
     setActiveCategory('alle');
     setAgeBand('alle');
     setDifficultyFilter('alle');
@@ -617,6 +630,9 @@ export const DrillsView: React.FC<{
         {/* Rad 3: kategori */}
         <FilterRow>
           <FilterChip active={mineOnly} onClick={() => setMineOnly(v => !v)}>Mine øvelser</FilterChip>
+          <FilterChip active={animatedOnly} onClick={() => setAnimatedOnly(v => !v)}>
+            <Film size={12} strokeWidth={1.75} aria-hidden /> Vis bare animerte
+          </FilterChip>
           <FilterChip active={activeCategory === 'alle'} accent="neutral" onClick={() => setActiveCategory('alle')}>
             Alle
           </FilterChip>
