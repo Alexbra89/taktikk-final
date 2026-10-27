@@ -23,6 +23,13 @@ export type Metres = readonly [number, number];
  */
 export type BallSpec = Metres | { with: string; dir?: Metres } | { goal: 'left' | 'right' };
 
+/**
+ * Ny plass for utstyr: et punkt i meter, eller (for en ekstra ball) hos en
+ * spiller, litt foran i retningen `dir`. En ball hos en spiller følger
+ * spilleren i de neste fasene, til en senere fase flytter den igjen.
+ */
+export type ItemMove = Metres | { with: string; dir?: Metres };
+
 export interface PhaseSpec {
   name: string;
   text: string;
@@ -43,7 +50,13 @@ export interface PhaseSpec {
    * ball når to baller er i spill samtidig. Det glir i rett linje, som spillerne,
    * og blir stående der til en senere fase flytter det igjen.
    */
-  moveItems?: Record<string, Metres>;
+  moveItems?: Record<string, ItemMove>;
+  /**
+   * Ekstra baller (utstyr) som spilles på vei inn i fasen (id → slag), når
+   * flere baller er i spill samtidig. Ballen holdes av spilleren som har den,
+   * og reiser så til der moveItems legger den, som hovedballen gjør.
+   */
+  kickItems?: Record<string, Kick>;
 }
 
 export interface AnimationSpec {
@@ -122,15 +135,10 @@ export function defineDrillAnimation(spec: AnimationSpec): DrillAnimation {
   }));
 
   const previous = new Map<string, Position>();
+  /** Ekstra baller som følger en spiller (id → spilleren og retningen). */
+  const attached = new Map<string, { with: string; dir?: Metres }>();
   let phaseItems = items;
   const phases = spec.phases.map((phase, index): DrillAnimationPhase => {
-    const moves = phase.moveItems ?? {};
-    for (const id of Object.keys(moves)) {
-      if (!items.some(item => item.id === id)) throw new Error(`${spec.drillId}: «${id}» flyttes, men finnes ikke i utstyret.`);
-    }
-    if (Object.keys(moves).length) {
-      phaseItems = phaseItems.map(item => moves[item.id] ? { ...item, position: metresToBoard(spec.sport, moves[item.id]) } : item);
-    }
     const players: Player[] = [];
     ids.forEach((id, i) => {
       const at = phase.players[id];
@@ -140,6 +148,23 @@ export function defineDrillAnimation(spec: AnimationSpec): DrillAnimation {
       previous.set(id, position);
       players.push({ id, num: i + 1, name: '', slotIdx: slots[id], position, notes: '' });
     });
+
+    const moves = phase.moveItems ?? {};
+    const moved = new Map<string, Position>();
+    for (const [id, move] of Object.entries(moves)) {
+      if (!items.some(item => item.id === id)) throw new Error(`${spec.drillId}: «${id}» flyttes, men finnes ikke i utstyret.`);
+      if (isMetres(move)) { attached.delete(id); moved.set(id, metresToBoard(spec.sport, move)); }
+      else if (!ids.includes(move.with)) throw new Error(`${spec.drillId}: «${id}» skal være hos «${move.with}», som ikke står i rollelista.`);
+      else attached.set(id, move);
+    }
+    const itemsWith: Record<string, string> = {};
+    for (const [id, move] of attached) {
+      moved.set(id, ballPosition(move, spec.sport, players));
+      itemsWith[id] = move.with;
+    }
+    if (moved.size) {
+      phaseItems = phaseItems.map(item => moved.has(item.id) ? { ...item, position: moved.get(item.id)! } : item);
+    }
     return {
       id: `${spec.drillId}-fase-${index + 1}`,
       name: phase.name,
@@ -155,6 +180,8 @@ export function defineDrillAnimation(spec: AnimationSpec): DrillAnimation {
       ...(phase.turn ? { turn: true } : {}),
       ...(phase.dive?.length ? { dive: [...phase.dive] } : {}),
       ...(phase.held ? { held: true } : {}),
+      ...(phase.kickItems && Object.keys(phase.kickItems).length ? { itemKicks: { ...phase.kickItems } } : {}),
+      ...(Object.keys(itemsWith).length ? { itemsWith } : {}),
     };
   });
 

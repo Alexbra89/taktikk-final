@@ -10,7 +10,7 @@ Alle 153 øvelsene i biblioteket er gått gjennom og sortert i to lister.
   kan vise (vegg, rop, strikk). Også øvelser der ballen ikke kan ende hos en
   spiller, fordi valideringen krever det.
 
-**Totalt: 46 egnet og 107 ikke egnet.** 35 er animert (merket «animert»). Fire er hoppet over (merket «hoppet over», med grunnen).
+**Totalt: 46 egnet og 107 ikke egnet.** 38 er animert (merket «animert»). Én er hoppet over (merket «hoppet over», med grunnen).
 
 Animasjonene ligger i `src/data/drillAnimations/` (én fil per kategori) og
 kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
@@ -30,8 +30,9 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
   Spillermodellen har bare stå/jogge/sprinte.
 - Tempo ved 1×: 1,3 s bevegelse og 0,15 s pause per fase.
 - Draktnummeret står på bryst og rygg i 3D; over hodet står bare rollen (A, F, K …).
-- En ekstra ball kan være utstyr som flytter seg fra fase til fase (`moveItems`), når to
-  baller er i spill samtidig. Den glir i rett linje, uten bue.
+- Flere baller samtidig: de ekstra ballene er utstyr (`moveItems`). En ekstra ball kan
+  ligge fritt, være hos en spiller (`{ with }`, følger spilleren) og spilles (`kickItems`:
+  holdes til slaget og reiser så, som hovedballen). Den reiser langs bakken, uten bue i 3D.
 
 ### Runde 1, rettet etter gjennomgang
 
@@ -62,7 +63,8 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 ### Runde 2, rettet etter gjennomgang
 
 - 1 mot 1 – nærduell og blokk: keeperen rykker ut mens angriperen fører, og går i blokk ca. 5 m ut.
-- Rask hjemjobb: taklingen er en sklitakling (forsvareren går i bakken).
+- Rask hjemjobb: taklingen er en sklitakling (forsvareren går i bakken). Rettet senere:
+  se «Fiks fire småting».
 - Føring i sikk sakk med avslutning og 1 mot 1 – vende, drible og skyte er animert med
   den andre ballen som utstyr som følger spilleren. Løypa i sikk-sakk-øvelsen er tolket:
   to kjeglerekker inn mot én kjegle i midten, med målet i enden.
@@ -71,18 +73,32 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
   flytter seg, innleggsballen hos spiller 3 er spillballen. «Legger i igjen, så skudd» er
   tolket som at spiller 2 skyter («de to som har skutt» er 1 og 2).
 
+### Fiks fire småting
+
+- Rask hjemjobb: taklingen er stående igjen (ingen sklitakling). Forsvareren går inn i
+  ballen, tar den og fører den bort.
+- Mobil i stående modus: 2D viser alltid hele banen og hele øvelsen; draktene beholder
+  fast skjermstørrelse. 3D viste allerede hele øvelsen.
+- Øvelseslista: et lite filmikon ved tittelen på øvelser med animasjon, og filteret
+  «Vis bare animerte».
+- Motoren støtter flere baller samtidig (se over), og de tre keeperøvelsene som ble hoppet
+  over, er animert: Grep og fall – to og to (8 faser, én ball: fire skudd og tre returer),
+  Skift av akse og skyv (trenerens ball blir liggende etter berøringen; teksten sier ikke
+  hvor den går) og Parade og redd (første ball styres ut og blir liggende, den andre fanges;
+  teksten sier «fanger eller styrer»).
+
 ## Egnet (46)
 
 ### Keeper (12)
 
 - `keeper-y-02` Ballskjoldet – trener triller ballen fra 8 m, keeperen rykker frem og griper. **(animert)**
 - `keeper-y-03` Katt og mus i feltet – servitør, angriper og keeper har faste plasser i skissen; innlegget fanges. **(animert)**
-- `keeper-y-06` Grep og fall – to og to – fast rekkefølge med fire skudd fra én skytter (må samles i maks seks faser). *(hoppet over: fire skudd og tre returer er åtte ballbevegelser, mer enn seks faser)*
+- `keeper-y-06` Grep og fall – to og to – fast rekkefølge med fire skudd fra én skytter. **(animert)**
 - `keeper-y-08` Rekkevidde og skyv – trener kaster fra 5–6 m mot sidene, keeperen skyver fra. **(animert)**
 - `keeper-a-01` 1 mot 1 – nærduell og blokk – angriperen fører fra 20 m; teksten beskriver valgene keeperen har. **(animert)**
 - `keeper-a-02` Reaksjon på kort hold – to dukker 11 m ut, skytter 16 m ut som skyter mellom dem. **(animert)**
-- `keeper-a-03` Skift av akse og skyv – fast rekkefølge: rull, forflytning, skudd mot lange hjørne (to baller). *(hoppet over: den første ballen ender ikke hos noen før skuddet med den andre ballen)*
-- `keeper-a-05` Parade og redd – to trenere på hver sin side skyter etter hverandre (to baller). *(hoppet over: andre skudd kommer med en ny ball, og brettet har én ball)*
+- `keeper-a-03` Skift av akse og skyv – fast rekkefølge: rull, forflytning, skudd mot lange hjørne (to baller). **(animert)**
+- `keeper-a-05` Parade og redd – to trenere på hver sin side skyter etter hverandre (to baller). **(animert)**
 - `keeper-a-07` Felt-duellen – innlegg mot 5-meteren med en forsvarer og en angriper foran keeperen. **(animert)**
 - `keeper-a-08` Reaksjon via avbøyning – skudd fra 16 m mot en medspiller 8–10 m ut som avbøyer. **(animert)**
 - `keeper-a-09` Feltkommando etter løp – kjeglerekke, innlegg fra siden og duell i 5-meteren i fast rekkefølge. **(animert)**

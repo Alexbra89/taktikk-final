@@ -169,6 +169,20 @@ test('mobil og fullskjerm: banen, teksten og kontrollene får plass', async ({ p
   expect(box.width).toBeGreaterThanOrEqual(388);
   const pitch = (await dialog.getByTestId('drill-animation-pitch').boundingBox())!;
   expect(pitch.width).toBeGreaterThan(300);
+  // Stående mobil: hele banen (gresset 0–880 × 0–560) synes, ikke bare et utsnitt av den.
+  await nextFrames(page);
+  const whole = await dialog.evaluate(root => {
+    const svg = root.querySelector<SVGSVGElement>('[data-testid="drill-animation-pitch"]')!;
+    const area = root.querySelector('[data-testid="drill-animation-area"]')!.getBoundingClientRect();
+    const ctm = svg.getScreenCTM()!;
+    const a = new DOMPoint(0, 0).matrixTransform(ctm), b = new DOMPoint(880, 560).matrixTransform(ctm);
+    return { left: a.x - area.left, top: a.y - area.top, right: b.x - area.left, bottom: b.y - area.top, width: area.width, height: area.height };
+  });
+  expect(whole.left).toBeGreaterThanOrEqual(-.5);
+  expect(whole.top).toBeGreaterThanOrEqual(-.5);
+  expect(whole.right).toBeLessThanOrEqual(whole.width + .5);
+  expect(whole.bottom).toBeLessThanOrEqual(whole.height + .5);
+  expect(await hiddenParts(dialog)).toEqual([]);
   for (const name of ['Spill av', 'Forrige fase', 'Neste fase']) {
     await expect(dialog.getByRole('button', { name, exact: true })).toBeInViewport();
   }
@@ -215,6 +229,34 @@ test('bare øvelser med animasjon har knappen', async ({ page }) => {
   await page.getByRole('heading', { level: 3, name: /Kjeglejakten/ }).click();
   await expect(page.getByRole('heading', { level: 1, name: /Kjeglejakten/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Se animert', exact: true })).toHaveCount(0);
+});
+
+test('øvelseslista viser hvilke øvelser som har animasjon, og kan vise bare dem', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Hovedmeny' }).getByRole('button', { name: 'Øvelser', exact: true }).click();
+  await page.getByRole('button', { name: 'Barn', exact: true }).click();
+  const heading = (name: RegExp) => page.getByRole('heading', { level: 3, name });
+  // Ikonet står i tittelen på øvelser med animasjon, ikke på andre.
+  await expect(heading(/Bryteren/).getByRole('img', { name: 'Har animasjon' })).toBeVisible();
+  await expect(heading(/Kjeglejakten/).getByRole('img', { name: 'Har animasjon' })).toHaveCount(0);
+
+  const filter = page.getByRole('button', { name: 'Vis bare animerte', exact: true });
+  await filter.click();
+  await expect(filter).toHaveAttribute('aria-pressed', 'true');
+  await expect(heading(/Kjeglejakten/)).toHaveCount(0);
+  const rows = page.getByRole('heading', { level: 3 }).filter({ has: page.getByRole('img', { name: 'Har animasjon' }) });
+  const all = page.locator('h3');
+  await expect(rows.first()).toBeVisible();
+  expect(await rows.count()).toBe(await all.count());
+  expect(await rows.count()).toBeGreaterThan(10);
+
+  // Mobil: ikonet står på samme linje som tittelen, og lista ruller ikke sidelengs.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(heading(/Bryteren/).getByRole('img', { name: 'Har animasjon' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: path.join(SHOTS, 'ovelseslista-animerte-390x844.png') });
+  await filter.click();
+  await expect(heading(/Kjeglejakten/)).toBeVisible();
 });
 
 /** Vindusstørrelsene brukeren testet på PC og mobil. */

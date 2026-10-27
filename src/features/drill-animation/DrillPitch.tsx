@@ -142,10 +142,12 @@ function phaseKeyframes(animation: DrillAnimation, from: number, kitScale: numbe
       (tracks[`trail:${line}`] ??= []).push({ offset, transform });
     }
   }
+  // Ekstra baller som spilles inn i neste fase, holdes og reiser: de beholder alle bildene.
+  const kicked = new Set(Object.keys(animation.phases[from + 1]?.itemKicks ?? {}).map(id => `item:${id}`));
   for (const key in tracks) {
     const frames = tracks[key];
     // Straight lines need only their ends; a figure that tips over (rotate) keeps every sample.
-    const linear = key.startsWith('player:') ? !frames.some(f => String(f.transform).includes('rotate(')) : /^(badge|item|label):/.test(key);
+    const linear = key.startsWith('player:') ? !frames.some(f => String(f.transform).includes('rotate(')) : /^(badge|item|label):/.test(key) && !kicked.has(key);
     if (linear) tracks[key] = [frames[0], frames[1], frames[frames.length - 1]];
   }
   return { tracks, flightAt };

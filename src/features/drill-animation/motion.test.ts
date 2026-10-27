@@ -46,7 +46,10 @@ describe('ballen i overgangene', () => {
           const arc = Math.max(...frames.map(f => f.ballHeight)) - base;
           if (kick === 'pass' || kick === 'tackle') expect(arc).toBeLessThanOrEqual(0);
           if (kick === 'cross') { expect(arc).toBeGreaterThan(0.5); expect(arc).toBeLessThanOrEqual(3); }
-          if (kick === 'shot' || kick === 'deflect') { expect(arc).toBeGreaterThan(0.1); expect(arc).toBeLessThan(1); }
+          // Et skudd går i en lav bue over streken mellom start- og slutthøyden (også inn i hendene i brysthøyde).
+          const startHeight = drillMotion(animation, from, 0, false).ballHeight;
+          const lift = Math.max(...flying.map(f => f.ballHeight - (startHeight + (arrived.ballHeight - startHeight) * f.flight!.progress)));
+          if (kick === 'shot' || kick === 'deflect') { expect(lift).toBeGreaterThan(0.1); expect(lift).toBeLessThan(1); }
           if (kick === 'high' || kick === 'punch') expect(arc).toBeGreaterThan(4);
           expect(end.ballHeight).toBeCloseTo(arrived.ballHeight, 6);
         });
@@ -193,16 +196,33 @@ describe('slenging, fanget ball og boksing', () => {
   });
 
   it('en utespiller i sklitakling legger seg langs glidet med beina først', () => {
-    const animation = getDrillAnimation('forsvar-y-06')!;
-    const last = animation.phases.length - 1;
-    const f = drillMotion(animation, last, 0, false).players.find(p => p.id === 'f')!;
-    const before = animation.phases[last - 1].players.find(p => p.id === 'f')!.position;
-    const after = animation.phases[last].players.find(p => p.id === 'f')!.position;
-    const slide = { x: after.x - before.x, y: after.y - before.y };
+    const animation = defineDrillAnimation({
+      drillId: 'forsvar-y-06', name: 'Test', sport: 'football7',
+      cast: { a: { label: 'A', family: 'att' }, f: { label: 'F', family: 'def' } },
+      phases: [
+        { name: 'En', text: 'A har ballen.', players: { a: [10, 0], f: [15, 0.6] }, ball: { with: 'a' } },
+        { name: 'To', text: 'F sklir inn.', kick: 'tackle', dive: ['f'], players: { f: [13, 0.4] }, ball: { with: 'f', dir: [0.5, 1] } },
+        { name: 'Tre', text: 'F ligger.', dive: ['f'], players: {}, ball: { with: 'f', dir: [0.5, 1] } },
+      ],
+    });
+    // Helt ferdig med glidet inn i fase 2.
+    const f = drillMotion(animation, 0, 1, true).players.find(p => p.id === 'f')!;
+    const slide = { x: animation.phases[1].players[1].position.x - animation.phases[0].players[1].position.x,
+      y: animation.phases[1].players[1].position.y - animation.phases[0].players[1].position.y };
     expect(f.pose!.lean).toBe(1);
     // Hodet faller bakover (mot glidet), og figuren vender på tvers av det.
     expect(f.pose!.dive.x * slide.x + f.pose!.dive.y * slide.y).toBeLessThan(0);
     expect(Math.abs(f.pose!.face.x * slide.x + f.pose!.face.y * slide.y)).toBeLessThan(1e-6);
+  });
+
+  it('Rask hjemjobb: stående takling – forsvareren vinner ballen uten å gå i bakken', () => {
+    const animation = getDrillAnimation('forsvar-y-06')!;
+    expect(animation.phases.some(p => p.dive?.length)).toBe(false);
+    const tackle = animation.phases.findIndex(p => p.kick === 'tackle');
+    expect(holderOf(animation.phases[tackle - 1])?.id).toBe('a');
+    expect(holderOf(animation.phases[tackle])?.id).toBe('f');
+    expect(holderOf(animation.phases.at(-1)!)?.id).toBe('f');
+    expect(drillMotion(animation, tackle, 0, false).players.every(p => !p.pose)).toBe(true);
   });
 
   it('melder boksing før siste fase, fanget ball uten ballholder og ukjent spiller som slenger seg', () => {
@@ -214,5 +234,91 @@ describe('slenging, fanget ball og boksing', () => {
     expect(errors).toMatch(/Fase 2: en boksing avslutter øvelsen/);
     expect(errors).toMatch(/Fase 2: «x» slenger seg, men står ikke i rollelista/);
     expect(errors).toMatch(/Fase 3: ballen er fanget, men ingen har den/);
+  });
+});
+
+describe('flere baller samtidig', () => {
+  const spec = (): AnimationSpec => ({
+    drillId: 'keeper-a-05',
+    name: 'Test',
+    sport: 'football',
+    cast: { a: { label: 'A', family: 'mid' }, b: { label: 'B', family: 'mid' }, k: { label: 'K', family: 'gk' } },
+    items: [{ id: 'ball-a', type: 'ball', at: [44, -5] }, { id: 'ball-c', type: 'ball', at: [40, 10] }],
+    phases: [
+      { name: 'En', text: 'A og B har hver sin ball; en tredje ligger.', players: { a: [44, -5], b: [44, 5], k: [51.8, 0] },
+        ball: { with: 'b' }, moveItems: { 'ball-a': { with: 'a' } } },
+      { name: 'To', text: 'A skyter.', players: { k: [51.8, -2.8] }, ball: { with: 'b' },
+        kickItems: { 'ball-a': 'shot' }, moveItems: { 'ball-a': { with: 'k', dir: [0, -1] } } },
+      { name: 'Tre', text: 'K styrer ut; B fører.', players: { k: [51.8, -1], b: [46, 5] }, ball: { with: 'b' },
+        kickItems: { 'ball-a': 'deflect' }, moveItems: { 'ball-a': [49.5, -8.1] } },
+    ],
+  });
+  const ballA = (f: { items: { id: string; position: Position }[] }) => f.items.find(i => i.id === 'ball-a')!.position;
+
+  it('en ekstra ball holdes til skuddet, reiser synlig og ender hos keeperen', () => {
+    const animation = defineDrillAnimation(spec());
+    expect(validateDrillAnimation(animation, DRILL_IDS)).toEqual([]);
+    const frames = STEPS.map(t => drillMotion(animation, 0, t, true));
+    frames.filter((_, i) => STEPS[i] <= kickAt('shot')).forEach(f => {
+      expect(dist(ballA(f), f.players.find(p => p.id === 'a')!.position)).toBeLessThanOrEqual(BALL_REACH);
+    });
+    const travelling = frames.filter((f, i) => STEPS[i] > kickAt('shot') && STEPS[i] < 1);
+    expect(new Set(travelling.map(f => ballA(f).x.toFixed(2))).size).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < frames.length; i++) expect(dist(ballA(frames[i]), ballA(frames[i - 1]))).toBeLessThan(60);
+    expect(ballA(frames.at(-1)!)).toEqual(ballA(drillMotion(animation, 1, 0, false)));
+    expect(dist(ballA(frames.at(-1)!), frames.at(-1)!.players.find(p => p.id === 'k')!.position)).toBeLessThanOrEqual(BALL_REACH);
+    // Hovedballen og den tredje ballen påvirkes ikke.
+    for (const f of frames) {
+      expect(dist(f.ball, f.players.find(p => p.id === 'b')!.position)).toBeLessThanOrEqual(BALL_REACH);
+      expect(f.items.find(i => i.id === 'ball-c')!.position).toEqual(animation.phases[0].items!.find(i => i.id === 'ball-c')!.position);
+    }
+  });
+
+  it('en styrt ball går ut med en gang og blir liggende, mens hovedballen føres', () => {
+    const animation = defineDrillAnimation(spec());
+    const start = ballA(drillMotion(animation, 1, 0, false));
+    expect(dist(ballA(drillMotion(animation, 1, 0.1, true)), start)).toBeGreaterThan(1);
+    expect(ballA(drillMotion(animation, 1, 1, true))).toEqual(animation.phases[2].items!.find(i => i.id === 'ball-a')!.position);
+    expect(dist(drillMotion(animation, 1, 1, true).ball, drillMotion(animation, 1, 0, false).ball)).toBeGreaterThan(5);
+  });
+
+  it('en ekstra ball hos spilleren ligger nærmere drakten når draktene krympes, som hovedballen', () => {
+    const animation = defineDrillAnimation(spec());
+    const f = drillMotion(animation, 0, 0, false, 0.5);
+    const a = f.players.find(p => p.id === 'a')!.position;
+    expect(dist(ballA(f), a)).toBeCloseTo(9, 5);
+  });
+});
+
+describe('de tre keeperøvelsene med flere baller eller mange skudd', () => {
+  it('Grep og fall: fire skudd og tre returer, fall til begge sider', () => {
+    const animation = getDrillAnimation('keeper-y-06')!;
+    expect(animation.phases.length).toBe(8);
+    const kicks = animation.phases.slice(1).map((p, i) => kickInto(animation.phases[i], p));
+    expect(kicks).toEqual(['shot', 'pass', 'shot', 'pass', 'shot', 'pass', 'shot']);
+    expect(animation.phases.map(p => !!p.dive?.includes('k'))).toEqual([false, false, false, true, false, false, false, true]);
+    const k = (i: number) => animation.phases[i].players.find(p => p.id === 'k')!.position;
+    expect(Math.sign(k(3).y - k(0).y)).toBe(-Math.sign(k(7).y - k(0).y));
+  });
+
+  it('Skift av akse: trenerens ball berøres og blir liggende, skuddet kommer med den andre ballen', () => {
+    const animation = getDrillAnimation('keeper-a-03')!;
+    const ball = (i: number) => animation.phases[i].items!.find(item => item.id === 'ball-trener')!.position;
+    expect(animation.phases[1].itemKicks).toEqual({ 'ball-trener': 'pass' });
+    for (let i = 2; i < animation.phases.length; i++) expect(ball(i)).toEqual(ball(1));
+    expect(holderOf(animation.phases[2])?.id).toBe('m');
+    expect(kickInto(animation.phases[2], animation.phases[3])).toBe('shot');
+    expect(animation.phases[3].dive).toEqual(['k']);
+  });
+
+  it('Parade og redd: første ball styres ut, keeperen kommer opp, andre ball fanges på motsatt side', () => {
+    const animation = getDrillAnimation('keeper-a-05')!;
+    expect(animation.phases[1].itemKicks).toEqual({ 'ball-a': 'shot' });
+    expect(animation.phases[2].itemKicks).toEqual({ 'ball-a': 'deflect' });
+    expect(animation.phases[2].dive).toBeUndefined();
+    expect(holderOf(animation.phases[3])?.id).toBe('k');
+    expect(animation.phases[3].held).toBe(true);
+    const k = (i: number) => animation.phases[i].players.find(p => p.id === 'k')!.position;
+    expect(Math.sign(k(1).y - k(0).y)).toBe(-Math.sign(k(3).y - k(0).y));
   });
 });
