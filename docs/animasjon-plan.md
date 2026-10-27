@@ -62,7 +62,8 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 ### Runde 2, rettet etter gjennomgang
 
 - 1 mot 1 – nærduell og blokk: keeperen rykker ut mens angriperen fører, og går i blokk ca. 5 m ut.
-- Rask hjemjobb: taklingen er en sklitakling (forsvareren går i bakken).
+- Rask hjemjobb: taklingen er en sklitakling (forsvareren går i bakken). Rettet senere:
+  se «Fiks fire småting».
 - Føring i sikk sakk med avslutning og 1 mot 1 – vende, drible og skyte er animert med
   den andre ballen som utstyr som følger spilleren. Løypa i sikk-sakk-øvelsen er tolket:
   to kjeglerekker inn mot én kjegle i midten, med målet i enden.

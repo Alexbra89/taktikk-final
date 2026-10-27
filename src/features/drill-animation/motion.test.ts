@@ -193,16 +193,33 @@ describe('slenging, fanget ball og boksing', () => {
   });
 
   it('en utespiller i sklitakling legger seg langs glidet med beina først', () => {
-    const animation = getDrillAnimation('forsvar-y-06')!;
-    const last = animation.phases.length - 1;
-    const f = drillMotion(animation, last, 0, false).players.find(p => p.id === 'f')!;
-    const before = animation.phases[last - 1].players.find(p => p.id === 'f')!.position;
-    const after = animation.phases[last].players.find(p => p.id === 'f')!.position;
-    const slide = { x: after.x - before.x, y: after.y - before.y };
+    const animation = defineDrillAnimation({
+      drillId: 'forsvar-y-06', name: 'Test', sport: 'football7',
+      cast: { a: { label: 'A', family: 'att' }, f: { label: 'F', family: 'def' } },
+      phases: [
+        { name: 'En', text: 'A har ballen.', players: { a: [10, 0], f: [15, 0.6] }, ball: { with: 'a' } },
+        { name: 'To', text: 'F sklir inn.', kick: 'tackle', dive: ['f'], players: { f: [13, 0.4] }, ball: { with: 'f', dir: [0.5, 1] } },
+        { name: 'Tre', text: 'F ligger.', dive: ['f'], players: {}, ball: { with: 'f', dir: [0.5, 1] } },
+      ],
+    });
+    // Helt ferdig med glidet inn i fase 2.
+    const f = drillMotion(animation, 0, 1, true).players.find(p => p.id === 'f')!;
+    const slide = { x: animation.phases[1].players[1].position.x - animation.phases[0].players[1].position.x,
+      y: animation.phases[1].players[1].position.y - animation.phases[0].players[1].position.y };
     expect(f.pose!.lean).toBe(1);
     // Hodet faller bakover (mot glidet), og figuren vender på tvers av det.
     expect(f.pose!.dive.x * slide.x + f.pose!.dive.y * slide.y).toBeLessThan(0);
     expect(Math.abs(f.pose!.face.x * slide.x + f.pose!.face.y * slide.y)).toBeLessThan(1e-6);
+  });
+
+  it('Rask hjemjobb: stående takling – forsvareren vinner ballen uten å gå i bakken', () => {
+    const animation = getDrillAnimation('forsvar-y-06')!;
+    expect(animation.phases.some(p => p.dive?.length)).toBe(false);
+    const tackle = animation.phases.findIndex(p => p.kick === 'tackle');
+    expect(holderOf(animation.phases[tackle - 1])?.id).toBe('a');
+    expect(holderOf(animation.phases[tackle])?.id).toBe('f');
+    expect(holderOf(animation.phases.at(-1)!)?.id).toBe('f');
+    expect(drillMotion(animation, tackle, 0, false).players.every(p => !p.pose)).toBe(true);
   });
 
   it('melder boksing før siste fase, fanget ball uten ballholder og ukjent spiller som slenger seg', () => {

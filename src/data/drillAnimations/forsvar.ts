@@ -210,8 +210,8 @@ const TALMODIGHETEN = defineDrillAnimation({
  * forsvar-y-06: angriperen starter 20 m fra mål, forsvareren 3 m bak og litt
  * til siden. Treneren triller ballen frem til angriperen, som løper mot mål.
  * Forsvareren spurter tilbake, kommer inn på rett side (mellom angriper og
- * mål) og tar ballen rent. Taklingen vises som en sklitakling (forsvareren
- * går i bakken), slik at den synes.
+ * mål) og tar ballen rent. Taklingen er stående (ingen sklitakling, for å
+ * unngå unødvendige kort): forsvareren går inn i ballen og fører den bort.
  * Minste antall (4): ett par om gangen, det andre paret venter. Pluss treneren.
  */
 const RASK_HJEMJOBB = defineDrillAnimation({
@@ -229,7 +229,7 @@ const RASK_HJEMJOBB = defineDrillAnimation({
     {
       name: 'Start',
       text: 'Angriperen starter 20 m fra mål, forsvareren 3 m bak og litt til siden. Treneren har ballen.',
-      players: { t: [4, -3.5], a: [10, 0], f: [7, 1], a2: [8, -8], f2: [5.5, -8] },
+      players: { t: [4.1, -3.5], a: [10, 0], f: [7, 1], a2: [8, -8], f2: [5.5, -8] },
       ball: { with: 't', dir: [1, 0.6] },
     },
     {
@@ -247,17 +247,22 @@ const RASK_HJEMJOBB = defineDrillAnimation({
     {
       name: 'Rett side',
       text: 'Forsvareren kommer inn på rett side, mellom angriperen og mål.',
-      players: { a: [21, 0], f: [24.5, 0.6] },
+      players: { a: [21, 0], f: [25, 0.8] },
       ball: { with: 'a', dir: [1, 0] },
     },
     {
       name: 'Takling',
-      text: 'Forsvareren går i bakken i en takling og tar ballen rent (eller presser den over dødlinjen).',
-      highlight: 'Sklitakling!',
+      text: 'Forsvareren går inn i ballen med en stående takling og tar den rent.',
+      highlight: 'Takling!',
       kick: 'tackle',
-      dive: ['f'],
-      players: { a: [20.6, -0.4], f: [23.4, 0.5] },
-      ball: { with: 'f', dir: [1, 1] },
+      players: { a: [21.2, -0.2], f: [23.6, 0.3] },
+      ball: { with: 'f', dir: [0.5, 1] },
+    },
+    {
+      name: 'Ballen vunnet',
+      text: 'Forsvareren fører ballen bort fra angriperen (eller presser den over dødlinjen).',
+      players: { a: [21.6, 0.6], f: [25.5, 4.5] },
+      ball: { with: 'f', dir: [0.3, 1] },
     },
   ],
 });
