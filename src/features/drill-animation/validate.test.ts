@@ -202,3 +202,30 @@ describe('«Ser noe feil ut?»', () => {
     expect(decodeURIComponent(link)).toContain('Fase: 2 av 4');
   });
 });
+
+describe('utstyr som flytter seg (moveItems)', () => {
+  const twoBalls = (): AnimationSpec => ({
+    ...spec(),
+    items: [{ id: 'ball-2', type: 'ball', at: [0, 5] }],
+    phases: [
+      { name: 'En', text: 'A har ballen.', players: { a: [-5, 0], b: [5, 0] }, ball: { with: 'a' } },
+      { name: 'To', text: 'A spiller til B; den andre ballen ruller.', players: {}, ball: { with: 'b', dir: [-1, 0] }, moveItems: { 'ball-2': [6, 5] } },
+      { name: 'Tre', text: 'B fører.', players: { b: [8, 2] }, ball: { with: 'b' } },
+    ],
+  });
+
+  it('flytter utstyret i fasen og lar det stå der etterpå', () => {
+    const animation = defineDrillAnimation(twoBalls());
+    const at = (i: number) => animation.phases[i].items!.find(item => item.id === 'ball-2')!.position;
+    expect(at(0)).toEqual(metresToBoard('football5', [0, 5]));
+    expect(at(1)).toEqual(metresToBoard('football5', [6, 5]));
+    expect(at(2)).toEqual(at(1));
+    expect(validateDrillAnimation(animation, DRILL_IDS)).toEqual([]);
+  });
+
+  it('stopper en flytting av utstyr som ikke finnes', () => {
+    const s = twoBalls();
+    s.phases[1].moveItems = { finnes: [1, 1] };
+    expect(() => defineDrillAnimation(s)).toThrow(/«finnes» flyttes, men finnes ikke/);
+  });
+});

@@ -10,7 +10,7 @@ Alle 153 øvelsene i biblioteket er gått gjennom og sortert i to lister.
   kan vise (vegg, rop, strikk). Også øvelser der ballen ikke kan ende hos en
   spiller, fordi valideringen krever det.
 
-**Totalt: 46 egnet og 107 ikke egnet.** 32 er animert (merket «animert»). Sju er hoppet over (merket «hoppet over», med grunnen).
+**Totalt: 46 egnet og 107 ikke egnet.** 34 er animert (merket «animert»). Fem er hoppet over (merket «hoppet over», med grunnen).
 
 Animasjonene ligger i `src/data/drillAnimations/` (én fil per kategori) og
 kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
@@ -30,6 +30,8 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
   Spillermodellen har bare stå/jogge/sprinte.
 - Tempo ved 1×: 1,3 s bevegelse og 0,15 s pause per fase.
 - Draktnummeret står på bryst og rygg i 3D; over hodet står bare rollen (A, F, K …).
+- En ekstra ball kan være utstyr som flytter seg fra fase til fase (`moveItems`), når to
+  baller er i spill samtidig. Den glir i rett linje, uten bue.
 
 ### Runde 1, rettet etter gjennomgang
 
@@ -56,6 +58,16 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
   kant»; animasjonen viser kanten, siden kanten må utfordre kjegla og slå innlegg.
 - Hoppet over: Dortmund-firkanten, Føring i sikk sakk, 1 mot 1 – vende, drible
   og skyte, og Avslutningskonkurranse (grunnen står ved hver øvelse).
+
+### Runde 2, rettet etter gjennomgang
+
+- 1 mot 1 – nærduell og blokk: keeperen rykker ut mens angriperen fører, og går i blokk ca. 5 m ut.
+- Rask hjemjobb: taklingen er en sklitakling (forsvareren går i bakken).
+- Føring i sikk sakk med avslutning og 1 mot 1 – vende, drible og skyte er animert med
+  den andre ballen som utstyr som følger spilleren. Løypa i sikk-sakk-øvelsen er tolket:
+  to kjeglerekker inn mot én kjegle i midten, med målet i enden.
+- Avslutningskonkurranse er fortsatt hoppet over: den trenger 8 faser. Grensen kan heves
+  hvis vi vil (hele øvelsen holder seg da fortsatt under 12 sekunder).
 
 ## Egnet (46)
 
@@ -106,9 +118,9 @@ kontrolleres av `src/features/drill-animation/validate.test.ts`. Testen
 
 ### Angrep (5)
 
-- `angrep-y-01` Føring i sikk sakk med avslutning – kjeglerekke, rundt kjegla og avslutning (to baller samtidig). *(hoppet over: to spillere fører hver sin ball samtidig mot samme mål, og løypa (to sikk-sakk-rekker mot hverandre) er uklar; brettet har én ball)*
-- `angrep-y-10` 1 mot 1 – vende, drible og skyte – pasning til midtspiller som vender rundt kjegla og avslutter. *(hoppet over: ballen starter likt på begge sider (to baller samtidig), og forsvareren er den som slo den andre ballens pasning)*
-- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg. *(hoppet over: tre skudd, en veggpasning og et innlegg med flere baller er for mange ballbevegelser for seks faser, og det står ikke hvem som skyter etter at ballen er lagt igjen)*
+- `angrep-y-01` Føring i sikk sakk med avslutning – kjeglerekke, rundt kjegla og avslutning (to baller samtidig). **(animert)**
+- `angrep-y-10` 1 mot 1 – vende, drible og skyte – pasning til midtspiller som vender rundt kjegla og avslutter. **(animert)**
+- `angrep-y-13` Avslutningskonkurranse – tre og tre – tre kjegler med fast rekkefølge: føring og skudd, veggspill, innlegg. *(hoppet over: fast rekkefølge med sju ballhendelser – føring og skudd, pasning, legg igjen, skudd, ut av feltet og vente, innlegg, avslutning – trenger 8 faser; grensen er 6)*
 - `angrep-y-15` Skyting på mål – stafett – føring til en kjegle og skudd på mål. **(animert)**
 - `angrep-a-09` Spill til feilvendt spiss – oppspill, legg igjen til kant, innlegg og duell i boksen. **(animert)**
 

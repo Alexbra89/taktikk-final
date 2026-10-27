@@ -13,7 +13,8 @@ import type { DrillAnimation, DrillAnimationPhase, Kick } from './types';
 //  den, holder pasningsleggeren den litt, så reiser den synlig til mottakeren
 //  eller målet: langs bakken ved pasning, i en bue ved sentring, høy ball og
 //  boksing, og raskt og lavt ved skudd. En keeper som slenger seg, tippes
-//  over på siden sent i bevegelsen (pose); en fanget ball ligger i hendene
+//  over på siden sent i bevegelsen (pose), og en utespiller i en sklitakling
+//  legger seg langs glidet; en fanget ball ligger i hendene
 //  (brysthøyde i 3D, inntil drakten i 2D).
 //
 //  Alt regnes ut av createMotionSampler, som skriver i faste buffere (3D og
@@ -146,6 +147,20 @@ function diveDirections(animation: DrillAnimation) {
 const facing = (p: Position): Position => ({ x: p.x > VW / 2 ? -1 : 1, y: 0 });
 
 /**
+ * En keeper slenger seg til siden og ser ut mot spillet. En utespiller som går
+ * i bakken (sklitakling), legger seg langs glideretningen med beina først:
+ * figuren vender på tvers av glidet, og hodet faller bakover (motsatt vei).
+ */
+function poseInto(pose: FigurePose, keeper: boolean, at: Position, dir: Position) {
+  if (keeper) {
+    const face = facing(at);
+    pose.face.x = face.x; pose.face.y = face.y; pose.dive.x = dir.x; pose.dive.y = dir.y;
+  } else {
+    pose.face.x = dir.y; pose.face.y = -dir.x; pose.dive.x = -dir.x; pose.dive.y = -dir.y;
+  }
+}
+
+/**
  * Compile the immutable drill once. Each phase owns its player/item/ball buffers;
  * sample() only changes numbers, never allocates arrays, objects or closures.
  * The returned frame is borrowed until the next sample (exports use drillMotion).
@@ -154,15 +169,18 @@ export function createMotionSampler(animation: DrillAnimation, kitScale = 1) {
   const phases = animation.phases;
   const { divers, result: diveDir } = diveDirections(animation);
   const leanOf = (phase: DrillAnimationPhase, id: string) => phase.dive?.includes(id) ? 1 : 0;
+  const keepers = new Set(Object.entries(animation.cast).flatMap(([id, member]) => member.family === 'gk' ? [id] : []));
   const compiled = phases.map((a, index) => {
     const b = phases[index + 1] ?? a;
     const players: MotionPlayer[] = a.players.map(p => ({
       ...p, position: { ...p.position },
-      ...(divers.has(p.id) ? { pose: { lean: leanOf(a, p.id), face: facing(p.position), dive: { ...diveDir[index].get(p.id)! } } } : {}),
+      ...(divers.has(p.id) ? { pose: { lean: leanOf(a, p.id), face: { x: 0, y: 0 }, dive: { x: 0, y: 0 } } } : {}),
     }));
+    players.forEach(p => { if (p.pose) poseInto(p.pose, keepers.has(p.id), p.position, diveDir[index].get(p.id)!); });
     const items = (a.items ?? []).map(item => ({ ...item, position: { ...item.position } }));
     const targets = a.players.map(p => b.players.find(next => next.id === p.id) ?? p);
     const leans = a.players.map(p => [leanOf(a, p.id), leanOf(b, p.id)] as const);
+    const keeper = a.players.map(p => keepers.has(p.id));
     // Mens spilleren reiser seg eller faller, peker fallet dit spilleren ligger.
     const dives = a.players.map(p => divers.has(p.id) ? diveDir[leanOf(b, p.id) ? index + 1 : index]?.get(p.id) ?? diveDir[index].get(p.id)! : null);
     const itemTargets = (a.items ?? []).map(item => b.items?.find(next => next.id === item.id) ?? item);
@@ -183,7 +201,7 @@ export function createMotionSampler(animation: DrillAnimation, kitScale = 1) {
     const peak = kick ? flightPeak(kick, launch, targetBall, animation) : 0;
     const flight: BallFlight = { kind: kick ?? 'pass', from: launch, to: targetBall, progress: 0 };
     const frame: MotionFrame = { players, items, ball: { ...startBall }, ballHeight: startHeight, flight: null };
-    return { a, b, frame, targets, leans, dives, itemTargets, startBall, targetBall, passerIndex, start, end,
+    return { a, b, frame, targets, leans, keeper, dives, itemTargets, startBall, targetBall, passerIndex, start, end,
       offset, endOffset, kick, release, launch, peak, startHeight, endHeight, flight,
       dribble: !!passer && passer.id === receiver?.id };
   });
@@ -197,9 +215,9 @@ export function createMotionSampler(animation: DrillAnimation, kitScale = 1) {
         out.x = a.x + (b.x - a.x) * k; out.y = a.y + (b.y - a.y) * k;
         const pose = player.pose;
         if (pose) {
-          const [l0, l1] = c.leans[i], dir = c.dives[i]!;
+          const [l0, l1] = c.leans[i];
           pose.lean = l0 + (l1 - l0) * leanAt(k);
-          pose.dive.x = dir.x; pose.dive.y = dir.y;
+          poseInto(pose, c.keeper[i], out, c.dives[i]!);
         }
       }
       for (let i = 0; i < f.items.length; i++) {

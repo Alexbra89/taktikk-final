@@ -38,6 +38,12 @@ export interface PhaseSpec {
   dive?: string[];
   /** Ballholderen har ballen i hendene. */
   held?: boolean;
+  /**
+   * Utstyr som flytter seg inn i denne fasen (id → ny plass), f.eks. en ekstra
+   * ball når to baller er i spill samtidig. Det glir i rett linje, som spillerne,
+   * og blir stående der til en senere fase flytter det igjen.
+   */
+  moveItems?: Record<string, Metres>;
 }
 
 export interface AnimationSpec {
@@ -46,7 +52,7 @@ export interface AnimationSpec {
   sport: Sport;
   /** Rekkefølgen gir draktnumrene 1, 2, 3 … */
   cast: Record<string, CastMember>;
-  /** Fast utstyr i alle faser: kjegler, småmål, dukker. */
+  /** Utstyr i alle faser: kjegler, småmål, dukker. Står fast, om ikke en fase flytter det (moveItems). */
   items?: { id: string; type: BoardItemType; at: Metres; rotation?: number }[];
   /** Faste tekster på banen, f.eks. kjeglefarger. */
   labels?: { id: string; at: Metres; text: string; color: DrawColorKey }[];
@@ -116,7 +122,15 @@ export function defineDrillAnimation(spec: AnimationSpec): DrillAnimation {
   }));
 
   const previous = new Map<string, Position>();
+  let phaseItems = items;
   const phases = spec.phases.map((phase, index): DrillAnimationPhase => {
+    const moves = phase.moveItems ?? {};
+    for (const id of Object.keys(moves)) {
+      if (!items.some(item => item.id === id)) throw new Error(`${spec.drillId}: «${id}» flyttes, men finnes ikke i utstyret.`);
+    }
+    if (Object.keys(moves).length) {
+      phaseItems = phaseItems.map(item => moves[item.id] ? { ...item, position: metresToBoard(spec.sport, moves[item.id]) } : item);
+    }
     const players: Player[] = [];
     ids.forEach((id, i) => {
       const at = phase.players[id];
@@ -132,7 +146,7 @@ export function defineDrillAnimation(spec: AnimationSpec): DrillAnimation {
       players,
       ball: ballPosition(phase.ball, spec.sport, players),
       drawings,
-      items,
+      items: phaseItems,
       // Teksten er også fasens notat, så 3D-pillen og fullskjerm viser den.
       stickyNote: phase.text,
       text: phase.text,
