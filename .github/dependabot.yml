@@ -15,3 +15,8 @@ updates:
         update-types:
           - "minor"
           - "patch"
+  # Holder versjonene i .github/workflows/ (actions/checkout osv.) oppdatert.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
