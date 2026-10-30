@@ -15,6 +15,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Next 16 bruker TypeScript 5. TypeScript 7 er en ny utgave som feiler i testene.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Typene skal følge Node-versjonen appen kjører på (24, se engines i package.json).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   # Holder versjonene i .github/workflows/ (actions/checkout osv.) oppdatert.
   - package-ecosystem: "github-actions"
     directory: "/"
