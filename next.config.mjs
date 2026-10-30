@@ -18,6 +18,19 @@ const nextConfig = {
   // oppdateringen tas i bruk; ikke la HTTP-cachen holde på gammel worker.
   async headers() {
     return [{
+      // Sikkerhetshoder på alle svar. Ingen streng innholdspolicy (CSP) for
+      // skript: 3D, service worker og innebygde skript i layout.tsx trenger dem.
+      source: '/:path*',
+      headers: [
+        // Appen skal ikke kunne bygges inn i andres sider (clickjacking).
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        // Appen bruker verken kamera, mikrofon, posisjon eller betaling.
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
+      ],
+    }, {
       source: '/sw.js',
       headers: [
         { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
