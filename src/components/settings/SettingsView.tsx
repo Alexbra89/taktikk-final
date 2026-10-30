@@ -10,6 +10,7 @@ import { usePlayerStyle } from '@/hooks/usePlayerStyle';
 import { useAiAccessCode } from '@/hooks/useAiAccessCode';
 import { cn } from '@/lib/cn';
 import { ViewHeader, Tile, TileHeader } from '@/components/layout/Surface';
+import { CreditsSection, PrivacySection } from './PrivacySection';
 
 // ═══════════════════════════════════════════════════════════════
 //  INNSTILLINGER – lag, utseende, øvelsesnivå og backup.
@@ -246,7 +247,7 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <ViewHeader title="Innstillinger" subtitle="Lag, utseende, øvelsesnivå og sikkerhetskopi" />
+      <ViewHeader title="Innstillinger" subtitle="Lag, utseende, øvelsesnivå, sikkerhetskopi og personvern" />
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-[960px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 grid gap-4 md:grid-cols-2 items-start">
@@ -338,6 +339,9 @@ export const SettingsView: React.FC = () => {
               som lagres bare på denne enheten. Tegn fasen på brettet, planlegg trening og skriv rapport – alt på ett sted.
             </p>
           </Tile>
+
+          <PrivacySection />
+          <CreditsSection />
         </div>
       </div>
     </div>
