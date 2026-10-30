@@ -218,7 +218,7 @@ export const AiCoach: React.FC<AiCoachProps> = ({ onClose, variant = 'modal', ar
           </div>
           <p className="text-meta text-ink-subtle">
             {area === 'board' ? 'Sender fasen uten spillernavn.' : area === 'general' ? 'Sender ingen data fra appen.' : 'Sender et utdrag av treninger og kalender, uten navn.'}{' '}
-            AI kan ta feil og endrer ingenting i appen.
+            Ikke skriv navn på spillere. AI kan ta feil og endrer ingenting i appen. Mer under Innstillinger → Personvern.
           </p>
         </div>
       ) : undefined}

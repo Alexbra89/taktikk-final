@@ -87,6 +87,7 @@ export function AiDrillModal({ ageGroup, baseDrill, onClose, onEdit }: {
           <textarea className={TEXTAREA_CLASS} rows={3} required maxLength={AI_LIMITS.question} disabled={loading}
             placeholder="Pasningsøvelse for 10 spillere, 9 år, 15 min" value={wish} onChange={e => setWish(e.target.value)} />
         </label>
+        <p className="text-meta text-ink-subtle">Ønsket sendes til en AI-tjeneste. Ikke skriv navn på spillere. Mer under Innstillinger → Personvern.</p>
         <Button type="submit" variant={result ? 'secondary' : 'primary'} disabled={loading || !(code || codeInput.trim()) || !wish.trim()}>
           {loading ? 'AI foreslår …' : result ? 'Foreslå på nytt' : 'Hent AI-forslag'}
         </Button>
