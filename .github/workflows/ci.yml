@@ -1,0 +1,41 @@
+# Raske kontroller på hver pull request og hver endring på main:
+# lint, enhetstester og bygging. De tunge nettlesertestene (e2e, 3D)
+# kjøres ikke her; de tar lang tid og er ustabile i skymiljøer.
+name: Tester
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tester-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tester:
+    name: Lint, enhetstester og bygging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer pakker
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Enhetstester
+        run: npm test
+
+      - name: Bygg
+        run: npm run build
