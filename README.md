@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Taktikkboard
 
-## Getting Started
+Gratis app for fotballtrenere: taktikkbrett i 2D og 3D, treningsplanlegging,
+kalender, kamprapporter, øvelsesbibliotek med animerte øvelser og en AI-trener.
+Appen virker uten nett, har ingen innlogging og lagrer alt lokalt i nettleseren.
 
-First, run the development server:
+Bygget med Next.js 16, React 19, Zustand og three.js. Ligger på Vercel.
+
+## Kom i gang
+
+Krever Node 24 (se `engines` i `package.json`).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+AI-treneren trenger tre miljøvariabler på serveren. Kopier `.env.example` til
+`.env.local` og fyll inn (på Vercel: Settings → Environment Variables).
+Delingslenker med tilgangskode er forklart i `docs/ai-tilgang-og-ikoner.md`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Kontroller
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Kommando | Hva |
+| --- | --- |
+| `npm run lint` | ESLint |
+| `npm test` | Enhetstester (Vitest) |
+| `npm run build` | Bygger appen og service workeren for bruk uten nett |
+| `npm run test:e2e` | Nettlesertester (Playwright). De tunge 3D-testene tar lang tid. |
+| `npm run test:offline` | Bygger og tester appen uten nett |
 
-## Learn More
+Lint, enhetstester og bygging kjører automatisk på hver pull request
+(`.github/workflows/ci.yml`). Dependabot sender ukentlige pakkeoppdateringer.
 
-To learn more about Next.js, take a look at the following resources:
+## Dokumentasjon
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `AGENTS.md`: kart over koden (3D, 2D-brettet, Trening, app-tilstanden og animerte øvelser).
+- `docs/3d-visning.md`: hvordan 3D-visningen brukes.
+- `docs/ai-tilgang-og-ikoner.md`: AI-tilgang, delingslenker og appikon.
+- `docs/animasjon-plan.md`: hvilke øvelser som er animert, og hvorfor.
+- `docs/kilder-og-lisenser.md`: opphav og lisens for modeller, bilder og skrifter.
+- `docs/arkiv/`: ferdige planer og arbeidsnotater, ikke gjeldende.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Personvern, ansvar og kilder vises også i appen under Innstillinger.
