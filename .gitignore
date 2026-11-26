@@ -58,3 +58,6 @@ next-env.d.ts
 
 docs/supabase-backup-*.csv
 artifacts/
+
+# rapportfiler fra .github/workflows/maanedlig-rapport.yml
+/reports/

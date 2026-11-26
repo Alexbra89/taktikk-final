@@ -1,0 +1,92 @@
+# Månedlig rapport: kjører alle de raske testene og de lette nettlesertestene
+# på main, ser på åpne Dependabot-PR-er og sikkerhetsvarsler, og oppretter en
+# issue «Månedlig rapport – [måned år]», tildelt eieren av repoet.
+# Kan også startes manuelt: Actions → Månedlig rapport → Run workflow.
+name: Månedlig rapport
+
+on:
+  schedule:
+    # Den 1. hver måned kl. 06:17 UTC (07:17/08:17 norsk tid).
+    - cron: '17 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  checks: read
+  statuses: read
+  security-events: read
+
+concurrency:
+  group: maanedlig-rapport
+  cancel-in-progress: false
+
+jobs:
+  rapport:
+    name: Tester og rapport
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer pakker
+        run: npm ci
+
+      # Hvert steg får fortsette selv om det feiler: rapporten skal komme uansett.
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Enhetstester
+        id: enhet
+        continue-on-error: true
+        run: npx vitest run --reporter=default --reporter=json --outputFile.json=reports/vitest.json
+
+      - name: Bygg
+        id: bygg
+        continue-on-error: true
+        run: npm run build
+
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Nettlesertester
+        id: e2e
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: reports/e2e.json
+        run: npm run test:e2e:lette -- --reporter=list,json
+
+      - name: Lag rapport og issue
+        uses: actions/github-script@v9
+        env:
+          UTFALL_LINT: ${{ steps.lint.outcome }}
+          UTFALL_ENHET: ${{ steps.enhet.outcome }}
+          UTFALL_BYGG: ${{ steps.bygg.outcome }}
+          UTFALL_E2E: ${{ steps.e2e.outcome }}
+          # Valgfri nøkkel for Dependabot-varsler, hvis arbeidsflytens egen ikke får lese dem.
+          ALERTS_TOKEN: ${{ secrets.DEPENDABOT_ALERTS_TOKEN }}
+        with:
+          script: |
+            const { default: run } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/maanedsrapport.mjs`);
+            await run({ github, context, core, getOctokit });
+
+      - name: Last opp testresultater
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maanedsrapport-${{ github.run_id }}
+          path: |
+            reports/
+            test-results/
+          retention-days: 30
+          if-no-files-found: ignore

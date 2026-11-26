@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
+    "test:e2e:lette": "playwright test e2e/smoke.spec.ts e2e/drills.spec.ts e2e/personvern.spec.ts e2e/sikkerhet.spec.ts e2e/ai-access.spec.ts e2e/backup.spec.ts e2e/errors.spec.ts e2e/dashboard.spec.ts e2e/training.spec.ts",
     "test:offline": "npm run build && playwright test --config playwright.offline.config.ts"
   },
   "dependencies": {

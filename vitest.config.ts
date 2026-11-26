@@ -12,7 +12,7 @@ export default defineConfig({
   // Vitest 4 oversetter med oxc, ikke esbuild.
   oxc: { jsx: { runtime: 'automatic' } },
   test: {
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
     environment: 'node',
   },
 });
