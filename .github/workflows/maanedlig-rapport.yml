@@ -37,38 +37,51 @@ jobs:
           node-version: 24
           cache: npm
 
+      # Feiler installasjonen, hoppes testene over, men rapporten kommer likevel.
       - name: Installer pakker
+        id: pakker
+        continue-on-error: true
         run: npm ci
 
       # Hvert steg får fortsette selv om det feiler: rapporten skal komme uansett.
       - name: Lint
         id: lint
+        if: steps.pakker.outcome == 'success'
         continue-on-error: true
         run: npm run lint
 
       - name: Enhetstester
         id: enhet
+        if: steps.pakker.outcome == 'success'
         continue-on-error: true
         run: npx vitest run --reporter=default --reporter=json --outputFile.json=reports/vitest.json
 
       - name: Bygg
         id: bygg
+        if: steps.pakker.outcome == 'success'
         continue-on-error: true
         run: npm run build
 
       - name: Installer Chromium
+        id: chromium
+        if: steps.pakker.outcome == 'success'
+        continue-on-error: true
         run: npx playwright install --with-deps chromium
 
       - name: Nettlesertester
         id: e2e
+        if: steps.chromium.outcome == 'success'
         continue-on-error: true
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: reports/e2e.json
         run: npm run test:e2e:lette -- --reporter=list,json
 
       - name: Lag rapport og issue
+        if: always()
         uses: actions/github-script@v9
         env:
+          UTFALL_PAKKER: ${{ steps.pakker.outcome }}
+          UTFALL_CHROMIUM: ${{ steps.chromium.outcome }}
           UTFALL_LINT: ${{ steps.lint.outcome }}
           UTFALL_ENHET: ${{ steps.enhet.outcome }}
           UTFALL_BYGG: ${{ steps.bygg.outcome }}

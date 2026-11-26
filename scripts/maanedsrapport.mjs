@@ -8,6 +8,7 @@
 
 const SEVERITY = { critical: 'kritisk', high: 'høy', medium: 'middels', moderate: 'middels', low: 'lav' };
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'moderate', 'low'];
+const severityRank = s => (SEVERITY_ORDER.includes(s) ? SEVERITY_ORDER.indexOf(s) : SEVERITY_ORDER.length);
 export const TITLE_PREFIX = 'Månedlig rapport – ';
 
 /** «November 2026» */
@@ -78,8 +79,32 @@ export function checksStatus(checkRuns = [], statuses = []) {
 const STATUS_TEXT = { grønn: '🟢 grønn', rød: '🔴 rød', venter: '🟡 kjører', ingen: '⚪ ingen tester' };
 const TYPE_TEXT = { patch: 'liten (patch)', minor: 'liten (minor)', major: 'stor (major)', gruppe: 'samlet (minor/patch)', ukjent: 'ukjent' };
 
-/** Dependabot-PR-en som oppdaterer pakken i et varsel, hvis det finnes en. */
-const fixingPr = (alert, prs) => prs.find(p => new RegExp(`(^|\\s)${alert.package.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(p.title));
+/**
+ * Pakkene en Dependabot-PR oppdaterer, med versjonen de går til. Leses fra
+ * tittelen («Bump next from 16.4.3 to 16.4.6») og beskrivelsen, som i en
+ * samle-PR lister hver pakke («Updates `next` from 16.4.2 to 16.4.3»).
+ */
+export function updatesOf(pr) {
+  const text = `${pr.title ?? ''}\n${pr.body ?? ''}`;
+  const pattern = /(?:Bumps?|Updates?)\s+\[?`?([@\w./-]+?)`?\]?(?:\([^)]*\))?\s+from\s+v?([\w.-]+)\s+to\s+v?([\w.-]+?)\.?(?=\s|$)/gi;
+  const found = new Map();
+  for (const m of text.matchAll(pattern)) found.set(m[1], m[3]);
+  return [...found].map(([name, to]) => ({ name, to }));
+}
+
+/** a >= b for versjoner som 16.4.6 (tall sammenlignes del for del). */
+export function versionAtLeast(a, b) {
+  const pa = String(a).split(/[.-]/).map(n => parseInt(n, 10) || 0), pb = String(b).split(/[.-]/).map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0);
+  }
+  return true;
+}
+
+/** Dependabot-PR-en som oppdaterer pakken i et varsel til en versjon som retter det, hvis det finnes en. */
+const fixingPr = (alert, prs) => alert.fixedIn
+  ? prs.find(p => (p.updates ?? []).some(u => u.name === alert.package && versionAtLeast(u.to, alert.fixedIn)))
+  : undefined;
 
 const resultLine = (label, outcome) =>
   `| ${label} | ${outcome === 'success' ? '✅ bestått' : outcome === 'skipped' ? '⏭️ ikke kjørt' : '❌ feilet'} |`;
@@ -87,7 +112,7 @@ const resultLine = (label, outcome) =>
 /**
  * Hele rapporten som Markdown.
  * tests: { lint, unit, build, e2e } med utfall fra arbeidsflyten og tolkede resultater.
- * prs: [{ number, title, url, type, status, conflict }]
+ * prs: [{ number, title, url, type, status, conflict (true/false/null = ukjent), updates }]
  * alerts: [{ number, package, severity, summary, fixedIn, url }] eller null når de ikke kunne leses.
  */
 export function buildReport({ month, runUrl, tests, prs, alerts, alertsError }) {
@@ -108,6 +133,8 @@ export function buildReport({ month, runUrl, tests, prs, alerts, alertsError }) 
     if (failedNames.length > 30) lines.push(`- … og ${failedNames.length - 30} til (se arbeidsflyten)`);
   }
   if (e2e?.flaky?.length) lines.push('', '**Ustabile (besto på andre forsøk):**', ...e2e.flaky.map(n => `- ${n}`));
+  if (tests.setup?.packages && tests.setup.packages !== 'success') lines.push('', '⚠️ Pakkene kunne ikke installeres (`npm ci`), så testene ble ikke kjørt. Se arbeidsflyten.');
+  else if (tests.setup?.chromium && tests.setup.chromium !== 'success') lines.push('', '⚠️ Chromium kunne ikke installeres, så nettlesertestene ble ikke kjørt. Se arbeidsflyten.');
   const testsFailed = ['lint', 'unit', 'build', 'e2e'].some(k => tests[k].outcome !== 'success');
 
   // ── Dependabot-PR-er ──
@@ -116,7 +143,7 @@ export function buildReport({ month, runUrl, tests, prs, alerts, alertsError }) 
   else {
     lines.push('| PR | Oppdatering | Tester |', '| --- | --- | --- |');
     for (const pr of prs) {
-      lines.push(`| [#${pr.number} ${pr.title}](${pr.url}) | ${TYPE_TEXT[pr.type]} | ${STATUS_TEXT[pr.status]}${pr.conflict ? ' · konflikt' : ''} |`);
+      lines.push(`| [#${pr.number} ${pr.title}](${pr.url}) | ${TYPE_TEXT[pr.type]} | ${STATUS_TEXT[pr.status]}${pr.conflict ? ' · konflikt' : pr.conflict === null ? ' · ukjent om den kan merges' : ''} |`);
     }
   }
 
@@ -127,7 +154,7 @@ export function buildReport({ month, runUrl, tests, prs, alerts, alertsError }) 
   } else if (!alerts.length) {
     lines.push('Ingen åpne sikkerhetsvarsler.');
   } else {
-    const sorted = [...alerts].sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity));
+    const sorted = [...alerts].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
     lines.push('| Alvorlighet | Pakke | Hva | Rettet i |', '| --- | --- | --- | --- |');
     for (const a of sorted) {
       const pr = fixingPr(a, prs);
@@ -140,23 +167,27 @@ export function buildReport({ month, runUrl, tests, prs, alerts, alertsError }) 
   lines.push('', '## Anbefaling', '');
   const advice = [];
   if (testsFailed) advice.push('**Testene feiler på `main`.** Fiks dette først: be Claude «se på månedsrapporten og fiks testene som feiler».');
-  const green = prs.filter(p => p.status === 'grønn' && !p.conflict);
+  const green = prs.filter(p => p.status === 'grønn' && p.conflict === false);
   const safe = green.filter(p => p.type !== 'major' && p.type !== 'ukjent');
   const big = green.filter(p => p.type === 'major' || p.type === 'ukjent');
   const red = prs.filter(p => p.status === 'rød');
   const conflicted = prs.filter(p => p.conflict);
+  const unknownMerge = prs.filter(p => p.status === 'grønn' && p.conflict === null);
   const waiting = prs.filter(p => p.status === 'venter' || p.status === 'ingen');
   if (safe.length) advice.push(`**Merge:** ${safe.map(p => `#${p.number}`).join(', ')} (små oppdateringer, testene er grønne).`);
   if (big.length) advice.push(`**Sjekk før merge:** ${big.map(p => `#${p.number}`).join(', ')} er store versjonshopp. Testene er grønne, men be gjerne Claude se på dem først.`);
   if (red.length) advice.push(`**Ikke merge:** ${red.map(p => `#${p.number}`).join(', ')} har røde tester. Be Claude fikse dem, eller lukk dem.`);
   if (conflicted.length) advice.push(`**Konflikt:** ${conflicted.map(p => `#${p.number}`).join(', ')}. Dependabot retter det vanligvis selv; skriv \`@dependabot rebase\` som kommentar hvis den blir stående.`);
+  if (unknownMerge.length) advice.push(`**Sjekk selv:** ${unknownMerge.map(p => `#${p.number}`).join(', ')} har grønne tester, men GitHub hadde ikke regnet ut om ${unknownMerge.length > 1 ? 'de' : 'den'} kan merges. Åpne PR-en og se etter konflikter.`);
   if (waiting.length) advice.push(`**Vent:** ${waiting.map(p => `#${p.number}`).join(', ')} har ikke ferdige tester ennå.`);
   const serious = (alerts ?? []).filter(a => a.severity === 'critical' || a.severity === 'high');
-  const minor = (alerts ?? []).filter(a => !(a.severity === 'critical' || a.severity === 'high'));
+  const minor = (alerts ?? []).filter(a => ['medium', 'moderate', 'low'].includes(a.severity));
+  const unknownSeverity = (alerts ?? []).filter(a => !SEVERITY_ORDER.includes(a.severity));
   const fixing = [...new Set((alerts ?? []).map(a => fixingPr(a, prs)).filter(Boolean))];
   if (fixing.length) advice.push(`**Sikkerhet:** ${fixing.map(p => `#${p.number}`).join(', ')} retter sikkerhetsvarsler. Merge ${fixing.length > 1 ? 'dem' : 'den'} når testene er grønne.`);
   if (serious.length) advice.push(`**Må fikses snart:** ${serious.length} sikkerhetsvarsel med høy eller kritisk alvorlighet (${[...new Set(serious.map(a => a.package))].join(', ')}). Merge PR-en Dependabot lager for dem, eller be Claude oppdatere pakkene.`);
   if (minor.length) advice.push(`**Kan vente litt:** ${minor.length} varsel med middels eller lav alvorlighet (${[...new Set(minor.map(a => a.package))].join(', ')}). Rettes vanligvis av de neste Dependabot-oppdateringene.`);
+  if (unknownSeverity.length) advice.push(`**Sjekk selv:** ${unknownSeverity.length} varsel uten kjent alvorlighet (${[...new Set(unknownSeverity.map(a => a.package))].join(', ')}). Åpne varselet og se hvor alvorlig det er.`);
   if (alerts === null) advice.push('**Oppsett:** legg inn tokenet for sikkerhetsvarsler (se under), så kommer de med neste gang.');
   if (!advice.length) advice.push('Alt ser bra ut. Ingenting å gjøre denne måneden.');
   lines.push(...advice.map(a => `- ${a}`));
@@ -194,20 +225,29 @@ export default async function run({ github, context, core, getOctokit }) {
     unit: { outcome: outcomeEnv('UTFALL_ENHET'), result: parseVitest(await readJson(`${dir}/vitest.json`)) },
     build: { outcome: outcomeEnv('UTFALL_BYGG') },
     e2e: { outcome: outcomeEnv('UTFALL_E2E'), result: parsePlaywright(await readJson(`${dir}/e2e.json`)) },
+    setup: { packages: outcomeEnv('UTFALL_PAKKER'), chromium: outcomeEnv('UTFALL_CHROMIUM') },
   };
 
   // Åpne Dependabot-PR-er og testene deres.
   const pulls = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', per_page: 100 });
   const prs = [];
   for (const pr of pulls.filter(p => p.user?.login === 'dependabot[bot]')) {
-    const [checks, combined, full] = await Promise.all([
+    // Sjekkene fra pull_request-kjøringer står på PR-ens siste commit (head), slik GitHub viser dem,
+    // selv om jobben selv tester merge-commiten.
+    const [checks, combined] = await Promise.all([
       github.paginate(github.rest.checks.listForRef, { owner, repo, ref: pr.head.sha, per_page: 100 }),
       github.rest.repos.getCombinedStatusForRef({ owner, repo, ref: pr.head.sha }),
-      github.rest.pulls.get({ owner, repo, pull_number: pr.number }),
     ]);
+    // GitHub regner ut om en PR kan merges i bakgrunnen; mens det pågår er svaret null.
+    let mergeable = null;
+    for (let attempt = 0; attempt < 4 && mergeable === null; attempt++) {
+      if (attempt) await new Promise(resolve => setTimeout(resolve, 3000));
+      mergeable = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data.mergeable;
+    }
     prs.push({
       number: pr.number, title: pr.title, url: pr.html_url, type: updateType(pr.title),
-      status: checksStatus(checks, combined.data.statuses), conflict: full.data.mergeable === false,
+      status: checksStatus(checks, combined.data.statuses), conflict: mergeable === null ? null : !mergeable,
+      updates: updatesOf(pr),
     });
   }
 

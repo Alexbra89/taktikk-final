@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReport, checksStatus, monthTitle, parsePlaywright, parseVitest, updateType } from './maanedsrapport.mjs';
+import { buildReport, checksStatus, monthTitle, parsePlaywright, parseVitest, updateType, updatesOf, versionAtLeast } from './maanedsrapport.mjs';
 
 const ok = { outcome: 'success' };
 const tests = (over = {}) => ({ lint: ok, unit: { ...ok, result: { passed: 712, failed: 0, failedNames: [] } }, build: ok,
@@ -98,11 +98,58 @@ describe('månedlig rapport', () => {
 
   it('knytter et sikkerhetsvarsel til Dependabot-PR-en som oppdaterer pakken', () => {
     const text = buildReport({ ...base, tests: tests(),
-      prs: [{ number: 60, title: 'Bump next from 16.4.3 to 16.4.6', url: 'u', type: 'patch', status: 'grønn', conflict: false },
-        { number: 63, title: 'Bump next-auth from 4.0.0 to 4.0.1', url: 'u', type: 'patch', status: 'grønn', conflict: false }],
+      prs: [{ number: 60, title: 'Bump next from 16.4.3 to 16.4.6', url: 'u', type: 'patch', status: 'grønn', conflict: false, updates: [{ name: 'next', to: '16.4.6' }] },
+        { number: 63, title: 'Bump next-auth from 4.0.0 to 4.0.1', url: 'u', type: 'patch', status: 'grønn', conflict: false, updates: [{ name: 'next-auth', to: '4.0.1' }] }],
       alerts: [{ number: 3, package: 'next', severity: 'medium', summary: 'Cache leak', fixedIn: '16.4.6', url: 'a' }],
     });
     expect(text).toContain('| 16.4.6 (PR #60) |');
     expect(text).toContain('**Sikkerhet:** #60 retter sikkerhetsvarsler.');
+  });
+
+  it('leser pakkene en Dependabot-PR oppdaterer, også i en samle-PR', () => {
+    expect(updatesOf({ title: 'Bump next from 16.4.3 to 16.4.6', body: 'Bumps [next](https://github.com/vercel/next.js) from 16.4.3 to 16.4.6.\n- [Release notes]' }))
+      .toEqual([{ name: 'next', to: '16.4.6' }]);
+    expect(updatesOf({ title: 'Bump the production-dependencies group with 2 updates',
+      body: 'Updates `next` from 16.4.3 to 16.4.6\n- [Release notes]\n\nUpdates `@types/node` from 24.19.2 to 24.20.0' }))
+      .toEqual([{ name: 'next', to: '16.4.6' }, { name: '@types/node', to: '24.20.0' }]);
+    expect(versionAtLeast('16.4.6', '16.4.6')).toBe(true);
+    expect(versionAtLeast('16.10.0', '16.4.6')).toBe(true);
+    expect(versionAtLeast('16.4.5', '16.4.6')).toBe(false);
+  });
+
+  it('kaller ikke en oppdatering under rettet versjon for en rettelse, men finner pakken i en samle-PR', () => {
+    const alerts = [{ number: 3, package: 'next', severity: 'medium', summary: 'Cache leak', fixedIn: '16.4.6', url: 'a' }];
+    const below = buildReport({ ...base, tests: tests(), alerts,
+      prs: [{ number: 60, title: 'Bump next from 16.4.3 to 16.4.5', url: 'u', type: 'patch', status: 'grønn', conflict: false, updates: [{ name: 'next', to: '16.4.5' }] }] });
+    expect(below).toContain('| 16.4.6 |');
+    expect(below).not.toContain('retter sikkerhetsvarsler');
+    const group = buildReport({ ...base, tests: tests(), alerts,
+      prs: [{ number: 70, title: 'Bump the production-dependencies group with 2 updates', url: 'u', type: 'gruppe', status: 'grønn', conflict: false, updates: [{ name: 'next', to: '16.4.6' }] }] });
+    expect(group).toContain('| 16.4.6 (PR #70) |');
+  });
+
+  it('anbefaler ikke merge når GitHub ikke vet om PR-en kan merges', () => {
+    const text = buildReport({ ...base, tests: tests(),
+      prs: [{ number: 60, title: 'Bump next from 16.4.3 to 16.4.6', url: 'u', type: 'patch', status: 'grønn', conflict: null, updates: [] }] });
+    expect(text).toContain('· ukjent om den kan merges');
+    expect(text).not.toContain('**Merge:**');
+    expect(text).toContain('**Sjekk selv:** #60 har grønne tester');
+  });
+
+  it('ber deg sjekke et varsel uten kjent alvorlighet, og sorterer det sist', () => {
+    const text = buildReport({ ...base, tests: tests(), alerts: [
+      { number: 1, package: 'rar', severity: 'ukjent', summary: 'Ukjent', fixedIn: null, url: 'a' },
+      { number: 2, package: 'next', severity: 'low', summary: 'Lav', fixedIn: '16.4.6', url: 'b' },
+    ] });
+    expect(text).toContain('**Sjekk selv:** 1 varsel uten kjent alvorlighet (rar)');
+    expect(text).toContain('**Kan vente litt:** 1 varsel med middels eller lav alvorlighet (next)');
+    expect(text.indexOf('`next`')).toBeLessThan(text.indexOf('`rar`'));
+  });
+
+  it('forklarer at testene ikke ble kjørt når installasjonen feilet', () => {
+    const skipped = { outcome: 'skipped' };
+    const text = buildReport({ ...base, tests: { lint: skipped, unit: skipped, build: skipped, e2e: skipped, setup: { packages: 'failure', chromium: 'skipped' } } });
+    expect(text).toContain('Pakkene kunne ikke installeres');
+    expect(text).toContain('**Testene feiler på `main`.**');
   });
 });
