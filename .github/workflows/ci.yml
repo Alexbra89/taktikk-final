@@ -1,6 +1,6 @@
-# Raske kontroller på hver pull request og hver endring på main:
-# lint, enhetstester og bygging. De tunge nettlesertestene (e2e, 3D)
-# kjøres ikke her; de tar lang tid og er ustabile i skymiljøer.
+# Kontroller på hver pull request (også fra Dependabot) og hver endring på main:
+# lint, enhetstester, bygging og de lette nettlesertestene (npm run test:e2e:lette).
+# De tunge 3D-testene kjøres ikke her; de tar lang tid og er ustabile i skymiljøer.
 name: Tester
 
 on:
@@ -39,3 +39,32 @@ jobs:
 
       - name: Bygg
         run: npm run build
+
+  nettleser:
+    name: Nettlesertester (lette)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer pakker
+        run: npm ci
+
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Nettlesertester
+        run: npm run test:e2e:lette
+
+      - name: Last opp feilrapport
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-feil
+          path: test-results/
+          retention-days: 14

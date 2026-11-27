@@ -17,9 +17,11 @@ export default defineConfig({
     // Service worker og bruk uten nett testes i playwright.offline.config.ts.
     serviceWorkers: 'block',
   },
-  projects: [
-    { name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge', viewport: { width: 1400, height: 900 } } },
-  ],
+  // På GitHub Actions (CI) og med PW_BROWSER=chromium brukes Chromium, som
+  // installeres med «npx playwright install chromium». Lokalt: Edge.
+  projects: process.env.CI || process.env.PW_BROWSER === 'chromium'
+    ? [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } } }]
+    : [{ name: 'edge', use: { ...devices['Desktop Edge'], channel: 'msedge', viewport: { width: 1400, height: 900 } } }],
   // Egen port, så testene ikke kolliderer med en vanlig «npm run dev» på 3000.
   webServer: {
     command: 'node node_modules/next/dist/bin/next dev --turbopack -p 3100',

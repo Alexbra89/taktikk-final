@@ -27,10 +27,17 @@ Delingslenker med tilgangskode er forklart i `docs/ai-tilgang-og-ikoner.md`.
 | `npm test` | Enhetstester (Vitest) |
 | `npm run build` | Bygger appen og service workeren for bruk uten nett |
 | `npm run test:e2e` | Nettlesertester (Playwright). De tunge 3D-testene tar lang tid. |
+| `npm run test:e2e:lette` | De lette nettlesertestene (uten de tunge 3D-testene) |
 | `npm run test:offline` | Bygger og tester appen uten nett |
 
-Lint, enhetstester og bygging kjører automatisk på hver pull request
-(`.github/workflows/ci.yml`). Dependabot sender ukentlige pakkeoppdateringer.
+Lint, enhetstester, bygging og de lette nettlesertestene kjører automatisk på
+hver pull request og hver endring på main (`.github/workflows/ci.yml`).
+Dependabot sender ukentlige pakkeoppdateringer.
+
+Den 1. hver måned lager `.github/workflows/maanedlig-rapport.yml` en issue
+«Månedlig rapport – [måned år]», tildelt eieren: testresultater, åpne
+Dependabot-PR-er og sikkerhetsvarsler, med en anbefaling (`scripts/maanedsrapport.mjs`).
+Den kan også startes manuelt under Actions → Månedlig rapport → Run workflow.
 
 ## Dokumentasjon
 
